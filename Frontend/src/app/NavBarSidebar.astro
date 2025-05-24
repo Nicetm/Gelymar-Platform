@@ -12,7 +12,7 @@ import AppsDropdown from '../components/AppsDropdown.astro';
 <nav
 	class="fixed z-50 w-full bg-white border-b border-gray-200 dark:bg-gray-800 dark:border-gray-700"
 >
-	<div class="px-3 py-1 lg:px-5 lg:pl-3">
+	<div class="px-3 py-2 lg:px-5 lg:pl-3">
 		<div class="flex items-center justify-between">
 			<div class="flex items-center justify-start ml-6">
 				<button
@@ -45,11 +45,16 @@ import AppsDropdown from '../components/AppsDropdown.astro';
 					>
 				</button>
 				<!-- Logo -->
-				<a href="/" class="flex items-center space-x-2 group transition-all duration-500 ease-in-out hover:scale-105 hover:-translate-y-0.5">
-					<GelymarLogo class="h-14 w-auto transition-transform duration-500 ease-in-out group-hover:scale-110 group-hover:-translate-y-0.7" />
-					<span class="text-2xl font-bold text-[#254b6c] dark:text-[#d4d4d4] transition-all duration-500 ease-in-out group-hover:tracking-wider">
-						Gelymar
+				<a href="/" class="group inline-flex items-center gap-2 px-2 py-1 rounded-xl bg-white dark:bg-[#dcdcdc] shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105 overflow-hidden">
+				<div class="flex items-center justify-center h-[2.3rem] w-[2.3rem]">
+					<GelymarLogo class="h-[2.6rem] w-auto scale-[1.15] drop-shadow-md" />
+				</div>
+				<div class="relative -ml-2">
+					<span class="text-[1.4rem] font-extrabold text-[#002E50] dark:text-[#002E50] leading-none">
+					Gelymar
 					</span>
+					<span class="absolute left-0 -bottom-1 h-[2px] w-0 bg-[#002E50] dark:bg-[#002E50] transition-all duration-300 ease-in-out group-hover:w-full"></span>
+				</div>
 				</a>
 			</div>
 

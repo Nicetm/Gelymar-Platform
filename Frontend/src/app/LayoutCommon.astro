@@ -13,11 +13,11 @@ const { class: clazz } = Astro.props;
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>{SITE_TITLE} — v{pkg.version}</title>
+		<link rel="icon" type="image/svg+xml" href="/gelymar.svg" />
 
 		<meta name="generator" content={Astro.generator} />
 		<meta name="description" content={pkg.description} />
 		<meta name="" content={pkg.description} />
-		<link rel="icon" type="image/svg+xml" href={url('favicon.svg')} />
 		<link
 			rel="sitemap"
 			type="application/xml"
@@ -28,7 +28,7 @@ const { class: clazz } = Astro.props;
 			name="author"
 			content="Sebastián Allende - Pablo Santibáñez | Softkey"
 		/>
-		<meta name="copyright" content="MIT" />
+		<meta name="copyright" content="MIT" /> <!-- Buscar para coolocar para softkey -->
 
 		<script is:inline>
 			if (
