@@ -1,0 +1,66 @@
+---
+// /pages/about-platform.astro
+import LayoutSidebar from '../app/LayoutSidebar.astro';
+import GelymarLogo from '../assets/gelymar.svg';
+---
+
+<LayoutSidebar>
+  <section class="relative w-full px-6 py-16 text-gray-800 dark:text-gray-200  dark:bg-gray-900 font-sans animate-fade-in-up">
+    <div class="max-w-6xl mx-auto">
+      <div class="flex flex-col items-center mb-12">
+        <GelymarLogo class="h-20 w-auto mb-4" />
+        <h1 class="text-4xl font-extrabold text-[#002E50] dark:text-white text-center">
+          About the Gelymar Platform
+        </h1>
+        <div class="h-1 w-24 bg-[#F6B234] mt-4 rounded"></div>
+      </div>
+
+      <p class="text-lg text-center leading-relaxed mb-10">
+        The Gelymar Web Platform is a comprehensive document and logistics management system that supports export operations based on Chilean seaweed derivatives. It ensures regulatory compliance, operational efficiency, and strengthened communication with clients.
+      </p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+        <div>
+          <h2 class="text-2xl font-bold text-[#00538C] mb-3">Core Modules</h2>
+          <ul class="list-disc list-inside space-y-2">
+            <li><strong>User Access Management</strong>: Login for administrators and clients with permission levels.</li>
+            <li><strong>Client Management</strong>: Maintain clients, consignees, contact emails, and destinations.</li>
+            <li><strong>Operations & Documents</strong>: View and upload documents by order, customer, or date.</li>
+            <li><strong>Internal Document Generation</strong>: Packing Lists and Customs Mandates as fillable PDFs.</li>
+            <li><strong>Document Repository</strong>: Auto-created folders per client with historical views.</li>
+          </ul>
+        </div>
+
+        <div>
+          <h2 class="text-2xl font-bold text-[#00538C] mb-3">Smart Automation</h2>
+          <ul class="list-disc list-inside space-y-2">
+            <li><strong>Automated Notifications</strong> for order receipt, shipping, and arrival updates.</li>
+            <li><strong>PDF Generation</strong> from SAP data and templates with email-ready formats.</li>
+            <li><strong>Partial Shipments</strong>: Track partial deliveries with segmented labels (A, B, C...).</li>
+            <li><strong>KPI Dashboard</strong> with graphical indicators and customs agency reports.</li>
+            <li><strong>Client Communication</strong> through messaging and notification system (chat, optional bot).</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="mt-12">
+        <h2 class="text-2xl font-bold text-[#00538C] mb-3">Platform Standards</h2>
+        <ul class="list-disc list-inside space-y-2">
+          <li><strong>Security</strong>: Role-based access, secure email handling, and data validation.</li>
+          <li><strong>Compatibility</strong>: Integrated with SAP and works on major browsers.</li>
+          <li><strong>Performance</strong>: Automated processes by date, type and destination.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <style>
+    @keyframes fade-in-up {
+      0% { opacity: 0; transform: translateY(20px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in-up {
+      animation: fade-in-up 0.8s ease-out both;
+    }
+  </style>
+</LayoutSidebar>

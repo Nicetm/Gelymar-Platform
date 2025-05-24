@@ -1,0 +1,128 @@
+---
+// /pages/privacy-policy.astro
+import LayoutSidebar from '../app/LayoutSidebar.astro';
+import GelymarLogo from '../assets/gelymar.svg';
+---
+
+<LayoutSidebar>
+  <section class="relative w-full min-h-[100vh] px-6 py-16 text-gray-800 dark:text-gray-200 dark:bg-gray-900 font-sans overflow-hidden">
+
+
+
+    <div class="relative z-10 max-w-5xl mx-auto animate-fade-in-up space-y-10">
+      <!-- Logo y título -->
+      <div class="text-center flex flex-col items-center gap-2">
+        <GelymarLogo class="h-16 w-auto animate-floating" />
+        <h1 class="text-4xl font-extrabold text-[#002E50] dark:text-white">Privacy Policy</h1>
+        <p class="text-md text-gray-600 dark:text-gray-400">
+          Last updated: <time datetime="2024-01-01">January 1, 2025</time>
+        </p>
+      </div>
+
+      <!-- Introducción -->
+      <div class="space-y-4 text-md leading-relaxed">
+        <p>
+          At <strong>Gelymar S.A.</strong>, we are committed to protecting your privacy. This Privacy Policy explains how we collect, use, and disclose your personal data through our website 
+          <a href="https://www.gelymar.com" class="text-[#00538C] hover:underline">www.gelymar.com</a>.
+        </p>
+        <p>
+          By using this site or submitting personal data, you agree to the terms outlined below.
+        </p>
+      </div>
+
+      <hr class="border-gray-200 dark:border-gray-700" />
+
+      <!-- Contenido -->
+      <div class="space-y-10">
+        <div>
+          <h2 class="text-2xl font-bold mb-3">1. Information We Collect</h2>
+          <ul class="list-disc list-inside space-y-1">
+            <li>Full name, email, and phone number.</li>
+            <li>Company and job position details.</li>
+            <li>Information submitted via web forms or contact requests.</li>
+          </ul>
+        </div>
+
+        <div>
+          <h2 class="text-2xl font-bold mb-3">2. Why We Collect Your Data</h2>
+          <ul class="list-disc list-inside space-y-1">
+            <li>To answer your inquiries and requests.</li>
+            <li>To send relevant information or newsletters.</li>
+            <li>To register for services or events.</li>
+            <li>To improve security and service quality.</li>
+          </ul>
+        </div>
+
+        <div>
+          <h2 class="text-2xl font-bold mb-3">3. How We Use Your Data</h2>
+          <p>We may use your information to personalize services, communicate updates, and enhance your experience on our site.</p>
+        </div>
+
+        <div>
+          <h2 class="text-2xl font-bold mb-3">4. Data Sharing & Transfers</h2>
+          <p>Your information is not sold or rented. It may be shared only with authorized employees or partners under strict confidentiality.</p>
+        </div>
+
+        <div>
+          <h2 class="text-2xl font-bold mb-3">5. Cookies & Analytics</h2>
+          <p>We use cookies for basic functionality and analytics. You may modify cookie preferences in your browser settings.</p>
+        </div>
+
+        <div>
+          <h2 class="text-2xl font-bold mb-3">6. Your Rights</h2>
+          <p>
+            You have the right to access, update, or delete your data by contacting us at 
+            <a href="mailto:info@gelymar.com" class="text-[#00538C] hover:underline">info@gelymar.com</a>.
+          </p>
+        </div>
+
+        <div>
+          <h2 class="text-2xl font-bold mb-3">7. Consent & Changes</h2>
+          <p>By using our services, you consent to this policy. Any changes will be posted here.</p>
+        </div>
+      </div>
+
+<!-- Contact Information -->
+      <hr class="my-10 border-gray-300 dark:border-gray-600" />
+      <p class="text-sm text-center text-gray-500 dark:text-gray-400">
+        For any questions or concerns regarding these terms, please contact us at:
+        <br />
+        📧 <a href="mailto:info@gelymar.com" class="text-[#00538C] hover:underline">info@gelymar.com</a>
+        <br />
+        📞 +56 2 2989 8000
+        <br />
+        📍 Av. Pedro de Valdivia Norte 0129, Providencia, Santiago – CHILE
+      </p>
+    </div>
+  </section>
+
+  <style>
+    @keyframes fade-in-up {
+      0% { opacity: 0; transform: translateY(20px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes floating {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-4px); }
+    }
+
+    @keyframes background-motion {
+      0% { background-position: 0% 50%; }
+      100% { background-position: 100% 50%; }
+    }
+
+    .animate-fade-in-up {
+      animation: fade-in-up 0.9s ease-out both;
+    }
+
+    .animate-floating {
+      animation: floating 6s ease-in-out infinite;
+    }
+
+    .animate-background-motion {
+      background-size: 200% 200%;
+      animation: background-motion 30s linear infinite;
+    }
+  </style>
+</LayoutSidebar>
