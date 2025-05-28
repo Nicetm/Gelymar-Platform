@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gelymar API Docs</title>
+    <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist/swagger-ui.css" />
+    <link rel="icon" type="image/svg+xml" href="/swagger-assets/gelymar.svg" />
+
+    <style>
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+        background-color: #f8fafc;
+      }
+
+      .custom-topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 16px;
+        background-color: #dce6ec;
+        color: #002E50;
+        font-size: 1.25rem;
+        font-weight: 600;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+        width: 100%;
+        box-sizing: border-box;
+      }
+
+      .custom-topbar-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        overflow: hidden;
+        white-space: nowrap;
+      }
+
+      .custom-topbar img {
+        height: 34px;
+        flex-shrink: 0;
+      }
+
+      .back-button {
+        background-color: #002E50;
+        color: white;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        text-decoration: none;
+        font-weight: 500;
+        transition: background-color 0.3s;
+        white-space: nowrap;
+      }
+
+      .back-button:hover {
+        background-color: #004274;
+      }
+
+      .swagger-ui .info h1 {
+        font-weight: bold;
+        color: #002E50;
+      }
+
+      .swagger-ui .info .base-url {
+        display: none;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="custom-topbar">
+      <div class="custom-topbar-left">
+        <img src="/swagger-assets/gelymar.svg" alt="Gelymar Logo" />
+        <span>Gelymar API</span>
+      </div>
+      <a class="back-button" href="/">Volver al Dashboard</a>
+    </div>
+
+    <div id="swagger-ui"></div>
+
+    <script src="https://unpkg.com/swagger-ui-dist/swagger-ui-bundle.js"></script>
+    <script>
+      window.onload = () => {
+        SwaggerUIBundle({
+          url: "/swagger.json",
+          dom_id: "#swagger-ui",
+          deepLinking: true,
+          presets: [SwaggerUIBundle.presets.apis],
+          layout: "BaseLayout"
+        });
+      };
+    </script>
+  </body>
+</html>

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gelymar API Docs</title>
+    <link rel="icon" type="image/svg+xml" href="/swagger-assets/gelymar.svg" />
+    <style>
+      :root {
+        --primary: #002E50;
+        --accent: #00538c;
+        --background: #f8fafc;
+        --header-bg: #dce6ec;
+        --muted: #4b5563;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+        background-color: var(--background);
+        color: #1f2937;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        overflow: hidden;
+      }
+
+      body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background-image: url('/swagger-assets/map.jpg');
+        background-size: cover;
+        background-position: center;
+        z-index: -1;
+        filter: contrast(1.1) brightness(1.05) saturate(1.1) blur(1.2px);
+      }
+
+      .custom-topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 16px;
+        background-color: var(--header-bg);
+        color: var(--primary);
+        font-size: 1.25rem;
+        font-weight: 600;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+        width: 100%;
+        box-sizing: border-box;
+      }
+
+      .custom-topbar-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        overflow: hidden;
+        white-space: nowrap;
+      }
+
+      .custom-topbar img {
+        height: 34px;
+        display: block;
+        flex-shrink: 0;
+      }
+
+      main {
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        padding: 2rem;
+        z-index: 1;
+      }
+
+      h1 {
+        font-size: 1.8rem;
+        margin-bottom: 0.5rem;
+        color: var(--primary);
+      }
+
+      p {
+        margin-bottom: 1.5rem;
+        color: var(--muted);
+        font-size: 1.05rem;
+      }
+
+      .doc-button {
+        background-color: var(--accent);
+        color: white;
+        padding: 10px 20px;
+        border-radius: 6px;
+        font-size: 1rem;
+        text-decoration: none;
+        font-weight: 600;
+        transition: background-color 0.3s, transform 0.2s;
+        box-shadow: 0 3px 8px rgba(0, 83, 140, 0.2);
+      }
+
+      .doc-button:hover {
+        background-color: #003f6b;
+        transform: translateY(-1px);
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="custom-topbar">
+      <div class="custom-topbar-left">
+        <img src="/swagger-assets/gelymar.svg" alt="Gelymar Logo" />
+        Gelymar API
+      </div>
+    </div>
+
+    <main>
+      <h1>Bienvenido al Backend de Gelymar</h1>
+      <p>Accede a la documentación de la API REST desarrollada por Softkey Ltda.</p>
+      <a class="doc-button" href="/api-docs">Ver Documentación</a>
+    </main>
+  </body>
+</html>

@@ -5,42 +5,38 @@ import GelymarLogo from '../assets/gelymar.svg';
 ---
 
 <LayoutSidebar>
-  <section class="relative min-h-[85vh] w-full overflow-hidden text-center bg-transparent flex flex-col justify-center pt-[14vh] pb-[6vh] font-sans">
+  <section class="relative min-h-screen w-full bg-transparent flex justify-center items-center px-4 sm:px-6 md:px-10 pt-[10vh] pb-[6vh] font-sans">
     <!-- Background -->
-    <div class="absolute inset-0 z-0 transform -translate-y-0">
+    <div class="absolute inset-0 z-0">
       <img src="/images/banner.jpg" alt="Banner" class="w-full h-full object-cover brightness-75" />
       <div class="absolute inset-0 bg-slate-600 bg-opacity-10"></div>
     </div>
 
     <!-- Content Panel -->
-    <div class="max-w-6xl mx-auto bg-white/90 dark:bg-gray-800/95 rounded-[1.5rem] shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-[#CED4DA] dark:border-gray-700 ring-1 ring-white/40 dark:ring-white/10 px-6 sm:px-8 md:px-10 py-10 md:py-14 transition-all duration-300 ease-in-out animate-fade-in-up">
+    <div class="relative z-10 w-full max-w-6xl bg-white/90 dark:bg-gray-800/95 rounded-[1.5rem] shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-[#CED4DA] dark:border-gray-700 ring-1 ring-white/40 dark:ring-white/10 px-6 sm:px-8 md:px-10 py-10 md:py-14 animate-fade-in-up">
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-10 items-center p-6 md:p-10">
-		<!-- Left: Logo + Marca -->
-	<div class="flex flex-col items-start gap-4 text-left pl-4 border-l-4 border-[#F6B234]">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
+        <!-- Left: Logo + Marca -->
+        <div class="flex flex-col items-start gap-4 text-left pl-4 border-l-4 border-[#F6B234]">
+          <div class="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#dcdcdc] shadow-md hover:shadow-xl duration-300 transform">
+            <GelymarLogo class="h-[4rem] w-auto drop-shadow-md" />
+            <div class="relative -ml-2">
+              <span class="text-[2.6rem] font-extrabold text-[#002E50] dark:text-[#002E50] leading-none">
+                Gelymar
+              </span>
+            </div>
+          </div>
 
-	<!-- Logo + Marca -->
-	<div class="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#dcdcdc] shadow-md hover:shadow-xl duration-300 transform">
-	<GelymarLogo class="h-[4rem] w-auto drop-shadow-md" />
-	<div class="relative -ml-2">
-		<span class="text-[2.6rem] font-extrabold text-[#002E50] dark:text-[#002E50] leading-none">
-		Gelymar
-		</span>
-		<span class="absolute left-0 -bottom-1 h-[3px] w-0 bg-[#002E50] dark:bg-[#002E50] transition-all duration-300 ease-in-out group-hover:w-full"></span>
-	</div>
-	</div>
+          <h1 class="text-3xl md:text-4xl font-extrabold text-[#002E50] dark:text-white mt-1">
+            Management Platform
+          </h1>
 
-  <!-- Título -->
-  <h1 class="text-3xl md:text-4xl font-extrabold text-[#002E50] dark:text-white mt-1">
-    Management Platform
-  </h1>
+          <p class="text-base sm:text-lg text-gray-700 dark:text-gray-300 max-w-md">
+            Centralized tools for export document workflows and compliance.
+          </p>
+        </div>
 
-  <!-- Subtítulo -->
-  <p class="text-base sm:text-lg text-gray-700 dark:text-gray-300 max-w-md">
-    Centralized tools for export document workflows and compliance.
-  </p>
-</div>
-        <!-- Right: Descripción y funcionalidades -->
+        <!-- Right: Descripción -->
         <div class="text-left">
           <p class="text-lg text-gray-900 dark:text-gray-300 mb-4">
             Traceability & Document Control for Global Export Compliance
@@ -61,12 +57,11 @@ import GelymarLogo from '../assets/gelymar.svg';
             <a href="#" class="bg-[#00538C] hover:bg-[#003F6B] text-white font-semibold px-6 py-3 rounded-xl shadow-lg transition duration-300">
               Access the Platform
             </a>
-            <a href="/about-platform" class="border border-[#00538C] text-[#00538C] dark:text-[#F6B234] hover:bg-blue-50 dark:hover:bg-slate-800 px-6 py-3 rounded-xl transition duration-300">
+            <a href="/info/about-platform" class="border border-[#00538C] text-[#00538C] dark:text-[#F6B234] hover:bg-blue-50 dark:hover:bg-slate-800 px-6 py-3 rounded-xl transition duration-300">
               Learn More
             </a>
           </div>
         </div>
-
       </div>
     </div>
   </section>
@@ -77,19 +72,8 @@ import GelymarLogo from '../assets/gelymar.svg';
       100% { opacity: 1; transform: translateY(0); }
     }
 
-    @keyframes floating {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-6px); }
-    }
-
     .animate-fade-in-up {
       animation: fade-in-up 0.8s ease-out both;
     }
-
-    .animate-floating {
-      animation: floating 4s ease-in-out infinite;
-    }
-
-    .delay-100 { animation-delay: 0.1s; }
   </style>
 </LayoutSidebar>
