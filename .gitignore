@@ -1,0 +1,14 @@
+# Variables de entorno
+.env
+
+# Node modules
+node_modules/
+
+# Archivos subidos
+uploads/
+dummy/
+
+# Archivos temporales
+*.log
+.DS_Store
+Thumbs.db

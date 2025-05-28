@@ -1,28 +1,26 @@
 const { generateToken } = require('../utils/jwt.util');
 const users = require('../dummy/users.json');
+const bcrypt = require('bcrypt');
 
-/**
- * @route POST /api/auth/login
- * @desc Login ficticio para pruebas, retorna JWT
- * @access Público
- */
-exports.login = (req, res) => {
-  const { username, password } = req.body;
+exports.login = async (req, res) => {
+  const { email, password } = req.body;
 
-  // Buscar usuario en el dummy JSON
-  const user = users.find(
-    (u) => u.username === username && u.password === password
-  );
-
+  const user = users.find(u => u.email === email);
   if (!user) {
-    return res.status(401).json({ message: 'Credenciales inválidas' });
+    return res.status(401).json({ message: 'Usuario no encontrado' });
   }
 
-  // Generar token
+  const validPassword = await bcrypt.compare(password, user.password);
+  if (!validPassword) {
+    return res.status(401).json({ message: 'Contraseña incorrecta' });
+  }
+
   const token = generateToken({
     id: user.id,
-    username: user.username,
-    role: user.role
+    email: user.email,
+    username: user.username || null,
+    role: user.role,
+    cardCode: user.cardCode || null
   });
 
   res.json({ token });
