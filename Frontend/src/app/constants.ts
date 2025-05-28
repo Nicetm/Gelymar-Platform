@@ -1,6 +1,9 @@
 
 export const SITE_TITLE = 'Gelymar Panel';
 
+export const API_URL = import.meta.env.API_URL ?? 'http://localhost:3000';
+export const REMOTE_ASSETS_BASE_URL = import.meta.env.REMOTE_ASSETS_BASE_URL ?? '';
+
 /* Useful flag for sourcing from `./data` entirely, disabling randomize layer */
 export const RANDOMIZE = Boolean(import.meta.env.RANDOMIZE) || true;
 

@@ -3,46 +3,41 @@
 module.exports = {
 	root: true,
 
-	settings: {
-		/* This loads <rootdir>/tsconfig.json to eslint */
-		'import/resolver': {
-			typescript: { project: ['./tsconfig.json'] },
-		},
-	},
-
 	env: {
 		browser: true,
 		node: true,
 	},
 
+	settings: {
+		'import/resolver': {
+			typescript: {
+				project: ['./tsconfig.json'],
+				tsconfigRootDir: __dirname,
+				alwaysTryTypes: true,
+			},
+		},
+	},
+
 	overrides: [
-		/* — TS — */
+		// ✅ TypeScript
 		{
 			files: ['*.ts', '*.mts', '*.cts'],
-			plugins: [
-				//
-				'eslint-plugin-tsdoc',
-				'@typescript-eslint',
-			],
-
 			parser: '@typescript-eslint/parser',
 			parserOptions: {
-				project: ['./tsconfig.json'] /* Specify it only for TypeScript files */,
+				project: ['./tsconfig.json'],
+				tsconfigRootDir: __dirname,
 				ecmaVersion: 'latest',
 				sourceType: 'module',
 			},
-
+			plugins: ['@typescript-eslint', 'eslint-plugin-tsdoc'],
 			extends: [
 				'airbnb-base',
 				'airbnb-typescript',
-
 				'plugin:@typescript-eslint/recommended',
 				'plugin:@typescript-eslint/recommended-requiring-type-checking',
 				'plugin:@typescript-eslint/strict',
-
 				'prettier',
 			],
-
 			rules: {
 				'tsdoc/syntax': 'warn',
 				'@typescript-eslint/no-unused-vars': [
@@ -54,20 +49,15 @@ module.exports = {
 					'warn',
 					{ max: 250, skipComments: true, skipBlankLines: true },
 				],
-				'react/jsx-filename-extension': 'off',
-				'import/prefer-default-export': 'off',
 				'import/extensions': 'off',
+				'import/prefer-default-export': 'off',
+				'react/jsx-filename-extension': 'off',
 			},
 		},
 
-		/* — JS — */
+		// ✅ JavaScript
 		{
-			files: [
-				// TODO: fix "Parsing error: The keyword 'import' is reserved" in `*.mjs`
-				'*.js',
-				'*.mjs',
-				'*.cjs',
-			],
+			files: ['*.js', '*.mjs', '*.cjs'],
 			parserOptions: {
 				ecmaVersion: 'latest',
 				sourceType: 'module',
@@ -78,48 +68,38 @@ module.exports = {
 			},
 		},
 
-		/* Astro */
+		// ✅ Astro
 		{
 			files: ['*.astro'],
-			extends: [
-				//
-				'airbnb-base',
-				'plugin:astro/recommended',
-				'prettier',
-			],
 			parser: 'astro-eslint-parser',
 			parserOptions: {
-				/* Prevents "unresolved" when using "paths" */
-				// project: ['./tsconfig.json'],
 				parser: '@typescript-eslint/parser',
+				tsconfigRootDir: __dirname,
+				project: ['./tsconfig.json'],
 				extraFileExtensions: ['.astro'],
 			},
+			extends: ['airbnb-base', 'plugin:astro/recommended', 'prettier'],
 			rules: {
 				'import/no-absolute-path': 'off',
-				/* ESLint won't capture ambient declarations in Astro files. */
-				'no-undef': 'off',
 				'import/extensions': 'off',
 				'import/no-named-as-default-member': 'off',
 				'import/no-named-as-default': 'off',
 				'import/prefer-default-export': 'off',
+				'import/no-extraneous-dependencies': 'off',
 				'import/no-unresolved': [
-					2,
+					'error',
 					{
-						ignore: [
-							//
-							'@astrojs/image/components',
-						],
+						ignore: ['@astrojs/image/components'],
 					},
 				],
-				'import/no-extraneous-dependencies': 'off',
+				'no-undef': 'off',
+				'no-unused-vars': ['error', { varsIgnorePattern: 'Props' }],
 				'max-lines': [
 					'error',
 					{ max: 250, skipComments: true, skipBlankLines: true },
 				],
-				'no-unused-vars': ['error', { varsIgnorePattern: 'Props' }],
 			},
 			globals: {
-				/* Fix for unfound Astro namespace */
 				astroHTML: 'readonly',
 			},
 		},
