@@ -4,7 +4,7 @@ import type { Endpoint, EndpointsToOperations } from '../types/entities.js';
 
 // Llamada a la API (ya estaba)
 export async function fetchData<Selected extends Endpoint>(endpoint: Selected) {
-	const apiEndpoint = `${API_URL}${endpoint}`;
+	const apiEndpoint = `${API_URL}${String(endpoint)}`;
 
 	console.info(`Fetching ${apiEndpoint}…`);
 	return fetch(apiEndpoint)
@@ -27,7 +27,7 @@ export function url(path = '') {
 
 // Actuales assets remotos
 export function asset(path: string) {
-	return `${REMOTE_ASSETS_BASE_URL}/${path}`;
+  return `${REMOTE_ASSETS_BASE_URL.replace(/\/$/, '')}/${path.replace(/^\//, '')}`;
 }
 
 // ✅ NUEVO: assets locales

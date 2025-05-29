@@ -19,7 +19,7 @@ module.exports = {
 	},
 
 	overrides: [
-		// ✅ TypeScript
+		// TypeScript
 		{
 			files: ['*.ts', '*.mts', '*.cts'],
 			parser: '@typescript-eslint/parser',
@@ -56,7 +56,7 @@ module.exports = {
 			},
 		},
 
-		// ✅ JavaScript
+		// JavaScript
 		{
 			files: ['*.js', '*.mjs', '*.cjs'],
 			parserOptions: {
@@ -69,7 +69,7 @@ module.exports = {
 			},
 		},
 
-		// ✅ Astro
+		// Astro
 		{
 			files: ['*.astro'],
 			parser: 'astro-eslint-parser',

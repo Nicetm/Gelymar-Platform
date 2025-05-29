@@ -3,5 +3,5 @@
   "compilerOptions": {
     "strictNullChecks": true
   },
-  "include": ["src", "astro.config.*"]
+  "include": ["src", "astro.config.*", "env.d.ts"]
 }
