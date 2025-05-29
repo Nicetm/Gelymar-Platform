@@ -2,6 +2,11 @@ const { generateToken } = require('../utils/jwt.util');
 const users = require('../dummy/users.json');
 const bcrypt = require('bcrypt');
 
+/**
+ * @route POST /api/auth/login
+ * @desc Login usando bcrypt
+ * @access Público
+ */
 exports.login = async (req, res) => {
   const { email, password } = req.body;
 

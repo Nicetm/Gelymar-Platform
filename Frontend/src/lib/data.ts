@@ -1,3 +1,4 @@
+
 import { API_URL, REMOTE_ASSETS_BASE_URL } from '../app/constants.js';
 import type { Endpoint, EndpointsToOperations } from '../types/entities.js';
 

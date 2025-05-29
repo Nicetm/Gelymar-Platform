@@ -1,14 +1,14 @@
 [
   {
     "id": 1,
-    "username": "admin",
-    "password": "123456", 
+    "email": "admin@gelymar.com",
+    "password": "$2b$10$GKJWGfuHkAwyPuP/TYF1huZQTdWkjgpL6AVbR5w2yiv32XKn9dJ7S", 
     "role": "admin"
   },
   {
     "id": 2,
-    "username": "user",
-    "password": "123456",
+    "email": "user@mail.com",
+    "password": "$2b$10$GLm7lzVln/kHez9rWxR1COEThJi9eHIOTJyUY/ncRIYUwppAhLANW",
     "role": "user"
   }
 ]

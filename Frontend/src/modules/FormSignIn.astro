@@ -1,6 +1,5 @@
 ---
-// src/modules/FormSignIn.astro
-import { asset, url } from '../lib/data.js';
+import { asset } from '../lib/data.js';
 ---
 
 <div class="w-full flex flex-col items-center justify-center px-6 pt-8 mx-auto pt:mt-0 dark:bg-gray-900">
@@ -13,7 +12,7 @@ import { asset, url } from '../lib/data.js';
 	<div class="w-full max-w-xl p-6 space-y-8 sm:p-8 bg-white rounded-lg shadow dark:bg-gray-800">
 		<h2 class="text-2xl font-bold text-gray-900 dark:text-white">Iniciar sesión</h2>
 
-		<form id="loginForm" class="mt-8 space-y-6">
+		<form id="loginForm" class="mt-8 space-y-6" autocomplete="off">
 			<div>
 				<label for="email" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Email</label>
 				<input type="email" name="email" id="email" required
@@ -35,7 +34,7 @@ import { asset, url } from '../lib/data.js';
 
 <script is:inline>
 	document.getElementById('loginForm').addEventListener('submit', async (e) => {
-		e.preventDefault();
+		e.preventDefault(); 
 
 		const email = e.target.email.value.trim();
 		const password = e.target.password.value.trim();
@@ -44,7 +43,7 @@ import { asset, url } from '../lib/data.js';
 			const res = await fetch('http://localhost:3000/api/auth/login', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ email, password }) // <- corregido aquí
+				body: JSON.stringify({ email, password }) 
 			});
 
 			const data = await res.json();
@@ -56,7 +55,6 @@ import { asset, url } from '../lib/data.js';
 			}
 
 			localStorage.setItem('token', data.token);
-
 			const payload = JSON.parse(atob(data.token.split('.')[1]));
 			window.location.href = payload.role === 'admin' ? '/admin/dashboard' : '/cliente/home';
 		} catch {
@@ -65,9 +63,6 @@ import { asset, url } from '../lib/data.js';
 		}
 	});
 </script>
-
-
-
 
 <style is:global>
 	.input {

@@ -52,6 +52,7 @@ module.exports = {
 				'import/extensions': 'off',
 				'import/prefer-default-export': 'off',
 				'react/jsx-filename-extension': 'off',
+				'no-console': ['warn', { allow: ['warn', 'error', 'info'] }],
 			},
 		},
 
