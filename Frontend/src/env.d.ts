@@ -1,6 +1,5 @@
 /// <reference types="astro/client" />
 
-// https://docs.astro.build/en/guides/environment-variables/#intellisense-for-typescript
 interface ImportMetaEnv {
 	readonly API_URL: string;
 	readonly REMOTE_ASSETS_BASE_URL: string;

@@ -62,8 +62,10 @@ Estadísticas y KPI
 
 Comunicación Cliente-Plataforma
 • Mensajería tipo chat o WhatsApp corporativo -> (Primera opcion un agente, evaluar infraestructura para Python)
-    v1: https://github.com/mem0ai/chat-bot-template-py
+    v1 : https://github.com/mem0ai/chat-bot-template-py
     v2 : https://getstream.io/chat/docs/python/
+    v3 : https://python.langchain.com/docs/tutorials/agents/#end-to-end-agent
+    v4 : https://github.com/nomic-ai/gpt4all
     - Lista de opciones
         1.- Consulta estado embarque -> 12245 -> consulta a SAP y se etrae el estado de la orden 12345 -> se entrega por mensaje
         2.- Consultar Documento
