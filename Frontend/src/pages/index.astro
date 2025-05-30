@@ -1,79 +1,10 @@
 ---
-// layout y logo
-import LayoutSidebar from '../app/LayoutSidebar.astro';
-import GelymarLogo from '../assets/gelymar.svg';
+
 ---
 
-<LayoutSidebar>
-  <section class="relative min-h-screen w-full bg-transparent flex justify-center items-center px-4 sm:px-6 md:px-10 pt-[10vh] pb-[6vh] font-sans">
-    <!-- Background -->
-    <div class="absolute inset-0 z-0">
-      <img src="/images/banner.jpg" alt="Banner" class="w-full h-full object-cover brightness-75" />
-      <div class="absolute inset-0 bg-slate-600 bg-opacity-10"></div>
-    </div>
-
-    <!-- Content Panel -->
-    <div class="relative z-10 w-full max-w-6xl bg-white/90 dark:bg-gray-800/95 rounded-[1.5rem] shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-[#CED4DA] dark:border-gray-700 ring-1 ring-white/40 dark:ring-white/10 px-6 sm:px-8 md:px-10 py-10 md:py-14 animate-fade-in-up">
-
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
-        <!-- Left: Logo + Marca -->
-        <div class="flex flex-col items-start gap-4 text-left pl-4 border-l-4 border-[#F6B234]">
-          <div class="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#dcdcdc] shadow-md hover:shadow-xl duration-300 transform">
-            <GelymarLogo class="h-[4rem] w-auto drop-shadow-md" />
-            <div class="relative -ml-2">
-              <span class="text-[2.6rem] font-extrabold text-[#002E50] dark:text-[#002E50] leading-none">
-                Gelymar
-              </span>
-            </div>
-          </div>
-
-          <h1 class="text-3xl md:text-4xl font-extrabold text-[#002E50] dark:text-white mt-1">
-            Management Platform
-          </h1>
-
-          <p class="text-base sm:text-lg text-gray-700 dark:text-gray-300 max-w-md">
-            Centralized tools for export document workflows and compliance.
-          </p>
-        </div>
-
-        <!-- Right: Descripción -->
-        <div class="text-left">
-          <p class="text-lg text-gray-900 dark:text-gray-300 mb-4">
-            Traceability & Document Control for Global Export Compliance
-          </p>
-          <p class="text-base text-gray-900 dark:text-gray-300 mb-6 leading-relaxed">
-            Welcome to Gelymar’s comprehensive traceability and document management platform. This system efficiently supports export operations, ensuring regulatory compliance, full traceability of products derived from <strong>Chilean seaweed</strong>, and strengthening relationships with our strategic partners.
-          </p>
-
-          <ul class="text-gray-900 dark:text-gray-200 mb-8 space-y-3 list-disc list-inside">
-            <li><strong>Advanced user management</strong> with customizable access levels.</li>
-            <li><strong>Export tracking</strong> with full traceability.</li>
-            <li><strong>Document repository</strong> organized by client and date.</li>
-            <li><strong>Automated alerts</strong> for dispatches and shipments.</li>
-            <li><strong>Dashboard with KPIs</strong> and strategic reports.</li>
-          </ul>
-
-          <div class="flex gap-4 flex-wrap">
-            <a href="#" class="bg-[#00538C] hover:bg-[#003F6B] text-white font-semibold px-6 py-3 rounded-xl shadow-lg transition duration-300">
-              Access the Platform
-            </a>
-            <a href="/info/about-platform" class="border border-[#00538C] text-[#00538C] dark:text-[#F6B234] hover:bg-blue-50 dark:hover:bg-slate-800 px-6 py-3 rounded-xl transition duration-300">
-              Learn More
-            </a>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <style>
-    @keyframes fade-in-up {
-      0% { opacity: 0; transform: translateY(20px); }
-      100% { opacity: 1; transform: translateY(0); }
-    }
-
-    .animate-fade-in-up {
-      animation: fade-in-up 0.8s ease-out both;
-    }
-  </style>
-</LayoutSidebar>
+<html>
+  <head>
+    <meta http-equiv="refresh" content="0; URL='/authentication/sign-in'" />
+  </head>
+  <body></body>
+</html>

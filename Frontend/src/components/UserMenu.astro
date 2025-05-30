@@ -1,17 +1,17 @@
 ---
 const user = {
-  name: "Neil Sims",
-  email: "neil.sims@flowbite.com",
-  avatar: "https://flowbite.com/docs/images/people/profile-picture-5.jpg"
+  name: "Test User",
+  email: "test.user@example.com",
+  avatar: "https://i.pravatar.cc/150?img=12"
 };
 ---
 
 <div class="relative flex items-center ml-3">
   <!-- Botón -->
   <button
+    id="user-toggle"
     type="button"
-    class="flex text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-[#F6B234]"
-    data-dropdown-toggle="user-dropdown"
+    class="flex text-sm rounded-full transition-all duration-200 ease-in-out hover:ring-2 hover:ring-[#F6B234] hover:scale-105 focus:outline-none"
   >
     <span class="sr-only">Open user menu</span>
     <img
@@ -24,7 +24,7 @@ const user = {
   <!-- Dropdown -->
   <div
     id="user-dropdown"
-    class="absolute right-0 top-12 z-50 hidden w-56 bg-white border border-gray-200 divide-y divide-gray-100 rounded-lg shadow-xl dark:bg-gray-700 dark:divide-gray-600 dark:border-gray-600"
+    class="absolute right-0 top-12 z-50 hidden w-56 bg-white border border-gray-200 divide-y divide-gray-100 rounded-xl shadow-xl dark:bg-gray-700 dark:divide-gray-600 dark:border-gray-600"
   >
     <div class="px-4 py-3">
       <p class="text-sm font-semibold text-[#4f4f4f] dark:text-white">{user.name}</p>
@@ -46,3 +46,28 @@ const user = {
     </ul>
   </div>
 </div>
+
+<!-- Script sin data-toggle -->
+<script>
+  window.addEventListener("DOMContentLoaded", () => {
+    const btn = document.getElementById("user-toggle");
+    const dropdown = document.getElementById("user-dropdown");
+
+    if (btn && dropdown) {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        dropdown.classList.toggle("hidden");
+        btn.classList.toggle("ring-2");
+        btn.classList.toggle("ring-[#F6B234]");
+      });
+
+      document.addEventListener("click", (e) => {
+        if (!(e.target instanceof Node)) return;
+        if (!dropdown.contains(e.target) && !btn.contains(e.target)) {
+          dropdown.classList.add("hidden");
+          btn.classList.remove("ring-2", "ring-[#F6B234]");
+        }
+      });
+    }
+  });
+</script>

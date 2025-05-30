@@ -27,6 +27,7 @@
 		"start": "astro dev"
 	},
 	"dependencies": {
+		"@astrojs/node": "^9.2.2",
 		"@astrojs/sitemap": "^1.1.0",
 		"@astrojs/tailwind": "^6.0.2",
 		"@faker-js/faker": "^7.6.0",

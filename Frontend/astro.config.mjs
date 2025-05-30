@@ -1,25 +1,44 @@
 import { defineConfig } from 'astro/config';
-
 import sitemap from '@astrojs/sitemap';
 import tailwind from '@astrojs/tailwind';
+import node from '@astrojs/node';
+import fs from 'fs';
+import path from 'path';
 
 const DEV_PORT = 2121;
 
-// https://astro.build/config
+// Elimina archivos *.astro.tsx físicos antes de iniciar (si existieran)
+const pagesPath = './src/pages';
+
+if (fs.existsSync(pagesPath)) {
+  fs.readdirSync(pagesPath).forEach(file => {
+    const fullPath = path.join(pagesPath, file);
+    if (file.endsWith('.astro.tsx') && fs.existsSync(fullPath)) {
+      try {
+        fs.renameSync(fullPath, path.join(pagesPath, `_${file}`));
+        console.log(`Renamed unsupported file: ${file}`);
+      } catch (err) {
+        console.warn(`Could not rename ${file}:`, err.message);
+      }
+    }
+  });
+}
+
 export default defineConfig({
-	site: process.env.CI
-		? 'https://themesberg.github.io'
-		: `http://localhost:${DEV_PORT}`,
-	base: process.env.CI ? '/flowbite-astro-admin-dashboard' : undefined,
+  site: process.env.CI
+    ? 'https://themesberg.github.io'
+    : `http://localhost:${DEV_PORT}`,
+  base: process.env.CI ? '/flowbite-astro-admin-dashboard' : undefined,
 
-	server: {
-		/* Dev. server only */
-		port: DEV_PORT,
-	},
+  server: {
+    port: DEV_PORT,
+  },
 
-	integrations: [
-		//
-		sitemap(),
-		tailwind(),
-	],
+  output: 'server',
+  adapter: node({ mode: 'standalone' }),
+
+  integrations: [
+    sitemap(),
+    tailwind(),
+  ],
 });

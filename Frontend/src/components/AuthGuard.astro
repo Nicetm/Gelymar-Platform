@@ -1,0 +1,22 @@
+---
+// src/components/AuthGuard.astro
+---
+
+// No se renderiza nada, solo actúa como middleware visual
+<script is:inline>
+  const token = localStorage.getItem('token');
+
+  if (!token) {
+    window.location.href = '/authentication/sign-in';
+  } else {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+
+      if (payload.role !== 'admin') {
+        window.location.href = '/authentication/sign-in';
+      }
+    } catch (e) {
+      window.location.href = '/authentication/sign-in';
+    }
+  }
+</script>
