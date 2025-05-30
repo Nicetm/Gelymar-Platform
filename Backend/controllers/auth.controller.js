@@ -14,6 +14,15 @@ const path = require('path');
 exports.login = async (req, res) => {
   const { email, password, otp } = req.body;
 
+  const isValid = speakeasy.totp.verify({
+    secret: 'KNGV2SCOH52CIUSHLZFEOUDCIBBCYYKB', // el que muestra tu log
+    encoding: 'base32',
+    token: '310402', // código actual del log
+    window: 2
+  });
+
+  console.log('¿Es válido?', isValid);
+
   const user = users.find(u => u.email === email);
   if (!user) {
     return res.status(401).json({ message: 'Usuario no encontrado' });
@@ -26,12 +35,17 @@ exports.login = async (req, res) => {
 
   // Si el usuario tiene 2FA habilitado
   if (user.twoFASecret) {
+    console.log('OTP recibido:', otp);
+    console.log('Secret almacenado:', user.twoFASecret);
+
     const verified = speakeasy.totp.verify({
       secret: user.twoFASecret,
       encoding: 'base32',
       token: otp,
       window: 1
     });
+
+    console.log('Código verificado:', verified);
 
     if (!verified) {
       return res.status(401).json({ message: 'Código 2FA inválido o no enviado' });
@@ -61,7 +75,7 @@ exports.setup2FA = (req, res) => {
   const user = users.find(u => u.email === email);
   if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
 
-  // Ya tiene secret
+  // Ya tiene secret → regenerar otpauthURL y QR
   if (user.twoFASecret) {
     const otpauthUrl = speakeasy.otpauthURL({
       secret: user.twoFASecret,
@@ -76,10 +90,15 @@ exports.setup2FA = (req, res) => {
     });
   }
 
-  // No tiene: generamos y persistimos
+  // No tiene: generar nuevo secret
   const secret = speakeasy.generateSecret({ name: `Gelymar:${email}`, length: 20 });
+
+  console.log(`Generando nuevo secret para ${email}`);
+  console.log('Secret base32:', secret.base32);
+
   user.twoFASecret = secret.base32;
 
+  // Persistir en archivo
   const usersPath = path.join(__dirname, '..', 'dummy', 'users.json');
   fs.writeFileSync(usersPath, JSON.stringify(users, null, 2));
 
