@@ -26,5 +26,6 @@ const authController = require('../controllers/auth.controller');
  *         description: Credenciales inválidas
  */
 router.post('/login', authController.login);
+router.get('/2fa/setup', authController.setup2FA);
 
 module.exports = router;

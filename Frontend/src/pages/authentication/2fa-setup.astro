@@ -1,0 +1,11 @@
+---
+const res = await fetch('http://localhost:3000/api/auth/2fa/setup');
+const { qr, secret } = await res.json();
+---
+
+<h1>Configurar autenticación 2FA</h1>
+<p>Escanea este código QR con tu aplicación de autenticación (Google Authenticator o similar).</p>
+<img src={qr} alt="Código QR 2FA" style="max-width: 250px;" />
+
+<p>Si prefieres, puedes ingresar este código manualmente:</p>
+<code>{secret}</code>
