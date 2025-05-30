@@ -1,21 +1,16 @@
 ---
-// AppsDropdown.astro
 /* eslint max-lines: 'off' */
 ---
 <div class="relative">
   <!-- Botón -->
   <button
+    id="apps-toggle"
     type="button"
     data-dropdown-toggle="apps-dropdown"
-    class="p-2 text-gray-500 rounded-full hover:bg-gray-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-700 focus:outline-none"
+    class="p-2 text-gray-500 rounded-full shadow-sm transition hover:scale-105 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-700 focus:outline-none"
   >
     <span class="sr-only">Open apps</span>
-    <svg
-      class="w-6 h-6"
-      fill="currentColor"
-      viewBox="0 0 24 24"
-      xmlns="http://www.w3.org/2000/svg"
-    >
+    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
       <path d="M4 4h4v4H4V4zm6 0h4v4h-4V4zm6 0h4v4h-4V4zM4 10h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4zM4 16h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4z"/>
     </svg>
   </button>
@@ -23,41 +18,37 @@
   <!-- Dropdown -->
   <div
     id="apps-dropdown"
-    class="absolute right-0 z-50 hidden mt-3 w-96 max-w-sm bg-white border border-gray-200 rounded-xl shadow-2xl dark:bg-gray-700 dark:border-gray-600 transition-all duration-300"
+    class="absolute right-0 top-12 z-50 hidden w-96 max-w-sm bg-white border border-gray-200 rounded-2xl shadow-2xl dark:bg-gray-800 dark:border-gray-700 transition-all duration-300 ring-1 ring-slate-100 dark:ring-white/10"
   >
     <!-- Encabezado -->
-    <div class="px-5 py-3 text-sm font-semibold text-[#4f4f4f]  bg-gray-50 dark:bg-gray-700 dark:text-white rounded-t-xl">
+    <div class="px-6 pt-5 pb-4 text-base font-semibold text-gray-700 dark:text-white border-b border-gray-100 dark:border-gray-700">
       Quick Access
     </div>
 
     <!-- Lista de accesos -->
-    <div class="max-h-80 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-600">
-      <!-- Item 1: Clients -->
-      <a href="#" class="flex px-5 py-4 gap-4 hover:bg-gray-100 dark:hover:bg-gray-600 transition">
-        <div class="bg-[#F6B234] p-2 rounded-full">
-          <svg class="w-6 h-6 text-[#4f4f4f]" fill="currentColor" viewBox="0 0 20 20">
+    <div class="max-h-80 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700">
+      <!-- Item 1 -->
+      <a href="#" class="flex items-start gap-4 px-6 py-5 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+        <div class="bg-[#F6B234] p-2 rounded-xl shadow-md">
+          <svg class="w-6 h-6 text-[#002E50]" fill="currentColor" viewBox="0 0 20 20">
             <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/>
           </svg>
         </div>
         <div class="flex flex-col">
-          <p class="text-sm font-medium text-[#4f4f4f] dark:text-white">Clients</p>
+          <p class="text-sm font-semibold text-[#002E50] dark:text-white">Clients</p>
           <p class="text-xs text-gray-500 dark:text-gray-300">Manage clients and user accounts</p>
         </div>
       </a>
 
-      <!-- Item 2: Inbox -->
-      <a href="#" class="flex px-5 py-4 gap-4 hover:bg-gray-100 dark:hover:bg-gray-600 transition">
-        <div class="bg-[#F6B234] p-2 rounded-full">
-          <svg class="w-6 h-6 text-[#4f4f4f]" fill="currentColor" viewBox="0 0 20 20">
-            <path
-              fill-rule="evenodd"
-              d="M5 3a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2H5zm0 2h10v7h-2l-1 2H8l-1-2H5V5z"
-              clip-rule="evenodd"
-            />
+      <!-- Item 2 -->
+      <a href="#" class="flex items-start gap-4 px-6 py-5 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+        <div class="bg-[#F6B234] p-2 rounded-xl shadow-md">
+          <svg class="w-6 h-6 text-[#002E50]" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M5 3a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2H5zm0 2h10v7h-2l-1 2H8l-1-2H5V5z"/>
           </svg>
         </div>
         <div class="flex flex-col">
-          <p class="text-sm font-medium text-[#4f4f4f] dark:text-white">Inbox</p>
+          <p class="text-sm font-semibold text-[#002E50] dark:text-white">Inbox</p>
           <p class="text-xs text-gray-500 dark:text-gray-300">Check your messages</p>
         </div>
       </a>
@@ -65,40 +56,3 @@
   </div>
 </div>
 
-<script is:inline>
-	document.addEventListener('DOMContentLoaded', () => {
-		const toggles = document.querySelectorAll('[data-dropdown-toggle]');
-
-		toggles.forEach((btn) => {
-			btn.addEventListener('click', (e) => {
-				e.stopPropagation();
-				const targetId = btn.getAttribute('data-dropdown-toggle');
-				const target = document.getElementById(targetId);
-
-				if (!target) return;
-
-				// Cerrar todos los dropdowns menos el actual
-				document.querySelectorAll('[id$="-dropdown"]').forEach((el) => {
-					if (el.id !== targetId) {
-						el.classList.add('hidden');
-					}
-				});
-
-				// Alternar visibilidad del actual
-				target.classList.toggle('hidden');
-			});
-		});
-
-		// Cerrar todos al hacer clic fuera
-		document.addEventListener('click', (e) => {
-			if (
-				!e.target.closest('[data-dropdown-toggle]') &&
-				!e.target.closest('[id$="-dropdown"]')
-			) {
-				document.querySelectorAll('[id$="-dropdown"]').forEach((el) => {
-					el.classList.add('hidden');
-				});
-			}
-		});
-	});
-</script>

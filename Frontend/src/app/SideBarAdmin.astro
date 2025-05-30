@@ -20,37 +20,37 @@
       <!-- dashboard -->
       <a href="/admin/dashboard" class="flex items-center p-2 text-base text-gray-900 rounded-lg hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700">
         <i data-lucide="layout-dashboard" class="w-6 h-6 text-gray-500 dark:text-gray-400"></i>
-        <span class="ml-3">dashboard</span>
+        <span class="ml-3">Dashboard</span>
       </a>
 
       <!-- clients -->
       <a href="/admin/clients" class="flex items-center p-2 text-base text-gray-900 rounded-lg hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700">
         <i data-lucide="briefcase" class="w-6 h-6 text-gray-500 dark:text-gray-400"></i>
-        <span class="ml-3">clients</span>
+        <span class="ml-3">Clients</span>
       </a>
 
       <!-- documents -->
       <a href="/admin/documents" class="flex items-center p-2 text-base text-gray-900 rounded-lg hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700">
         <i data-lucide="file-text" class="w-6 h-6 text-gray-500 dark:text-gray-400"></i>
-        <span class="ml-3">documents</span>
+        <span class="ml-3">Documents</span>
       </a>
 
       <!-- messaging -->
       <a href="/admin/messaging" class="flex items-center p-2 text-base text-gray-900 rounded-lg hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700">
         <i data-lucide="message-circle" class="w-6 h-6 text-gray-500 dark:text-gray-400"></i>
-        <span class="ml-3">messaging</span>
+        <span class="ml-3">Messaging</span>
       </a>
 
       <!-- shipments -->
-      <a href="/admin/shipments" class="flex items-center p-2 text-base text-gray-900 rounded-lg hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700">
-        <i data-lucide="truck" class="w-6 h-6 text-gray-500 dark:text-gray-400"></i>
-        <span class="ml-3">shipments</span>
-      </a>
+	  <a href="/admin/shipments" class="flex items-center p-2 text-base text-gray-900 rounded-lg hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700">
+	  <i data-lucide="ship" class="w-6 h-6 text-gray-500 dark:text-gray-400"></i>
+	  <span class="ml-3">Shipments</span>
+	  </a>
 
       <!-- users -->
       <button type="button" class="flex items-center w-full p-2 text-base text-gray-900 rounded-lg group hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700" data-collapse-toggle="users-submenu">
         <i data-lucide="users" class="w-6 h-6 text-gray-500 dark:text-gray-400"></i>
-        <span class="flex-1 ml-3 text-left">users</span>
+        <span class="flex-1 ml-3 text-left">Users</span>
         <i data-lucide="chevron-down" class="w-4 h-4 ml-auto transition-transform group-hover:rotate-180"></i>
       </button>
       <ul id="users-submenu" class="hidden py-2 space-y-2 pl-7">
@@ -63,7 +63,7 @@
       <!-- support -->
       <a href="/admin/support" class="flex items-center p-2 text-base text-gray-900 rounded-lg hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700">
         <i data-lucide="help-circle" class="w-6 h-6 text-gray-500 dark:text-gray-400"></i>
-        <span class="ml-3">support</span>
+        <span class="ml-3">Support</span>
       </a>
     </div>
   </div>
@@ -109,8 +109,7 @@
 
 <!-- Backdrop móvil -->
 <div class="fixed inset-0 z-10 hidden bg-gray-900/50 dark:bg-gray-900/90" id="sidebarBackdrop"></div>
-
-<!-- Script funcional -->
+<!-- Script -->
 <script>
   declare global {
     interface Window {
@@ -134,25 +133,4 @@
     });
   });
 
-  document.querySelectorAll('[data-dropdown-toggle]').forEach((btn) => {
-    const dropdownId = btn.getAttribute('data-dropdown-toggle');
-    if (!dropdownId) return;
-    const dropdown = document.getElementById(dropdownId);
-    if (!dropdown) return;
-
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      dropdown.classList.toggle('hidden');
-    });
-
-    document.addEventListener('click', (e) => {
-      const target = e.target;
-      if (!(target instanceof Node)) return;
-      document.querySelectorAll('[id$="dropdown"]').forEach((dd) => {
-        if (!dd.contains(target) && !btn.contains(target)) {
-          dd.classList.add('hidden');
-        }
-      });
-    });
-  });
 </script>

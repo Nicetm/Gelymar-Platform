@@ -1,22 +1,31 @@
 ---
-import FooterStacked from './FooterStacked.astro';
+import FooterSidebar from './FooterSidebar.astro';
 import LayoutCommon from './LayoutCommon.astro';
-import NavBarStacked from './NavBarStacked.astro';
+import NavBarSidebar from './NavBarSidebarAdmin.astro';
+import SideBar from './SideBarAdmin.astro';
 ---
 
 <LayoutCommon>
-	<NavBarStacked />
+  <!-- Navbar superior -->
+  <NavBarSidebar />
 
-	<div class="flex pt-16 overflow-hidden bg-gray-50 dark:bg-gray-900">
-		<div
-			id="main-content"
-			class="relative w-full max-w-screen-2xl mx-auto h-full overflow-y-auto bg-gray-50 dark:bg-gray-900 min-h-screen"
-		>
-			<div class="px-4 pt-6 2xl:px-0">
-				<slot />
-			</div>
+  <!-- Contenedor principal con sidebar y contenido -->
+  <main class="flex pt-4 bg-gray-50 dark:bg-gray-900 min-h-screen overflow-hidden">
+    
+    <!-- Sidebar lateral -->
+    <SideBar />
 
-			<FooterStacked />
-		</div>
-	</div>
+    <!-- Contenido principal -->
+    <section
+      id="main-content"
+      class="relative flex-1 h-full overflow-y-auto transition-all duration-300 lg:ml-56"
+    >
+      <div class="px-4 pt-6 2xl:px-8">
+        <slot />
+      </div>
+      
+      <!-- Footer -->
+      <FooterSidebar />
+    </section>
+  </main>
 </LayoutCommon>

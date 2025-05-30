@@ -1,4 +1,3 @@
-
 const express = require('express');
 const router = express.Router();
 const customerController = require('../controllers/customer.controller');
@@ -8,13 +7,13 @@ const authMiddleware = require('../middleware/auth.middleware');
  * @swagger
  * /api/customers:
  *   get:
- *     summary: Obtiene todos los clientes
- *     tags: [Clientes]
+ *     summary: Get all customers
+ *     tags: [Customers]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Lista de clientes
+ *         description: List of customers
  */
 router.get('/', authMiddleware, customerController.getAllCustomers);
 
@@ -22,8 +21,8 @@ router.get('/', authMiddleware, customerController.getAllCustomers);
  * @swagger
  * /api/customers/{id}:
  *   get:
- *     summary: Obtiene un cliente por ID
- *     tags: [Clientes]
+ *     summary: Get a customer by ID
+ *     tags: [Customers]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -34,9 +33,9 @@ router.get('/', authMiddleware, customerController.getAllCustomers);
  *           type: string
  *     responses:
  *       200:
- *         description: Cliente encontrado
+ *         description: Customer found
  *       404:
- *         description: Cliente no encontrado
+ *         description: Customer not found
  */
 router.get('/:id', authMiddleware, customerController.getCustomerById);
 

@@ -5,12 +5,12 @@ const user = {
   avatar: "https://i.pravatar.cc/150?img=12"
 };
 ---
-
 <div class="relative flex items-center ml-3">
   <!-- Botón -->
   <button
     id="user-toggle"
     type="button"
+    data-dropdown-toggle="user-dropdown"
     class="flex text-sm rounded-full transition-all duration-200 ease-in-out hover:ring-2 hover:ring-[#F6B234] hover:scale-105 focus:outline-none"
   >
     <span class="sr-only">Open user menu</span>
@@ -21,53 +21,35 @@ const user = {
     />
   </button>
 
-  <!-- Dropdown -->
+  <!-- Dropdown con estilo similar a notificaciones -->
   <div
     id="user-dropdown"
-    class="absolute right-0 top-12 z-50 hidden w-56 bg-white border border-gray-200 divide-y divide-gray-100 rounded-xl shadow-xl dark:bg-gray-700 dark:divide-gray-600 dark:border-gray-600"
+    class="absolute right-0 top-full mt-3 z-50 hidden w-64 max-w-sm bg-white border border-gray-200 rounded-2xl shadow-2xl dark:bg-gray-800 dark:border-gray-700 transition-all duration-300 ring-1 ring-slate-100 dark:ring-white/10"
   >
-    <div class="px-4 py-3">
-      <p class="text-sm font-semibold text-[#4f4f4f] dark:text-white">{user.name}</p>
+    <!-- Encabezado -->
+    <div class="px-6 pt-5 pb-4 border-b border-gray-100 dark:border-gray-700">
+      <p class="text-sm font-semibold text-gray-700 dark:text-white">{user.name}</p>
       <p class="text-sm text-gray-500 truncate dark:text-[#F6B234]">{user.email}</p>
     </div>
-    <ul class="py-1">
+
+    <!-- Opciones -->
+    <ul class="py-2 divide-y divide-gray-100 dark:divide-gray-700">
       <li>
         <a
           href="#"
-          class="block px-4 py-2 text-sm text-[#4f4f4f] hover:bg-gray-100 dark:text-white dark:hover:bg-gray-600"
-        >Profile</a>
+          class="block px-6 py-3 text-sm text-gray-700 hover:bg-gray-50 dark:text-white dark:hover:bg-gray-700 transition"
+        >
+          Profile
+        </a>
       </li>
       <li>
         <a
           href="#"
-          class="block px-4 py-2 text-sm text-red-600 hover:bg-red-100 dark:hover:bg-gray-600 dark:text-red-400 dark:hover:text-white"
-        >Sign out</a>
+          class="block px-6 py-3 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-gray-700 dark:hover:text-white transition"
+        >
+          Sign out
+        </a>
       </li>
     </ul>
   </div>
 </div>
-
-<!-- Script sin data-toggle -->
-<script>
-  window.addEventListener("DOMContentLoaded", () => {
-    const btn = document.getElementById("user-toggle");
-    const dropdown = document.getElementById("user-dropdown");
-
-    if (btn && dropdown) {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        dropdown.classList.toggle("hidden");
-        btn.classList.toggle("ring-2");
-        btn.classList.toggle("ring-[#F6B234]");
-      });
-
-      document.addEventListener("click", (e) => {
-        if (!(e.target instanceof Node)) return;
-        if (!dropdown.contains(e.target) && !btn.contains(e.target)) {
-          dropdown.classList.add("hidden");
-          btn.classList.remove("ring-2", "ring-[#F6B234]");
-        }
-      });
-    }
-  });
-</script>

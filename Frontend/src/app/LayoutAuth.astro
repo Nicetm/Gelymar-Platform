@@ -1,5 +1,5 @@
 ---
-import GelymarLogo from '../assets/gelymar.svg';
+
 ---
 
 <html lang="es">
@@ -22,8 +22,12 @@ import GelymarLogo from '../assets/gelymar.svg';
         
         <!-- Header -->
         <div class="flex flex-col items-center gap-5 text-center">
-          <div class="flex items-center gap-1 px-4 py-2 rounded-lg bg-white dark:bg-gray-100 shadow-md">
-            <GelymarLogo class="h-16 w-auto" />
+          <div class="flex items-center gap-1 px-4 py-2 rounded-lg bg-white dark:bg-gray-100 shadow-md group">
+            <img
+              src="/assets/gelymar.svg"
+              alt="Logo"
+              class="h-16 w-auto transition-transform duration-300 ease-in-out group-hover:scale-110"
+            />
             <span class="text-2xl font-extrabold text-[#002E50] dark:text-[#002E50] -ml-1">
               Gelymar
             </span>

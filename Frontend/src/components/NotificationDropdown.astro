@@ -1,22 +1,20 @@
 ---
-// NotificationDropdown.astro
-/* eslint max-lines: 'off' */
-import { asset } from '../lib/data.js';
+const user = {
+  name: "Bonnie Green",
+  email: "bonnie.green@example.com",
+  avatar: "https://i.pravatar.cc/150?img=12"
+};
 ---
 <div class="relative">
-  <!-- Botón -->
+  <!-- Botón Notificaciones -->
   <button
+    id="notification-toggle"
     type="button"
     data-dropdown-toggle="notification-dropdown"
-    class="p-2 text-gray-500 rounded-full hover:bg-gray-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-700 focus:outline-none"
+    class="p-2 text-gray-500 rounded-full shadow-sm transition hover:scale-105 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-700 focus:outline-none"
   >
     <span class="sr-only">View notifications</span>
-    <svg
-      class="w-6 h-6"
-      fill="currentColor"
-      viewBox="0 0 20 20"
-      xmlns="http://www.w3.org/2000/svg"
-    >
+    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
       <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
     </svg>
   </button>
@@ -24,49 +22,42 @@ import { asset } from '../lib/data.js';
   <!-- Dropdown -->
   <div
     id="notification-dropdown"
-    class="absolute right-0 z-50 hidden mt-3 w-96 max-w-sm bg-white border border-gray-200 rounded-xl shadow-2xl dark:bg-gray-700 dark:border-gray-600 transition-all duration-300"
+    class="absolute right-0 top-12 z-50 hidden w-96 max-w-sm bg-white border border-gray-200 rounded-2xl shadow-2xl dark:bg-gray-800 dark:border-gray-700 transition-all duration-300 ring-1 ring-slate-100 dark:ring-white/10"
   >
     <!-- Encabezado -->
-    <div class="px-5 py-3 text-sm font-semibold text-gray-700 bg-gray-50 dark:bg-gray-700 dark:text-gray-300 rounded-t-xl">
+    <div class="px-6 pt-5 pb-4 text-base font-semibold text-gray-700 dark:text-gray-100 border-b border-gray-100 dark:border-gray-700">
       Notifications
     </div>
 
-    <!-- Lista -->
-    <div class="max-h-80 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-600">
-      <!-- Ejemplo -->
-      <a href="#" class="flex px-5 py-4 gap-3 hover:bg-gray-100 dark:hover:bg-gray-600 transition">
-        <div class="relative shrink-0">
-          <img class="w-11 h-11 rounded-full" src={asset('images/users/bonnie-green.png')} alt="User" />
-          <span class="absolute -top-1.5 -right-1.5 w-4 h-4 bg-[#F6B234] text-[#00538C] text-[10px] flex items-center justify-center rounded-full font-bold">!</span>
+    <!-- Lista de notificaciones -->
+    <div class="max-h-80 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700">
+      <a href="#" class="flex items-start gap-4 px-6 py-5 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+        <div class="relative">
+          <img
+            class="w-12 h-12 rounded-full object-cover border-2 border-white dark:border-gray-600 shadow"
+            src={user.avatar}
+            alt="User avatar"
+          />
+          <span class="absolute -top-1.5 -right-1.5 w-4 h-4 bg-[#F6B234] text-[#002E50] text-[10px] flex items-center justify-center rounded-full font-bold shadow-sm">!</span>
         </div>
-        <div class="flex flex-col">
-          <p class="text-sm text-gray-600 dark:text-gray-300">
-            <span class="font-semibold text-gray-900 dark:text-white">Bonnie Green</span>: “Hey, what’s up? All set for the presentation?”
+        <div class="flex-1">
+          <p class="text-sm font-semibold text-[#002E50] dark:text-white">
+            {user.name}
           </p>
-          <span class="text-xs text-[#33365c] dark:text-[#F6B234] mt-1">a few moments ago</span>
+          <p class="text-sm text-gray-700 dark:text-gray-200">
+            “Hey, what’s up? All set for the presentation?”
+          </p>
+          <span class="text-xs text-gray-500 dark:text-gray-400 mt-1 block">Just now</span>
         </div>
       </a>
-      <!-- Puedes duplicar este bloque con otros usuarios -->
     </div>
 
-    <!-- Ver todas -->
-<a
-  href="#"
-  class="block w-full py-3 text-center text-sm font-medium text-[#33365c] bg-gray-50 hover:bg-gray-100 dark:bg-gray-700 dark:text-[#c9c9c9] dark:hover:underline rounded-b-xl transition-all duration-300 hover:translate-y-[-1px] hover:opacity-90"
->
-  <div class="inline-flex items-center justify-center gap-2">
-    <svg class="w-5 h-5 text-[#33365c] dark:text-[#c9c9c9] transition-colors duration-300" fill="currentColor" viewBox="0 0 20 20">
-      <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-      <path
-        fill-rule="evenodd"
-        d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z"
-        clip-rule="evenodd"
-      ></path>
-    </svg>
-    View all
-  </div>
-</a>
+    <!-- Footer -->
+    <a
+      href="#"
+      class="block text-center py-4 text-sm font-medium text-[#00538C] dark:text-[#F6B234] bg-gray-50 dark:bg-gray-800 rounded-b-2xl hover:underline transition"
+    >
+      View all notifications
+    </a>
   </div>
 </div>
-
-
