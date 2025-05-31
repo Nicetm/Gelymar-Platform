@@ -91,3 +91,18 @@ exports.setup2FA = (req, res) => {
     return res.json({ qr: dataURL });
   });
 };
+
+/**
+ * @route GET /api/auth/2fa/status?email=xxx
+ * @desc Retorna si el usuario tiene 2FA activo
+ */
+exports.check2FAStatus = (req, res) => {
+  const { email } = req.query;
+  if (!email) return res.status(400).json({ message: 'Email requerido' });
+
+  const user = users.find(u => u.email === email);
+  if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
+
+  res.json({ twoFAEnabled: !!user.twoFASecret });
+};
+

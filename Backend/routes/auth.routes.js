@@ -27,5 +27,7 @@ const authController = require('../controllers/auth.controller');
  */
 router.post('/login', authController.login);
 router.get('/2fa/setup', authController.setup2FA);
+router.get('/2fa/status', authController.check2FAStatus);
+
 
 module.exports = router;
