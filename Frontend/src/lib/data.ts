@@ -25,6 +25,11 @@ export function url(path = '') {
 	return `${import.meta.env.SITE}${import.meta.env.BASE_URL}${path}`;
 }
 
+// URL API back
+export function apiUrl() {
+	return `${API_URL}`;
+}
+
 // Actuales assets remotos
 export function asset(path: string) {
   return `${REMOTE_ASSETS_BASE_URL.replace(/\/$/, '')}/${path.replace(/^\//, '')}`;
