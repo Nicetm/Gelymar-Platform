@@ -88,7 +88,7 @@ exports.setup2FA = (req, res) => {
 
   qrcode.toDataURL(secret.otpauth_url, (err, dataURL) => {
     if (err) return res.status(500).json({ message: 'Error generando QR' });
-    return res.json({ qr: dataURL });
+    return res.json({ qr: dataURL, secret: secret.base32 });
   });
 };
 

@@ -4,13 +4,13 @@
     "email": "admin@gelymar.com",
     "password": "$2b$10$GKJWGfuHkAwyPuP/TYF1huZQTdWkjgpL6AVbR5w2yiv32XKn9dJ7S",
     "role": "admin",
-    "twoFASecret": "IVCG64JUKFSUOLTBM5VTUVTBKRECU4TH"
+    "twoFASecret": "MJDWCN2QPNDG6OB2KU7TKMDHJYSUWY2D"
   },
   {
     "id": 2,
     "email": "user@mail.com",
     "password": "$2b$10$GLm7lzVln/kHez9rWxR1COEThJi9eHIOTJyUY/ncRIYUwppAhLANW",
     "role": "user",
-    "twoFASecret": "KBWG2RLPG5FX2TSNOZNSIYLMEUYWWPR6"
+    "twoFASecret": "OU2DYQRJOZNHU3BTMUVEGMB2KRXHMRSE"
   }
 ]
