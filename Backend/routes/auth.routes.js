@@ -32,11 +32,12 @@ router.get('/2fa/setup', authController.setup2FA);
 router.get('/2fa/status', authController.check2FAStatus);
 router.get('/me', authMiddleware, (req, res) => {
     res.json({
-      id: req.user.id,
-      email: req.user.email,
-      role: req.user.role
+        id: req.user.id,
+        email: req.user.email,
+        role: req.user.role
     });
-  });
-
+});
+router.post('/recover', authController.recoverPassword);
+router.post('/reset-password', authController.resetPassword);
 
 module.exports = router;

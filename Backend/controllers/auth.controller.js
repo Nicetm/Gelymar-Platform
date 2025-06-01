@@ -1,10 +1,12 @@
-const { generateToken } = require('../utils/jwt.util');
-const users = require('../dummy/users.json');
+const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const speakeasy = require('speakeasy');
 const qrcode = require('qrcode');
 const fs = require('fs');
 const path = require('path');
+const users = require('../dummy/users.json');
+const { generateToken } = require('../utils/jwt.util');
+const { sendEmail } = require('../utils/email.util');
 
 /**
  * @route POST /api/auth/login
@@ -107,3 +109,55 @@ exports.check2FAStatus = (req, res) => {
   res.json({ twoFAEnabled: !!user.twoFASecret });
 };
 
+/**
+ * @route POST /api/auth/recover
+ * @desc Envía un correo con enlace/token para recuperación de contraseña
+ * @access Público
+ */
+exports.recoverPassword = async (req, res) => {
+  const { email } = req.body;
+
+  const user = users.find(u => u.email === email);
+  if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
+
+  const token = jwt.sign({ email }, process.env.JWT_SECRET, { expiresIn: '15m' });
+  const resetUrl = `http://localhost:2121/authentication/reset-password?token=${token}`;
+
+  await sendEmail({
+    to: email,
+    subject: 'Recuperación de contraseña',
+    html: `<p>Haz clic <a href="${resetUrl}">aquí</a> para restablecer tu contraseña.</p>`
+  });
+
+  res.json({ message: 'Correo enviado con instrucciones' });
+};
+
+/**
+ * @route POST /api/auth/reset
+ * @desc Cambia la contraseña usando el token de recuperación
+ * @access Público
+ */
+exports.resetPassword = async (req, res) => {
+  const { token, newPassword } = req.body;
+  if (!token || !newPassword) return res.status(400).json({ message: 'Faltan datos' });
+
+  try {
+    const { email } = jwt.verify(token, process.env.JWT_SECRET);
+
+    const user = users.find(u => u.email === email);
+    if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
+
+    const bcrypt = require('bcrypt');
+    const hashed = await bcrypt.hash(newPassword, 10);
+    user.password = hashed;
+
+    // guardar en JSON
+    const usersPath = path.join(__dirname, '..', 'dummy', 'users.json');
+    fs.writeFileSync(usersPath, JSON.stringify(users, null, 2));
+
+    res.json({ message: 'Contraseña actualizada correctamente' });
+
+  } catch (err) {
+    res.status(400).json({ message: 'Token inválido o expirado' });
+  }
+};
