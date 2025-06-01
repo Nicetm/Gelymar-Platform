@@ -11,6 +11,13 @@
     "email": "user@mail.com",
     "password": "$2b$10$GLm7lzVln/kHez9rWxR1COEThJi9eHIOTJyUY/ncRIYUwppAhLANW",
     "role": "user",
-    "twoFASecret": "OU2DYQRJOZNHU3BTMUVEGMB2KRXHMRSE"
+    "twoFASecret": "LVGEMS22GARXUQSLO5IGKJKAEQZCCN3Z"
+  },
+  {
+    "id": 3,
+    "email": "pcsm.cs@gmail.com",
+    "password": "$2b$10$GLm7lzVln/kHez9rWxR1COEThJi9eHIOTJyUY/ncRIYUwppAhLANW",
+    "role": "admin",
+    "twoFASecret": "J5JVQVSANNIF2OTGKB3U4VLBLYUS6KCV"
   }
 ]

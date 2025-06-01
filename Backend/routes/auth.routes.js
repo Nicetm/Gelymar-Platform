@@ -1,6 +1,8 @@
+// /routes/auth.routes.js
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/auth.controller');
+const authMiddleware = require('../middleware/auth.middleware');
 
 /**
  * @swagger
@@ -28,6 +30,13 @@ const authController = require('../controllers/auth.controller');
 router.post('/login', authController.login);
 router.get('/2fa/setup', authController.setup2FA);
 router.get('/2fa/status', authController.check2FAStatus);
+router.get('/me', authMiddleware, (req, res) => {
+    res.json({
+      id: req.user.id,
+      email: req.user.email,
+      role: req.user.role
+    });
+  });
 
 
 module.exports = router;

@@ -114,13 +114,17 @@
       if (!res.ok) {
         if (data.message?.includes('2FA') && !otpShown) {
           otpShown = true;
-
           document.getElementById('otpContainer').classList.remove('hidden');
-          document.getElementById('qrContainer').classList.remove('hidden');
 
-          const qrRes = await fetch(`http://localhost:3000/api/auth/2fa/setup?email=${email}`);
-          const qrData = await qrRes.json();
-          document.getElementById('qrImage').src = qrData.qr;
+          const statusRes = await fetch(`http://localhost:3000/api/auth/2fa/status?email=${encodeURIComponent(email)}`);
+          const { twoFAEnabled } = await statusRes.json();
+
+          if (!twoFAEnabled) {
+            document.getElementById('qrContainer').classList.remove('hidden');
+            const qrRes = await fetch(`http://localhost:3000/api/auth/2fa/setup?email=${encodeURIComponent(email)}`);
+            const { qr } = await qrRes.json();
+            document.getElementById('qrImage').src = qr;
+          }
 
           msg.textContent = 'Please enter your 2FA code from the authenticator app.';
           msg.classList.remove('hidden');
@@ -136,15 +140,37 @@
         return;
       }
 
+      // ✅ Guardar token
       localStorage.setItem('token', data.token);
-      const payload = JSON.parse(atob(data.token.split('.')[1]));
-      window.location.href = payload.role === 'admin' ? '/admin/dashboard' : '/client/dashboard';
+
+      // ✅ Consultar /me para obtener el rol seguro
+      const meRes = await fetch('http://localhost:3000/api/auth/me', {
+        headers: {
+          Authorization: `Bearer ${data.token}`
+        }
+      });
+
+      if (!meRes.ok) {
+        msg.textContent = 'Error validando usuario';
+        msg.classList.remove('hidden');
+        msg.classList.add('text-red-500');
+        return;
+      }
+
+      const user = await meRes.json();
+
+      // ✅ Redirigir según rol real
+      if (user.role === 'admin') {
+        window.location.href = '/admin/dashboard';
+      } else {
+        window.location.href = '/client/dashboard';
+      }
 
     } catch (err) {
       msg.textContent = 'Connection error';
       msg.classList.remove('hidden');
-      msg.classList.remove('text-green-600');
       msg.classList.add('text-red-500');
     }
   });
 </script>
+
