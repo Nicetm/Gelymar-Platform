@@ -1,7 +1,252 @@
 [
   {
     "id": 1,
-    "name": "Cliente Demo",
-    "email": "cliente@gelymar.cl"
+    "name": "Oceanic Freight Ltd",
+    "email": "oceanicfreightltd@gelymar.cl"
+  },
+  {
+    "id": 2,
+    "name": "Maritime Logistics Corp",
+    "email": "maritimelogisticscorp@gelymar.cl"
+  },
+  {
+    "id": 3,
+    "name": "BlueWave Shipping",
+    "email": "bluewaveshipping@gelymar.cl"
+  },
+  {
+    "id": 4,
+    "name": "Atlantic Carriers",
+    "email": "atlanticcarriers@gelymar.cl"
+  },
+  {
+    "id": 5,
+    "name": "Global Marine Express",
+    "email": "globalmarineexpress@gelymar.cl"
+  },
+  {
+    "id": 6,
+    "name": "Neptune Cargo",
+    "email": "neptunecargo@gelymar.cl"
+  },
+  {
+    "id": 7,
+    "name": "Pacific Horizon Lines",
+    "email": "pacifichorizonlines@gelymar.cl"
+  },
+  {
+    "id": 8,
+    "name": "Titan Sea Transport",
+    "email": "titanseatransport@gelymar.cl"
+  },
+  {
+    "id": 9,
+    "name": "Poseidon Freight",
+    "email": "poseidonfreight@gelymar.cl"
+  },
+  {
+    "id": 10,
+    "name": "Horizon Maritime Ltd",
+    "email": "horizonmaritimeltd@gelymar.cl"
+  },
+  {
+    "id": 11,
+    "name": "Anchor Bay Shipping",
+    "email": "anchorbayshipping@gelymar.cl"
+  },
+  {
+    "id": 12,
+    "name": "Seaway Global Logistics",
+    "email": "seawaygloballogistics@gelymar.cl"
+  },
+  {
+    "id": 13,
+    "name": "AquaVoyage Ltd",
+    "email": "aquavoyageltd@gelymar.cl"
+  },
+  {
+    "id": 14,
+    "name": "CoralLine Shipping",
+    "email": "corallineshipping@gelymar.cl"
+  },
+  {
+    "id": 15,
+    "name": "DeepBlue Transport",
+    "email": "deepbluetransport@gelymar.cl"
+  },
+  {
+    "id": 16,
+    "name": "MarineGate Carriers",
+    "email": "marinegatecarriers@gelymar.cl"
+  },
+  {
+    "id": 17,
+    "name": "OceanStar Freight",
+    "email": "oceanstarfreight@gelymar.cl"
+  },
+  {
+    "id": 18,
+    "name": "Seaspan Cargo",
+    "email": "seaspancargo@gelymar.cl"
+  },
+  {
+    "id": 19,
+    "name": "Nautilus Maritime",
+    "email": "nautilusmaritime@gelymar.cl"
+  },
+  {
+    "id": 20,
+    "name": "Trident Logistics",
+    "email": "tridentlogistics@gelymar.cl"
+  },
+  {
+    "id": 21,
+    "name": "WaveRider Shipping",
+    "email": "waveridershipping@gelymar.cl"
+  },
+  {
+    "id": 22,
+    "name": "Meridian Oceanic",
+    "email": "meridianoceanic@gelymar.cl"
+  },
+  {
+    "id": 23,
+    "name": "SeaBridge Carriers",
+    "email": "seabridgecarriers@gelymar.cl"
+  },
+  {
+    "id": 24,
+    "name": "Kraken Line Ltd",
+    "email": "krakenlineltd@gelymar.cl"
+  },
+  {
+    "id": 25,
+    "name": "OceanTrail Logistics",
+    "email": "oceantraillogistics@gelymar.cl"
+  },
+  {
+    "id": 26,
+    "name": "Marinex Global",
+    "email": "marinexglobal@gelymar.cl"
+  },
+  {
+    "id": 27,
+    "name": "Suncoast Cargo",
+    "email": "suncoastcargo@gelymar.cl"
+  },
+  {
+    "id": 28,
+    "name": "SeaWing Freight",
+    "email": "seawingfreight@gelymar.cl"
+  },
+  {
+    "id": 29,
+    "name": "HarborLine Logistics",
+    "email": "harborlinelogistics@gelymar.cl"
+  },
+  {
+    "id": 30,
+    "name": "Aqualink Maritime",
+    "email": "aqualinkmaritime@gelymar.cl"
+  },
+  {
+    "id": 31,
+    "name": "MarineXpress",
+    "email": "marinexpress@gelymar.cl"
+  },
+  {
+    "id": 32,
+    "name": "SilverWave Shipping",
+    "email": "silverwaveshipping@gelymar.cl"
+  },
+  {
+    "id": 33,
+    "name": "PoseiTrans Ltd",
+    "email": "poseitransltd@gelymar.cl"
+  },
+  {
+    "id": 34,
+    "name": "Atlantic Pulse Carriers",
+    "email": "atlanticpulsecarriers@gelymar.cl"
+  },
+  {
+    "id": 35,
+    "name": "BlueAnchor Logistics",
+    "email": "blueanchorlogistics@gelymar.cl"
+  },
+  {
+    "id": 36,
+    "name": "SailNet Freight",
+    "email": "sailnetfreight@gelymar.cl"
+  },
+  {
+    "id": 37,
+    "name": "Oceanreach Transport",
+    "email": "oceanreachtransport@gelymar.cl"
+  },
+  {
+    "id": 38,
+    "name": "DeepRoute Maritime",
+    "email": "deeproutemaritime@gelymar.cl"
+  },
+  {
+    "id": 39,
+    "name": "StormRider Shipping",
+    "email": "stormridershipping@gelymar.cl"
+  },
+  {
+    "id": 40,
+    "name": "MarineFlow Ltd",
+    "email": "marineflowltd@gelymar.cl"
+  },
+  {
+    "id": 41,
+    "name": "OceanRoute Express",
+    "email": "oceanrouteexpress@gelymar.cl"
+  },
+  {
+    "id": 42,
+    "name": "GlobalSails Ltd",
+    "email": "globalsailsltd@gelymar.cl"
+  },
+  {
+    "id": 43,
+    "name": "Tideway Shipping",
+    "email": "tidewayshipping@gelymar.cl"
+  },
+  {
+    "id": 44,
+    "name": "AquaStar Logistics",
+    "email": "aquastarlogistics@gelymar.cl"
+  },
+  {
+    "id": 45,
+    "name": "PacificStream Carriers",
+    "email": "pacificstreamcarriers@gelymar.cl"
+  },
+  {
+    "id": 46,
+    "name": "NaviGate Global",
+    "email": "navigateglobal@gelymar.cl"
+  },
+  {
+    "id": 47,
+    "name": "Coastal Path Shipping",
+    "email": "coastalpathshipping@gelymar.cl"
+  },
+  {
+    "id": 48,
+    "name": "BlueTitan Freight",
+    "email": "bluetitanfreight@gelymar.cl"
+  },
+  {
+    "id": 49,
+    "name": "Neptune Lines",
+    "email": "neptunelines@gelymar.cl"
+  },
+  {
+    "id": 50,
+    "name": "SailCore Logistics",
+    "email": "sailcorelogistics@gelymar.cl"
   }
 ]

@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const customerController = require('../controllers/customer.controller');
 const authMiddleware = require('../middleware/auth.middleware');
+const { authorizeRoles } = require('../middleware/role.middleware');
 
 /**
  * @swagger
@@ -16,7 +17,7 @@ const authMiddleware = require('../middleware/auth.middleware');
  *       200:
  *         description: List of customers
  */
-router.get('/', authMiddleware, customerController.getAllCustomers);
+router.get('/', authMiddleware, authMiddleware, authorizeRoles(['admin']), customerController.getAllCustomers);
 
 /**
  * @swagger
@@ -38,6 +39,6 @@ router.get('/', authMiddleware, customerController.getAllCustomers);
  *       404:
  *         description: Customer not found
  */
-router.get('/:id', authMiddleware, customerController.getCustomerById);
+router.get('/:id', authMiddleware, authMiddleware, authorizeRoles(['admin']), customerController.getCustomerById);
 
 module.exports = router;

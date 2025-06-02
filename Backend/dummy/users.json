@@ -16,7 +16,7 @@
   {
     "id": 3,
     "email": "pcsm.cs@gmail.com",
-    "password": "$2b$10$fuC9IoC.lzqxFjTCx0w.8eUxaqBmMHqUpGw6s6C3C4kMtYFjTwBDa",
+    "password": "$2b$10$eagMaswmRaPICyjVDQ64/ut.Qg0Kbf5CL3X0mXqrjAGRflbhcUBRy",
     "role": "admin",
     "twoFASecret": "J5JVQVSANNIF2OTGKB3U4VLBLYUS6KCV"
   }

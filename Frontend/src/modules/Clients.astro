@@ -1,0 +1,144 @@
+---
+---
+
+<div class="px-4 pt-14">
+  <h1 class="text-2xl font-semibold mb-4">Clientes</h1>
+
+  <!-- Input búsqueda -->
+  <input
+    type="text"
+    id="searchInput"
+    placeholder="Buscar cliente..."
+    class="input w-full mb-4"
+  />
+
+  <!-- Tabla -->
+  <div class="overflow-x-auto">
+    <table class="w-full table-auto border text-sm">
+      <thead>
+        <tr class="bg-gray-100">
+          <th class="text-left px-4 py-2">Cliente</th>
+          <th class="text-center px-4 py-2">Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="customersTableBody">
+        <tr>
+          <td colspan="2" class="text-center py-4 text-gray-500">Cargando...</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Paginador -->
+  <div class="flex justify-between items-center mt-4 text-sm">
+    <div>
+      <label for="itemsPerPageSelect" class="mr-2">Clientes por página:</label>
+      <select id="itemsPerPageSelect" class="input w-auto">
+        <option value="10">10</option>
+        <option value="20">20</option>
+        <option value="30">30</option>
+      </select>
+    </div>
+    <div class="space-x-2">
+      <button id="prevPageBtn" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">Anterior</button>
+      <button id="nextPageBtn" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">Siguiente</button>
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  .input {
+    @apply bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-[#00538C] focus:border-[#00538C];
+  }
+</style>
+
+<script is:inline>
+  let customers = [];
+  let filtered = [];
+  let currentPage = 1;
+  let itemsPerPage = 10;
+
+  const tableBody = document.getElementById('customersTableBody');
+  const searchInput = document.getElementById('searchInput');
+  const itemsPerPageSelect = document.getElementById('itemsPerPageSelect');
+  const prevPageBtn = document.getElementById('prevPageBtn');
+  const nextPageBtn = document.getElementById('nextPageBtn');
+
+  function renderTable(data) {
+    tableBody.innerHTML = '';
+
+    if (data.length === 0) {
+      tableBody.innerHTML = '<tr><td colspan="2" class="text-center py-4 text-gray-500">No hay clientes</td></tr>';
+      return;
+    }
+
+    const start = (currentPage - 1) * itemsPerPage;
+    const end = start + itemsPerPage;
+    const paginated = data.slice(start, end);
+
+    paginated.forEach(c => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td class="px-4 py-2">${c.name}</td>
+        <td class="px-4 py-2 text-center space-x-2">
+          <a href="/admin/clientes/${c.id}/documentos" title="Ver Documentos">📄</a>
+          <a href="/admin/clientes/${c.id}/pedidos" title="Ver Pedidos">📦</a>
+        </td>
+      `;
+      tableBody.appendChild(row);
+    });
+  }
+
+  function applySearch() {
+    const q = searchInput.value.toLowerCase();
+    filtered = customers.filter(c => c.name.toLowerCase().includes(q));
+    const totalPages = Math.ceil(filtered.length / itemsPerPage);
+    if (currentPage > totalPages) {
+      currentPage = totalPages > 0 ? totalPages : 1;
+    }
+    renderTable(filtered);
+  }
+
+  async function fetchCustomers() {
+    try {
+      const res = await fetch('http://localhost:3000/api/customers', {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      customers = await res.json();
+      applySearch();
+    } catch (err) {
+      tableBody.innerHTML = '<tr><td colspan="2" class="text-center py-4 text-red-600">Error cargando clientes</td></tr>';
+    }
+  }
+
+  searchInput.addEventListener('input', () => {
+    currentPage = 1;
+    applySearch();
+  });
+
+  itemsPerPageSelect.addEventListener('change', () => {
+    itemsPerPage = parseInt(itemsPerPageSelect.value, 10);
+    currentPage = 1;
+    applySearch();
+  });
+
+  prevPageBtn.addEventListener('click', () => {
+    if (currentPage > 1) {
+      currentPage -= 1;
+      renderTable(filtered);
+    }
+  });
+
+  nextPageBtn.addEventListener('click', () => {
+    const totalPages = Math.ceil(filtered.length / itemsPerPage);
+    if (currentPage < totalPages) {
+      currentPage += 1;
+      renderTable(filtered);
+    }
+  });
+
+  fetchCustomers();
+</script>
