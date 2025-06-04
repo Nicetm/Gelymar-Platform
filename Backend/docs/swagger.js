@@ -29,7 +29,15 @@ Gestión de Clientes, Ítems, Órdenes, Stock y Documentos.
     {
       url: 'http://localhost:3000',
       description: 'Servidor local'
-    }
+    },
+    {
+      "url": "https://api.gelymar-prod.com",
+      "description": "Servidor de producción"
+    },
+    {
+      "url": "https://api.gelymar-qa.com",
+      "description": "Servidor de pruebas"
+    },
   ],
   components: {
     securitySchemes: {

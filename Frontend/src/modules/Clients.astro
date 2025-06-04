@@ -1,47 +1,89 @@
 ---
+import { loadTranslations, getCurrentLang } from '../lib/i18n.js';
+
+const lang = getCurrentLang();
+const t: any = {
+  clientes: await loadTranslations(lang, 'clientes'),
+};
 ---
 
-<div class="px-4 pt-14">
-  <h1 class="text-2xl font-semibold mb-4">Clientes</h1>
+<div class="p-4 bg-white block sm:flex items-center justify-between border-b border-gray-200 lg:mt-1.5 dark:bg-gray-800 dark:border-gray-700">
+	<div class="w-full mb-1">
+		<div class="mb-4">
+			<nav class="flex mb-5" aria-label="Breadcrumb">
+				<ol class="inline-flex items-center space-x-1 text-sm font-medium md:space-x-2">
+					<li class="inline-flex items-center">
+						<a href="#" class="inline-flex items-center text-gray-700 hover:text-primary-600 dark:text-gray-300 dark:hover:text-white">
+							<svg class="w-5 h-5 mr-2.5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path></svg>
+							Home
+						</a>
+					</li>
+					<li>
+						<div class="flex items-center">
+							<svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path></svg>
+							<a href="#" class="ml-1 text-gray-700 hover:text-primary-600 md:ml-2 dark:text-gray-300 dark:hover:text-white">Users</a>
+						</div>
+					</li>
+					<li>
+						<div class="flex items-center">
+							<svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path></svg>
+							<span class="ml-1 text-gray-400 md:ml-2 dark:text-gray-500" aria-current="page">List</span>
+						</div>
+					</li>
+				</ol>
+			</nav>
+			<h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">{t.clientes.title}</h1>
+		</div>
+		<div class="sm:flex">
+			<div class="items-center hidden mb-3 sm:flex sm:divide-x sm:divide-gray-100 sm:mb-0 dark:divide-gray-700">
+				<!-- Buscador -->
+				<input type="text" id="searchInput" placeholder="Buscar cliente..." class="input w-full mb-6 shadow-sm"/>
+			</div>
+		</div>
+	</div>
+</div>
 
-  <!-- Input búsqueda -->
-  <input
-    type="text"
-    id="searchInput"
-    placeholder="Buscar cliente..."
-    class="input w-full mb-4"
-  />
 
+<div class="flex flex-col">
   <!-- Tabla -->
-  <div class="overflow-x-auto">
-    <table class="w-full table-auto border text-sm">
-      <thead>
-        <tr class="bg-gray-100">
-          <th class="text-left px-4 py-2">Cliente</th>
-          <th class="text-center px-4 py-2">Acciones</th>
-        </tr>
-      </thead>
-      <tbody id="customersTableBody">
-        <tr>
-          <td colspan="2" class="text-center py-4 text-gray-500">Cargando...</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
+	<div class="overflow-x-auto">
+		<div class="inline-block min-w-full align-middle">
+			<div class="overflow-hidden shadow">
+				<table class="min-w-full divide-y divide-gray-200 table-fixed dark:divide-gray-600">
+					<thead class="bg-gray-100 dark:bg-gray-700">
+						<tr>
+							<th scope="col" class="p-4 text-xs font-medium text-left text-gray-500 uppercase dark:text-gray-400">{t.clientes.title}</th>
+							<th scope="col" class="p-4 text-xs font-medium text-left text-gray-500 uppercase dark:text-gray-400">Acciones</th>
+						</tr>
+					</thead>
+					<tbody id="customersTableBody" class="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
+						<tr class="hover:bg-gray-100 dark:hover:bg-gray-700">
+							<td colspan="2" class="px-6 py-4 text-center text-gray-500 dark:text-gray-400">Cargando...</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</div>
 
-  <!-- Paginador -->
-  <div class="flex justify-between items-center mt-4 text-sm">
-    <div>
-      <label for="itemsPerPageSelect" class="mr-2">Clientes por página:</label>
-      <select id="itemsPerPageSelect" class="input w-auto">
+  <!-- Paginación -->
+  <div class="flex flex-col sm:flex-row justify-between items-center mt-6 gap-4 text-sm">
+    <label class="flex items-center gap-2 text-gray-700 dark:text-gray-200">
+      Clientes por página:
+      <select id="itemsPerPageSelect" class="input w-24 text-sm shadow-sm">
         <option value="10">10</option>
         <option value="20">20</option>
         <option value="30">30</option>
       </select>
-    </div>
+    </label>
+
     <div class="space-x-2">
-      <button id="prevPageBtn" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">Anterior</button>
-      <button id="nextPageBtn" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">Siguiente</button>
+      <button id="prevPageBtn" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded-md shadow-sm transition">
+        Anterior
+      </button>
+      <button id="nextPageBtn" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded-md shadow-sm transition">
+        Siguiente
+      </button>
     </div>
   </div>
 </div>
@@ -67,20 +109,23 @@
   function renderTable(data) {
     tableBody.innerHTML = '';
 
-    if (data.length === 0) {
-      tableBody.innerHTML = '<tr><td colspan="2" class="text-center py-4 text-gray-500">No hay clientes</td></tr>';
+    if (!data.length) {
+      tableBody.innerHTML = `<tr><td colspan="2" class="px-6 py-4 text-center text-gray-500 dark:text-gray-400">No hay clientes</td></tr>`;
       return;
     }
 
     const start = (currentPage - 1) * itemsPerPage;
     const end = start + itemsPerPage;
-    const paginated = data.slice(start, end);
+    const pageData = data.slice(start, end);
 
-    paginated.forEach(c => {
+    pageData.forEach((c, index) => {
+      const bgClass = index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-900';
       const row = document.createElement('tr');
+      row.className = `${bgClass} hover:bg-gray-100 dark:hover:bg-gray-700 transition`;
+
       row.innerHTML = `
-        <td class="px-4 py-2">${c.name}</td>
-        <td class="px-4 py-2 text-center space-x-2">
+        <td class="p-4 text-base font-medium text-gray-900 whitespace-nowrap dark:text-white">${c.name}</td>
+        <td class="p-4 text-base font-medium text-gray-900 whitespace-nowrap dark:text-white">
           <a href="/admin/clientes/${c.id}/documentos" title="Ver Documentos">📄</a>
           <a href="/admin/clientes/${c.id}/pedidos" title="Ver Pedidos">📦</a>
         </td>
@@ -92,37 +137,16 @@
   function applySearch() {
     const q = searchInput.value.toLowerCase();
     filtered = customers.filter(c => c.name.toLowerCase().includes(q));
-    const totalPages = Math.ceil(filtered.length / itemsPerPage);
-    if (currentPage > totalPages) {
-      currentPage = totalPages > 0 ? totalPages : 1;
-    }
+    currentPage = 1;
     renderTable(filtered);
   }
 
-  async function fetchCustomers() {
-    try {
-      const res = await fetch('http://localhost:3000/api/customers', {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      customers = await res.json();
-      applySearch();
-    } catch (err) {
-      tableBody.innerHTML = '<tr><td colspan="2" class="text-center py-4 text-red-600">Error cargando clientes</td></tr>';
-    }
-  }
-
-  searchInput.addEventListener('input', () => {
-    currentPage = 1;
-    applySearch();
-  });
+  searchInput.addEventListener('input', applySearch);
 
   itemsPerPageSelect.addEventListener('change', () => {
     itemsPerPage = parseInt(itemsPerPageSelect.value, 10);
     currentPage = 1;
-    applySearch();
+    renderTable(filtered);
   });
 
   prevPageBtn.addEventListener('click', () => {
@@ -139,6 +163,21 @@
       renderTable(filtered);
     }
   });
+
+  async function fetchCustomers() {
+    try {
+      const res = await fetch('http://localhost:3000/api/customers', {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      customers = await res.json();
+      filtered = customers;
+      renderTable(filtered);
+    } catch (err) {
+      tableBody.innerHTML = '<tr><td colspan="2" class="text-center py-4 text-red-600">Error cargando clientes</td></tr>';
+    }
+  }
 
   fetchCustomers();
 </script>
