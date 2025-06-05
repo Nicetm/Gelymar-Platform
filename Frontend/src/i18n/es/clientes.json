@@ -1,6 +1,14 @@
 {
+  "home": "Inicio",
   "title": "Clientes",
   "search": "Buscar cliente...",
-  "noResults": "No hay clientes",
-  "perPage": "Clientes por página:"
+  "addClient": "Agregar cliente",
+  "name": "Nombre",
+  "actions": "Acciones",
+  "loading": "Cargando clientes...",
+  "noResults": "No se encontraron clientes",
+  "perPage": "Clientes por página",
+  "error": "Error al cargar los clientes",
+  "documents": "Documentos",
+  "orders": "Pedidos"
 }

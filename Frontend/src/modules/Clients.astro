@@ -1,100 +1,183 @@
 ---
-import { loadTranslations, getCurrentLang } from '../lib/i18n.js';
-
-const lang = getCurrentLang();
+// i18n
+import { loadTranslations } from '../lib/i18n.js';
+const lang = 'en';
 const t: any = {
   clientes: await loadTranslations(lang, 'clientes'),
 };
 ---
 
-<div class="p-4 bg-white block sm:flex items-center justify-between border-b border-gray-200 lg:mt-1.5 dark:bg-gray-800 dark:border-gray-700">
-	<div class="w-full mb-1">
-		<div class="mb-4">
-			<nav class="flex mb-5" aria-label="Breadcrumb">
-				<ol class="inline-flex items-center space-x-1 text-sm font-medium md:space-x-2">
-					<li class="inline-flex items-center">
-						<a href="#" class="inline-flex items-center text-gray-700 hover:text-primary-600 dark:text-gray-300 dark:hover:text-white">
-							<svg class="w-5 h-5 mr-2.5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path></svg>
-							Home
-						</a>
-					</li>
-					<li>
-						<div class="flex items-center">
-							<svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path></svg>
-							<a href="#" class="ml-1 text-gray-700 hover:text-primary-600 md:ml-2 dark:text-gray-300 dark:hover:text-white">Users</a>
-						</div>
-					</li>
-					<li>
-						<div class="flex items-center">
-							<svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path></svg>
-							<span class="ml-1 text-gray-400 md:ml-2 dark:text-gray-500" aria-current="page">Lista</span>
-						</div>
-					</li>
-				</ol>
-			</nav>
-			<h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">{t.clientes.title}</h1>
-		</div>
-		<div class="sm:flex">
-			<div class="items-center hidden mb-3 sm:flex sm:divide-x sm:divide-gray-100 sm:mb-0 dark:divide-gray-700">
-				<!-- Buscador -->
-				<input type="text" id="searchInput" placeholder="Buscar cliente..." class="input w-full mb-6 shadow-sm"/>
-			</div>
-		</div>
-	</div>
-</div>
+<section class="px-4 pt-16 pb-6 sm:px-6 lg:px-8">
+  <!-- Encabezado y breadcrumb -->
+  <header class="flex flex-col gap-4 border-b border-gray-200 dark:border-gray-700 pb-4">
+    <nav class="text-sm text-gray-500 dark:text-gray-400" aria-label="Breadcrumb">
+      <ol class="inline-flex items-center space-x-1 md:space-x-2">
+        <li class="inline-flex items-center">
+          <a href="/admin" class="inline-flex items-center gap-1 hover:text-primary-600 dark:hover:text-white">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
+            </svg>
+            <span>{t.clientes.home}</span>
+          </a>
+        </li>
+        <li aria-current="page" class="flex items-center text-gray-400 dark:text-gray-300 font-medium">
+          <span class="mx-1">/</span>{t.clientes.title}
+        </li>
+      </ol>
+    </nav>
 
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{t.clientes.title}</h1>
+    </div>
 
-<div class="flex flex-col">
-  <!-- Tabla -->
-	<div class="overflow-x-auto">
-		<div class="inline-block min-w-full align-middle">
-			<div class="overflow-hidden shadow">
-				<table class="min-w-full divide-y divide-gray-200 table-fixed dark:divide-gray-600">
-					<thead class="bg-gray-100 dark:bg-gray-700">
-						<tr>
-							<th scope="col" class="p-4 text-xs font-medium text-left text-gray-500 uppercase dark:text-gray-400">{t.clientes.title}</th>
-							<th scope="col" class="p-4 text-xs font-medium text-left text-gray-500 uppercase dark:text-gray-400">Acciones</th>
-						</tr>
-					</thead>
-					<tbody id="customersTableBody" class="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
-						<tr class="hover:bg-gray-100 dark:hover:bg-gray-700">
-							<td colspan="2" class="px-6 py-4 text-center text-gray-500 dark:text-gray-400">Cargando...</td>
-						</tr>
-					</tbody>
-				</table>
-			</div>
-		</div>
-	</div>
+    <!-- Búsqueda y botón agregar cliente -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4">
+      <div class="relative w-full sm:max-w-xs">
+        <label for="searchInput" class="sr-only">{t.clientes.search}</label>
+        <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+          <svg class="w-5 h-5 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M10 18a8 8 0 100-16 8 8 0 000 16z"/>
+          </svg>
+        </div>
+        <input id="searchInput" type="text" placeholder={t.clientes.search} class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500" />
+      </div>
+
+      <button id="addClientBtn" class="flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-semibold shadow-sm bg-[#00538C] hover:bg-[#004773] text-white transition-all dark:bg-[#0077b6] dark:hover:bg-[#006194] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+        <svg id="addIcon" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+        </svg>
+        <svg id="spinnerIcon" class="w-4 h-4 animate-spin hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+        </svg>
+        <span id="addClientText">{t.clientes.addClient}</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Tabla de clientes -->
+  <div class="overflow-auto mt-6 rounded-xl shadow ring-1 ring-gray-200 dark:ring-gray-700">
+    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 table-fixed">
+      <thead class="bg-gray-100 dark:bg-gray-800 sticky top-0 z-10">
+        <tr>
+          <th class="w-[50%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.clientes.name}</th>
+          <th class="w-[25%] px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Status</th>
+          <th class="w-[25%] px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.clientes.actions}</th>
+        </tr>
+      </thead>
+      <tbody id="customersTableBody" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-sm min-h-[600px]">
+        <!-- Las filas <tr> se agregan dinámicamente aquí con JavaScript -->
+      </tbody>
+    </table>
+  </div>
 
   <!-- Paginación -->
-  <div class="flex flex-col sm:flex-row justify-between items-center mt-6 gap-4 text-sm">
-    <label class="flex items-center gap-2 text-gray-700 dark:text-gray-200">
-      Clientes por página:
-      <select id="itemsPerPageSelect" class="input w-24 text-sm shadow-sm">
-        <option value="10">10</option>
-        <option value="20">20</option>
-        <option value="30">30</option>
-      </select>
-    </label>
+  <div class="mt-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-6 text-sm">
+    <div class="flex items-center gap-3">
+      <label for="itemsPerPageSelect" class="text-sm font-medium text-gray-700 dark:text-gray-300">{t.clientes.perPage}</label>
+      <div class="relative">
+        <select id="itemsPerPageSelect" class="block w-20 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-sm text-gray-900 dark:text-white rounded-md pl-3 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="10">10</option>
+          <option value="20">20</option>
+          <option value="30">30</option>
+        </select>
+      </div>
+    </div>
 
-    <div class="space-x-2">
-      <button id="prevPageBtn" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded-md shadow-sm transition">
-        Anterior
+    <div class="flex items-center gap-3">
+      <button id="prevPageBtn" aria-label="Previous page" class="w-9 h-9 flex items-center justify-center bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-white rounded-md transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
       </button>
-      <button id="nextPageBtn" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded-md shadow-sm transition">
-        Siguiente
+      <span id="pageIndicator" class="px-4 py-1 rounded-lg bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-white text-sm font-medium shadow-sm">Page 1 of 5</span>
+      <button id="nextPageBtn" aria-label="Next page" class="w-9 h-9 flex items-center justify-center bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-white rounded-md transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
       </button>
     </div>
   </div>
+</section>
+
+
+<!-- Modal overlay and form -->
+<div id="addClientModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm hidden">
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md mx-4 p-6 relative">
+    <!-- Close button -->
+    <button id="closeModalBtn" class="absolute top-3 right-3 text-gray-500 dark:text-gray-300 hover:text-red-500 transition">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+
+    <!-- Modal content -->
+    <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Add Client</h2>
+
+    <form id="addClientForm" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Client Name</label>
+        <input type="text" name="name" class="w-full mt-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500" required>
+      </div>
+
+      <div class="flex justify-end">
+        <button type="submit" class="bg-[#00538C] hover:bg-[#004773] text-white px-4 py-2 rounded-md font-medium shadow transition">
+          Save
+        </button>
+      </div>
+    </form>
+  </div>
 </div>
 
-<style is:global>
-  .input {
-    @apply bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-[#00538C] focus:border-[#00538C];
+<script is:inline>
+  const addClientBtn = document.getElementById('addClientBtn');
+  const modal = document.getElementById('addClientModal');
+  const closeModalBtn = document.getElementById('closeModalBtn');
+  const addIcon = document.getElementById('addIcon');
+  const spinnerIcon = document.getElementById('spinnerIcon');
+
+  // Mostrar modal con spinner
+  if (addClientBtn) {
+    addClientBtn.addEventListener('click', () => {
+      addIcon.classList.add('hidden');
+      spinnerIcon.classList.remove('hidden');
+
+      setTimeout(() => {
+        spinnerIcon.classList.add('hidden');
+        addIcon.classList.remove('hidden');
+        modal.classList.remove('hidden');
+      }, 500);
+    });
   }
-</style>
+
+  // Cerrar modal con botón
+  if (closeModalBtn) {
+    closeModalBtn.addEventListener('click', () => {
+      modal.classList.add('hidden');
+    });
+  }
+
+  // Cerrar modal haciendo clic fuera de la tarjeta
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.classList.add('hidden');
+    }
+  });
+
+  // Cerrar modal con tecla Escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+      modal.classList.add('hidden');
+    }
+  });
+</script>
+
 
 <script is:inline>
+  // Textos traducidos desde Astro
+  const noResultsText = "{t.clientes.noResults}";
+  const errorText = "{t.clientes.error}";
+
   let customers = [];
   let filtered = [];
   let currentPage = 1;
@@ -105,12 +188,13 @@ const t: any = {
   const itemsPerPageSelect = document.getElementById('itemsPerPageSelect');
   const prevPageBtn = document.getElementById('prevPageBtn');
   const nextPageBtn = document.getElementById('nextPageBtn');
+  const pageIndicator = document.getElementById('pageIndicator');
 
   function renderTable(data) {
     tableBody.innerHTML = '';
-
     if (!data.length) {
-      tableBody.innerHTML = `<tr><td colspan="2" class="px-6 py-4 text-center text-gray-500 dark:text-gray-400">No hay clientes</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="3" class="px-6 py-4 text-center text-gray-500 dark:text-gray-400">${noResultsText}</td></tr>`;
+      pageIndicator.textContent = '';
       return;
     }
 
@@ -118,40 +202,78 @@ const t: any = {
     const end = start + itemsPerPage;
     const pageData = data.slice(start, end);
 
-    pageData.forEach((c, index) => {
-      const bgClass = index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-900';
-      const row = document.createElement('tr');
-      row.className = `${bgClass} hover:bg-gray-100 dark:hover:bg-gray-700 transition`;
+    for (const c of pageData) {
+      const isActive = c.active;
+      const statusClass = isActive
+        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+        : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
 
+      const statusIcon = isActive
+        ? `<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>`
+        : `<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>`;
+
+      const row = document.createElement('tr');
+      row.className = `hover:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition`;
       row.innerHTML = `
-        <td class="p-4 text-base font-medium text-gray-900 whitespace-nowrap dark:text-white">${c.name}</td>
-        <td class="p-4 text-base font-medium text-gray-900 whitespace-nowrap dark:text-white">
-          <a href="/admin/clientes/${c.id}/documentos" title="Ver Documentos">📄</a>
-          <a href="/admin/clientes/${c.id}/pedidos" title="Ver Pedidos">📦</a>
+        <td class="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white max-w-[240px] truncate overflow-hidden whitespace-nowrap" title="${c.name}">
+          ${c.name}
+        </td>
+        <td class="px-6 py-4 text-sm">
+          <div class="flex justify-center items-center h-full">
+            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusClass}">
+              ${statusIcon}
+              ${isActive ? 'Active' : 'Inactive'}
+            </span>
+          </div>
+        </td>
+        <td class="w-[25%] px-6 py-4 text-sm">
+          <div class="flex justify-center items-center gap-3 text-gray-900 dark:text-white">
+            <a href="/admin/clientes/${c.id}/documentos" title="Documents" class="hover:text-blue-500 transition">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+              </svg>
+            </a>
+            <a href="/admin/clientes/${c.id}/pedidos" title="Orders" class="hover:text-yellow-500 transition">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M3 3h18v4H3z"/>
+                <path d="M3 7h18v13H3z"/>
+                <path d="M16 3v4"/>
+              </svg>
+            </a>
+            <a href="/admin/clientes/${c.id}/editar" title="Edit Client" class="hover:text-green-500 transition">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.586-6.586a2 2 0 112.828 2.828L11.828 13.83a2 2 0 01-.586.414L9 15l.756-2.243a2 2 0 01.414-.586z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 20H5"/>
+              </svg>
+            </a>
+          </div>
         </td>
       `;
       tableBody.appendChild(row);
-    });
+    }
+
+    const totalPages = Math.ceil(filtered.length / itemsPerPage);
+    pageIndicator.textContent = `Page ${currentPage} of ${totalPages}`;
   }
 
   function applySearch() {
-    const q = searchInput.value.toLowerCase();
-    filtered = customers.filter(c => c.name.toLowerCase().includes(q));
+    const query = searchInput.value.toLowerCase();
+    filtered = customers.filter(c => c.name.toLowerCase().includes(query));
     currentPage = 1;
     renderTable(filtered);
   }
 
   searchInput.addEventListener('input', applySearch);
-
   itemsPerPageSelect.addEventListener('change', () => {
-    itemsPerPage = parseInt(itemsPerPageSelect.value, 10);
+    itemsPerPage = parseInt(itemsPerPageSelect.value);
     currentPage = 1;
     renderTable(filtered);
   });
 
   prevPageBtn.addEventListener('click', () => {
     if (currentPage > 1) {
-      currentPage -= 1;
+      currentPage--;
       renderTable(filtered);
     }
   });
@@ -159,7 +281,7 @@ const t: any = {
   nextPageBtn.addEventListener('click', () => {
     const totalPages = Math.ceil(filtered.length / itemsPerPage);
     if (currentPage < totalPages) {
-      currentPage += 1;
+      currentPage++;
       renderTable(filtered);
     }
   });
@@ -167,15 +289,13 @@ const t: any = {
   async function fetchCustomers() {
     try {
       const res = await fetch('http://localhost:3000/api/customers', {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       customers = await res.json();
       filtered = customers;
       renderTable(filtered);
     } catch (err) {
-      tableBody.innerHTML = '<tr><td colspan="2" class="text-center py-4 text-red-600">Error cargando clientes</td></tr>';
+      tableBody.innerHTML = `<tr><td colspan="3" class="text-center py-4 text-red-600">${errorText}</td></tr>`;
     }
   }
 
