@@ -26,20 +26,26 @@ exports.login = async (req, res) => {
     return res.status(401).json({ message: 'Contraseña incorrecta' });
   }
 
-  // Obligatorio: todos deben tener 2FA configurado
-  if (!user.twoFASecret) {
-    return res.status(401).json({ message: 'Cuenta no enrolada en 2FA. Escanee el QR y configure su autenticación.' });
-  }
+  // Si 2FA está habilitado, verificar el código
+  if (user.twoFAEnabled) {
+    if (!user.twoFASecret) {
+      return res.status(401).json({ message: 'Cuenta no enrolada en 2FA. Escanee el QR y configure su autenticación.' });
+    }
 
-  const verified = speakeasy.totp.verify({
-    secret: user.twoFASecret,
-    encoding: 'base32',
-    token: otp,
-    window: 1
-  });
+    if (!otp) {
+      return res.status(401).json({ message: 'Código 2FA requerido' });
+    }
 
-  if (!verified) {
-    return res.status(401).json({ message: 'Código 2FA inválido o no enviado' });
+    const verified = speakeasy.totp.verify({
+      secret: user.twoFASecret,
+      encoding: 'base32',
+      token: otp,
+      window: 1
+    });
+
+    if (!verified) {
+      return res.status(401).json({ message: 'Código 2FA inválido o no enviado' });
+    }
   }
 
   const token = generateToken({
