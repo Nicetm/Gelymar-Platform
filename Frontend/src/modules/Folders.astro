@@ -5,38 +5,67 @@ const { id } = Astro.params;
 const lang = 'es';
 const t: any = {
   carpetas: await loadTranslations(lang, 'carpetas'),
+  comond: await loadTranslations(lang, 'comond'),
 };
 ---
 
   <section id="folderSection" data-id={id} class="px-4 pt-16 pb-6 sm:px-6 lg:px-8">
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-      <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{t.carpetas?.title || 'Carpetas del Cliente'}</h1>
+		<!-- Encabezado y breadcrumb -->
+		<header class="flex flex-col gap-4 border-b border-gray-200 dark:border-gray-700 pb-4">
+			<nav class="text-sm text-gray-500 dark:text-gray-400" aria-label="Breadcrumb">
+				<ol class="inline-flex items-center space-x-1 md:space-x-2">
+					<li class="inline-flex items-center">
+						<a href="/admin" class="inline-flex items-center gap-1 hover:text-primary-600 dark:hover:text-white">
+							<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+								<path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
+							</svg>
+							<span>{t.comond.home}</span>
+						</a>
+					</li>
+					<li aria-current="page" class="flex items-center text-gray-400 dark:text-gray-300 font-medium">
+						<span class="mx-1">/</span>{t.carpetas.title}
+					</li>
+				</ol>
+			</nav>
 
-      <button id="addFolderBtn" class="flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-semibold shadow-sm bg-[#00538C] hover:bg-[#004773] text-white transition">
-        <svg id="addIcon" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-        </svg>
-        <svg id="spinnerIcon" class="w-4 h-4 animate-spin hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-        </svg>
-        <span id="addFolderText">{t.carpetas?.addFolder || 'Agregar Carpeta'}</span>
-      </button>
-    </div>
+			<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+				<h1 class="text-3xl font-bold text-gray-900 dark:text-white">{t.carpetas.title}</h1>
+			</div>
 
-    <!-- Buscador -->
-    <div class="mb-4 max-w-xs">
-      <input id="searchInput" type="text" placeholder={t.carpetas?.search || "Buscar..."} class="w-full px-4 py-2 border rounded-md text-sm bg-white dark:bg-gray-800 text-gray-800 dark:text-white border-gray-300 dark:border-gray-600" />
-    </div>
+			<!-- Búsqueda y botón agregar cliente -->
+			<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4">
+				<div class="relative w-full sm:max-w-xs">
+					<label for="searchInput" class="sr-only">{t.carpetas.search}</label>
+					<div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+						<svg class="w-5 h-5 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M10 18a8 8 0 100-16 8 8 0 000 16z"/>
+						</svg>
+					</div>
+					<input id="searchInput" type="text" placeholder={t.comond.search} class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500" />
+				</div>
+
+				<button id="addFolderBtn" class="flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-semibold shadow-sm bg-[#00538C] hover:bg-[#004773] text-white transition-all dark:bg-[#0077b6] dark:hover:bg-[#006194] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+					<svg id="addIcon" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+					</svg>
+					<svg id="spinnerIcon" class="w-4 h-4 animate-spin hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+						<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+						<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+					</svg>
+					<span id="addFolderText">{t.carpetas.addFolder}</span>
+				</button>
+			</div>
+		</header>
 
     <!-- Tabla de carpetas -->
     <div class="overflow-x-auto">
       <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm">
         <thead class="bg-gray-100 dark:bg-gray-800 sticky top-0 z-10">
           <tr>
-            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Nombre</th>
-            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Ruta</th>
-            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Fecha</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t.carpetas.name}</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t.carpetas.path}</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t.carpetas.date}</th>
+						<th class="w-[25%] px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.comond.actions}</th>
           </tr>
         </thead>
         <tbody id="foldersTableBody" class="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900">
@@ -48,7 +77,7 @@ const t: any = {
     <!-- Paginación -->
     <div class="mt-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-sm">
       <div class="flex items-center gap-3">
-        <label for="itemsPerPageSelect" class="text-sm font-medium">{t.carpetas?.perPage || 'Por página'}</label>
+        <label for="itemsPerPageSelect" class="text-sm font-medium">{t.carpetas.perPage}</label>
         <select id="itemsPerPageSelect" class="block w-20 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white rounded-md py-2 pl-3 pr-8">
           <option value="10">10</option>
           <option value="20">20</option>
@@ -60,7 +89,7 @@ const t: any = {
         <button id="prevPageBtn" class="w-9 h-9 flex items-center justify-center rounded-md bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-white">
           ‹
         </button>
-        <span id="pageIndicator" class="text-sm font-medium text-gray-700 dark:text-gray-300">Página 1</span>
+        <span id="pageIndicator" data-page-label={t.comond.page} data-of-label={t.comond.of} class="text-sm font-medium text-gray-700 dark:text-gray-300">Página 1</span>
         <button id="nextPageBtn" class="w-9 h-9 flex items-center justify-center rounded-md bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-white">
           ›
         </button>
@@ -75,15 +104,15 @@ const t: any = {
         ✕
       </button>
 
-      <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Crear Carpeta</h2>
+      <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">{t.carpetas.createTitle}</h2>
       <form id="addFolderForm" class="space-y-4">
         <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre</label>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">{t.carpetas.name}</label>
           <input type="text" name="name" class="w-full mt-1 px-4 py-2 border rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white" required />
         </div>
 
         <div class="flex justify-end">
-          <button type="submit" class="bg-[#00538C] hover:bg-[#004773] text-white px-4 py-2 rounded-md font-medium">Guardar</button>
+          <button type="submit" class="bg-[#00538C] hover:bg-[#004773] text-white px-4 py-2 rounded-md font-medium">{t.carpetas.createButton}</button>
         </div>
       </form>
     </div>
@@ -93,17 +122,16 @@ const t: any = {
 <!-- Lógica JS -->
 <script is:inline>
 	const idCliente = document.getElementById('folderSection')?.dataset.id;
-	console.log(`Cargando carpetas para el cliente con ID: ${idCliente}`);
   const qs = id => document.getElementById(id);
   const tableBody = qs('foldersTableBody');
   const searchInput = qs('searchInput');
   const itemsPerPageSelect = qs('itemsPerPageSelect');
   const prevPageBtn = qs('prevPageBtn');
   const nextPageBtn = qs('nextPageBtn');
-  const pageIndicator = qs('pageIndicator');
   const modal = qs('addFolderModal');
   const addFolderBtn = qs('addFolderBtn');
   const closeModalBtn = qs('closeModalBtn');
+	const pageIndicator = qs('pageIndicator');
 
   let folders = [];
   let filtered = [];
@@ -111,6 +139,7 @@ const t: any = {
   let itemsPerPage = 10;
 
   const toggleModal = show => modal.classList.toggle('hidden', !show);
+	const { pageLabel, ofLabel } = pageIndicator.dataset;
 
   addFolderBtn?.addEventListener('click', () => {
     toggleModal(true);
@@ -130,7 +159,7 @@ const t: any = {
     const start = (currentPage - 1) * itemsPerPage;
     const pageData = data.slice(start, start + itemsPerPage);
     const totalPages = Math.ceil(data.length / itemsPerPage);
-    pageIndicator.textContent = `Página ${currentPage} de ${totalPages}`;
+    pageIndicator.textContent = `${pageLabel} ${currentPage} ${ofLabel} ${totalPages}`;
 
     pageData.forEach(f => {
 			const row = document.createElement('tr');
@@ -138,7 +167,29 @@ const t: any = {
 				<td class="px-4 py-3">${f.name}</td>
 				<td class="px-4 py-3 break-all text-blue-600 dark:text-blue-400">${f.path}</td>
 				<td class="px-4 py-3">${f.createdAt || '-'}</td>
-			`;
+				<td class="w-[25%] px-6 py-4 text-sm">
+          <div class="flex justify-center items-center gap-3 text-gray-900 dark:text-white">
+						<a href="/admin/clients/folders/files/view/${f.name}" title="Ver archivos en ${f.name}" class="hover:text-blue-500 transition">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            </a>
+						<a href="#" title="Ver Lista de archivos de ${f.name}" class="hover:text-indigo-500 transition">
+							<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+							</svg>
+						</a>
+						<a href="/admin/clients/folders/edit/${f.name}" title="Editar ${f.name}" class="hover:text-green-500 transition">
+							<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.586-6.586a2 2 0 112.828 2.828L11.828 13.83a2 2 0 01-.586.414L9 15l.756-2.243a2 2 0 01.414-.586z" />
+								<path stroke-linecap="round" stroke-linejoin="round" d="M19 20H5" />
+							</svg>
+						</a>
+						<a href="#" title="Eliminar ${f.name}" class="hover:text-red-500 transition">
+							<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12M10 11v6M14 11v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
+							</svg>
+						</a>
+          </div>
+        </td>`;
 			tableBody.appendChild(row);
 		});
   };
