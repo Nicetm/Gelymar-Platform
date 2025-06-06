@@ -1,7 +1,49 @@
 const fs = require('fs');
 const path = require('path');
+const customers = require('../dummy/customers.json');
 
 const UPLOADS_ROOT = path.join(__dirname, '../uploads');
+
+
+/**
+ * Lista las carpetas del cliente según su ID.
+ * Ruta: GET /api/directories/:customerId
+ * Acceso: Solo administradores con token JWT
+ * Requiere: customerId como parámetro de URL
+ * Retorna: Array de nombres de carpetas dentro del directorio del cliente
+ */
+exports.getClientDirectories = (req, res) => {
+  const { customerId } = req.params; // este es el UUID
+
+  console.log('customerId recibido:', customerId);
+
+  if (!customerId) {
+    return res.status(400).json({ message: 'ID inválido' });
+  }
+
+  // Buscar nombre del cliente por UUID
+  const customer = customers.find(c => c.uuid === customerId);
+  if (!customer) {
+    return res.status(404).json({ message: 'Cliente no encontrado' });
+  }
+
+  const clientFolder = customer.name;
+  const basePath = path.join(__dirname, '..', 'uploads', clientFolder);
+
+  if (!fs.existsSync(basePath)) {
+    return res.status(404).json({ message: 'Directorio no encontrado para este cliente' });
+  }
+
+  const directories = fs.readdirSync(basePath, { withFileTypes: true })
+    .filter(dirent => dirent.isDirectory())
+    .map(dirent => ({
+      name: dirent.name,
+      path: path.join(clientFolder, dirent.name),
+      createdAt: fs.statSync(path.join(basePath, dirent.name)).birthtime.toISOString().split('T')[0]
+    }));
+
+  return res.status(200).json(directories);
+};
 
 /**
  * Crea el directorio principal del cliente (nombre cliente)

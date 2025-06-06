@@ -14,11 +14,11 @@ const { sendEmail } = require('../utils/email.util');
  * @access Público
  */
 exports.login = async (req, res) => {
-  const { email, password, otp } = req.body;
+  const { email, username, password, otp } = req.body;
 
-  const user = users.find(u => u.email === email);
+  const user = users.find(u => u.email === email || u.email === username);
   if (!user) {
-    return res.status(401).json({ message: 'Usuario no encontrado' });
+    return res.status(401).json({ message: 'Usuario no encontrado', user: user});
   }
 
   const validPassword = await bcrypt.compare(password, user.password);
