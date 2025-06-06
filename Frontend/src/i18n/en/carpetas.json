@@ -1,0 +1,14 @@
+{
+  "title": "Client Folders",
+  "search": "Search...",
+  "addFolder": "Add Folder",
+  "name": "Name",
+  "path": "Path",
+  "date": "Date",
+  "perPage": "Per page",
+  "noResults": "No folders found.",
+  "error": "Error loading folders.",
+  "createTitle": "Create Folder",
+  "createLabel": "Folder name",
+  "createButton": "Save"
+}

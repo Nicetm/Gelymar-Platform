@@ -47,10 +47,10 @@ app.use('/api/auth', authRoutes);
 
 // Rutas protegidas (requieren token + rol adecuado)
 app.use('/api/customers', authMiddleware, authorizeRoles(['admin']), customerRoutes);
-app.use('/api/orders', authMiddleware, authorizeRoles(['admin']), orderRoutes);
-app.use('/api/items', authMiddleware, authorizeRoles(['admin']), itemRoutes);
-app.use('/api/directories', authMiddleware, authorizeRoles(['client']), documentDirectoryRoutes);
-app.use('/api/files', authMiddleware, authorizeRoles(['client']), documentFileRoutes);
+app.use('/api/orders', authMiddleware, orderRoutes);
+app.use('/api/items', authMiddleware, itemRoutes);
+app.use('/api/directories', authMiddleware, documentDirectoryRoutes);
+app.use('/api/files', authMiddleware, documentFileRoutes);
 
 // 🔒 Rutas protegidas del frontend (HTML)
 const pathAdmin = path.join(__dirname, 'views-protegidas/admin/index.html');

@@ -6,6 +6,32 @@ const { authorizeRoles } = require('../middleware/role.middleware');
 
 /**
  * @swagger
+ * /api/directories/{customerId}:
+ *   get:
+ *     summary: Lista los directorios de un cliente
+ *     tags: [Directorios]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: customerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: UUID del cliente
+ *     responses:
+ *       200:
+ *         description: Directorios listados correctamente
+ *       400:
+ *         description: ID inválido
+ *       404:
+ *         description: Cliente no encontrado
+ */
+router.get('/:customerId', authMiddleware, authorizeRoles(['admin']), controller.getClientDirectories);
+
+
+/**
+ * @swagger
  * /api/directories/create-client:
  *   post:
  *     summary: Crear carpeta principal del cliente

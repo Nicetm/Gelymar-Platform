@@ -1,10 +1,12 @@
 const translationsMap = {
   es: {
     clientes: () => import('../i18n/es/clientes.json'),
+    carpetas: () => import('../i18n/es/carpetas.json'),
     // agrega más secciones si quieres
   },
   en: {
-    clientes: () => import('../i18n/en/clientes.json')
+    clientes: () => import('../i18n/en/clientes.json'),
+		carpetas: () => import('../i18n/en/carpetas.json'),
   }
 };
 

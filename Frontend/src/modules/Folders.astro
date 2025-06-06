@@ -1,0 +1,200 @@
+---
+import { loadTranslations } from '../lib/i18n.js';
+
+const { id } = Astro.params;
+const lang = 'es';
+const t: any = {
+  carpetas: await loadTranslations(lang, 'carpetas'),
+};
+---
+
+  <section id="folderSection" data-id={id} class="px-4 pt-16 pb-6 sm:px-6 lg:px-8">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+      <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{t.carpetas?.title || 'Carpetas del Cliente'}</h1>
+
+      <button id="addFolderBtn" class="flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-semibold shadow-sm bg-[#00538C] hover:bg-[#004773] text-white transition">
+        <svg id="addIcon" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+        </svg>
+        <svg id="spinnerIcon" class="w-4 h-4 animate-spin hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+        </svg>
+        <span id="addFolderText">{t.carpetas?.addFolder || 'Agregar Carpeta'}</span>
+      </button>
+    </div>
+
+    <!-- Buscador -->
+    <div class="mb-4 max-w-xs">
+      <input id="searchInput" type="text" placeholder={t.carpetas?.search || "Buscar..."} class="w-full px-4 py-2 border rounded-md text-sm bg-white dark:bg-gray-800 text-gray-800 dark:text-white border-gray-300 dark:border-gray-600" />
+    </div>
+
+    <!-- Tabla de carpetas -->
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm">
+        <thead class="bg-gray-100 dark:bg-gray-800 sticky top-0 z-10">
+          <tr>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Nombre</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Ruta</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Fecha</th>
+          </tr>
+        </thead>
+        <tbody id="foldersTableBody" class="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900">
+          <!-- Filas dinámicas -->
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Paginación -->
+    <div class="mt-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-sm">
+      <div class="flex items-center gap-3">
+        <label for="itemsPerPageSelect" class="text-sm font-medium">{t.carpetas?.perPage || 'Por página'}</label>
+        <select id="itemsPerPageSelect" class="block w-20 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white rounded-md py-2 pl-3 pr-8">
+          <option value="10">10</option>
+          <option value="20">20</option>
+          <option value="30">30</option>
+        </select>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button id="prevPageBtn" class="w-9 h-9 flex items-center justify-center rounded-md bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-white">
+          ‹
+        </button>
+        <span id="pageIndicator" class="text-sm font-medium text-gray-700 dark:text-gray-300">Página 1</span>
+        <button id="nextPageBtn" class="w-9 h-9 flex items-center justify-center rounded-md bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-white">
+          ›
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Modal para agregar carpeta (puedes completar luego) -->
+  <div id="addFolderModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md mx-4 p-6 relative">
+      <button id="closeModalBtn" class="absolute top-3 right-3 text-gray-500 dark:text-gray-300 hover:text-red-500 transition">
+        ✕
+      </button>
+
+      <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Crear Carpeta</h2>
+      <form id="addFolderForm" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre</label>
+          <input type="text" name="name" class="w-full mt-1 px-4 py-2 border rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white" required />
+        </div>
+
+        <div class="flex justify-end">
+          <button type="submit" class="bg-[#00538C] hover:bg-[#004773] text-white px-4 py-2 rounded-md font-medium">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+<!-- Lógica JS -->
+<script is:inline>
+	const idCliente = document.getElementById('folderSection')?.dataset.id;
+	console.log(`Cargando carpetas para el cliente con ID: ${idCliente}`);
+  const qs = id => document.getElementById(id);
+  const tableBody = qs('foldersTableBody');
+  const searchInput = qs('searchInput');
+  const itemsPerPageSelect = qs('itemsPerPageSelect');
+  const prevPageBtn = qs('prevPageBtn');
+  const nextPageBtn = qs('nextPageBtn');
+  const pageIndicator = qs('pageIndicator');
+  const modal = qs('addFolderModal');
+  const addFolderBtn = qs('addFolderBtn');
+  const closeModalBtn = qs('closeModalBtn');
+
+  let folders = [];
+  let filtered = [];
+  let currentPage = 1;
+  let itemsPerPage = 10;
+
+  const toggleModal = show => modal.classList.toggle('hidden', !show);
+
+  addFolderBtn?.addEventListener('click', () => {
+    toggleModal(true);
+  });
+  closeModalBtn?.addEventListener('click', () => toggleModal(false));
+  modal?.addEventListener('click', e => e.target === modal && toggleModal(false));
+  document.addEventListener('keydown', e => e.key === 'Escape' && !modal.classList.contains('hidden') && toggleModal(false));
+
+  const renderTable = data => {
+    tableBody.innerHTML = '';
+    if (!data.length) {
+      tableBody.innerHTML = `<tr><td colspan="3" class="text-center py-4 text-gray-500">No hay carpetas.</td></tr>`;
+      pageIndicator.textContent = '';
+      return;
+    }
+
+    const start = (currentPage - 1) * itemsPerPage;
+    const pageData = data.slice(start, start + itemsPerPage);
+    const totalPages = Math.ceil(data.length / itemsPerPage);
+    pageIndicator.textContent = `Página ${currentPage} de ${totalPages}`;
+
+    pageData.forEach(f => {
+			const row = document.createElement('tr');
+			row.innerHTML = `
+				<td class="px-4 py-3">${f.name}</td>
+				<td class="px-4 py-3 break-all text-blue-600 dark:text-blue-400">${f.path}</td>
+				<td class="px-4 py-3">${f.createdAt || '-'}</td>
+			`;
+			tableBody.appendChild(row);
+		});
+  };
+
+  const applySearch = () => {
+    const q = searchInput.value.toLowerCase();
+    filtered = folders.filter(f => f.name.toLowerCase().includes(q));
+    currentPage = 1;
+    renderTable(filtered);
+  };
+
+  searchInput.addEventListener('input', applySearch);
+  itemsPerPageSelect.addEventListener('change', () => {
+    itemsPerPage = parseInt(itemsPerPageSelect.value, 10);
+    currentPage = 1;
+    renderTable(filtered);
+  });
+
+  prevPageBtn.addEventListener('click', () => {
+    if (currentPage > 1) {
+      currentPage -= 1;
+      renderTable(filtered);
+    }
+  });
+
+  nextPageBtn.addEventListener('click', () => {
+    const totalPages = Math.ceil(filtered.length / itemsPerPage);
+    if (currentPage < totalPages) {
+      currentPage += 1;
+      renderTable(filtered);
+    }
+  });
+
+  const fetchFolders = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      window.location.href = '/login';
+      return;
+    }
+
+    try {
+      const res = await fetch(`http://localhost:3000/api/directories/${idCliente}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      if (!res.ok) throw new Error("Error de red");
+
+      folders = await res.json();
+      filtered = folders;
+      renderTable(filtered);
+    } catch (err) {
+      tableBody.innerHTML = `<tr><td colspan="3" class="text-center py-4 text-red-600">Error al cargar carpetas.</td></tr>`;
+    }
+  };
+
+  fetchFolders();
+</script>

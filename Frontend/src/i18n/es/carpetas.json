@@ -1,0 +1,14 @@
+{
+  "title": "Carpetas del Cliente",
+  "search": "Buscar...",
+  "addFolder": "Agregar Carpeta",
+  "name": "Nombre",
+  "path": "Ruta",
+  "date": "Fecha",
+  "perPage": "Por página",
+  "noResults": "No hay carpetas.",
+  "error": "Error al cargar carpetas.",
+  "createTitle": "Crear Carpeta",
+  "createLabel": "Nombre de la carpeta",
+  "createButton": "Guardar"
+}
