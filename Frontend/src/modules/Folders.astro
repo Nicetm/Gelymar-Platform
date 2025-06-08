@@ -32,7 +32,7 @@ const t: any = {
 				<h1 id="clientTitle" class="text-3xl font-bold text-gray-900 dark:text-white">{t.carpetas.title}</h1>
 			</div>
 
-			<!-- Búsqueda y botón agregar cliente -->
+			<!-- Búsqueda y botón agregar carpeta -->
 			<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4">
 				<div class="relative w-full sm:max-w-xs">
 					<label for="searchInput" class="sr-only">{t.carpetas.search}</label>
@@ -215,7 +215,7 @@ const t: any = {
 				filtered = folders;
 				renderTable(filtered);
 			} catch (err) {
-				tableBody.innerHTML = `<tr><td colspan="3" class="text-center py-4 text-red-600">Error al cargar carpetas.</td></tr>`;
+				tableBody.innerHTML = `<tr><td colspan="3" class="text-center py-4 text-red-600">Directorio de cliente no existe.</td></tr>`;
 			}
 		};
 	
@@ -260,6 +260,16 @@ const t: any = {
 				folderMessage.textContent = '';
 				folderMessage.classList.add('hidden');
 				if (!clientName) return;
+
+				const nameInput = addFolderForm.querySelector('input[name="name"]');
+				const folderName = nameInput?.value.trim();
+
+				if (!folderName) {
+					folderMessage.textContent = 'El nombre de la carpeta es requerido.';
+					folderMessage.classList.remove('hidden');
+					return;
+				}
+
 				try {
 					const res = await fetch('http://localhost:3000/api/directories/create', {
 						method: 'POST',
@@ -267,7 +277,7 @@ const t: any = {
 							'Content-Type': 'application/json',
 							Authorization: `Bearer ${localStorage.getItem('token')}`
 						},
-						body: JSON.stringify({ clientName })
+						body: JSON.stringify({ clientName, name: folderName })
 					});
 					const result = await res.json();
 					if (!res.ok) throw new Error(result.message);
