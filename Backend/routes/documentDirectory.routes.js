@@ -1,12 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const controller = require('../controllers/documentDirectory.controller');
+const controller = require('../controllers/directory.controller');
 const authMiddleware = require('../middleware/auth.middleware');
 const { authorizeRoles } = require('../middleware/role.middleware');
 
 /**
  * @swagger
- * /api/directories/{customerId}:
+ * /api/directories/{customerUuid}:
  *   get:
  *     summary: Lista los directorios de un cliente
  *     tags: [Directorios]
@@ -27,8 +27,7 @@ const { authorizeRoles } = require('../middleware/role.middleware');
  *       404:
  *         description: Cliente no encontrado
  */
-router.get('/:customerId', authMiddleware, authorizeRoles(['admin']), controller.getClientDirectories);
-
+router.get('/:customerUuid', authMiddleware, authorizeRoles(['admin']), controller.getClientDirectories);
 
 /**
  * @swagger
@@ -130,5 +129,7 @@ router.post('/create/sub', authMiddleware, authorizeRoles(['admin']), controller
  */
 
 router.delete('/delete/sub', authMiddleware, authorizeRoles(['admin']), controller.deleteSubDirectory);
+
+router.get('/count/:customer_id', authMiddleware, authorizeRoles(['admin']), controller.getCountDirectoryByCustomerID);
 
 module.exports = router;

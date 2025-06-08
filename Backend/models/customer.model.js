@@ -1,16 +1,35 @@
-/**
- * Modelo de Cliente
- * Representa los atributos clave de la tabla OCRD (Clientes) en SAP B1.
- */
 class Customer {
-    constructor(cardCode, cardName, balance, phone1, email) {
-      this.cardCode = cardCode;
-      this.cardName = cardName;
-      this.balance = balance;
-      this.phone1 = phone1;
-      this.email = email;
-    }
+  constructor({
+    id,
+    uuid,
+    name,
+    email,
+    phone,
+    mobile,
+    address,
+    country,
+    city,
+    status,
+    created_at,
+    updated_at,
+    contacts = [],
+    folder_count = 0
+  }) {
+    this.id = id;
+    this.uuid = uuid;
+    this.name = name;
+    this.email = email;
+    this.phone = phone;
+    this.mobile = mobile;
+    this.address = address;
+    this.country = country;
+    this.city = city;
+    this.status = status;
+    this.created_at = created_at;
+    this.updated_at = updated_at;
+    this.contacts = contacts;
+    this.folder_count = folder_count;
   }
-  
-  module.exports = Customer;
-  
+}
+
+module.exports = Customer;
