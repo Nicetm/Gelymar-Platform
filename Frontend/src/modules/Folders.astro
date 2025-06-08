@@ -127,7 +127,7 @@ const t: any = {
 		let filtered = [];
 		
 		const qs = id => document.getElementById(id);
-		const idCliente = qs('folderSection')?.dataset.id;
+		const uuID = qs('folderSection')?.dataset.id;
 		const tableBody = qs('foldersTableBody');
 		const searchInput = qs('searchInput');
 		const itemsPerPageSelect = qs('itemsPerPageSelect');
@@ -169,7 +169,15 @@ const t: any = {
 				row.innerHTML = `
 					<td class="px-4 py-3">${f.name}</td>
 					<td class="px-4 py-3 break-all text-blue-600 dark:text-blue-400">${f.path}</td>
-					<td class="px-4 py-3">${f.createdAt || '-'}</td>
+					<td class="px-4 py-3">
+						${f.created_at ? new Date(f.created_at).toLocaleString('es-CL', {
+							day: '2-digit',
+							month: '2-digit',
+							year: 'numeric',
+							hour: '2-digit',
+							minute: '2-digit'
+						}) : '-'}
+					</td>
 					<td class="w-[25%] px-6 py-4 text-sm">
 						<div class="flex justify-center items-center gap-3 text-gray-900 dark:text-white">
 							<a href="/admin/clients/folders/files/view/${f.name}" title="Ver archivos en ${f.name}" class="hover:text-blue-500 transition">
@@ -205,7 +213,7 @@ const t: any = {
 			}
 
 			try {
-				const res = await fetch(`http://localhost:3000/api/directories/${idCliente}?c=${encodeURIComponent(clientName)}`, {
+				const res = await fetch(`http://localhost:3000/api/directories/${uuID}?c=${encodeURIComponent(clientName)}`, {
 					headers: { Authorization: `Bearer ${token}` }
 				});
 
@@ -271,13 +279,33 @@ const t: any = {
 				}
 
 				try {
+					const response = await fetch(`http://localhost:3000/api/customers/uuid/${uuID}`, {
+						method: 'GET',
+						headers: {
+							'Content-Type': 'application/json',
+							Authorization: `Bearer ${localStorage.getItem('token')}`
+						}
+					});
+
+					if (!response.ok) {
+						const errorText = await response.text();
+						throw new Error(`Error al obtener cliente: ${response.status} - ${errorText}`);
+					}
+
+					const customer = await response.json();
+					const customerId = customer.id;
+
 					const res = await fetch('http://localhost:3000/api/directories/create', {
 						method: 'POST',
 						headers: {
 							'Content-Type': 'application/json',
 							Authorization: `Bearer ${localStorage.getItem('token')}`
 						},
-						body: JSON.stringify({ clientName, name: folderName })
+						body: JSON.stringify({ 
+							customer_id: customerId, 
+							name: folderName,
+							path: `${clientName}/${folderName}`
+						})
 					});
 					const result = await res.json();
 					if (!res.ok) throw new Error(result.message);

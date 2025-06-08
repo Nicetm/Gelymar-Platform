@@ -17,7 +17,7 @@ const { authorizeRoles } = require('../middleware/role.middleware');
  *       200:
  *         description: List of customers
  */
-router.get('/', authMiddleware, authMiddleware, authorizeRoles(['admin']), customerController.getAllCustomers);
+router.get('/', authMiddleware, authorizeRoles(['admin']), customerController.getAllCustomers);
 
 /**
  * @swagger
@@ -39,6 +39,8 @@ router.get('/', authMiddleware, authMiddleware, authorizeRoles(['admin']), custo
  *       404:
  *         description: Customer not found
  */
-router.get('/:id', authMiddleware, authMiddleware, authorizeRoles(['admin']), customerController.getCustomerById);
+router.get('/:id', authMiddleware, authorizeRoles(['admin']), customerController.getCustomerById);
+
+router.get('/uuid/:uuid', authMiddleware, authorizeRoles(['admin']), customerController.getCustomerByUUID);
 
 module.exports = router;
