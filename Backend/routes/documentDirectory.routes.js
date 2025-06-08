@@ -58,7 +58,7 @@ router.get('/:customerId', authMiddleware, authorizeRoles(['admin']), controller
  *       409:
  *         description: Ya existe
  */
-router.post('/create', authMiddleware, authorizeRoles(['admin']), controller.createClientDirectory);
+router.post('/create', authMiddleware, authorizeRoles(['admin']), controller.createDirectory);
 
 /**
  * @swagger

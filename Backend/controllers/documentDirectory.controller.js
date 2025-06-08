@@ -15,9 +15,6 @@ exports.getClientDirectories = (req, res) => {
   const { customerId } = req.params; // este es el UUID
   const clientName = req.query.c;
 
-  console.log('customerId recibido:', customerId);
-  console.log('clientName recibido:', clientName);
-
   if (!customerId) {
     return res.status(400).json({ message: 'ID inválido' });
   }
@@ -51,17 +48,58 @@ exports.getClientDirectories = (req, res) => {
  * Ruta: POST /api/directories/create-client
  * Body: { clientName: "Cliente Uno SPA" }
  */
-exports.createClientDirectory = (req, res) => {
-  const { clientName } = req.body;
-  if (!clientName) return res.status(400).json({ message: 'Nombre del cliente requerido' });
-
-  const clientPath = path.join(UPLOADS_ROOT, clientName);
-  if (fs.existsSync(clientPath)) {
-    return res.status(409).json({ message: 'La carpeta del cliente ya existe' });
+exports.createDirectory = async (req, res) => {
+  const { clientName, name } = req.body;
+  if (!clientName || !name) {
+    return res.status(400).json({ message: 'Faltan datos requeridos' });
   }
 
-  fs.mkdirSync(clientPath, { recursive: true });
-  return res.status(201).json({ message: `Carpeta creada para ${clientName}` });
+  const basePath = path.join(__dirname, '..', 'uploads');
+  const isCPFolder = /^PC\d+$/.test(name.toUpperCase()); // Detecta formato PCXXXXXX
+
+  try {
+    if (isCPFolder) {
+      // Revisión global para CP folders
+      const clients = fs.readdirSync(basePath);
+
+      for (const client of clients) {
+        const clientPath = path.join(basePath, client);
+        if (!fs.statSync(clientPath).isDirectory()) continue;
+
+        const subfolders = fs.readdirSync(clientPath);
+        if (subfolders.includes(name)) {
+          return res.status(400).json({
+            message: `La carpeta ${name} ya existe en el cliente "${client}". Los códigos PC deben ser únicos.`,
+          });
+        }
+      }
+    } else {
+      // Validación solo dentro del cliente
+      const clientFolder = path.join(basePath, clientName);
+      if (!fs.existsSync(clientFolder)) fs.mkdirSync(clientFolder);
+
+      const folderPath = path.join(clientFolder, name);
+      if (fs.existsSync(folderPath)) {
+        return res.status(400).json({
+          message: `La carpeta "${name}" ya existe para el cliente ${clientName}.`,
+        });
+      }
+    }
+
+    // Crear carpeta
+    const clientDir = path.join(basePath, clientName);
+    if (!fs.existsSync(clientDir)) {
+      fs.mkdirSync(clientDir, { recursive: true });
+    }
+
+    const newPath = path.join(clientDir, name);
+    fs.mkdirSync(newPath);
+    
+    res.status(201).json({ message: 'Carpeta creada exitosamente' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Error al crear carpeta' });
+  }
 };
 
 /**
