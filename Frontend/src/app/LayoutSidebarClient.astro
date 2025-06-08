@@ -11,10 +11,7 @@ import SideBar from './SideBarClient.astro';
   <SideBar />
 
   <main class="flex pt-4 bg-gray-50 dark:bg-gray-900 min-h-screen overflow-hidden">
-    <section
-      id="main-content"
-      class="relative flex-1 h-full overflow-y-auto transition-all duration-300 lg:ml-56"
-    >
+    <section id="main-content" class="relative flex-1 h-full overflow-y-auto transition-all duration-300 lg:ml-56">
       <slot />
       <FooterSidebar />
     </section>

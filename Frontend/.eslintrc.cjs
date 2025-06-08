@@ -66,6 +66,7 @@ module.exports = {
 			extends: ['airbnb-base', 'eslint:recommended', 'prettier'],
 			rules: {
 				'import/prefer-default-export': 'off',
+				'no-console': 'off',
 			},
 		},
 

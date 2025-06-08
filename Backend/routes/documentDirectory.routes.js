@@ -32,7 +32,7 @@ router.get('/:customerId', authMiddleware, authorizeRoles(['admin']), controller
 
 /**
  * @swagger
- * /api/directories/create-client:
+ * /api/directories/create:
  *   post:
  *     summary: Crear carpeta principal del cliente
  *     tags: [Directorios]
@@ -58,11 +58,11 @@ router.get('/:customerId', authMiddleware, authorizeRoles(['admin']), controller
  *       409:
  *         description: Ya existe
  */
-router.post('/create-client', authMiddleware, authorizeRoles(['admin']), controller.createClientDirectory);
+router.post('/create', authMiddleware, authorizeRoles(['admin']), controller.createClientDirectory);
 
 /**
  * @swagger
- * /api/directories/create-sub:
+ * /api/directories/create/sub:
  *   post:
  *     summary: Crear subcarpeta dentro del directorio de cliente
  *     tags: [Directorios]
@@ -94,11 +94,11 @@ router.post('/create-client', authMiddleware, authorizeRoles(['admin']), control
  *       409:
  *         description: Subcarpeta ya existe
  */
-router.post('/create-sub', authMiddleware, authorizeRoles(['admin']), controller.createSubDirectory);
+router.post('/create/sub', authMiddleware, authorizeRoles(['admin']), controller.createSubDirectory);
 
 /**
  * @swagger
- * /api/directories/delete-sub:
+ * /api/directories/delete/sub:
  *   delete:
  *     summary: Eliminar subcarpeta vacía de un cliente
  *     tags: [Directorios]
@@ -129,6 +129,6 @@ router.post('/create-sub', authMiddleware, authorizeRoles(['admin']), controller
  *         description: Subcarpeta no encontrada
  */
 
-router.delete('/delete-sub', authMiddleware, authorizeRoles(['admin']), controller.deleteSubDirectory);
+router.delete('/delete/sub', authMiddleware, authorizeRoles(['admin']), controller.deleteSubDirectory);
 
 module.exports = router;

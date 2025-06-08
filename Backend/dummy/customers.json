@@ -8,246 +8,295 @@
   {
     "id": 2,
     "name": "Maritime Logistics Corp",
+    "uuid": "0cb70544-3e3f-4a2f-82e4-781c5f0a1215",
     "email": "maritimelogisticscorp@gelymar.cl"
   },
   {
     "id": 3,
     "name": "BlueWave Shipping",
+    "uuid": "ab4b6a1d-5985-43f7-841f-56ad6dc0d4f6",
     "email": "bluewaveshipping@gelymar.cl"
   },
   {
     "id": 4,
     "name": "Atlantic Carriers",
+    "uuid": "6dc13c52-e4cc-4e2c-b3ce-c93b75fead87",
     "email": "atlanticcarriers@gelymar.cl"
   },
   {
     "id": 5,
     "name": "Global Marine Express",
+    "uuid": "2d9eb1c0-c1b6-4046-8b7c-7e9e4c52b6f2",
     "email": "globalmarineexpress@gelymar.cl"
   },
   {
     "id": 6,
     "name": "Neptune Cargo",
+    "uuid": "b15f7135-d8d9-4ce7-952b-632f182dd208",
     "email": "neptunecargo@gelymar.cl"
   },
   {
     "id": 7,
     "name": "Pacific Horizon Lines",
+    "uuid": "27cddcdf-e78a-40e9-83f2-3e87b71b8650",
     "email": "pacifichorizonlines@gelymar.cl"
   },
   {
     "id": 8,
     "name": "Titan Sea Transport",
+    "uuid": "263390ed-417f-47e0-a349-3060ed80f429",
     "email": "titanseatransport@gelymar.cl"
   },
   {
     "id": 9,
     "name": "Poseidon Freight",
+    "uuid": "94e0db38-d70d-4ec4-8cd3-708da509bdfb",
     "email": "poseidonfreight@gelymar.cl"
   },
   {
     "id": 10,
     "name": "Horizon Maritime Ltd",
+    "uuid": "bf4b366c-d119-417b-a121-5d8f25e84d30",
     "email": "horizonmaritimeltd@gelymar.cl"
   },
   {
     "id": 11,
     "name": "Anchor Bay Shipping",
+    "uuid": "0cb8d688-bc5d-4d10-87ff-8f291a9eaf00",
     "email": "anchorbayshipping@gelymar.cl"
   },
   {
     "id": 12,
     "name": "Seaway Global Logistics",
+    "uuid": "e44305e0-bdf4-47b0-a398-38ad3b5df2d1",
     "email": "seawaygloballogistics@gelymar.cl"
   },
   {
     "id": 13,
     "name": "AquaVoyage Ltd",
+    "uuid": "77bc9c2a-307b-42ff-b4ce-0df3a6de71a8",
     "email": "aquavoyageltd@gelymar.cl"
   },
   {
     "id": 14,
     "name": "CoralLine Shipping",
+    "uuid": "d4f7d48f-f5d6-40ce-bb0e-e9d31e77f3c0",
     "email": "corallineshipping@gelymar.cl"
   },
   {
     "id": 15,
     "name": "DeepBlue Transport",
+    "uuid": "abf198ae-0ecf-4aa5-8a0c-07ed0d6e1044",
     "email": "deepbluetransport@gelymar.cl"
   },
   {
     "id": 16,
     "name": "MarineGate Carriers",
+    "uuid": "0e8d3cf6-1e44-4f23-8862-03e14659d4e6",
     "email": "marinegatecarriers@gelymar.cl"
   },
   {
     "id": 17,
     "name": "OceanStar Freight",
+    "uuid": "25872b62-1cf8-4390-9b53-bd27b1e4a91e",
     "email": "oceanstarfreight@gelymar.cl"
   },
   {
     "id": 18,
     "name": "Seaspan Cargo",
+    "uuid": "ad646a88-f7e0-4f3b-b7a0-e34511fcb177",
     "email": "seaspancargo@gelymar.cl"
   },
   {
     "id": 19,
     "name": "Nautilus Maritime",
+    "uuid": "b869dd7a-60c7-4f99-b8c5-4533d168d9b8",
     "email": "nautilusmaritime@gelymar.cl"
   },
   {
     "id": 20,
     "name": "Trident Logistics",
+    "uuid": "e0402da1-655e-40fd-83e7-2596e279a1e1",
     "email": "tridentlogistics@gelymar.cl"
   },
   {
     "id": 21,
     "name": "WaveRider Shipping",
+    "uuid": "2ed991c5-c367-4bfa-b536-258ccfc68ef3",
     "email": "waveridershipping@gelymar.cl"
   },
   {
     "id": 22,
     "name": "Meridian Oceanic",
+    "uuid": "d2b2a0ff-30c0-44c3-a5f7-189c78d45a85",
     "email": "meridianoceanic@gelymar.cl"
   },
   {
     "id": 23,
     "name": "SeaBridge Carriers",
+    "uuid": "47f28e38-29d6-46d4-9d4a-8b958dbf0f90",
     "email": "seabridgecarriers@gelymar.cl"
   },
   {
     "id": 24,
     "name": "Kraken Line Ltd",
+    "uuid": "3b9f9586-d87d-4c5f-b3c2-51ae101093e5",
     "email": "krakenlineltd@gelymar.cl"
   },
   {
     "id": 25,
     "name": "OceanTrail Logistics",
+    "uuid": "fe71703d-38b4-41a7-bf84-c7dd398fd325",
     "email": "oceantraillogistics@gelymar.cl"
   },
   {
     "id": 26,
     "name": "Marinex Global",
+    "uuid": "d8c3a65d-3b3c-4c62-976f-74e2d3d6e0e2",
     "email": "marinexglobal@gelymar.cl"
   },
   {
     "id": 27,
     "name": "Suncoast Cargo",
+    "uuid": "f4f1e114-ff06-4083-a948-02e3692a418f",
     "email": "suncoastcargo@gelymar.cl"
   },
   {
     "id": 28,
     "name": "SeaWing Freight",
+    "uuid": "997c0a3a-bd1e-456e-b47e-4fcf816b92e3",
     "email": "seawingfreight@gelymar.cl"
   },
   {
     "id": 29,
     "name": "HarborLine Logistics",
+    "uuid": "9bc29b0c-989a-4af6-9004-3d3a891f55f5",
     "email": "harborlinelogistics@gelymar.cl"
   },
   {
     "id": 30,
     "name": "Aqualink Maritime",
+    "uuid": "6e22a84e-139f-4061-9580-5c822b1b36db",
     "email": "aqualinkmaritime@gelymar.cl"
   },
   {
     "id": 31,
     "name": "MarineXpress",
+    "uuid": "5d2185f4-54d6-4f24-9154-e30f60f9d9d0",
     "email": "marinexpress@gelymar.cl"
   },
   {
     "id": 32,
     "name": "SilverWave Shipping",
+    "uuid": "c5d36429-f946-4ec8-986a-e51b9ce20e6f",
     "email": "silverwaveshipping@gelymar.cl"
   },
   {
     "id": 33,
     "name": "PoseiTrans Ltd",
+    "uuid": "e5f60f68-6e49-4fa4-9f96-5d1e86f3838d",
     "email": "poseitransltd@gelymar.cl"
   },
   {
     "id": 34,
     "name": "Atlantic Pulse Carriers",
+    "uuid": "a26c8993-95df-476c-86a3-62ad548eae67",
     "email": "atlanticpulsecarriers@gelymar.cl"
   },
   {
     "id": 35,
     "name": "BlueAnchor Logistics",
+    "uuid": "39be9914-d364-4ddf-b92d-f9c7db60b74e",
     "email": "blueanchorlogistics@gelymar.cl"
   },
   {
     "id": 36,
     "name": "SailNet Freight",
+    "uuid": "b7a5b91d-7d0b-4f86-b5e0-74b80a7e90a6",
     "email": "sailnetfreight@gelymar.cl"
   },
   {
     "id": 37,
     "name": "Oceanreach Transport",
+    "uuid": "7ce27840-7b2d-4a38-95a8-25e3e5e9b6e3",
     "email": "oceanreachtransport@gelymar.cl"
   },
   {
     "id": 38,
     "name": "DeepRoute Maritime",
+    "uuid": "46b06c0d-d18b-4f40-b83d-f57e58fa5e69",
     "email": "deeproutemaritime@gelymar.cl"
   },
   {
     "id": 39,
     "name": "StormRider Shipping",
+    "uuid": "cf223290-4c36-49c8-9c2f-94f6d6f993eb",
     "email": "stormridershipping@gelymar.cl"
   },
   {
     "id": 40,
     "name": "MarineFlow Ltd",
+    "uuid": "d1a62332-f8f2-46a8-9859-99f3d3ff6a37",
     "email": "marineflowltd@gelymar.cl"
   },
   {
     "id": 41,
     "name": "OceanRoute Express",
+    "uuid": "43b3b88a-6804-41bb-90d3-98f14e8a0fa4",
     "email": "oceanrouteexpress@gelymar.cl"
   },
   {
     "id": 42,
     "name": "GlobalSails Ltd",
+    "uuid": "3d3ff640-7f1c-47b6-b99c-ecb48c5ac52f",
     "email": "globalsailsltd@gelymar.cl"
   },
   {
     "id": 43,
     "name": "Tideway Shipping",
+    "uuid": "0c182292-bad3-437f-a2a5-6b2bbcc3d122",
     "email": "tidewayshipping@gelymar.cl"
   },
   {
     "id": 44,
     "name": "AquaStar Logistics",
+    "uuid": "740dfe2c-b08d-4b45-8ef2-746f227b31e9",
     "email": "aquastarlogistics@gelymar.cl"
   },
   {
     "id": 45,
     "name": "PacificStream Carriers",
+    "uuid": "f8716a4a-c1e5-4cf7-8618-07e3f02bcb42",
     "email": "pacificstreamcarriers@gelymar.cl"
   },
   {
     "id": 46,
     "name": "NaviGate Global",
+    "uuid": "ff3b14de-f098-4a34-812e-1eb7ac06e3c0",
     "email": "navigateglobal@gelymar.cl"
   },
   {
     "id": 47,
     "name": "Coastal Path Shipping",
+    "uuid": "1d4cc676-87aa-42db-b97d-0f2ef01a31f5",
     "email": "coastalpathshipping@gelymar.cl"
   },
   {
     "id": 48,
     "name": "BlueTitan Freight",
+    "uuid": "7d17724b-6c95-4a77-bec5-e1e5856e7e65",
     "email": "bluetitanfreight@gelymar.cl"
   },
   {
     "id": 49,
     "name": "Neptune Lines",
+    "uuid": "857d9394-45a3-48be-9808-93dc6727a04c",
     "email": "neptunelines@gelymar.cl"
   },
   {
     "id": 50,
     "name": "SailCore Logistics",
+    "uuid": "519ce083-0658-4f06-8668-3df0b620e8f1",
     "email": "sailcorelogistics@gelymar.cl"
-  }
+  }  
 ]

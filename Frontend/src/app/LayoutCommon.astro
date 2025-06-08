@@ -1,7 +1,6 @@
 ---
 import pkg from '../../package.json' assert { type: 'json' };
 import { url } from '../lib/data.js';
-
 import { SITE_TITLE } from './constants.js';
 
 const { class: clazz } = Astro.props;
@@ -9,51 +8,119 @@ const { class: clazz } = Astro.props;
 
 <!DOCTYPE html>
 <html lang="en">
-	<head>
-		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>{SITE_TITLE} — v{pkg.version}</title>
-		<link rel="icon" type="image/svg+xml" href="/gelymar.svg" />
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{SITE_TITLE} — v{pkg.version}</title>
+    <link rel="icon" type="image/svg+xml" href="/gelymar.svg" />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="description" content={pkg.description} />
+    <meta name="author" content="Sebastián Allende - Pablo Santibañez | Softkey" />
+    <meta name="copyright" content="MIT" />
 
-		<meta name="generator" content={Astro.generator} />
-		<meta name="description" content={pkg.description} />
-		<meta name="" content={pkg.description} />
-		<link
-			rel="sitemap"
-			type="application/xml"
-			href={url('sitemap-index.xml')}
-		/>
+    <link rel="sitemap" type="application/xml" href={url('sitemap-index.xml')} />
 
-		<meta
-			name="author"
-			content="Sebastián Allende - Pablo Santibáñez | Softkey"
-		/>
-		<meta name="copyright" content="MIT" /> <!-- Buscar para coolocar para softkey -->
+    <script type="module">
+			// eslint-disable-next-line import/no-unresolved, import/extensions, import/no-absolute-path
+      import { startTokenWatcher, stopTokenWatcher } from '/js/tokenWatcher.js';
 
-		<script is:inline>
-			if (
-				localStorage.getItem('color-theme') === 'dark' ||
-				(!('color-theme' in localStorage) &&
-					window.matchMedia('(prefers-color-scheme: dark)').matches)
-			) {
-				document.documentElement.classList.add('dark');
-			} else {
-				document.documentElement.classList.remove('dark');
-			}
-		</script>
-	</head>
-	<body
-		class:list={[
-			//
-			clazz,
-			'bg-gray-50 dark:bg-gray-800',
-			'scrollbar scrollbar-w-3 scrollbar-thumb-rounded-[0.25rem]',
-			'scrollbar-track-slate-200  scrollbar-thumb-gray-400',
-			'dark:scrollbar-track-gray-900 dark:scrollbar-thumb-gray-700',
-		]}
-	>
-		<slot />
-	</body>
+      function iniciarWatcher() {
+        startTokenWatcher({
+          minutesBefore: 5, // Notificar 5 minutos antes de la expiración
+          onExpireSoon: () => {
+						console.log('🟦 onExpireSoon');
+            const modal = document.getElementById('tokenWarningModal');
+            if (modal) modal.classList.remove('hidden');
+          },
+          onExpired: () => {
+						console.log('🟦 onExpireSoon');
+            localStorage.removeItem('token');
+            window.location.href = '/authentication/sign-in';
+          }
+        });
+      }
+
+      window.addEventListener('DOMContentLoaded', () => {
+        const logoutBtn = document.getElementById('logoutNow');
+        const extendBtn = document.getElementById('extendSession');
+        const modal = document.getElementById('tokenWarningModal');
+
+        iniciarWatcher();
+
+        logoutBtn?.addEventListener('click', () => {
+          localStorage.removeItem('token');
+          window.location.href = '/authentication/sign-in';
+        });
+
+        extendBtn?.addEventListener('click', async () => {
+          console.log('🟦 Click en Mantener sesión');
+
+          try {
+            const res = await fetch('http://localhost:3000/api/auth/refresh', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+              }
+            });
+
+            const data = await res.json();
+            console.log('🔁 Respuesta de refresh:', res.status, data);
+
+            if (res.ok && data.token) {
+              console.log('✅ Nuevo token recibido');
+              localStorage.setItem('token', data.token);
+
+              if (modal) modal.classList.add('hidden');
+              console.log('🧼 Modal cerrado');
+
+              stopTokenWatcher();
+              iniciarWatcher();
+            } else {
+              console.warn('⚠️ Token no renovado. Redirigiendo...');
+              window.location.href = '/authentication/sign-in';
+            }
+          } catch (e) {
+            console.error('❌ Error al renovar token:', e);
+            window.location.href = '/authentication/sign-in';
+          }
+        });
+      });
+    </script>
+
+    <script is:inline>
+      if (
+        localStorage.getItem('color-theme') === 'dark' ||
+        (!('color-theme' in localStorage) &&
+          window.matchMedia('(prefers-color-scheme: dark)').matches)
+      ) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    </script>
+  </head>
+
+  <body
+    class:list={[
+      clazz,
+      'bg-gray-50 dark:bg-gray-800',
+      'scrollbar scrollbar-w-3 scrollbar-thumb-rounded-[0.25rem]',
+      'scrollbar-track-slate-200  scrollbar-thumb-gray-400',
+      'dark:scrollbar-track-gray-900 dark:scrollbar-thumb-gray-700',
+    ]}
+  >
+    <slot />
+    <div id="tokenWarningModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden justify-center items-center">
+      <div class="bg-white dark:bg-gray-800 p-6 rounded-xl max-w-md w-full mx-4 shadow-xl">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Sesión por expirar</h2>
+        <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">Tu sesión expirará pronto. ¿Deseas extenderla?</p>
+        <div class="flex justify-end gap-2">
+          <button id="logoutNow" class="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700">Cerrar sesión</button>
+          <button id="extendSession" class="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700">Mantener sesión</button>
+        </div>
+      </div>
+    </div>
+  </body>
 </html>
 
 <style is:global>

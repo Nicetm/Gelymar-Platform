@@ -8,43 +8,23 @@
     Your password has been updated. You can now log in.
   </p>
 
-  <form id="loginForm" class="space-y-6" autocomplete="off">
+  <form id="loginForm" class="space-y-6">
     <!-- Email -->
     <div>
       <label for="email" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Email</label>
-      <input
-        type="email"
-        id="email"
-        name="email"
-        required
-        class="input"
-        placeholder="user@company.com"
-      />
+      <input type="email" id="email" name="email" required class="input" placeholder="user@company.com"/>
     </div>
 
     <!-- Password -->
     <div>
       <label for="password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Password</label>
-      <input
-        type="password"
-        id="password"
-        name="password"
-        required
-        class="input"
-        placeholder="••••••••"
-      />
+      <input type="password" id="password" name="password" required class="input" placeholder="••••••••"/>
     </div>
 
     <!-- OTP input -->
     <div id="otpContainer" class="hidden">
       <label for="otp" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">2FA Code</label>
-      <input
-        type="text"
-        id="otp"
-        name="otp"
-        class="input"
-        placeholder="123456"
-      />
+      <input type="text" id="otp" name="otp" class="input" placeholder="123456"/>
     </div>
 
     <!-- QR -->

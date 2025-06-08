@@ -1,10 +1,12 @@
 const translationsMap = {
   es: {
+		comond: () => import('../i18n/es/comond.json'),
     clientes: () => import('../i18n/es/clientes.json'),
     carpetas: () => import('../i18n/es/carpetas.json'),
     // agrega más secciones si quieres
   },
   en: {
+		comond: () => import('../i18n/en/comond.json'),
     clientes: () => import('../i18n/en/clientes.json'),
 		carpetas: () => import('../i18n/en/carpetas.json'),
   }

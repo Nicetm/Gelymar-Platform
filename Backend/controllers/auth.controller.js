@@ -26,7 +26,6 @@ exports.login = async (req, res) => {
     return res.status(401).json({ message: 'Contraseña incorrecta' });
   }
 
-  // Si 2FA está habilitado, verificar el código
   if (user.twoFAEnabled) {
     if (!user.twoFASecret) {
       return res.status(401).json({ message: 'Cuenta no enrolada en 2FA. Escanee el QR y configure su autenticación.' });
@@ -57,6 +56,35 @@ exports.login = async (req, res) => {
   });
 
   res.json({ token });
+};
+
+/**
+ * @route POST /api/auth/refresh
+ * @desc Genera un nuevo token JWT si el token actual está por expirar
+ * @access Privado (requiere token JWT válido en Authorization header)
+ */
+exports.refreshToken = (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ message: 'Token requerido' });
+
+  const token = authHeader.split(' ')[1];
+
+  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+    if (err) return res.status(403).json({ message: 'Token inválido o expirado' });
+
+    const user = users.find(u => u.id === decoded.id);
+    if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
+
+    const newToken = generateToken({
+      id: user.id,
+      email: user.email,
+      username: user.username || null,
+      role: user.role,
+      cardCode: user.cardCode || null
+    });
+
+    res.status(200).json({ token: newToken });
+  });
 };
 
 /**
