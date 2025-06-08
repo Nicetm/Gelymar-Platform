@@ -3,5 +3,5 @@
   "compilerOptions": {
     "strictNullChecks": true
   },
-  "include": ["src", "astro.config.*", "env.d.ts"]
+  "include": ["src", "astro.config.*", "env.d.ts", "public/js/tokenWatcher.js"]
 }

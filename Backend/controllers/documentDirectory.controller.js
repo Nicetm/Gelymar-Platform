@@ -4,7 +4,6 @@ const customers = require('../dummy/customers.json');
 
 const UPLOADS_ROOT = path.join(__dirname, '../uploads');
 
-
 /**
  * Lista las carpetas del cliente según su ID.
  * Ruta: GET /api/directories/:customerId
@@ -14,8 +13,10 @@ const UPLOADS_ROOT = path.join(__dirname, '../uploads');
  */
 exports.getClientDirectories = (req, res) => {
   const { customerId } = req.params; // este es el UUID
+  const clientName = req.query.c;
 
   console.log('customerId recibido:', customerId);
+  console.log('clientName recibido:', clientName);
 
   if (!customerId) {
     return res.status(400).json({ message: 'ID inválido' });

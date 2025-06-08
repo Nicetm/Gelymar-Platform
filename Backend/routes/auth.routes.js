@@ -37,6 +37,7 @@ router.get('/me', authMiddleware, (req, res) => {
         role: req.user.role
     });
 });
+router.post('/refresh', authController.refreshToken);
 router.post('/recover', authController.recoverPassword);
 router.post('/reset-password', authController.resetPassword);
 

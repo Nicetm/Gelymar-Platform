@@ -29,7 +29,7 @@ const t: any = {
 			</nav>
 
 			<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-				<h1 class="text-3xl font-bold text-gray-900 dark:text-white">{t.carpetas.title}</h1>
+				<h1 id="clientTitle" class="text-3xl font-bold text-gray-900 dark:text-white">{t.carpetas.title}</h1>
 			</div>
 
 			<!-- Búsqueda y botón agregar cliente -->
@@ -115,137 +115,185 @@ const t: any = {
           <button type="submit" class="bg-[#00538C] hover:bg-[#004773] text-white px-4 py-2 rounded-md font-medium">{t.carpetas.createButton}</button>
         </div>
       </form>
+			<p id="folderMessage" class="text-sm font-medium text-center text-red-600 dark:text-red-400 hidden"></p>
     </div>
   </div>
 
+	<script is:inline>
+	(() => {
+		let currentPage = 1; 
+		let itemsPerPage = 10;
+		let folders = [];
+		let filtered = [];
+		
+		const qs = id => document.getElementById(id);
+		const idCliente = qs('folderSection')?.dataset.id;
+		const tableBody = qs('foldersTableBody');
+		const searchInput = qs('searchInput');
+		const itemsPerPageSelect = qs('itemsPerPageSelect');
+		const prevPageBtn = qs('prevPageBtn');
+		const nextPageBtn = qs('nextPageBtn');
+		const pageIndicator = qs('pageIndicator');
+		const modal = qs('addFolderModal');
+		const addFolderBtn = qs('addFolderBtn');
+		const closeModalBtn = qs('closeModalBtn');
+		const addFolderForm = qs('addFolderForm');
+		const folderMessage = qs('folderMessage');
+		const { pageLabel, ofLabel } = pageIndicator.dataset;
+	
+		const params = new URLSearchParams(window.location.search);
+		const clientName = params.get('c');
+	
+		if (clientName) {
+			const decoded = decodeURIComponent(clientName);
+			const title = qs('clientTitle');
+			if (title) title.textContent = decoded;
+		}
+	
+		const toggleModal = show => modal.classList.toggle('hidden', !show);
+	
+		const renderTable = data => {
+			tableBody.innerHTML = '';
+			if (!data.length) {
+				tableBody.innerHTML = `<tr><td colspan="3" class="text-center py-4 text-gray-500">No hay carpetas.</td></tr>`;
+				pageIndicator.textContent = '';
+				return;
+			}
+			const start = (currentPage - 1) * itemsPerPage;
+			const pageData = data.slice(start, start + itemsPerPage);
+			const totalPages = Math.ceil(data.length / itemsPerPage);
+			pageIndicator.textContent = `${pageLabel} ${currentPage} ${ofLabel} ${totalPages}`;
+	
+			pageData.forEach(f => {
+				const row = document.createElement('tr');
+				row.innerHTML = `
+					<td class="px-4 py-3">${f.name}</td>
+					<td class="px-4 py-3 break-all text-blue-600 dark:text-blue-400">${f.path}</td>
+					<td class="px-4 py-3">${f.createdAt || '-'}</td>
+					<td class="w-[25%] px-6 py-4 text-sm">
+						<div class="flex justify-center items-center gap-3 text-gray-900 dark:text-white">
+							<a href="/admin/clients/folders/files/view/${f.name}" title="Ver archivos en ${f.name}" class="hover:text-blue-500 transition">
+								<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+							</a>
+							<a href="#" title="Ver Lista de archivos de ${f.name}" class="hover:text-indigo-500 transition">
+								<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+								</svg>
+							</a>
+							<a href="/admin/clients/folders/edit/${f.name}" title="Editar ${f.name}" class="hover:text-green-500 transition">
+								<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.586-6.586a2 2 0 112.828 2.828L11.828 13.83a2 2 0 01-.586.414L9 15l.756-2.243a2 2 0 01.414-.586z" />
+									<path stroke-linecap="round" stroke-linejoin="round" d="M19 20H5" />
+								</svg>
+							</a>
+							<a href="#" title="Eliminar ${f.name}" class="hover:text-red-500 transition">
+								<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12M10 11v6M14 11v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
+								</svg>
+							</a>
+						</div>
+					</td>`;
+				tableBody.appendChild(row);
+			});
+		};
+	
+		const fetchFolders = async () => {
+			const token = localStorage.getItem('token');
+			if (!token) {
+				window.location.href = '/login';
+				return;
+			}
 
-<!-- Lógica JS -->
-<script is:inline>
-	const idCliente = document.getElementById('folderSection')?.dataset.id;
-  const qs = id => document.getElementById(id);
-  const tableBody = qs('foldersTableBody');
-  const searchInput = qs('searchInput');
-  const itemsPerPageSelect = qs('itemsPerPageSelect');
-  const prevPageBtn = qs('prevPageBtn');
-  const nextPageBtn = qs('nextPageBtn');
-  const modal = qs('addFolderModal');
-  const addFolderBtn = qs('addFolderBtn');
-  const closeModalBtn = qs('closeModalBtn');
-	const pageIndicator = qs('pageIndicator');
+			try {
+				const res = await fetch(`http://localhost:3000/api/directories/${idCliente}?c=${encodeURIComponent(clientName)}`, {
+					headers: { Authorization: `Bearer ${token}` }
+				});
 
-  let folders = [];
-  let filtered = [];
-  let currentPage = 1;
-  let itemsPerPage = 10;
+				if (!res.ok) throw new Error('Error de red');
 
-  const toggleModal = show => modal.classList.toggle('hidden', !show);
-	const { pageLabel, ofLabel } = pageIndicator.dataset;
-
-  addFolderBtn?.addEventListener('click', () => {
-    toggleModal(true);
-  });
-  closeModalBtn?.addEventListener('click', () => toggleModal(false));
-  modal?.addEventListener('click', e => e.target === modal && toggleModal(false));
-  document.addEventListener('keydown', e => e.key === 'Escape' && !modal.classList.contains('hidden') && toggleModal(false));
-
-  const renderTable = data => {
-    tableBody.innerHTML = '';
-    if (!data.length) {
-      tableBody.innerHTML = `<tr><td colspan="3" class="text-center py-4 text-gray-500">No hay carpetas.</td></tr>`;
-      pageIndicator.textContent = '';
-      return;
-    }
-
-    const start = (currentPage - 1) * itemsPerPage;
-    const pageData = data.slice(start, start + itemsPerPage);
-    const totalPages = Math.ceil(data.length / itemsPerPage);
-    pageIndicator.textContent = `${pageLabel} ${currentPage} ${ofLabel} ${totalPages}`;
-
-    pageData.forEach(f => {
-			const row = document.createElement('tr');
-			row.innerHTML = `
-				<td class="px-4 py-3">${f.name}</td>
-				<td class="px-4 py-3 break-all text-blue-600 dark:text-blue-400">${f.path}</td>
-				<td class="px-4 py-3">${f.createdAt || '-'}</td>
-				<td class="w-[25%] px-6 py-4 text-sm">
-          <div class="flex justify-center items-center gap-3 text-gray-900 dark:text-white">
-						<a href="/admin/clients/folders/files/view/${f.name}" title="Ver archivos en ${f.name}" class="hover:text-blue-500 transition">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-            </a>
-						<a href="#" title="Ver Lista de archivos de ${f.name}" class="hover:text-indigo-500 transition">
-							<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
-							</svg>
-						</a>
-						<a href="/admin/clients/folders/edit/${f.name}" title="Editar ${f.name}" class="hover:text-green-500 transition">
-							<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.586-6.586a2 2 0 112.828 2.828L11.828 13.83a2 2 0 01-.586.414L9 15l.756-2.243a2 2 0 01.414-.586z" />
-								<path stroke-linecap="round" stroke-linejoin="round" d="M19 20H5" />
-							</svg>
-						</a>
-						<a href="#" title="Eliminar ${f.name}" class="hover:text-red-500 transition">
-							<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12M10 11v6M14 11v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
-							</svg>
-						</a>
-          </div>
-        </td>`;
-			tableBody.appendChild(row);
-		});
-  };
-
-  const applySearch = () => {
-    const q = searchInput.value.toLowerCase();
-    filtered = folders.filter(f => f.name.toLowerCase().includes(q));
-    currentPage = 1;
-    renderTable(filtered);
-  };
-
-  searchInput.addEventListener('input', applySearch);
-  itemsPerPageSelect.addEventListener('change', () => {
-    itemsPerPage = parseInt(itemsPerPageSelect.value, 10);
-    currentPage = 1;
-    renderTable(filtered);
-  });
-
-  prevPageBtn.addEventListener('click', () => {
-    if (currentPage > 1) {
-      currentPage -= 1;
-      renderTable(filtered);
-    }
-  });
-
-  nextPageBtn.addEventListener('click', () => {
-    const totalPages = Math.ceil(filtered.length / itemsPerPage);
-    if (currentPage < totalPages) {
-      currentPage += 1;
-      renderTable(filtered);
-    }
-  });
-
-  const fetchFolders = async () => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      window.location.href = '/login';
-      return;
-    }
-
-    try {
-      const res = await fetch(`http://localhost:3000/api/directories/${idCliente}`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-
-      if (!res.ok) throw new Error("Error de red");
-
-      folders = await res.json();
-      filtered = folders;
-      renderTable(filtered);
-    } catch (err) {
-      tableBody.innerHTML = `<tr><td colspan="3" class="text-center py-4 text-red-600">Error al cargar carpetas.</td></tr>`;
-    }
-  };
-
-  fetchFolders();
+				folders = await res.json();
+				filtered = folders;
+				renderTable(filtered);
+			} catch (err) {
+				tableBody.innerHTML = `<tr><td colspan="3" class="text-center py-4 text-red-600">Error al cargar carpetas.</td></tr>`;
+			}
+		};
+	
+		const applySearch = () => {
+			const q = searchInput.value.toLowerCase();
+			filtered = folders.filter(f => f.name.toLowerCase().includes(q));
+			currentPage = 1;
+			renderTable(filtered);
+		};
+	
+		const setupPagination = () => {
+			itemsPerPageSelect.addEventListener('change', () => {
+				itemsPerPage = parseInt(itemsPerPageSelect.value, 10);
+				currentPage = 1;
+				renderTable(filtered);
+			});
+			prevPageBtn.addEventListener('click', () => {
+				if (currentPage > 1) {
+					currentPage =- 1;
+					renderTable(filtered);
+				}
+			});
+			nextPageBtn.addEventListener('click', () => {
+				const totalPages = Math.ceil(filtered.length / itemsPerPage);
+				if (currentPage < totalPages) {
+					currentPage =+ 1;
+					renderTable(filtered);
+				}
+			});
+		};
+	
+		const setupModalEvents = () => {
+			addFolderBtn?.addEventListener('click', () => toggleModal(true));
+			closeModalBtn?.addEventListener('click', () => toggleModal(false));
+			modal?.addEventListener('click', e => e.target === modal && toggleModal(false));
+			document.addEventListener('keydown', e => e.key === 'Escape' && !modal.classList.contains('hidden') && toggleModal(false));
+		};
+	
+		const handleFolderCreation = () => {
+			addFolderForm?.addEventListener('submit', async (e) => {
+				e.preventDefault();
+				folderMessage.textContent = '';
+				folderMessage.classList.add('hidden');
+				if (!clientName) return;
+				try {
+					const res = await fetch('http://localhost:3000/api/directories/create', {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json',
+							Authorization: `Bearer ${localStorage.getItem('token')}`
+						},
+						body: JSON.stringify({ clientName })
+					});
+					const result = await res.json();
+					if (!res.ok) throw new Error(result.message);
+	
+					folderMessage.textContent = 'Carpeta creada correctamente.';
+					folderMessage.classList.remove('hidden', 'text-red-600');
+					folderMessage.classList.add('text-green-600');
+	
+					setTimeout(() => {
+						toggleModal(false);
+						addFolderForm.reset();
+						folderMessage.classList.add('hidden');
+					}, 1500);
+	
+					fetchFolders();
+				} catch (err) {
+					folderMessage.textContent = err.message || 'Error al crear carpeta';
+					folderMessage.classList.remove('hidden');
+				}
+			});
+		};
+	
+		searchInput.addEventListener('input', applySearch);
+		setupPagination();
+		setupModalEvents();
+		handleFolderCreation();
+		fetchFolders();
+	})();
 </script>
