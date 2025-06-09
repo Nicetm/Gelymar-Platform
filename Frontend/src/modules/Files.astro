@@ -3,9 +3,10 @@ import { loadTranslations } from '../lib/i18n.js';
 
 const apiBase = import.meta.env.PUBLIC_API_URL;
 const fileServer = import.meta.env.PUBLIC_FILE_SERVER_URL;
+const setLang = import.meta.env.PUBLIC_LANG;
+const lang = setLang;
 
 const { id } = Astro.params;
-const lang = 'es';
 const t: any = {
   documentos: await loadTranslations(lang, 'documentos'),
   comond: await loadTranslations(lang, 'comond'),

@@ -3,8 +3,9 @@ import { loadTranslations } from '../lib/i18n.js';
 
 const apiBase = import.meta.env.PUBLIC_API_URL;
 const fileServer = import.meta.env.PUBLIC_FILE_SERVER_URL;
+const setLang = import.meta.env.PUBLIC_LANG;
 
-const lang = 'en';
+const lang = setLang;
 const t: any = {
   clientes: await loadTranslations(lang, 'clientes'),
 };
