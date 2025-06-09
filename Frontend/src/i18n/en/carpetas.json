@@ -22,5 +22,6 @@
 	"folderUpdated": "Folder updated successfully.",
 	"folderDeleted": "Folder deleted successfully.",
 	"folderExists": "A folder with this name already exists.",
-	"folderNotFound": "Folder not found."
+	"folderNotFound": "Folder not found.",
+	"filesCount": "Files Count"
 }

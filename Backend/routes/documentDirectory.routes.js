@@ -127,7 +127,6 @@ router.post('/create/sub', authMiddleware, authorizeRoles(['admin']), controller
  *       404:
  *         description: Subcarpeta no encontrada
  */
-
 router.delete('/delete/sub', authMiddleware, authorizeRoles(['admin']), controller.deleteSubDirectory);
 
 router.get('/count/:customer_id', authMiddleware, authorizeRoles(['admin']), controller.getCountDirectoryByCustomerID);

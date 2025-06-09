@@ -3,9 +3,14 @@ const path = require('path');
 const multer = require('multer');
 const { insertFile, getFiles } = require('../services/file.service');
 const { poolPromise } = require('../config/db');
+const fileService = require('../services/file.service');
 
 const UPLOADS_ROOT = path.join(__dirname, '../uploads');
 
+/**
+ * Configuración de almacenamiento para Multer
+ * Define el destino físico de los archivos en base al cliente y subcarpeta
+ */
 const storage = multer.diskStorage({
   destination: async function (req, file, cb) {
     const { clientName, subfolder } = req.body;
@@ -20,6 +25,9 @@ const storage = multer.diskStorage({
   }
 });
 
+/**
+ * Filtro de archivos aceptados por extensión
+ */
 const fileFilter = (req, file, cb) => {
   const allowed = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.txt'];
   const ext = path.extname(file.originalname).toLowerCase();
@@ -27,9 +35,16 @@ const fileFilter = (req, file, cb) => {
   else cb(new Error('Tipo de archivo no permitido'), false);
 };
 
+// Middleware de subida de archivos
 const upload = multer({ storage, fileFilter });
+
+// Middleware listo para una sola subida bajo el campo 'file'
 const uploadFile = upload.single('file');
 
+/**
+ * POST /api/files/upload
+ * Procesa la carga física del archivo y registra su metadata en la base de datos
+ */
 const handleUpload = async (req, res) => {
   try {
     const {
@@ -67,6 +82,10 @@ const handleUpload = async (req, res) => {
   }
 };
 
+/**
+ * GET /api/files/:customerUuid?f=folderId
+ * Obtiene todos los archivos de una carpeta específica de un cliente dado su UUID
+ */
 const getFilesByCustomerAndFolder = async (req, res) => {
   const { customerUuid } = req.params;
   const folderId = req.query.f;
@@ -89,7 +108,7 @@ const getFilesByCustomerAndFolder = async (req, res) => {
 
 /**
  * DELETE /api/files/delete
- * Elimina un archivo físicamente y su registro en BD
+ * Elimina un archivo del sistema de archivos y su registro en la base de datos
  */
 const deleteFile = async (req, res) => {
   const { customer_id, folder_id, filename } = req.body;
@@ -99,7 +118,7 @@ const deleteFile = async (req, res) => {
   }
 
   try {
-    // Obtener path desde la BD
+    // Obtener path del archivo desde la BD
     const file = await fileService.getFileByName(customer_id, folder_id, filename);
     if (!file) {
       return res.status(404).json({ message: 'Archivo no encontrado en la base de datos' });
@@ -111,7 +130,7 @@ const deleteFile = async (req, res) => {
       fs.unlinkSync(fullPath);
     }
 
-    // Eliminar registro en la BD
+    // Eliminar registro en la base de datos
     await fileService.deleteFileById(file.id);
 
     res.json({ message: `Archivo ${filename} eliminado correctamente` });
@@ -120,7 +139,6 @@ const deleteFile = async (req, res) => {
     res.status(500).json({ message: 'Error interno del servidor', error: error.message });
   }
 };
-
 
 module.exports = {
   uploadFile,

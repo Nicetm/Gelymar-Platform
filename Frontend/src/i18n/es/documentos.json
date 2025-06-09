@@ -9,5 +9,6 @@
   "docType": "Tipo documento",
   "path": "Ruta",
   "upload": "Subir documentos",
-  "perPage": "Documentos por página"
+  "perPage": "Documentos por página",
+	"filesCount": "N° Decumentos"
 }

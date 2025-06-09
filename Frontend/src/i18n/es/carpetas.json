@@ -22,5 +22,6 @@
   "folderUpdated": "Carpeta actualizada exitosamente.",
   "folderDeleted": "Carpeta eliminada exitosamente.",
   "folderExists": "Ya existe una carpeta con este nombre.",
-  "folderNotFound": "Carpeta no encontrada."
+  "folderNotFound": "Carpeta no encontrada.",
+	"filesCount": "N° de Documentos"
 }
