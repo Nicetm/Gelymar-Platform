@@ -1,25 +1,34 @@
-// Archivo: Backend/controllers/auth2fa.controller.js
+// controllers/auth2fa.controller.js
 const speakeasy = require('speakeasy');
 const qrcode = require('qrcode');
+const pool = require('../config/db').pool;
 
-// Generar secreto 2FA y retornar QR
-exports.generate2FA = (req, res) => {
-  const { username } = req.body; // Requiere login previo
+exports.generate2FA = async (req, res) => {
+  const userId = req.user.id;
+  const secret = speakeasy.generateSecret({ name: `Gelymar (${req.user.email})` });
 
-  const secret = speakeasy.generateSecret({ name: `Gelymar (${username})` });
+  try {
+    await pool.query(
+      `UPDATE users SET twoFASecret = ? WHERE id = ?`,
+      [secret.base32, userId]
+    );
 
-  // Guardar en la DB real en producción
-  req.user.temp2FASecret = secret.base32;
+    qrcode.toDataURL(secret.otpauth_url, (err, data_url) => {
+      if (err) return res.status(500).json({ message: 'Error generando QR' });
+      res.json({ qrCode: data_url, secret: secret.base32 });
+    });
 
-  qrcode.toDataURL(secret.otpauth_url, (err, dataURL) => {
-    if (err) return res.status(500).json({ message: 'Error generando QR' });
-    res.json({ qr: dataURL, secret: secret.base32 });
-  });
+  } catch (error) {
+    console.error('❌ Error guardando el secreto 2FA:', error);
+    res.status(500).json({ message: 'Error guardando el secreto en la base de datos' });
+  }
 };
 
 // Verificar token TOTP
-exports.verify2FA = (req, res) => {
-  const { token, secret } = req.body;
+exports.verify2FA = async (req, res) => {
+  const userId = req.user.id;
+  const { token } = req.body;
+  const secret = req.user.twoFASecret;
 
   const verified = speakeasy.totp.verify({
     secret,
@@ -27,6 +36,16 @@ exports.verify2FA = (req, res) => {
     token,
   });
 
-  if (!verified) return res.status(401).json({ message: 'Código inválido' });
-  res.json({ success: true });
+  if (!verified) return res.status(400).json({ message: 'Código inválido' });
+
+  try {
+    await pool.query(
+      'UPDATE users SET twoFAEnabled = ? WHERE id = ?',
+      [true, userId]
+    );
+    res.json({ success: true, message: '2FA verificado y activado con éxito' });
+  } catch (error) {
+    console.error('❌ Error al activar 2FA:', error);
+    res.status(500).json({ message: 'Error al activar 2FA' });
+  }
 };
