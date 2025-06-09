@@ -4,9 +4,21 @@ const Subfolder = require('../models/subfolder.model');
 
 async function getFoldersByCustomer(customerId) {
   const pool = await poolPromise;
-  const [rows] = await pool.query('SELECT * FROM folders WHERE customer_id = ?', [customerId]);
-  console.log('Carpetas obtenidas:', customerId);
-  return rows.map(r => new Folder(r));
+
+  const [rows] = await pool.query(`
+    SELECT 
+      f.*, 
+      c.uuid AS customer_uuid 
+    FROM folders f
+    INNER JOIN customers c ON f.customer_id = c.id
+    WHERE f.customer_id = ?
+  `, [customerId]);
+
+  return rows.map(r => {
+    const folder = new Folder(r);
+    folder.customer_uuid = r.customer_uuid;
+    return folder;
+  });
 }
 
 async function createFolder({ customer_id, name, path }) {

@@ -1,0 +1,13 @@
+{
+  "title": "Files",
+  "name": "File name",
+  "type": "Type",
+  "created": "Created at",
+  "eta": "ETA",
+  "etd": "ETD",
+  "status": "Status",
+  "docType": "Document type",
+  "path": "Path",
+  "upload": "Upload file",
+  "perPage": "Files per page"
+}

@@ -27,5 +27,6 @@
   "orders": "Orders",
   "contacts": "Additional contacts",
   "viewContacts": "View contacts",
-  "addContact": "Add contact"
+  "addContact": "Add contact",
+	"directory": "Folders"
 }
