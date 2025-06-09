@@ -2,9 +2,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const speakeasy = require('speakeasy');
 const qrcode = require('qrcode');
-const fs = require('fs');
-const path = require('path');
-const users = require('../dummy/users.json');
+const userService = require('../services/user.services');
 const { generateToken } = require('../utils/jwt.util');
 const { sendEmail } = require('../utils/email.util');
 
@@ -16,7 +14,7 @@ const { sendEmail } = require('../utils/email.util');
 exports.login = async (req, res) => {
   const { email, username, password, otp } = req.body;
 
-  const user = users.find(u => u.email === email || u.email === username);
+  const user = await userService.findUserByEmailOrUsername(email || username);
   if (!user) {
     return res.status(401).json({ message: 'Usuario no encontrado', user: user});
   }
@@ -63,16 +61,16 @@ exports.login = async (req, res) => {
  * @desc Genera un nuevo token JWT si el token actual está por expirar
  * @access Privado (requiere token JWT válido en Authorization header)
  */
-exports.refreshToken = (req, res) => {
+exports.refreshToken = async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ message: 'Token requerido' });
 
   const token = authHeader.split(' ')[1];
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+  jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
     if (err) return res.status(403).json({ message: 'Token inválido o expirado' });
 
-    const user = users.find(u => u.id === decoded.id);
+    const user = await userService.findUserByEmailOrUsername(decoded.email);
     if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
 
     const newToken = generateToken({
@@ -92,11 +90,11 @@ exports.refreshToken = (req, res) => {
  * @desc Genera código secreto + QR para apps 2FA y lo guarda si no existe
  * @access Público (en producción, requiere autenticación)
  */
-exports.setup2FA = (req, res) => {
+exports.setup2FA = async (req, res) => {
   const { email } = req.query;
   if (!email) return res.status(400).json({ message: 'Email requerido' });
 
-  const user = users.find(u => u.email === email);
+  const user = await userService.findUserByEmailOrUsername(email);
   if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
 
   // Ya tiene secret → regenerar otpauthURL y QR
@@ -117,11 +115,7 @@ exports.setup2FA = (req, res) => {
   // No tiene: generar nuevo secret
   const secret = speakeasy.generateSecret({ name: `Gelymar:${email}`, length: 20 });
 
-  user.twoFASecret = secret.base32;
-
-  // Persistir en archivo
-  const usersPath = path.join(__dirname, '..', 'dummy', 'users.json');
-  fs.writeFileSync(usersPath, JSON.stringify(users, null, 2));
+  await userService.updateUser2FASecret(user.id, secret.base32);
 
   qrcode.toDataURL(secret.otpauth_url, (err, dataURL) => {
     if (err) return res.status(500).json({ message: 'Error generando QR' });
@@ -133,11 +127,11 @@ exports.setup2FA = (req, res) => {
  * @route GET /api/auth/2fa/status?email=xxx
  * @desc Retorna si el usuario tiene 2FA activo
  */
-exports.check2FAStatus = (req, res) => {
+exports.check2FAStatus = async (req, res) => {
   const { email } = req.query;
   if (!email) return res.status(400).json({ message: 'Email requerido' });
 
-  const user = users.find(u => u.email === email);
+  const user = await userService.findUserByEmailOrUsername(email);
   if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
 
   res.json({ twoFAEnabled: !!user.twoFASecret });
@@ -151,7 +145,7 @@ exports.check2FAStatus = (req, res) => {
 exports.recoverPassword = async (req, res) => {
   const { email } = req.body;
 
-  const user = users.find(u => u.email === email);
+  const user = await userService.findUserByEmailOrUsername(email);
   if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
 
   const token = jwt.sign({ email }, process.env.JWT_SECRET, { expiresIn: '15m' });
@@ -178,16 +172,12 @@ exports.resetPassword = async (req, res) => {
   try {
     const { email } = jwt.verify(token, process.env.JWT_SECRET);
 
-    const user = users.find(u => u.email === email);
+    const user = await userService.findUserByEmailOrUsername(email);
     if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
 
-    const bcrypt = require('bcrypt');
     const hashed = await bcrypt.hash(newPassword, 10);
-    user.password = hashed;
-
-    // guardar en JSON
-    const usersPath = path.join(__dirname, '..', 'dummy', 'users.json');
-    fs.writeFileSync(usersPath, JSON.stringify(users, null, 2));
+    const pool = await require('../config/db').poolPromise;
+    await pool.query('UPDATE users SET password = ? WHERE id = ?', [hashed, user.id]);
 
     res.json({ message: 'Contraseña actualizada correctamente' });
 

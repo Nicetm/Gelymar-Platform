@@ -93,3 +93,4 @@ module.exports = {
     require('tailwind-scrollbar')({ nocompatible: true }),
   ],
 };
+
