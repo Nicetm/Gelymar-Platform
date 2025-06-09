@@ -1,13 +1,16 @@
 ---
 import { loadTranslations } from '../lib/i18n.js';
 
+const apiBase = import.meta.env.PUBLIC_API_URL;
+const fileServer = import.meta.env.PUBLIC_FILE_SERVER_URL;
+
 const lang = 'en';
 const t: any = {
   clientes: await loadTranslations(lang, 'clientes'),
 };
 ---
 
-<section class="px-4 pt-16 pb-6 sm:px-6 lg:px-8">
+<section id="clientSection" data-api-base={apiBase} data-file-server={fileServer} class="px-4 pt-16 pb-6 sm:px-6 lg:px-8">
   <!-- Encabezado y breadcrumb -->
   <header class="flex flex-col gap-4 border-b border-gray-200 dark:border-gray-700 pb-4">
     <nav class="text-sm text-gray-500 dark:text-gray-400" aria-label="Breadcrumb">
@@ -64,7 +67,7 @@ const t: any = {
           <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.clientes.email}</th>
           <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.clientes.country}</th>
           <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.clientes.status}</th>
-          <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Directorios</th>
+          <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.clientes.directory}</th>
           <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.clientes.actions}</th>
         </tr>
       </thead>
@@ -133,6 +136,8 @@ const t: any = {
 
 <script is:inline>
   const qs = id => document.getElementById(id);
+	const section = qs('clientSection');
+	const apiBase = section?.dataset.apiBase;
   const addClientBtn = qs('addClientBtn');
   const modal = qs('addClientModal');
   const closeModalBtn = qs('closeModalBtn');
@@ -265,7 +270,7 @@ const t: any = {
 
   async function fetchCustomers() {
     try {
-      const res = await fetch('http://localhost:3000/api/customers', {
+      const res = await fetch(`${apiBase}/api/customers`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       customers = await res.json();

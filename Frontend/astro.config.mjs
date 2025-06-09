@@ -1,4 +1,4 @@
-import { defineConfig } from 'astro/config';
+import { defineConfig, envField } from 'astro/config';
 import sitemap from '@astrojs/sitemap';
 import tailwind from '@astrojs/tailwind';
 import node from '@astrojs/node';
@@ -41,4 +41,11 @@ export default defineConfig({
     sitemap(),
     tailwind(),
   ],
+
+  env: {
+    schema: {
+      PUBLIC_API_URL: envField.string({ context: 'client', access: 'public' }),
+      PUBLIC_FILE_SERVER_URL: envField.string({ context: 'client', access: 'public' }),
+    }
+  }
 });

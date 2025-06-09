@@ -1,0 +1,13 @@
+{
+  "title": "Documentos",
+  "name": "Nombre archivo",
+  "type": "Tipo",
+  "created": "Fecha creación",
+  "eta": "ETA",
+  "etd": "ETD",
+  "status": "Estado",
+  "docType": "Tipo documento",
+  "path": "Ruta",
+  "upload": "Subir documentos",
+  "perPage": "Documentos por página"
+}

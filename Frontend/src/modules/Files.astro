@@ -1,0 +1,156 @@
+---
+import { loadTranslations } from '../lib/i18n.js';
+
+const apiBase = import.meta.env.PUBLIC_API_URL;
+const fileServer = import.meta.env.PUBLIC_FILE_SERVER_URL;
+
+const { id } = Astro.params;
+const lang = 'es';
+const t: any = {
+  documentos: await loadTranslations(lang, 'documentos'),
+  comond: await loadTranslations(lang, 'comond'),
+};
+---
+
+<section id="filesSection" data-api-base={apiBase} data-file-server={fileServer} data-uuid={id} class="px-4 pt-16 pb-6 sm:px-6 lg:px-8">
+  <header class="flex flex-col gap-4 border-b border-gray-200 dark:border-gray-700 pb-4">
+    <nav class="text-sm text-gray-500 dark:text-gray-400" aria-label="Breadcrumb">
+      <ol class="inline-flex items-center space-x-1 md:space-x-2">
+        <li class="inline-flex items-center">
+          <a href="/admin" class="inline-flex items-center gap-1 hover:text-primary-600 dark:hover:text-white">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/></svg>
+            <span>{t.comond.home}</span>
+          </a>
+        </li>
+        <li class="flex items-center text-gray-400 dark:text-gray-300 font-medium" aria-current="page">
+          <span class="mx-1">/</span>{t.documentos.title}
+        </li>
+      </ol>
+    </nav>
+
+    <div class="flex justify-between items-center">
+      <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{t.documentos.title}</h1>
+      <button id="uploadFileBtn" class="flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-semibold shadow-sm bg-[#00538C] hover:bg-[#004773] text-white">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+        </svg>
+        {t.documentos.upload}
+      </button>
+    </div>
+
+    <div class="flex mt-4 gap-3">
+      <input id="searchInput" type="text" placeholder={t.comond.search} class="w-full sm:max-w-xs px-4 py-2 border rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white" />
+    </div>
+  </header>
+
+  <div class="overflow-x-auto mt-6">
+    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm">
+      <thead class="bg-gray-100 dark:bg-gray-800">
+        <tr>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t.documentos.name}</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t.documentos.docType}</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t.documentos.eta}</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t.documentos.etd}</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t.documentos.status}</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t.documentos.created}</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t.documentos.path}</th>
+        </tr>
+      </thead>
+      <tbody id="filesTableBody" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+        <!-- Documentos renderizados aquí -->
+      </tbody>
+    </table>
+  </div>
+
+  <div class="mt-6 flex justify-between items-center text-sm">
+    <div class="flex items-center gap-3">
+      <label for="itemsPerPageSelect">{t.documentos.perPage}</label>
+      <select id="itemsPerPageSelect" class="w-20 bg-white dark:bg-gray-800 border rounded-md">
+        <option value="10">10</option>
+        <option value="20">20</option>
+        <option value="30">30</option>
+      </select>
+    </div>
+    <div class="flex items-center gap-3">
+      <button id="prevPageBtn" class="w-9 h-9 flex items-center justify-center bg-gray-200 dark:bg-gray-700 rounded-md">‹</button>
+      <span id="pageIndicator" class="text-sm text-gray-700 dark:text-gray-300">Página 1</span>
+      <button id="nextPageBtn" class="w-9 h-9 flex items-center justify-center bg-gray-200 dark:bg-gray-700 rounded-md">›</button>
+    </div>
+  </div>
+</section>
+
+<script is:inline>
+	(() => {
+
+		const qs = id => document.getElementById(id);
+		const section = qs('filesSection');
+		const uuid = section?.dataset.uuid;
+		const apiBase = section?.dataset.apiBase;
+		const fileServer = section?.dataset.fileServer;
+		const params = new URLSearchParams(window.location.search);
+		const folderId = params.get('f');
+	
+		if (!uuid || !folderId) {
+			console.error('Faltan parámetros: customerUuid o folderId');
+			return;
+		}
+	
+		const token = localStorage.getItem('token');
+		if (!token) {
+			window.location.href = '/login';
+			return;
+		}
+
+		async function renderTable(files) {
+			const tableBody = document.getElementById('filesTableBody');
+			tableBody.innerHTML = '';
+
+			if (!files.length) {
+				tableBody.innerHTML = `
+					<tr>
+						<td colspan="8" class="text-center py-4 text-gray-500">No hay archivos registrados.</td>
+					</tr>`;
+				return;
+			}
+
+			files.forEach(file => {
+				const row = document.createElement('tr');
+				row.innerHTML = `
+					<td class="px-4 py-3">${file.name}</td>
+					<td class="px-4 py-3">${file.document_type || '-'}</td>
+					<td class="px-4 py-3">${file.eta ? new Date(file.eta).toLocaleDateString('es-CL') : '-'}</td>
+					<td class="px-4 py-3">${file.etd ? new Date(file.etd).toLocaleDateString('es-CL') : '-'}</td>
+					<td class="px-4 py-3">${file.status || '-'}</td>
+					<td class="px-4 py-3">${file.created_at ? new Date(file.created_at).toLocaleString('es-CL') : '-'}</td>
+					<td class="px-4 py-3">
+						<a href="${fileServer}/uploads/${file.path}" target="_blank" class="flex items-center gap-1 text-blue-600 hover:underline" title="view file ${file.name}">
+							<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+								<polyline points="14 2 14 8 20 8"/>
+							</svg>
+						</a>
+					</td>
+				`;
+				tableBody.appendChild(row);
+			});
+		}
+
+		async function fetchFiles() {
+			try {
+				const res = await fetch(`${apiBase}/api/files/${uuid}?f=${folderId}`, {
+					headers: { Authorization: `Bearer ${token}` }
+				});
+	
+				if (!res.ok) throw new Error('Error al obtener archivos');
+	
+				const files = await res.json();
+				console.log('Archivos:', files);
+				renderTable(files);
+			} catch (err) {
+				console.error('Error al obtener archivos:', err);
+			}
+		}
+		
+		fetchFiles();
+	})();
+	</script>

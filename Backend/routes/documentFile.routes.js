@@ -6,10 +6,37 @@ const { authorizeRoles } = require('../middleware/role.middleware');
 
 /**
  * @swagger
- * tags:
- *   name: Archivos
- *   description: Endpoints para subir y eliminar archivos
+ * /api/files/{customerUuid}:
+ *   get:
+ *     summary: Lista archivos de un cliente según carpeta
+ *     tags: [Archivos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: customerUuid
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: UUID del cliente
+ *       - in: query
+ *         name: f
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID numérico del folder
+ *     responses:
+ *       200:
+ *         description: Archivos listados correctamente
+ *       400:
+ *         description: Parámetros inválidos
+ *       404:
+ *         description: Cliente o folder no encontrado
+ *       500:
+ *         description: Error interno del servidor
  */
+
+router.get('/:customerUuid', authMiddleware, authorizeRoles(['admin']), controller.getFilesByCustomerAndFolder);
 
 /**
  * @swagger

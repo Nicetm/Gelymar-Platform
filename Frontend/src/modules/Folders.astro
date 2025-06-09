@@ -1,6 +1,9 @@
 ---
 import { loadTranslations } from '../lib/i18n.js';
 
+const apiBase = import.meta.env.PUBLIC_API_URL;
+const fileServer = import.meta.env.PUBLIC_FILE_SERVER_URL;
+
 const { id } = Astro.params;
 const lang = 'es';
 const t: any = {
@@ -9,7 +12,7 @@ const t: any = {
 };
 ---
 
-  <section id="folderSection" data-id={id} class="px-4 pt-16 pb-6 sm:px-6 lg:px-8">
+  <section id="folderSection" data-api-base={apiBase} data-file-server={fileServer} data-uuid={id} class="px-4 pt-16 pb-6 sm:px-6 lg:px-8">
 		<!-- Encabezado y breadcrumb -->
 		<header class="flex flex-col gap-4 border-b border-gray-200 dark:border-gray-700 pb-4">
 			<nav class="text-sm text-gray-500 dark:text-gray-400" aria-label="Breadcrumb">
@@ -127,7 +130,9 @@ const t: any = {
 		let filtered = [];
 		
 		const qs = id => document.getElementById(id);
-		const uuID = qs('folderSection')?.dataset.id;
+		const section = qs('folderSection');
+		const uuID = section?.dataset.uuid;
+		const apiBase = section?.dataset.apiBase;
 		const tableBody = qs('foldersTableBody');
 		const searchInput = qs('searchInput');
 		const itemsPerPageSelect = qs('itemsPerPageSelect');
@@ -140,6 +145,7 @@ const t: any = {
 		const addFolderForm = qs('addFolderForm');
 		const folderMessage = qs('folderMessage');
 		const { pageLabel, ofLabel } = pageIndicator.dataset;
+		
 	
 		const params = new URLSearchParams(window.location.search);
 		const clientName = params.get('c');
@@ -180,7 +186,7 @@ const t: any = {
 					</td>
 					<td class="w-[25%] px-6 py-4 text-sm">
 						<div class="flex justify-center items-center gap-3 text-gray-900 dark:text-white">
-							<a href="/admin/clients/folders/files/view/${f.name}" title="Ver archivos en ${f.name}" class="hover:text-blue-500 transition">
+							<a href="/admin/clients/documents/view/${f.customer_uuid}?f=${f.id}" title="Ver archivos en ${f.name}" class="hover:text-blue-500 transition">
 								<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
 							</a>
 							<a href="#" title="Ver Lista de archivos de ${f.name}" class="hover:text-indigo-500 transition">
@@ -213,7 +219,7 @@ const t: any = {
 			}
 
 			try {
-				const res = await fetch(`http://localhost:3000/api/directories/${uuID}?c=${encodeURIComponent(clientName)}`, {
+				const res = await fetch(`${apiBase}/api/directories/${uuID}?c=${encodeURIComponent(clientName)}`, {
 					headers: { Authorization: `Bearer ${token}` }
 				});
 
@@ -279,7 +285,7 @@ const t: any = {
 				}
 
 				try {
-					const response = await fetch(`http://localhost:3000/api/customers/uuid/${uuID}`, {
+					const response = await fetch(`${apiBase}/api/customers/uuid/${uuID}`, {
 						method: 'GET',
 						headers: {
 							'Content-Type': 'application/json',
@@ -295,7 +301,7 @@ const t: any = {
 					const customer = await response.json();
 					const customerId = customer.id;
 
-					const res = await fetch('http://localhost:3000/api/directories/create', {
+					const res = await fetch(`${apiBase}/api/directories/create`, {
 						method: 'POST',
 						headers: {
 							'Content-Type': 'application/json',

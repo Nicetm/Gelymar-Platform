@@ -1,11 +1,11 @@
 /// <reference types="astro/client" />
 
 interface ImportMetaEnv {
-	readonly API_URL: string;
+	readonly PUBLIC_API_URL: string;
+	readonly PUBLIC_FILE_SERVER_URL: string;
 	readonly REMOTE_ASSETS_BASE_URL: string;
 	readonly SITE: string;
 	readonly BASE_URL: string;
-	readonly RANDOMIZE?: strin
 }
 
 interface ImportMeta {

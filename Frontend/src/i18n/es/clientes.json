@@ -27,5 +27,6 @@
   "orders": "Pedidos",
   "contacts": "Contactos adicionales",
   "viewContacts": "Ver contactos",
-  "addContact": "Agregar contacto"
+  "addContact": "Agregar contacto",
+	"directory": "Directorios"
 }
