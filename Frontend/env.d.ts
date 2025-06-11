@@ -11,3 +11,15 @@ interface ImportMetaEnv {
 interface ImportMeta {
 	readonly env: ImportMetaEnv;
 }
+
+declare namespace App {
+  interface Locals {
+    user: {
+      id: number;
+      email: string;
+      username: string;
+      role: 'admin' | 'user' | 'client';
+      cardCode?: string;
+    };
+  }
+}

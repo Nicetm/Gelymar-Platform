@@ -26,7 +26,7 @@
       <!-- clients -->
       <a href="/admin/clients" class="flex items-center p-2 text-base text-gray-900 rounded-lg hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700">
         <i data-lucide="briefcase" class="w-6 h-6 text-gray-500 dark:text-gray-400"></i>
-        <span class="ml-3">Clients</span>
+        <span class="ml-3">Customers</span>
       </a>
 
       <!-- documents -->
@@ -54,8 +54,18 @@
         <i data-lucide="chevron-down" class="w-4 h-4 ml-auto transition-transform group-hover:rotate-180"></i>
       </button>
       <ul id="users-submenu" class="hidden py-2 space-y-2 pl-7">
-        <li><a href="/admin/users" class="block p-2 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-200">user list</a></li>
-        <li><a href="/admin/roles" class="block p-2 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-200">roles</a></li>
+        <li>
+          <a href="/admin/users" class="flex items-center gap-2 p-2 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-200">
+            <i data-lucide="user" class="w-4 h-4 text-gray-400 dark:text-gray-300"></i>
+            User list
+          </a>
+        </li>
+        <li>
+          <a href="/admin/roles" class="flex items-center gap-2 p-2 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-200">
+            <i data-lucide="shield" class="w-4 h-4 text-gray-400 dark:text-gray-300"></i>
+            Roles
+          </a>
+        </li>
       </ul>
 
       <hr class="my-3 border-gray-300 dark:border-gray-600" />
@@ -115,6 +125,16 @@
     interface Window {
       lucide?: { createIcons: () => void };
     }
+  }
+
+  const path = window.location.pathname;
+
+  // Users submenu expansion logic
+  const usersSubmenu = document.getElementById('users-submenu');
+  const nestedUserPaths = ['/admin/users', '/admin/roles'];
+  const isInUsersModule = nestedUserPaths.some((p) => path === p || path.startsWith(p + '/'));
+  if (usersSubmenu && isInUsersModule) {
+    usersSubmenu.classList.remove('hidden');
   }
 
   window.addEventListener("DOMContentLoaded", () => {
