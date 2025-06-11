@@ -5,7 +5,10 @@ import NavPagination from '../components/NavPagination.astro';
 import { asset, fetchData } from '../lib/data.js';
 
 const { class: clazz } = Astro.props;
-const users = await fetchData('users');
+const token = Astro.cookies.get('token')?.value;
+const users = await fetchData('customers', token);
+
+console.log('🧪 Resultado de fetchData:', users);
 ---
 
 <entities-crud
