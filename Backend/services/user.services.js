@@ -1,11 +1,19 @@
 // services/user.service.js
 const { poolPromise } = require('../config/db');
 
-// Buscar por email o username
+// Buscar por email o username con JOIN a roles
 async function findUserByEmailOrUsername(emailOrUsername) {
   const pool = await poolPromise;
   const [rows] = await pool.query(
-    'SELECT * FROM users WHERE email = ? OR username = ? LIMIT 1',
+    `
+    SELECT u.id, u.email, u.password,
+           u.twoFASecret, u.twoFAEnabled,
+           r.name AS role
+    FROM users u
+    LEFT JOIN roles r ON u.role_id = r.id
+    WHERE u.email = ?
+    LIMIT 1
+    `,
     [emailOrUsername, emailOrUsername]
   );
   return rows[0];

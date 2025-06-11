@@ -1,6 +1,6 @@
 // middleware/auth.middleware.js
 const jwt = require('jsonwebtoken');
-const pool = require('../config/db').pool;
+const { poolPromise } = require('../config/db');
 
 module.exports = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -10,13 +10,20 @@ module.exports = async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    // 🔒 Cargar datos reales desde la base de datos
-    const [rows] = await pool.query('SELECT id, email, role, twoFAEnabled, twoFASecret FROM users WHERE id = ?', [decoded.id]);
+    
+    const pool = await poolPromise;
+    const [rows] = await pool.query(
+      `SELECT u.id, u.email, r.name AS role, u.twoFAEnabled, u.twoFASecret
+       FROM users u
+       LEFT JOIN roles r ON u.role_id = r.id
+       WHERE u.id = ?`,
+      [decoded.id]
+    );
     const user = rows[0];
-
-    if (!user) return res.status(401).json({ message: 'Usuario no encontrado' });
-
+    if (!user) {
+      return res.status(401).json({ message: 'Usuario no encontrado' });
+    }
+  
     req.user = user;
     return next();
 
@@ -27,7 +34,6 @@ module.exports = async (req, res, next) => {
       req.user = decoded;
       return next();
     }
-
     return res.status(403).json({ message: 'Token inválido o expirado' });
   }
 };
