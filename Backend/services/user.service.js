@@ -1,5 +1,22 @@
 // services/user.service.js
 const { poolPromise } = require('../config/db');
+const Users = require('../models/user.model');
+
+/**
+ * Obtiene todos los clientes con un conteo de carpetas asociadas (folder_count)
+ * @returns {Array<Users>} Lista de clientes con propiedad adicional folder_count
+ */
+async function getAllUsers() {
+  const pool = await poolPromise;
+  const [rows] = await pool.query(`
+    SELECT * FROM users
+  `);
+
+  return rows.map(row => {
+    const usesr = new Users(row);
+    return usesr;
+  });
+}
 
 // Buscar por email o username con JOIN a roles
 async function findUserByEmailOrUsername(emailOrUsername) {
@@ -39,6 +56,7 @@ async function updateUser2FASecret(userId, secret) {
 }
 
 module.exports = {
+  getAllUsers,
   findUserByEmailOrUsername,
   createUser,
   updateUser2FASecret,

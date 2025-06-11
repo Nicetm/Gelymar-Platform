@@ -15,6 +15,7 @@ const app = express();
 
 // Rutas API
 const customerRoutes = require('./routes/customer.routes');
+const userRoutes = require('./routes/user.routes');
 const authRoutes = require('./routes/auth.routes');
 const orderRoutes = require('./routes/order.routes');
 const itemRoutes = require('./routes/item.routes');
@@ -47,6 +48,7 @@ app.use('/api/auth', authRoutes);
 
 // Rutas protegidas (requieren token + rol adecuado)
 app.use('/api/customers', authMiddleware, authorizeRoles(['admin']), customerRoutes);
+app.use('/api/users', authMiddleware, authorizeRoles(['admin']), userRoutes);
 app.use('/api/orders', authMiddleware, orderRoutes);
 app.use('/api/items', authMiddleware, itemRoutes);
 app.use('/api/directories', authMiddleware, documentDirectoryRoutes);

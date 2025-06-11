@@ -1,14 +1,22 @@
 // types/entities.ts
 
-export type Endpoint = 'customers';
+export type Endpoint = 'users';
 
 export interface EndpointsToOperations {
-  customers: () => Customer[];
+  users: () => Users[];
 }
 
-export interface Customer {
+export interface Users {
   id: number;
-  name: string;
-  uuid: string;
   email: string;
+  password: string;
+  role_id: number;
+  twoFASecret: string;
+  twoFAEnabled: number;
+  full_name: string;
+  phone: string;
+  country: string;
+  city: string;
+  created_at: string;
+  updated_at: string;
 }

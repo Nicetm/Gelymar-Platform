@@ -4,27 +4,23 @@ import type { Endpoint, EndpointsToOperations } from '../types/entities.ts';
 
 // Llamada a la API (ya estaba)
 export async function fetchData<Selected extends Endpoint>(
-	endpoint: Selected,
-	token?: string // ⬅ nuevo parámetro opcional
-) {
-	const apiEndpoint = `${API_URL}${String(endpoint)}`;
-	console.info(`📡 Fetching ${apiEndpoint}…`);
+  endpoint: Selected,
+  token?: string
+): Promise<ReturnType<EndpointsToOperations[Selected]>> {
+  const apiEndpoint = `${API_URL}${String(endpoint)}`;
+  console.info(`📡 Fetching ${apiEndpoint}…`);
 
-	return fetch(apiEndpoint, {
-		headers: token
-			? { Authorization: `Bearer ${token}` }
-			: {} // sin header si no hay token
-	})
-		.then(
-			(r) =>
-				r.json() as unknown as Promise<
-					ReturnType<EndpointsToOperations[Selected]>
-				>
-		)
-		.catch((e) => {
-			console.error('❌ fetchData error:', e);
-			throw Error('Invalid API data!');
-		});
+  const res = await fetch(apiEndpoint, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  });
+
+  if (!res.ok) {
+    console.warn(`⚠️ Fetch failed with status ${res.status}`);
+    throw new Error(`API Error ${res.status}`);
+  }
+
+  const data = await res.json() as ReturnType<EndpointsToOperations[Selected]>;
+  return data;
 }
 
 // URL del sitio

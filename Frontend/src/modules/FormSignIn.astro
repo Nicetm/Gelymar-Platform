@@ -121,6 +121,7 @@
       }
 
       // ✅ Guardar token
+			document.cookie = `token=${data.token}; path=/; SameSite=Strict`;
       localStorage.setItem('token', data.token);
 
       // ✅ Consultar /me para obtener el rol seguro
