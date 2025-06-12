@@ -67,7 +67,7 @@ import UserMenu from '../components/UserMenu.astro';
 
     // Cierra todos si haces clic afuera
     document.addEventListener("click", (e) => {
-      const target = e.target;
+      const { target } = e;
       if (!(target instanceof Node)) return;
 
       const isInsideDropdown = [...document.querySelectorAll("[id$='-dropdown']")].some(el => el.contains(target));

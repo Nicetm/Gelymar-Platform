@@ -112,4 +112,6 @@ router.post('/upload', authMiddleware, authorizeRoles(['admin']), controller.upl
  */
 router.delete('/delete', authMiddleware, authorizeRoles(['admin']), controller.deleteFile);
 
+router.post('/generate/:id', authMiddleware, authorizeRoles(['admin']), controller.generateFile);
+
 module.exports = router;

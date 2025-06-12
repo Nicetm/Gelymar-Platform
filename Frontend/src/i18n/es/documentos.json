@@ -3,6 +3,7 @@
   "name": "Nombre archivo",
   "type": "Tipo",
   "created": "Fecha creación",
+	"updated": "Fecha modificación",
   "eta": "ETA",
   "etd": "ETD",
   "status": "Estado",

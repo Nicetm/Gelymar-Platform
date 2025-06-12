@@ -2,6 +2,7 @@
 import pkg from '../../package.json' assert { type: 'json' };
 import { url } from '../lib/data.js';
 import { SITE_TITLE } from './constants.js';
+import AuthGuard from '../components/AuthGuard.astro';
 
 const { class: clazz } = Astro.props;
 ---
@@ -17,7 +18,10 @@ const { class: clazz } = Astro.props;
     <meta name="description" content={pkg.description} />
     <meta name="author" content="Sebastián Allende - Pablo Santibañez | Softkey" />
     <meta name="copyright" content="MIT" />
-
+		<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
+		<meta http-equiv="Pragma" content="no-cache" />
+		<meta http-equiv="Expires" content="0" />
+		
     <link rel="sitemap" type="application/xml" href={url('sitemap-index.xml')} />
 
     <script type="module">
@@ -109,6 +113,8 @@ const { class: clazz } = Astro.props;
       'dark:scrollbar-track-gray-900 dark:scrollbar-thumb-gray-700',
     ]}
   >
+
+	<AuthGuard /> 
     <slot />
     <div id="tokenWarningModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden justify-center items-center">
       <div class="bg-white dark:bg-gray-800 p-6 rounded-xl max-w-md w-full mx-4 shadow-xl">

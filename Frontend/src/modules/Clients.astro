@@ -1,17 +1,22 @@
 ---
 import { loadTranslations } from '../lib/i18n.js';
+import type { Customers } from '../types/entities.js';
 
 const apiBase = import.meta.env.PUBLIC_API_URL;
-const fileServer = import.meta.env.PUBLIC_FILE_SERVER_URL;
 const setLang = import.meta.env.PUBLIC_LANG;
 
 const lang = setLang;
 const t: any = {
   clientes: await loadTranslations(lang, 'clientes'),
 };
+
+const token = Astro.cookies.get('token')?.value;
+const customers: Customers[] = await fetch(`${apiBase}/api/customers`, {
+  headers: { Authorization: `Bearer ${token}` }
+}).then(res => res.json());
 ---
 
-<section id="clientSection" data-api-base={apiBase} data-file-server={fileServer} class="px-4 pt-24 pb-6 sm:px-6 lg:px-8">
+<section id="clientSection" class="px-4 pt-24 pb-6 sm:px-6 lg:px-8">
   <!-- Encabezado y breadcrumb -->
   <header class="flex flex-col gap-4 border-b border-gray-200 dark:border-gray-700 pb-4">
     <nav class="text-sm text-gray-500 dark:text-gray-400" aria-label="Breadcrumb">
@@ -79,6 +84,31 @@ const t: any = {
       </thead>
       <tbody id="customersTableBody" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-sm min-h-[600px]">
         <!-- Las filas <tr> se agregan dinámicamente aquí con JavaScript -->
+				 {customers.map(customer => (
+						<tr data-id={customer.id} class="hover:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+							<td class="px-6 py-4 items-center gap-3">{customer.name}</td>
+							<td class="px-6 py-4 items-center gap-3">{customer.email}</td>
+							<td class="px-6 py-4 items-center gap-3">{customer.country}</td>
+							<td data-status={customer.status} class="px-6 py-4 text-center gap-3">{customer.status}</td>
+							<td class="px-6 py-4 text-center gap-3">{customer.folder_count}</td>
+							<td class="px-6 py-4 items-center gap-3">
+								<div class="flex justify-center items-center gap-3 text-gray-900 dark:text-white">
+									<a href={`/admin/clients/folders/view/${customer.uuid}?c=${customer.name}`} title="Orders" class="hover:text-yellow-500 transition">
+										<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h18v4H3z"/><path d="M3 7h18v13H3z"/><path d="M16 3v4"/></svg>
+									</a>
+									<a href="#" data-uuid={`${customer.uuid}`} title="View more details" class="hover:text-blue-500 transition">
+										<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 20.5C6.753 20.5 2.5 16.247 2.5 11S6.753 1.5 12 1.5 21.5 5.753 21.5 11 17.247 20.5 12 20.5z"/></svg>
+									</a>
+									<a href={`/admin/clients/send-mail/view/${customer.uuid}`} title="Send mail" class="hover:text-indigo-500 transition">
+										<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4h16v16H4V4z" /><path stroke-linecap="round" stroke-linejoin="round" d="M22 6l-10 7L2 6" /></svg>
+									</a>
+									<a href="#" data-uuid={`${customer.uuid}`} title="Edit Client" class="hover:text-green-500 transition">
+										<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.586-6.586a2 2 0 112.828 2.828L11.828 13.83a2 2 0 01-.586.414L9 15l.756-2.243a2 2 0 01.414-.586z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19 20H5"/></svg>
+									</a>
+								</div>
+							</td>
+						</tr>
+					))}
       </tbody>
     </table>
   </div>
@@ -141,151 +171,135 @@ const t: any = {
 </div>
 
 <script is:inline>
-  const qs = id => document.getElementById(id);
-	const section = qs('clientSection');
-	const apiBase = section?.dataset.apiBase;
-  const addClientBtn = qs('addClientBtn');
-  const modal = qs('addClientModal');
-  const closeModalBtn = qs('closeModalBtn');
-  const addIcon = qs('addIcon');
-  const spinnerIcon = qs('spinnerIcon');
-  const tableBody = qs('customersTableBody');
+	const qs = id => document.getElementById(id);
   const searchInput = qs('searchInput');
-  const itemsPerPageSelect = qs('itemsPerPageSelect');
-  const prevPageBtn = qs('prevPageBtn');
-  const nextPageBtn = qs('nextPageBtn');
-  const pageIndicator = qs('pageIndicator');
+	const itemsPerPageSelect = qs('itemsPerPageSelect');
+	const prevPageBtn = qs('prevPageBtn');
+	const nextPageBtn = qs('nextPageBtn');
+	const pageIndicator = qs('pageIndicator');
+	const tableBody = qs('customersTableBody');
+	const addClientBtn = qs('addClientBtn');
+	const addIcon = qs('addIcon');
+	const spinnerIcon = qs('spinnerIcon');
+	const modal = qs('addClientModal');
+	const closeModalBtn = qs('closeModalBtn');
+	const allRows = Array.from(tableBody.querySelectorAll('tr'));
 
-  const noResultsText = "{t.clientes.noResults}";
-  const errorText = "{t.clientes.error}";
-
-  let customers = [];
-	let filtered = [];
 	let currentPage = 1;
-	let itemsPerPage = 10;
+	let itemsPerPage = parseInt(itemsPerPageSelect.value, 10);
+	let filteredRows = [...allRows];
 
-  const toggleModal = show => modal.classList.toggle('hidden', !show);
+	/**
+	 * Función principal de render de la tabla según búsqueda y paginación.
+	 * Oculta todas las filas y solo muestra las correspondientes a la página actual.
+	 */
+	function renderTable() {
+		allRows.forEach(originalRow => {
+			const row = originalRow;
+			row.style.display = 'none';
 
-  addClientBtn?.addEventListener('click', () => {
-    addIcon.classList.add('hidden');
-    spinnerIcon.classList.remove('hidden');
-    setTimeout(() => {
-      spinnerIcon.classList.add('hidden');
-      addIcon.classList.remove('hidden');
-      toggleModal(true);
-    }, 500);
-  });
+			// Obtener status de data-status
+			const statusCell = row.querySelector('td[data-status]');
+			if (statusCell) {
+				const statusValue = parseInt(statusCell.dataset.status, 10);
+				const isActive = statusValue === 1;
 
-  closeModalBtn?.addEventListener('click', () => toggleModal(false));
+				// Definir clases
+				const statusClass = isActive
+					? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+					: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
+
+				const statusIcon = isActive
+					? `<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+							</svg>`
+					: `<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+							</svg>`;
+
+				// Insertar el HTML en la celda
+				statusCell.innerHTML = `
+					<div class="flex justify-center items-center h-full">
+						<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusClass}">
+							${statusIcon} ${isActive ? 'Active' : 'Inactive'}
+						</span>
+					</div>`;
+			}
+		});
+
+		const start = (currentPage - 1) * itemsPerPage;
+		const pageData = filteredRows.slice(start, start + itemsPerPage);
+		
+		pageData.forEach(originalRow => {
+			const row = originalRow;
+			row.style.display = '';
+		});
+
+		const totalPages = Math.ceil(filteredRows.length / itemsPerPage);
+		pageIndicator.textContent = `Page ${currentPage} of ${totalPages}`;
+	}
+
+	// Función para abrir/cerrar el modal
+	const toggleModal = show => modal.classList.toggle('hidden', !show);
+
+	addClientBtn?.addEventListener('click', () => {
+		addIcon.classList.add('hidden');
+		spinnerIcon.classList.remove('hidden');
+		setTimeout(() => {
+			spinnerIcon.classList.add('hidden');
+			addIcon.classList.remove('hidden');
+			toggleModal(true);
+		}, 500);
+	});
+
+	// Eventos para cerrar el modal
+	closeModalBtn?.addEventListener('click', () => toggleModal(false));
   modal?.addEventListener('click', e => e.target === modal && toggleModal(false));
   document.addEventListener('keydown', e => e.key === 'Escape' && !modal.classList.contains('hidden') && toggleModal(false));
 
-  function renderTable(data) {
-    tableBody.innerHTML = '';
-    if (!data.length) {
-      tableBody.innerHTML = `<tr><td colspan="3" class="px-6 py-4 text-center text-gray-500 dark:text-gray-400">${noResultsText}</td></tr>`;
-      pageIndicator.textContent = '';
-      return;
-    }
+	/**
+	 * Buscador dinámico: filtra las filas según el texto ingresado.
+	 */
+	searchInput.addEventListener('input', () => {
+		const query = searchInput.value.toLowerCase();
+		filteredRows = allRows.filter(row => {
+			const text = row.textContent.toLowerCase();
+			return text.includes(query);
+		});
+		currentPage = 1;
+		renderTable();
+	});
 
-    const start = (currentPage - 1) * itemsPerPage;
-    const pageData = data.slice(start, start + itemsPerPage);
-    const totalPages = Math.ceil(data.length / itemsPerPage);
-    pageIndicator.textContent = `Page ${currentPage} of ${totalPages}`;
+	/**
+	 * Manejo del cambio en cantidad de items por página.
+	 */
+	itemsPerPageSelect.addEventListener('change', () => {
+		itemsPerPage = parseInt(itemsPerPageSelect.value, 10);
+		currentPage = 1;
+		renderTable();
+	});
 
-    pageData.forEach(c => {
-      const isActive = c.status;
-      const statusClass = isActive
-        ? `bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300`
-        : `bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300`;
+	/**
+	 * Navegación hacia la página anterior
+	 */
+	prevPageBtn.addEventListener('click', () => {
+		if (currentPage > 1) {
+			currentPage-=1;
+			renderTable();
+		}
+	});
 
-      const statusIcon = isActive
-        ? `<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>`
-        : `<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>`;
+	/**
+	 * Navegación hacia la página siguiente
+	 */
+	nextPageBtn.addEventListener('click', () => {
+		const totalPages = Math.ceil(filteredRows.length / itemsPerPage);
+		if (currentPage < totalPages) {
+			currentPage+=1;
+			renderTable();
+		}
+	});
 
-      const row = document.createElement('tr');
-      row.className = 'hover:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition';
-      row.innerHTML = `
-        <td class="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white truncate overflow-hidden whitespace-nowrap" title="${c.name}">${c.name}</td>
-        <td class="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white truncate overflow-hidden whitespace-nowrap" title="${c.email}">${c.email}</td>
-        <td class="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white truncate overflow-hidden whitespace-nowrap" title="${c.country}">${c.country}</td>
-        <td class="px-6 py-4 text-sm">
-          <div class="flex justify-center items-center h-full">
-            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusClass}">
-              ${statusIcon}
-              ${isActive ? 'Active' : 'Inactive'}
-            </span>
-          </div>
-        </td>
-				<td class="px-6 py-4 text-sm">
-					<div class="flex justify-center items-center h-full">
-            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium">${c.folder_count}</span>
-          </div>	
-				</td>
-        <td class="px-6 py-4 text-sm">
-          <div class="flex justify-center items-center gap-3 text-gray-900 dark:text-white">
-						<a href="/admin/clients/folders/view/${c.uuid}?c=${c.name}" title="Documents" class="hover:text-blue-500 transition">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-            </a>
-            <a href="/admin/clients/orders/view/${c.uuid}" title="Orders" class="hover:text-yellow-500 transition">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h18v4H3z"/><path d="M3 7h18v13H3z"/><path d="M16 3v4"/></svg>
-            </a>
-						<a href="#" data-uuid="${c.uuid}" title="View more details" class="hover:text-blue-500 transition">
-							<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 20.5C6.753 20.5 2.5 16.247 2.5 11S6.753 1.5 12 1.5 21.5 5.753 21.5 11 17.247 20.5 12 20.5z"/></svg>
-						</a>
-						<a href="/admin/clients/send-mail/view/${c.uuid}" title="Send mail" class="hover:text-indigo-500 transition">
-							<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4h16v16H4V4z" /><path stroke-linecap="round" stroke-linejoin="round" d="M22 6l-10 7L2 6" /></svg>
-						</a>
-            <a href="#" data-uuid="${c.uuid}" title="Edit Client" class="hover:text-green-500 transition">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.586-6.586a2 2 0 112.828 2.828L11.828 13.83a2 2 0 01-.586.414L9 15l.756-2.243a2 2 0 01.414-.586z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19 20H5"/></svg>
-            </a>
-          </div>
-        </td>`;
-      tableBody.appendChild(row);
-    });
-  }
-
-  const applySearch = () => {
-    const query = searchInput.value.toLowerCase();
-    filtered = customers.filter(c => c.name.toLowerCase().includes(query));
-    currentPage = 1;
-    renderTable(filtered);
-  };
-
-  searchInput.addEventListener('input', applySearch);
-  itemsPerPageSelect.addEventListener('change', () => {
-    itemsPerPage = parseInt(itemsPerPageSelect.value, 10);
-    currentPage = 1;
-    renderTable(filtered);
-  });
-
-  prevPageBtn.addEventListener('click', () => {
-    if (currentPage > 1) {
-      currentPage -= 1;
-      renderTable(filtered);
-    }
-  });
-
-  nextPageBtn.addEventListener('click', () => {
-    const totalPages = Math.ceil(filtered.length / itemsPerPage);
-    if (currentPage < totalPages) {
-      currentPage += 1;
-      renderTable(filtered);
-    }
-  });
-
-  async function fetchCustomers() {
-    try {
-      const res = await fetch(`${apiBase}/api/customers`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
-      customers = await res.json();
-      filtered = customers;
-      renderTable(filtered);
-    } catch {
-      tableBody.innerHTML = `<tr><td colspan="3" class="text-center py-4 text-red-600">${errorText}</td></tr>`;
-    }
-  }
-
-  fetchCustomers();
+	// Render inicial de la tabla al cargar
+	renderTable();
 </script>

@@ -1,14 +1,14 @@
 {
-  "title": "Client Folders",
+  "title": "Client Orders",
   "search": "Search...",
-  "addFolder": "Add Folder",
-  "name": "Name",
+  "addFolder": "Add Order",
+  "name": "N° SAP",
   "path": "Path",
   "date": "Date",
   "perPage": "Folder Per page",
   "noResults": "No folders found.",
   "error": "Error loading folders.",
-  "createTitle": "Create Folder",
+  "createTitle": "Create Oreder",
   "createLabel": "Folder name",
   "createButton": "Save",
 	"editTitle": "Edit Folder",
@@ -23,5 +23,6 @@
 	"folderDeleted": "Folder deleted successfully.",
 	"folderExists": "A folder with this name already exists.",
 	"folderNotFound": "Folder not found.",
-	"filesCount": "Files Count"
+	"filesCount": "Files Count",
+	"customers": "Customers"
 }

@@ -33,7 +33,7 @@ async function getFoldersByCustomer(customerId) {
 }
 
 /**
- * Crea una nueva carpeta para un cliente
+ * Crea un folder y los archivos asociados por defecto
  * @param {Object} data - Datos de la carpeta
  * @param {number} data.customer_id - ID del cliente
  * @param {string} data.name - Nombre de la carpeta
@@ -42,12 +42,33 @@ async function getFoldersByCustomer(customerId) {
  */
 async function createFolder({ customer_id, name, path }) {
   const pool = await poolPromise;
+
+  // Insert en folders
   const [result] = await pool.query(
     'INSERT INTO folders (customer_id, name, path) VALUES (?, ?, ?)',
     [customer_id, name, path]
   );
-  return { id: result.insertId, customer_id, name, path };
+
+  const folderId = result.insertId;
+
+  // Insert en files (los 3 registros)
+  const filesToInsert = [
+    { name: 'Recepcion de orden' },
+    { name: 'Aviso de Embarque' },
+    { name: 'Aviso de Recepcion de orden' }
+  ];
+
+  for (const file of filesToInsert) {
+    await pool.query(
+      `INSERT INTO files (customer_id, folder_id, name, path, eta, etd, was_sent, document_type, file_type, status_id)
+       VALUES (?, ?, ?, NULL, NULL, NULL, NULL, NULL, NULL, 1)`,
+      [customer_id, folderId, file.name]
+    );
+  }
+
+  return { id: folderId, customer_id, name, path };
 }
+
 
 /**
  * Crea una subcarpeta dentro de una carpeta existente
@@ -111,10 +132,7 @@ async function existsGlobalPCFolder(name) {
  */
 async function existsCustomerFolder(customer_id, name) {
   const pool = await poolPromise;
-  const [rows] = await pool.query(
-    'SELECT id FROM folders WHERE customer_id = ? AND name = ?',
-    [customer_id, name]
-  );
+  const [rows] = await pool.query('SELECT id FROM folders WHERE customer_id = ? AND name = ?', [customer_id, name]);
   return rows.length > 0;
 }
 

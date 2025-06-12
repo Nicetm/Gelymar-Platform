@@ -1,16 +1,7 @@
 ---
 // i18n y tipos
 import { loadTranslations } from '../lib/i18n.js';
-
-type User = {
-  id: number;
-  email: string;
-  full_name: string;
-  phone: string;
-  country: string;
-  city: string;
-  twoFAEnabled: boolean;
-};
+import type { Users } from '../types/entities.js';
 
 const apiBase = import.meta.env.PUBLIC_API_URL;
 const fileServer = import.meta.env.PUBLIC_FILE_SERVER_URL;
@@ -22,7 +13,7 @@ const t: any = {
 };
 
 const token = Astro.cookies.get('token')?.value;
-const users: User[] = await fetch(`${apiBase}/api/users`, {
+const users: Users[] = await fetch(`${apiBase}/api/users`, {
   headers: { Authorization: `Bearer ${token}` }
 }).then(res => res.json());
 ---

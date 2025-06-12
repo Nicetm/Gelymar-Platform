@@ -12,9 +12,10 @@ class File {
       this.eta = row.eta;
       this.etd = row.etd;
       this.was_sent = row.was_sent;
-      this.status = row.status;
+      this.status_id = row.status_id;
       this.document_type = row.document_type;
       this.file_type = row.file_type;
+      this.status_name = row.status_name;
     }
   }
   

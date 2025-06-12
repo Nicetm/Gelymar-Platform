@@ -43,23 +43,19 @@ exports.createDirectory = async (req, res) => {
     return res.status(400).json({ message: 'Faltan datos requeridos' });
   }
 
-  const isPCFolder = /^PC\d+$/i.test(name);
-
   try {
-    if (isPCFolder) {
-      const exists = await folderService.existsGlobalPCFolder(name);
-      if (exists) {
-        return res.status(400).json({
-          message: `La carpeta con nombre "${name}" ya existe para otro cliente. Los códigos PC deben ser únicos.`,
-        });
-      }
-    } else {
-      const exists = await folderService.existsCustomerFolder(customer_id, name);
-      if (exists) {
-        return res.status(400).json({
-          message: `La carpeta "${name}" ya existe para este cliente.`,
-        });
-      }
+    const existsForCustomer = await folderService.existsCustomerFolder(customer_id, name);
+    if (existsForCustomer) {
+      return res.status(400).json({
+        message: `La orden "${name}" ya existe para este cliente.`,
+      });
+    }
+    
+    const existsGlobal = await folderService.existsGlobalPCFolder(name);
+    if (existsGlobal) {
+      return res.status(400).json({
+        message: `El número de orden "${name}" ya existe para otro cliente. Los números de orden deben ser únicos.`,
+      });
     }
 
     // Intenta crear la carpeta físicamente

@@ -3,6 +3,7 @@
   "name": "File name",
   "type": "Type",
   "created": "Created at",
+  "updated": "Updated at",
   "eta": "ETA",
   "etd": "ETD",
   "status": "Status",
