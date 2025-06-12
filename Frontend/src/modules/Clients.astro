@@ -11,7 +11,7 @@ const t: any = {
 };
 ---
 
-<section id="clientSection" data-api-base={apiBase} data-file-server={fileServer} class="px-4 pt-16 pb-6 sm:px-6 lg:px-8">
+<section id="clientSection" data-api-base={apiBase} data-file-server={fileServer} class="px-4 pt-24 pb-6 sm:px-6 lg:px-8">
   <!-- Encabezado y breadcrumb -->
   <header class="flex flex-col gap-4 border-b border-gray-200 dark:border-gray-700 pb-4">
     <nav class="text-sm text-gray-500 dark:text-gray-400" aria-label="Breadcrumb">
@@ -45,8 +45,13 @@ const t: any = {
         </div>
         <input id="searchInput" type="text" placeholder={t.clientes.search} class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500" />
       </div>
-
-      <button id="addClientBtn" class="flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-semibold shadow-sm bg-[#00538C] hover:bg-[#004773] text-white transition-all dark:bg-[#0077b6] dark:hover:bg-[#006194] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+     <button
+        id="addClientBtn"
+        class="flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-semibold shadow-sm
+              bg-gray-200 hover:bg-gray-300 text-gray-700 transition-all
+              dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white
+              focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+      >
         <svg id="addIcon" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
         </svg>

@@ -1,0 +1,16 @@
+{
+  "title": "Centro de Soporte",
+  "subtitle": "Encuentra ayuda, contacta a nuestro equipo de soporte o revisa tus tickets.",
+
+  "faqTitle": "Preguntas Frecuentes",
+  "faqDescription": "Respuestas a las dudas más comunes sobre nuestros servicios.",
+  "faqLink": "Ir a Preguntas Frecuentes",
+
+  "contactTitle": "Contáctanos",
+  "contactDescription": "¿Necesitas ayuda personalizada? Escríbenos.",
+  "contactLink": "Enviar correo",
+
+  "ticketsTitle": "Tus Tickets",
+  "ticketsDescription": "Consulta y gestiona tus solicitudes de soporte.",
+  "ticketsLink": "Ver Tickets"
+}
