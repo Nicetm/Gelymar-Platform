@@ -2,7 +2,7 @@
   "title": "Carpetas del Cliente",
   "search": "Buscar...",
   "addFolder": "Agregar Carpeta",
-  "name": "Nombre",
+  "name": "N° SAP",
   "path": "Ruta",
   "date": "Fecha",
   "perPage": "Carpetas por página",
@@ -23,5 +23,6 @@
   "folderDeleted": "Carpeta eliminada exitosamente.",
   "folderExists": "Ya existe una carpeta con este nombre.",
   "folderNotFound": "Carpeta no encontrada.",
-	"filesCount": "N° de Documentos"
+	"filesCount": "N° de Documentos",
+	"customers": "Clientes"
 }

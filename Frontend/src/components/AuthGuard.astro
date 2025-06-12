@@ -1,22 +1,33 @@
 ---
 // src/components/AuthGuard.astro
 ---
-
-// No se renderiza nada, solo actúa como middleware visual
 <script is:inline>
-  const token = localStorage.getItem('token');
+  document.addEventListener('DOMContentLoaded', async () => {
+    const token = localStorage.getItem('token');
 
-  if (!token) {
-    window.location.href = '/authentication/sign-in';
-  } else {
+    if (!token) {
+      window.location.href = '/authentication/sign-in';
+      return;
+    }
+
     try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
+      const res = await fetch('http://localhost:3000/api/auth/me', {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
 
-      if (payload.role !== 'admin') {
+      if (!res.ok) {
+        // Si el token es inválido, lo limpiamos
+        localStorage.removeItem('token');
         window.location.href = '/authentication/sign-in';
       }
-    } catch (e) {
+
+
+    } catch (err) {
+      console.error('Error validando sesión:', err);
+      localStorage.removeItem('token');
       window.location.href = '/authentication/sign-in';
     }
-  }
+  });
 </script>

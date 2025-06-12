@@ -1,16 +1,26 @@
 ---
 import { loadTranslations } from '../lib/i18n.js';
+import type { Folders } from '../types/entities.js';
 
 const apiBase = import.meta.env.PUBLIC_API_URL;
-const fileServer = import.meta.env.PUBLIC_FILE_SERVER_URL;
 const setLang = import.meta.env.PUBLIC_LANG;
+const fileServer = import.meta.env.PUBLIC_FILE_SERVER_URL;
 const lang = setLang;
 
+const url = new URL(Astro.url.href);
+const clientName = url.searchParams.get('c') ?? '';
+const decodedClientName = decodeURIComponent(clientName);
 const { id } = Astro.params;
 const t: any = {
   carpetas: await loadTranslations(lang, 'carpetas'),
   comond: await loadTranslations(lang, 'comond'),
 };
+
+const token = Astro.cookies.get('token')?.value;
+const folders: Folders[] = await fetch(`${apiBase}/api/directories/${id}`, {
+  headers: { Authorization: `Bearer ${token}` }
+}).then(res => res.json());
+
 ---
 
   <section id="folderSection" data-api-base={apiBase} data-file-server={fileServer} data-uuid={id} class="px-4 pt-16 pb-6 sm:px-6 lg:px-8">
@@ -27,14 +37,14 @@ const t: any = {
 						</a>
 					</li>
 					<li aria-current="page" class="flex items-center text-gray-400 dark:text-gray-300 font-medium">
-						<span class="mx-1">/</span>{t.carpetas.title}
+						<span class="mx-1">/ <a href="/admin/clients">{t.carpetas.customers}</a> / </span>{t.carpetas.title}
 					</li>
 				</ol>
 			</nav>
 
 			<!-- Título -->
 			<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-				<h1 id="clientTitle" class="text-3xl font-bold text-gray-900 dark:text-white">{t.carpetas.title}</h1>
+				<h1 id="clientTitle" class="text-3xl font-bold text-gray-900 dark:text-white">{decodedClientName} {t.carpetas.title}</h1>
 			</div>
 
 			<!-- Búsqueda y botón agregar carpeta -->
@@ -75,7 +85,37 @@ const t: any = {
           </tr>
         </thead>
         <tbody id="foldersTableBody" class="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900">
-          <!-- Filas dinámicas -->
+          {folders.map(folder => (
+						<tr data-id={folder.id} class="hover:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+							<td class="px-6 py-4 items-center gap-3">{folder.name}</td>
+							<td class="px-4 py-3 break-all text-blue-600 dark:text-blue-400">{folder.path}</td>
+							<td class="px-6 py-4 items-center gap-3">{folder.created_at}</td>
+							<td class="px-6 py-4 items-center text-center gap-3">{folder.fileCount}</td>
+							<td class="w-[25%] px-6 py-4 text-sm">
+						<div class="flex justify-center items-center gap-3 text-gray-900 dark:text-white">
+							<a href={`/admin/clients/documents/view/${folder.customer_uuid}?f=${folder.id}&pc=${folder.name}`} title={`Ver documentos en ${folder.name}`} class="hover:text-blue-500 transition">
+								<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+							</a>
+							<a href="#" title={`Ver Lista de archivos de ${folder.name}`} class="hover:text-indigo-500 transition">
+								<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+								</svg>
+							</a>
+							<a href={`/admin/clients/folders/edit/${folder.name}`} title={`Editar ${folder.name}`} class="hover:text-green-500 transition">
+								<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.586-6.586a2 2 0 112.828 2.828L11.828 13.83a2 2 0 01-.586.414L9 15l.756-2.243a2 2 0 01.414-.586z" />
+									<path stroke-linecap="round" stroke-linejoin="round" d="M19 20H5" />
+								</svg>
+							</a>
+							<a href="#" title={`Eliminar ${folder.name}`} class="hover:text-red-500 transition">
+								<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12M10 11v6M14 11v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
+								</svg>
+							</a>
+						</div>
+					</td>
+						</tr>
+					))}
         </tbody>
       </table>
     </div>
@@ -127,15 +167,8 @@ const t: any = {
 
 	<script is:inline>
 	(() => {
-		let currentPage = 1; 
-		let itemsPerPage = 10;
-		let folders = [];
-		let filtered = [];
-		
+
 		const qs = id => document.getElementById(id);
-		const section = qs('folderSection');
-		const uuID = section?.dataset.uuid;
-		const apiBase = section?.dataset.apiBase;
 		const tableBody = qs('foldersTableBody');
 		const searchInput = qs('searchInput');
 		const itemsPerPageSelect = qs('itemsPerPageSelect');
@@ -146,10 +179,16 @@ const t: any = {
 		const addFolderBtn = qs('addFolderBtn');
 		const closeModalBtn = qs('closeModalBtn');
 		const addFolderForm = qs('addFolderForm');
-		const folderMessage = qs('folderMessage');
-		const { pageLabel, ofLabel } = pageIndicator.dataset;
-		
+		const section = qs('folderSection');
+		const uuID = section?.dataset.uuid;
+		const apiBase = section?.dataset.apiBase;
+		const allRows = Array.from(tableBody.querySelectorAll('tr'));
 	
+
+		let currentPage = 1;
+		let itemsPerPage = parseInt(itemsPerPageSelect.value, 10);
+		let filteredRows = [...allRows];
+
 		const params = new URLSearchParams(window.location.search);
 		const clientName = params.get('c');
 	
@@ -159,189 +198,146 @@ const t: any = {
 			if (title) title.textContent = decoded;
 		}
 	
+		/**
+	 * Función principal de render de la tabla según búsqueda y paginación.
+	 * Oculta todas las filas y solo muestra las correspondientes a la página actual.
+	 */
+		function renderTable() {
+			allRows.forEach(originalRow => {
+			const row = originalRow;
+			row.style.display = 'none';
+			});
+
+			const start = (currentPage - 1) * itemsPerPage;
+			const pageData = filteredRows.slice(start, start + itemsPerPage);
+		
+			pageData.forEach(originalRow => {
+				const row = originalRow;
+				row.style.display = '';
+			});
+
+			const totalPages = Math.ceil(filteredRows.length / itemsPerPage);
+			pageIndicator.textContent = `Page ${currentPage} of ${totalPages}`;
+	}
+	
+		/**
+		 * Buscador dinámico.
+		 */
+		searchInput.addEventListener('input', () => {
+			const query = searchInput.value.toLowerCase();
+			filteredRows = allRows.filter(row => row.textContent.toLowerCase().includes(query));
+			currentPage = 1;
+			renderTable();
+		});
+	
+		/**
+		 * Cambia cantidad de ítems por página.
+		 */
+		itemsPerPageSelect.addEventListener('change', () => {
+			itemsPerPage = parseInt(itemsPerPageSelect.value, 10);
+			currentPage = 1;
+			renderTable();
+		});
+	
+		/**
+		 * Paginación.
+		 */
+		prevPageBtn.addEventListener('click', () => {
+			if (currentPage > 1) {
+				currentPage -= 1;
+				renderTable();
+			}
+		});
+	
+		nextPageBtn.addEventListener('click', () => {
+			const totalPages = Math.ceil(filteredRows.length / itemsPerPage);
+			if (currentPage < totalPages) {
+				currentPage += 1;
+				renderTable();
+			}
+		});
+	
+		/**
+		 * Modal de creación de carpeta (mantengo tu lógica original).
+		 */
 		const toggleModal = show => modal.classList.toggle('hidden', !show);
 	
-		const renderTable = data => {
-			tableBody.innerHTML = '';
-			if (!data.length) {
-				tableBody.innerHTML = `<tr><td colspan="3" class="text-center py-4 text-gray-500">No hay carpetas.</td></tr>`;
-				pageIndicator.textContent = '';
-				return;
-			}
-			const start = (currentPage - 1) * itemsPerPage;
-			const pageData = data.slice(start, start + itemsPerPage);
-			const totalPages = Math.ceil(data.length / itemsPerPage);
-			pageIndicator.textContent = `${pageLabel} ${currentPage} ${ofLabel} ${totalPages}`;
+		addFolderBtn?.addEventListener('click', () => toggleModal(true));
+		closeModalBtn?.addEventListener('click', () => toggleModal(false));
+		modal?.addEventListener('click', e => e.target === modal && toggleModal(false));
+		document.addEventListener('keydown', e => e.key === 'Escape' && !modal.classList.contains('hidden') && toggleModal(false));
 	
-			pageData.forEach(f => {
-				const row = document.createElement('tr');
-				row.innerHTML = `
-					<td class="px-4 py-3">${f.name}</td>
-					<td class="px-4 py-3 break-all text-blue-600 dark:text-blue-400">${f.path}</td>
-					<td class="px-4 py-3">
-						${f.created_at ? new Date(f.created_at).toLocaleString('es-CL', {
-							day: '2-digit',
-							month: '2-digit',
-							year: 'numeric',
-							hour: '2-digit',
-							minute: '2-digit'
-						}) : '-'}
-					</td>
-					<td class="px-4 py-3 text-center">${f.fileCount}</td>
-					<td class="w-[25%] px-6 py-4 text-sm">
-						<div class="flex justify-center items-center gap-3 text-gray-900 dark:text-white">
-							<a href="/admin/clients/documents/view/${f.customer_uuid}?f=${f.id}&pc=${f.name}" title="Ver archivos en ${f.name}" class="hover:text-blue-500 transition">
-								<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-							</a>
-							<a href="#" title="Ver Lista de archivos de ${f.name}" class="hover:text-indigo-500 transition">
-								<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
-								</svg>
-							</a>
-							<a href="/admin/clients/folders/edit/${f.name}" title="Editar ${f.name}" class="hover:text-green-500 transition">
-								<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.586-6.586a2 2 0 112.828 2.828L11.828 13.83a2 2 0 01-.586.414L9 15l.756-2.243a2 2 0 01.414-.586z" />
-									<path stroke-linecap="round" stroke-linejoin="round" d="M19 20H5" />
-								</svg>
-							</a>
-							<a href="#" title="Eliminar ${f.name}" class="hover:text-red-500 transition">
-								<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12M10 11v6M14 11v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
-								</svg>
-							</a>
-						</div>
-					</td>`;
-				tableBody.appendChild(row);
-			});
-		};
-	
-		const fetchFolders = async () => {
-			const token = localStorage.getItem('token');
-			if (!token) {
-				window.location.href = '/login';
-				return;
-			}
+		/**
+		 * Acción de crear carpeta.
+		 */
+		addFolderForm?.addEventListener('submit', async (e) => {
+			e.preventDefault();
 
-			try {
-				const res = await fetch(`${apiBase}/api/directories/${uuID}?c=${encodeURIComponent(clientName)}`, {
-					headers: { Authorization: `Bearer ${token}` }
-				});
+			const folderMessage = qs('folderMessage');
+			folderMessage.textContent = '';
+			folderMessage.classList.add('hidden');
 
-				if (!res.ok) throw new Error('Error de red');
+			const nameInput = addFolderForm.querySelector('input[name="name"]');
+			const folderName = nameInput?.value.trim();
 
-				folders = await res.json();
-				filtered = folders;
-				renderTable(filtered);
-			} catch (err) {
-				tableBody.innerHTML = `<tr><td colspan="3" class="text-center py-4 text-red-600">Directorio de cliente no existe.</td></tr>`;
-			}
-		};
-	
-		const applySearch = () => {
-			const q = searchInput.value.toLowerCase();
-			filtered = folders.filter(f => f.name.toLowerCase().includes(q));
-			currentPage = 1;
-			renderTable(filtered);
-		};
-	
-		const setupPagination = () => {
-			itemsPerPageSelect.addEventListener('change', () => {
-				itemsPerPage = parseInt(itemsPerPageSelect.value, 10);
-				currentPage = 1;
-				renderTable(filtered);
-			});
-			prevPageBtn.addEventListener('click', () => {
-				if (currentPage > 1) {
-					currentPage =- 1;
-					renderTable(filtered);
-				}
-			});
-			nextPageBtn.addEventListener('click', () => {
-				const totalPages = Math.ceil(filtered.length / itemsPerPage);
-				if (currentPage < totalPages) {
-					currentPage =+ 1;
-					renderTable(filtered);
-				}
-			});
-		};
-	
-		const setupModalEvents = () => {
-			addFolderBtn?.addEventListener('click', () => toggleModal(true));
-			closeModalBtn?.addEventListener('click', () => toggleModal(false));
-			modal?.addEventListener('click', e => e.target === modal && toggleModal(false));
-			document.addEventListener('keydown', e => e.key === 'Escape' && !modal.classList.contains('hidden') && toggleModal(false));
-		};
-	
-		const handleFolderCreation = () => {
-			addFolderForm?.addEventListener('submit', async (e) => {
-				e.preventDefault();
-				folderMessage.textContent = '';
-				folderMessage.classList.add('hidden');
-				if (!clientName) return;
-
-				const nameInput = addFolderForm.querySelector('input[name="name"]');
-				const folderName = nameInput?.value.trim();
-
-				if (!folderName) {
+			if (!folderName) {
 					folderMessage.textContent = 'El nombre de la carpeta es requerido.';
 					folderMessage.classList.remove('hidden');
 					return;
+			}
+
+			try {
+				const response = await fetch(`${apiBase}/api/customers/uuid/${uuID}`, {
+					method: 'GET',
+					headers: {
+						'Content-Type': 'application/json',
+						Authorization: `Bearer ${localStorage.getItem('token')}`
+					}
+				});
+
+				if (!response.ok) {
+					const errorText = await response.text();
+					throw new Error(`Error al obtener cliente: ${response.status} - ${errorText}`);
 				}
 
-				try {
-					const response = await fetch(`${apiBase}/api/customers/uuid/${uuID}`, {
-						method: 'GET',
-						headers: {
-							'Content-Type': 'application/json',
-							Authorization: `Bearer ${localStorage.getItem('token')}`
-						}
-					});
+				const customer = await response.json();
+				const customerId = customer.id;
 
-					if (!response.ok) {
-						const errorText = await response.text();
-						throw new Error(`Error al obtener cliente: ${response.status} - ${errorText}`);
-					}
-
-					const customer = await response.json();
-					const customerId = customer.id;
-
-					const res = await fetch(`${apiBase}/api/directories/create`, {
+				const res = await fetch(`${apiBase}/api/directories/create`, {
 						method: 'POST',
 						headers: {
-							'Content-Type': 'application/json',
-							Authorization: `Bearer ${localStorage.getItem('token')}`
+								'Content-Type': 'application/json',
+								Authorization: `Bearer ${localStorage.getItem('token')}`
 						},
 						body: JSON.stringify({ 
-							customer_id: customerId, 
-							name: folderName,
-							path: `${clientName}/${folderName}`
+								customer_id: customerId, 
+								name: folderName,
+								path: `${clientName}/${folderName}`
 						})
-					});
-					const result = await res.json();
-					if (!res.ok) throw new Error(result.message);
-	
-					folderMessage.textContent = 'Carpeta creada correctamente.';
-					folderMessage.classList.remove('hidden', 'text-red-600');
-					folderMessage.classList.add('text-green-600');
-	
-					setTimeout(() => {
+				});
+
+				const result = await res.json();
+				if (!res.ok) throw new Error(result.message);
+
+				folderMessage.textContent = 'Carpeta creada correctamente.';
+				folderMessage.classList.remove('hidden', 'text-red-600');
+				folderMessage.classList.add('text-green-600');
+
+				setTimeout(() => {
 						toggleModal(false);
 						addFolderForm.reset();
 						folderMessage.classList.add('hidden');
-					}, 1500);
-	
-					fetchFolders();
-				} catch (err) {
+				}, 1500);
+
+				window.location.reload();
+			} catch (err) {
 					folderMessage.textContent = err.message || 'Error al crear carpeta';
 					folderMessage.classList.remove('hidden');
-				}
-			});
-		};
+			}
+	});
+
 	
-		searchInput.addEventListener('input', applySearch);
-		setupPagination();
-		setupModalEvents();
-		handleFolderCreation();
-		fetchFolders();
+		// Render inicial:
+		renderTable();
 	})();
 </script>

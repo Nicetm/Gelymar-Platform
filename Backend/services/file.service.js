@@ -1,4 +1,5 @@
 const { poolPromise } = require('../config/db');
+const File = require('../models/file');
 
 /**
  * Inserta un nuevo archivo en la base de datos
@@ -42,10 +43,17 @@ const insertFile = async ({
 const getFiles = async (customerId, folderId) => {
   const pool = await poolPromise;
   const [rows] = await pool.query(
-    `SELECT * FROM files WHERE customer_id = ? AND folder_id = ? ORDER BY created_at DESC`,
+    `SELECT 
+        f.*, 
+        os.id AS status_id, 
+        os.name AS status_name
+     FROM files f
+     LEFT JOIN order_status os ON f.status_id = os.id
+     WHERE f.customer_id = ? AND f.folder_id = ?
+     ORDER BY f.created_at DESC`,
     [customerId, folderId]
   );
-  return rows;
+  return rows.map(row => new File(row));
 };
 
 /**
@@ -71,8 +79,37 @@ const getFileCountByCustomer = async (customerId) => {
   return countMap;
 };
 
+const getFileById = async(id) => {
+  const pool = await poolPromise;
+  const [rows] = await pool.query(`
+    SELECT 
+      f.*, 
+      c.name AS customer_name, 
+      fd.name AS folder_name 
+    FROM files f
+    JOIN customers c ON f.customer_id = c.id
+    JOIN folders fd ON f.folder_id = fd.id
+    WHERE f.id = ?
+  `, [id]);
+
+  if (rows.length === 0) return null;
+
+  return rows[0];
+}
+
+const updateFile = async(data) => {
+  const pool = await poolPromise;
+  await pool.query(`
+    UPDATE files 
+    SET status_id = ?, updated_at = ?, path = ?
+    WHERE id = ?
+  `, [data.status_id, data.updated_at, data.path, data.id]);
+}
+
 module.exports = {
+  getFileById,
   insertFile,
   getFiles,
+  updateFile,
   getFileCountByCustomer,
 };

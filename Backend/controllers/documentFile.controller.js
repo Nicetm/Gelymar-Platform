@@ -4,6 +4,7 @@ const multer = require('multer');
 const { insertFile, getFiles } = require('../services/file.service');
 const { poolPromise } = require('../config/db');
 const fileService = require('../services/file.service');
+const PDFDocument = require('pdfkit');
 
 const UPLOADS_ROOT = path.join(__dirname, '../uploads');
 
@@ -106,6 +107,52 @@ const getFilesByCustomerAndFolder = async (req, res) => {
   }
 };
 
+const generateFile = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Primero obtener el registro del archivo
+    const file = await fileService.getFileById(id);
+    if (!file) {
+      return res.status(404).json({ message: 'Archivo no encontrado' });
+    }
+
+    // Definir ruta de generación
+    const FILE_SERVER_ROOT = process.env.FILE_SERVER_ROOT;
+    const customerFolder = path.join(FILE_SERVER_ROOT, file.customer_name, file.folder_name);
+    
+    // Validamos que exista el directorio del cliente
+    if (!fs.existsSync(customerFolder)) {
+      fs.mkdirSync(customerFolder, { recursive: true });
+    }
+
+    const fileName = `${file.name}.pdf`;
+    const filePath = path.join(customerFolder, fileName);
+
+    // Generar el PDF (puedes reemplazar por tu propia lógica de contenido)
+    const doc = new PDFDocument();
+    doc.pipe(fs.createWriteStream(filePath));
+    doc.fontSize(18).text(`Documento generado para ${file.name}`);
+    doc.end();
+
+    // Actualizar el registro en la tabla files
+    const updateData = {
+      id: file.id,
+      status_id: 2,
+      updated_at: new Date(),
+      path: path.relative(FILE_SERVER_ROOT, filePath)
+    };
+
+    await fileService.updateFile(updateData);
+
+    return res.json({ message: 'Archivo generado exitosamente', path: updateData.path });
+
+  } catch (error) {
+    console.error('Error al generar archivo:', error);
+    return res.status(500).json({ message: 'Error al generar el archivo' });
+  }
+};
+
 /**
  * DELETE /api/files/delete
  * Elimina un archivo del sistema de archivos y su registro en la base de datos
@@ -142,6 +189,7 @@ const deleteFile = async (req, res) => {
 
 module.exports = {
   uploadFile,
+  generateFile,
   handleUpload,
   getFilesByCustomerAndFolder,
   deleteFile,
