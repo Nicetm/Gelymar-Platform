@@ -37,8 +37,21 @@ router.get('/me', authMiddleware, (req, res) => {
         role: req.user.role
     });
 });
+
 router.post('/refresh', authController.refreshToken);
 router.post('/recover', authController.recoverPassword);
 router.post('/reset-password', authController.resetPassword);
+
+/**
+ * @swagger
+ * /api/auth/logout:
+ *   post:
+ *     summary: Cierra la sesión del usuario
+ *     tags: [Autenticación]
+ *     responses:
+ *       200:
+ *         description: Sesión cerrada correctamente
+ */
+router.post('/logout', authController.logout);
 
 module.exports = router;

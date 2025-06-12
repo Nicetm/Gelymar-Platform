@@ -185,3 +185,14 @@ exports.resetPassword = async (req, res) => {
     res.status(400).json({ message: 'Token inválido o expirado' });
   }
 };
+
+/**
+ * @route POST /api/auth/logout
+ * @desc Cierra la sesión del usuario (solo limpia la cookie si se usa)
+ * @access Público (o protegido si se quiere)
+ */
+exports.logout = async (req, res) => {
+  // Si usas cookies para almacenar el token
+  res.clearCookie('token');
+  res.status(200).json({ message: 'Sesión cerrada correctamente' });
+};

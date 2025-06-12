@@ -5,14 +5,9 @@
 
 <aside
   id="sidebar"
-  class="fixed top-0 left-0 z-20 flex-col flex-shrink-0 hidden w-56 h-full pt-6 font-normal duration-75 lg:flex transition-width bg-white border-r border-gray-200 dark:bg-gray-800 dark:border-gray-700"
+  class="fixed top-2 left-0 z-20 flex-col flex-shrink-0 hidden w-56 h-full pt-20 font-normal duration-75 lg:flex transition-width bg-white border-r border-gray-200 dark:bg-gray-800 dark:border-gray-700"
   aria-label="Sidebar"
 >
-  <!-- Logo -->
-  <div class="flex items-center justify-center mb-4 px-4">
-    <img src="/assets/gelymar.svg" alt="Gelymar Logo" class="h-10 w-auto" />
-  </div>
-
   <!-- Scrollable content -->
   <div class="flex-1 px-3 overflow-y-auto scrollbar scrollbar-w-2 scrollbar-thumb-rounded-md scrollbar-thumb-slate-200 scrollbar-track-gray-400 dark:scrollbar-thumb-slate-900 dark:scrollbar-track-gray-800">
     <div class="mt-4 space-y-2">
@@ -26,7 +21,7 @@
       <!-- clients -->
       <a href="/admin/clients" class="flex items-center p-2 text-base text-gray-900 rounded-lg hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700">
         <i data-lucide="briefcase" class="w-6 h-6 text-gray-500 dark:text-gray-400"></i>
-        <span class="ml-3">Clients</span>
+        <span class="ml-3">Customers</span>
       </a>
 
       <!-- documents -->
@@ -54,14 +49,24 @@
         <i data-lucide="chevron-down" class="w-4 h-4 ml-auto transition-transform group-hover:rotate-180"></i>
       </button>
       <ul id="users-submenu" class="hidden py-2 space-y-2 pl-7">
-        <li><a href="/admin/users" class="block p-2 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-200">user list</a></li>
-        <li><a href="/admin/roles" class="block p-2 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-200">roles</a></li>
+        <li>
+          <a href="/admin/users" class="flex items-center gap-2 p-2 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-200">
+            <i data-lucide="user" class="w-4 h-4 text-gray-400 dark:text-gray-300"></i>
+            Users list
+          </a>
+        </li>
+        <li>
+          <a href="/admin/roles" class="flex items-center gap-2 p-2 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-200">
+            <i data-lucide="shield" class="w-4 h-4 text-gray-400 dark:text-gray-300"></i>
+            Roles
+          </a>
+        </li>
       </ul>
 
       <hr class="my-3 border-gray-300 dark:border-gray-600" />
 
       <!-- support -->
-      <a href="/admin/support" class="flex items-center p-2 text-base text-gray-900 rounded-lg hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700">
+      <a href="info/support" class="flex items-center p-2 text-base text-gray-900 rounded-lg hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700">
         <i data-lucide="help-circle" class="w-6 h-6 text-gray-500 dark:text-gray-400"></i>
         <span class="ml-3">Support</span>
       </a>
@@ -115,6 +120,16 @@
     interface Window {
       lucide?: { createIcons: () => void };
     }
+  }
+
+  const path = window.location.pathname;
+
+  // Users submenu expansion logic
+  const usersSubmenu = document.getElementById('users-submenu');
+  const nestedUserPaths = ['/admin/users', '/admin/roles'];
+  const isInUsersModule = nestedUserPaths.some((p) => path === p || path.startsWith(p + '/'));
+  if (usersSubmenu && isInUsersModule) {
+    usersSubmenu.classList.remove('hidden');
   }
 
   window.addEventListener("DOMContentLoaded", () => {

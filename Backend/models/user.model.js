@@ -4,19 +4,23 @@ class User {
   constructor({
     id = null,
     email,
-    username,
+    full_name,
+    phone,
+    country,
+    city,
     password,
-    role = 'user',
-    cardCode = null,
+    role_id = 2,
     twoFASecret = null,
     twoFAEnabled = false
   }) {
     this.id = id;
     this.email = email;
-    this.username = username;
+    this.full_name = full_name;
+    this.phone = phone;
+    this.country = country;
+    this.city = city;
     this.password = password;
-    this.role = role;
-    this.cardCode = cardCode;
+    this.role_id = role_id;
     this.twoFASecret = twoFASecret;
     this.twoFAEnabled = twoFAEnabled;
   }
