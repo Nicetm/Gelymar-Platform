@@ -16,6 +16,7 @@ class File {
       this.document_type = row.document_type;
       this.file_type = row.file_type;
       this.status_name = row.status_name;
+      this.folder_name = row.folder_name;
     }
   }
   

@@ -4,6 +4,7 @@ const multer = require('multer');
 const { insertFile, getFiles } = require('../services/file.service');
 const { poolPromise } = require('../config/db');
 const fileService = require('../services/file.service');
+const emailService = require('../services/email.service');
 const PDFDocument = require('pdfkit');
 
 const UPLOADS_ROOT = path.join(__dirname, '../uploads');
@@ -14,10 +15,10 @@ const UPLOADS_ROOT = path.join(__dirname, '../uploads');
  */
 const storage = multer.diskStorage({
   destination: async function (req, file, cb) {
-    const { clientName, subfolder } = req.body;
-    if (!clientName || !subfolder) return cb(new Error('Faltan parámetros'), null);
+    const { client_name, subfolder } = req.body;
+    if (!client_name || !subfolder) return cb(new Error('Faltan parámetros'), null);
 
-    const dirPath = path.join(UPLOADS_ROOT, clientName, subfolder);
+    const dirPath = path.join(process.env.FILE_SERVER_ROOT, client_name, subfolder);
     fs.mkdirSync(dirPath, { recursive: true });
     cb(null, dirPath);
   },
@@ -30,7 +31,7 @@ const storage = multer.diskStorage({
  * Filtro de archivos aceptados por extensión
  */
 const fileFilter = (req, file, cb) => {
-  const allowed = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.txt'];
+  const allowed = ['.pdf'];
   const ext = path.extname(file.originalname).toLowerCase();
   if (allowed.includes(ext)) cb(null, true);
   else cb(new Error('Tipo de archivo no permitido'), false);
@@ -49,33 +50,26 @@ const uploadFile = upload.single('file');
 const handleUpload = async (req, res) => {
   try {
     const {
-      customer_id, folder_id, clientName, subfolder,
-      eta, etd, document_type, file_type
+      customer_id, folder_id, client_name, subfolder, name
     } = req.body;
     const file = req.file;
 
-    if (!file || !customer_id || !folder_id || !clientName || !subfolder) {
+    if (!file || !customer_id || !folder_id || !client_name || !subfolder) {
       return res.status(400).json({ message: 'Faltan parámetros obligatorios' });
     }
 
-    const format = path.extname(file.originalname).substring(1);
-    const filePath = path.join(clientName, subfolder, file.originalname);
+    const filePath = path.join(client_name, subfolder, file.originalname);
 
     const fileData = {
       customer_id,
       folder_id,
-      name: file.originalname,
-      format,
+      name: name,
       path: filePath,
-      eta: eta || null,
-      etd: etd || null,
-      was_sent: false,
-      status: 'creado',
-      document_type: document_type || null,
-      file_type: file_type || null
+      status_id: 2,
     };
 
     await insertFile(fileData);
+    
     res.status(201).json({ message: 'Archivo subido y registrado con éxito' });
   } catch (err) {
     console.error('Error al subir archivo:', err);
@@ -153,6 +147,30 @@ const generateFile = async (req, res) => {
   }
 };
 
+const sendFile = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Buscar archivo, obtener datos del cliente, preparar el mail
+    const file = await fileService.getFileById(id);
+    if (!file) return res.status(404).json({ message: 'Archivo no encontrado' });
+
+    await emailService.sendFileToClient(file);  // envía el email
+
+    await fileService.updateFile({
+      id: id,
+      status_id: 3,
+      updated_at: new Date(),
+      path: file.path 
+    }); // actualiza a estado enviado
+
+    res.json({ message: 'Documento enviado correctamente' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Error al enviar documento' });
+  }
+};
+
 /**
  * DELETE /api/files/delete
  * Elimina un archivo del sistema de archivos y su registro en la base de datos
@@ -187,10 +205,34 @@ const deleteFile = async (req, res) => {
   }
 };
 
+const resendFile = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Duplicar el registro
+    const newFileId = await fileService.duplicateFile(id);
+
+    // Obtener el nuevo registro completo (para enviar el email)
+    const newFile = await fileService.getFileById(newFileId);
+    if (!newFile) throw new Error('Error al obtener nuevo archivo para enviar');
+
+    // Enviar el correo
+    await emailService.sendFileToClient(newFile);
+
+    // Responder OK
+    res.json({ message: 'Documento reenviado y enviado por correo correctamente' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Error al reenviar y enviar el documento' });
+  }
+};
+
 module.exports = {
   uploadFile,
   generateFile,
+  sendFile,
   handleUpload,
   getFilesByCustomerAndFolder,
   deleteFile,
+  resendFile,
 };

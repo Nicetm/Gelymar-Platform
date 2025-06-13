@@ -74,7 +74,7 @@ router.get('/:customerUuid', authMiddleware, authorizeRoles(['admin']), controll
  *       500:
  *         description: Error interno
  */
-router.post('/upload', authMiddleware, authorizeRoles(['admin']), controller.uploadFile, controller.handleUpload);
+router.post('/upload', controller.uploadFile, controller.handleUpload);
 
 /**
  * @swagger
@@ -113,5 +113,9 @@ router.post('/upload', authMiddleware, authorizeRoles(['admin']), controller.upl
 router.delete('/delete', authMiddleware, authorizeRoles(['admin']), controller.deleteFile);
 
 router.post('/generate/:id', authMiddleware, authorizeRoles(['admin']), controller.generateFile);
+
+router.post('/send/:id', authMiddleware, authorizeRoles(['admin']), controller.sendFile);
+
+router.post('/resend/:id', authMiddleware, authorizeRoles(['admin']), controller.resendFile);
 
 module.exports = router;
