@@ -1,3 +1,5 @@
+const express = require('express');
+const router = express.Router();
 const speakeasy = require('speakeasy');
 const qrcode = require('qrcode');
 const pool = require('../config/db').pool;

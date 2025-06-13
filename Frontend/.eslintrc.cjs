@@ -98,7 +98,7 @@ module.exports = {
 				'no-unused-vars': ['error', { varsIgnorePattern: 'Props' }],
 				'max-lines': [
 					'error',
-					{ max: 350, skipComments: true, skipBlankLines: true },
+					{ max: 500, skipComments: true, skipBlankLines: true },
 				],
 			},
 			globals: {

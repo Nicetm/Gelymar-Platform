@@ -1,16 +1,26 @@
 ---
 import { loadTranslations } from '../lib/i18n.js';
+import type { Files } from '../types/entities.js';
 
 const apiBase = import.meta.env.PUBLIC_API_URL;
 const fileServer = import.meta.env.PUBLIC_FILE_SERVER_URL;
 const setLang = import.meta.env.PUBLIC_LANG;
 const lang = setLang;
 
+const url = new URL(Astro.url.href);
+const folderId = url.searchParams.get('f') ?? '';
+const pc = url.searchParams.get('pc') ?? '';
+
 const { id } = Astro.params;
 const t: any = {
   documentos: await loadTranslations(lang, 'documentos'),
   comond: await loadTranslations(lang, 'comond'),
 };
+
+const token = Astro.cookies.get('token')?.value;
+const files: Files[] = await fetch(`${apiBase}/api/files/${id}?f=${folderId}`, {
+  headers: { Authorization: `Bearer ${token}` }
+}).then(res => res.json());
 ---
 
 <section id="filesSection" data-api-base={apiBase} data-file-server={fileServer} data-uuid={id} class="px-4 pt-16 pb-6 sm:px-6 lg:px-8">
@@ -72,8 +82,79 @@ const t: any = {
         </tr>
       </thead>
       <tbody id="filesTableBody" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-        <!-- Documentos renderizados aquí -->
-      </tbody>
+				{files.map(file => {
+					let statusColor = '';
+					switch (file.status_id) {
+						case 1:
+							statusColor = 'bg-red-500';
+							break;
+						case 2:
+							statusColor = 'bg-yellow-400';
+							break;
+						case 3:
+							statusColor = 'bg-green-500';
+							break;
+						case 4:
+							statusColor = 'bg-blue-500';
+							break;
+						default:
+							statusColor = 'bg-gray-400';
+					}
+			
+					return (
+					<tr data-id={file.id} class="hover:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+						<td class="px-6 py-4 items-center gap-3">{file.name}</td>
+						<td class="px-4 py-3"><div class="flex items-center"><span class={`w-2.5 h-2.5 rounded-full mr-2 ${statusColor}`}></span>{file.status_name || '-'}</div></td>
+						<td class="px-6 py-4 items-center gap-3">{file.created_at}</td>
+						<td class="px-6 py-4 items-center gap-3">{file.updated_at}</td>
+						<td class="px-6 py-4 items-center text-center gap-3">{file.file_type}</td>
+						<td class="px-6 py-4 items-center gap-3">
+							{file.status_id === 1 && (
+								<div class="flex items-center gap-3 justify-center">
+									<a href="#" class="generate-btn" data-file-id={file.id} title="Generar documento">
+										<svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+											<path d="M12 4v16m8-8H4"/>
+										</svg>
+									</a>
+								</div>
+							)}
+			
+							{file.status_id === 2 && (
+								<div class="flex items-center gap-3 justify-center">
+									<a href="#" class="send-btn" data-file-id={file.id} data-file-name={file.name} data-order={pc} title="Enviar documento">
+										<svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+											<path d="M4 4l16 8-16 8V4z"/>
+										</svg>
+									</a>
+									<a href={`${fileServer}/uploads/${file.path}`} target="_blank" class="hover:text-blue-500 transition">
+										<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+											<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+											<polyline points="14 2 14 8 20 8"/>
+										</svg>
+									</a>
+								</div>
+							)}
+			
+							{(file.status_id === 3 || file.status_id === 4) && (
+								<div class="flex items-center gap-3 justify-center">
+									<a href="#" class="resend-btn" data-file-id={file.id} data-file-name={file.name} data-order={pc} title="Reenviar documento">
+										<svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+											<path d="M4 4l16 8-16 8V4z"/>
+										</svg>
+									</a>
+									<a href={`${fileServer}/uploads/${file.path}`} target="_blank" class="hover:text-blue-500 transition">
+										<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+											<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+											<polyline points="14 2 14 8 20 8"/>
+										</svg>
+									</a>
+								</div>
+							)}
+						</td>
+					</tr>
+					);
+				})}
+			</tbody>			
     </table>
   </div>
 
@@ -92,11 +173,72 @@ const t: any = {
       <button id="nextPageBtn" class="w-9 h-9 flex items-center justify-center bg-gray-200 dark:bg-gray-700 rounded-md">›</button>
     </div>
   </div>
+
+	<div id="messageModal" class="fixed inset-0 bg-black bg-opacity-50 hidden justify-center items-center z-50">
+		<div class="bg-white rounded-lg p-6 w-full max-w-md">
+			<h2 class="text-xl font-bold mb-4">Mensaje personalizado</h2>
+	
+			<div class="mb-4">
+				<label for="orderNumber" class="block text-sm font-medium text-gray-700">Número de orden</label>
+				<input type="text" id="orderNumber" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" readonly>
+			</div>
+
+			<div class="mb-4">
+				<label for="orderDocument" class="block text-sm font-medium text-gray-700">Documento</label>
+				<input type="text" id="orderDocument" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" readonly>
+			</div>
+	
+			<div class="mb-4">
+				<label for="customMessage" class="block text-sm font-medium text-gray-700">Mensaje</label>
+				<textarea id="customMessage" rows="4" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"></textarea>
+			</div>
+	
+			<div class="flex justify-end gap-2">
+				<button id="cancelMessageBtn" class="px-4 py-2 bg-gray-300 rounded-md">Cancelar</button>
+				<button id="confirmMessageBtn" class="px-4 py-2 bg-blue-600 text-white rounded-md">Confirmar</button>
+			</div>
+		</div>
+	</div>
+
+	<div id="uploadModal" data-folder-name={pc} data-folder-id={folderId} class="fixed inset-0 bg-black bg-opacity-50 hidden justify-center items-center z-50">
+		<div class="bg-white rounded-lg p-6 w-full max-w-md">
+			<h2 class="text-xl font-bold mb-4">Subir Nuevo Archivo</h2>
+	
+			<div class="mb-4">
+				<label for="uploadFileName" class="block text-sm font-medium text-gray-700">Nombre del documento</label>
+				<input type="text" id="uploadFileName" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+			</div>
+	
+			<div class="mb-4">
+				<label for="uploadFileType" class="block text-sm font-medium text-gray-700">Tipo de documento</label>
+				<select id="uploadFileType" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+					<option value="PDF">PDF</option>
+					<option value="DOC">DOC</option>
+					<option value="XLS">XLS</option>
+				</select>
+			</div>
+	
+			<div class="mb-4">
+				<label class="block text-sm font-medium text-gray-700">Seleccionar archivo</label>
+				<div id="dropZone" class="flex flex-col items-center justify-center border-2 border-dashed border-gray-400 rounded-md p-6 cursor-pointer hover:bg-gray-100">
+					<p id="dropZoneText" class="text-gray-500">Arrastra el archivo aquí o haz click para seleccionar</p>
+					<input type="file" id="uploadFileInput" class="hidden" />
+				</div>
+			</div>
+	
+			<div class="flex justify-end gap-2">
+				<button id="cancelUploadBtn" class="px-4 py-2 bg-gray-300 rounded-md">Cancelar</button>
+				<button id="confirmUploadBtn" class="px-4 py-2 bg-blue-600 text-white rounded-md">Subir</button>
+			</div>
+		</div>
+	</div>
+	
+	<div id="notification" class="hidden fixed top-5 right-5 bg-green-500 text-white px-4 py-2 rounded shadow z-50"></div>
+
 </section>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script is:inline>
-(() => {
+	(() => {
 		const qs = id => document.getElementById(id);
 		const section = qs('filesSection');
 		const uuid = section?.dataset.uuid;
@@ -106,145 +248,270 @@ const t: any = {
 		const folderId = params.get('f');
 		const pc = params.get('pc');
 		const notification = qs('notification');
-
+	
 		if (pc) {
 			const decoded = decodeURIComponent(pc);
 			const title = qs('titleFile');
 			if (title) title.textContent += ` ${decoded}`;
 		}
-
+	
 		if (!uuid || !folderId) {
 			console.error('Faltan parámetros');
 			return;
 		}
-
+	
 		const token = localStorage.getItem('token');
 		if (!token) {
 			window.location.href = '/login';
 			return;
 		}
-
-		function showNotification(message) {
+	
+		function showNotification(message, type = 'success') {
+			notification.className = `fixed top-5 right-5 px-4 py-2 rounded shadow z-50 ${type === 'error' ? 'bg-red-500' : 'bg-green-500'} text-white`;
+			if (type === 'error') {
+				notification.classList.add('animate-shake');
+			} else {
+				notification.classList.remove('animate-shake');
+			}
 			notification.textContent = message;
 			notification.classList.remove('hidden');
 			setTimeout(() => notification.classList.add('hidden'), 3000);
 		}
-
-		async function fetchFiles() {
+	
+		async function sendDocument(fileId, orderNumber, customMessage, action) {
+			const anchor = document.querySelector(`a[data-file-id="${fileId}"]`);
+			if (!anchor) {
+				console.error('No se encontró el botón para el fileId:', fileId);
+				return;
+			}
+	
+			const svg = anchor.querySelector('svg');
+			if (!svg) {
+				console.error('No se encontró el SVG dentro del botón');
+				return;
+			}
+	
 			try {
-				const res = await fetch(`${apiBase}/api/files/${uuid}?f=${folderId}`, {
-					headers: { Authorization: `Bearer ${token}` }
+				const res = await fetch(`${apiBase}/api/files/${action}/${fileId}`, {
+					method: 'POST',
+					headers: {
+						'Authorization': `Bearer ${token}`,
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify({ orderNumber, customMessage })
 				});
-				if (!res.ok) throw new Error('Error al obtener archivos');
-				const files = await res.json();
-				renderTable(files);
+	
+				if (!res.ok) throw new Error();
+
+				if (action === 'send') {
+					showNotification('Documento enviado correctamente');
+				} else if (action === 'resend') {
+					showNotification('Documento reenviado correctamente');
+				}
+				window.location.reload();
 			} catch (err) {
-					console.error('Error al obtener archivos:', err);
+				console.error(err);
+				showNotification('Error al enviar el documento', 'error');
 			}
 		}
 
+		function openMessageModal(fileId, fileName, order, action) {
+			const messageModal = qs('messageModal');
+			const orderInput = qs('orderNumber');
+			const documentInput = qs('orderDocument');
+			const messageInput = qs('customMessage');
+			const confirmButton = qs('confirmMessageBtn');
+			const cancelButton = qs('cancelMessageBtn');
+	
+			orderInput.value = order;
+			documentInput.value = fileName;
+			messageInput.value = '';
+
+			messageModal.classList.remove('hidden');
+			messageModal.style.display = 'flex';
+	
+			confirmButton.onclick = async () => {
+				const orderNumber = orderInput.value.trim();
+				const customMessage = messageInput.value.trim();
+				messageModal.classList.add('hidden');
+				messageModal.style.display = 'none';
+				await sendDocument(fileId, orderNumber, customMessage, action);
+			};
+	
+			cancelButton.onclick = () => {
+				messageModal.classList.add('hidden');
+				messageModal.style.display = 'none';
+			};
+		}
+	
 		function attachGenerateEvents() {
 			document.querySelectorAll('.generate-btn').forEach(btn => {
 				btn.addEventListener('click', async (e) => {
 					e.preventDefault();
 					const { fileId } = btn.dataset;
-
+	
 					try {
 						const res = await fetch(`${apiBase}/api/files/generate/${fileId}`, {
 							method: 'POST',
 							headers: { 'Authorization': `Bearer ${token}` }
 						});
-
+	
 						if (!res.ok) {
 							const error = await res.json();
 							throw new Error(error.message || 'Error al generar el archivo');
 						}
-
-						await fetchFiles();
+	
 						showNotification('Documento generado correctamente');
+						window.location.reload();
 					} catch (err) {
 						console.error('Error al generar documento:', err);
-						showNotification('Error al generar documento');
+						showNotification('Error al generar documento', 'error');
 					}
 				});
 			});
 		}
+	
+		function attachSendResendEvents() {
+			document.querySelectorAll('.send-btn, .resend-btn').forEach(btn => {
+				btn.addEventListener('click', (e) => {
+					e.preventDefault();
+					const { fileId, fileName, order } = btn.dataset;
+					const action = btn.classList.contains('send-btn') ? 'send' : 'resend';
+					openMessageModal(fileId, fileName, order, action);
+				});
+			});
+		}	
 
-		async function renderTable(files) {
-			const tableBody = document.getElementById('filesTableBody');
-			tableBody.innerHTML = '';
+		// Mostrar el modal al hacer click en el botón de subir
+		qs('uploadFileBtn').addEventListener('click', () => {
+			const uploadModal = qs('uploadModal');
+			const clientName = qs('titleFile').textContent.replace('Documentos ', '').trim();  // TOMAMOS NOMBRE CLIENTE DEL TITULO
+			const orderNumber = pc;  // pc viene de la URL
 
-			if (!files.length) {
-				tableBody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-gray-500">No hay archivos registrados.</td></tr>`;
+			uploadModal.dataset.clientName = clientName;
+			uploadModal.dataset.orderNumber = orderNumber;
+			qs('uploadFileName').value = '';
+			qs('uploadFileType').value = 'PDF';
+			qs('uploadFileInput').value = '';
+			uploadModal.classList.remove('hidden');
+			uploadModal.style.display = 'flex';
+		});
+
+		// Cerrar modal
+		qs('cancelUploadBtn').addEventListener('click', () => {
+			const uploadModal = qs('uploadModal');
+			uploadModal.classList.add('hidden');
+			uploadModal.style.display = 'none';
+
+			// Limpiar campos
+			qs('uploadFileName').value = '';
+			qs('uploadFileType').value = 'PDF';
+			qs('uploadFileInput').value = '';
+			qs('dropZoneText').textContent = 'Arrastra el archivo aquí o haz click para seleccionar';
+		});
+
+		qs('confirmUploadBtn').addEventListener('click', async () => {
+			const fileName = qs('uploadFileName').value.trim();
+			const fileType = qs('uploadFileType').value;
+			const pcName = qs('uploadModal').dataset.folderName;
+			const idFolder = qs('uploadModal').dataset.folderId;
+			const fileInput = qs('uploadFileInput');
+			const fileObject = fileInput.files[0];
+
+			if (!fileName || !fileType || !fileObject) {
+				showNotification('Debes completar todos los campos y seleccionar un archivo', 'warning');
 				return;
 			}
 
-			files.forEach(file => {
-				const row = document.createElement('tr');
-				let statusColor = '';
-				switch (file.status_id) {
-					case 1: statusColor = 'bg-red-500'; break;
-					case 2: statusColor = 'bg-yellow-400'; break;
-					case 3: statusColor = 'bg-green-500'; break;
-					default: statusColor = 'bg-gray-400';
+			const uploadModal = qs('uploadModal');
+			try {
+				const response = await fetch(`${apiBase}/api/customers/uuid/${uuid}`, {
+					method: 'GET',
+					headers: {
+						'Content-Type': 'application/json',
+						Authorization: `Bearer ${localStorage.getItem('token')}`
+					}
+				});
+
+				if (!response.ok) {
+					const errorText = await response.text();
+					throw new Error(`Error al obtener cliente: ${response.status} - ${errorText}`);
+				}
+				const customerData = await response.json();
+				const clientName = customerData.name;
+
+				const formData = new FormData();
+				formData.append('customer_id', uuid);
+				formData.append('folder_id', idFolder);
+				formData.append('client_name', clientName);
+				formData.append('subfolder', pcName);
+				formData.append('name', fileName);
+				formData.append('file', fileObject);
+
+				const res = await fetch(`${apiBase}/api/files/upload`, {
+					method: 'POST',
+					headers: {
+						Authorization: `Bearer ${localStorage.getItem('token')}`
+					},
+					body: formData
+				});
+
+				if (!res.ok) {
+					const error = await res.json();
+					throw new Error(error.message || 'Error al subir archivo');
 				}
 
-					let actionButton = '';
-					if (file.status_id === 1) {
-						actionButton = `
-						<div class="flex items-center gap-3 justify-center">
-							<a href="#" class="generate-btn" data-file-id="${file.id}" title="Generar documento">
-								<svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-									<path d="M12 4v16m8-8H4"/>
-								</svg>
-							</a>
-						</div>`;
-					} else if (file.status_id === 2) {
-						actionButton = `
-						<div class="flex items-center gap-3 justify-center">
-							<a href="#" class="send-btn" data-file-id="${file.id}" title="Enviar documento">
-								<svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4l16 8-16 8V4z"/></svg>
-							</a>
-							<a href="${fileServer}/uploads/${file.path}" target="_blank" title="Ver archivo ${file.name}" class="hover:text-blue-500 transition">
-								<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-									<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-									<polyline points="14 2 14 8 20 8"/>
-								</svg>
-							</a>
-						</div>`;
-					} else if (file.status_id === 3) {
-						actionButton = `
-						<div class="flex items-center gap-3 justify-center">
-							<a href="#" class="resend-btn" data-file-id="${file.id}" title="Reenviar documento">
-								<svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4l16 8-16 8V4z"/></svg>
-							</a>
-							<a href="${fileServer}/uploads/${file.path}" target="_blank" title="Ver archivo ${file.name}" class="hover:text-blue-500 transition">
-								<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-									<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-									<polyline points="14 2 14 8 20 8"/>
-								</svg>
-							</a>
-						</div>`;
-					}
-					row.innerHTML = `
-						<td class="px-4 py-3">${file.name}</td>
-						<td class="px-4 py-3">
-							<div class="flex items-center">
-								<span class="w-2.5 h-2.5 rounded-full mr-2 ${statusColor}"></span>
-								${file.status_name || '-'}
-							</div>
-						</td>
-						<td class="px-4 py-3">${file.created_at ? new Date(file.created_at).toLocaleString('es-CL') : '-'}</td>
-						<td class="px-4 py-3">${file.updated_at ? new Date(file.updated_at).toLocaleString('es-CL') : '-'}</td>
-						<td class="px-4 py-3">${file.document_type || '-'}</td>
-						<td class="px-4 py-3"><div>${actionButton}</div></td>
-					`;
-					tableBody.appendChild(row);
-			});
-				attachGenerateEvents();
-		}
-		fetchFiles();
-})();
+				showNotification('Archivo subido correctamente');
+				uploadModal.classList.add('hidden');
+				uploadModal.style.display = 'none';
+
+				// limpiar campos
+				qs('uploadFileName').value = '';
+				qs('uploadFileType').value = 'PDF';
+				fileInput.value = '';
+				qs('dropZoneText').textContent = 'Arrastra el archivo aquí o haz click para seleccionar';
+
+				window.location.reload();
+			} catch (err) {
+					console.error(err);
+					showNotification('Error al subir archivo', 'error');
+			}
+		});
+
+		// Activar zona de drop
+		const dropZone = qs('dropZone');
+		const fileInput = qs('uploadFileInput');
+		const dropZoneText = qs('dropZoneText');
+
+		// Cuando selecciona por click
+		fileInput.addEventListener('change', () => {
+			if (fileInput.files.length > 0) {
+				dropZoneText.textContent = fileInput.files[0].name;
+			} else {
+				dropZoneText.textContent = 'Arrastra el archivo aquí o haz click para seleccionar';
+			}
+		});
+
+		dropZone.addEventListener('click', () => fileInput.click());
+		dropZone.addEventListener('dragover', e => {
+			e.preventDefault();
+			dropZone.classList.add('bg-gray-200');
+		});
+		dropZone.addEventListener('dragleave', () => dropZone.classList.remove('bg-gray-200'));
+		// Cuando arrastra
+		dropZone.addEventListener('drop', e => {
+			e.preventDefault();
+			dropZone.classList.remove('bg-gray-200');
+			fileInput.files = e.dataTransfer.files;
+
+			if (fileInput.files.length > 0) {
+				dropZoneText.textContent = fileInput.files[0].name;
+			} else {
+				dropZoneText.textContent = 'Arrastra el archivo aquí o haz click para seleccionar';
+			}
+		});
+	
+			attachGenerateEvents();
+			attachSendResendEvents();
+	})();
 </script>
-	
-	
