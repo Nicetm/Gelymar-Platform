@@ -5,6 +5,8 @@ import node from '@astrojs/node';
 import fs from 'fs';
 import path from 'path';
 
+import netlify from '@astrojs/netlify';
+
 const DEV_PORT = 2121;
 
 // Elimina archivos *.astro.tsx físicos antes de iniciar (si existieran)
@@ -35,7 +37,7 @@ export default defineConfig({
   },
 
   output: 'server',
-  adapter: node({ mode: 'standalone' }),
+  adapter: netlify(),
 
   integrations: [
     sitemap(),

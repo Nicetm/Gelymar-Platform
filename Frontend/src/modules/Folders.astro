@@ -184,7 +184,6 @@ const folders: Folders[] = await fetch(`${apiBase}/api/directories/${id}`, {
 		const apiBase = section?.dataset.apiBase;
 		const allRows = Array.from(tableBody.querySelectorAll('tr'));
 	
-
 		let currentPage = 1;
 		let itemsPerPage = parseInt(itemsPerPageSelect.value, 10);
 		let filteredRows = [...allRows];
@@ -212,7 +211,7 @@ const folders: Folders[] = await fetch(`${apiBase}/api/directories/${id}`, {
 
 			const totalPages = Math.ceil(filteredRows.length / itemsPerPage);
 			pageIndicator.textContent = `Page ${currentPage} of ${totalPages}`;
-	}
+		}
 	
 		/**
 		 * Buscador dinámico.
@@ -298,16 +297,16 @@ const folders: Folders[] = await fetch(`${apiBase}/api/directories/${id}`, {
 				const customerId = customer.id;
 
 				const res = await fetch(`${apiBase}/api/directories/create`, {
-						method: 'POST',
-						headers: {
-								'Content-Type': 'application/json',
-								Authorization: `Bearer ${localStorage.getItem('token')}`
-						},
-						body: JSON.stringify({ 
-								customer_id: customerId, 
-								name: folderName,
-								path: `${clientName}/${folderName}`
-						})
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						Authorization: `Bearer ${localStorage.getItem('token')}`
+					},
+					body: JSON.stringify({ 
+						customer_id: customerId, 
+						name: folderName,
+						path: `${clientName}/${folderName}`
+					})
 				});
 
 				const result = await res.json();
@@ -318,9 +317,9 @@ const folders: Folders[] = await fetch(`${apiBase}/api/directories/${id}`, {
 				folderMessage.classList.add('text-green-600');
 
 				setTimeout(() => {
-						toggleModal(false);
-						addFolderForm.reset();
-						folderMessage.classList.add('hidden');
+					toggleModal(false);
+					addFolderForm.reset();
+					folderMessage.classList.add('hidden');
 				}, 1500);
 
 				window.location.reload();
@@ -329,9 +328,7 @@ const folders: Folders[] = await fetch(`${apiBase}/api/directories/${id}`, {
 					folderMessage.classList.remove('hidden');
 			}
 	});
-
 	
-		// Render inicial:
 		renderTable();
 	})();
 </script>
