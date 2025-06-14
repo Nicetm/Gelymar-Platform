@@ -10,6 +10,8 @@
   "mobile": "Mobile",
   "address": "Address",
   "country": "Country",
+	"country_code": "Country code",
+	"state": "State/Province",
   "city": "City",
   "status": "Status",
   "status_active": "Active",
@@ -28,5 +30,16 @@
   "contacts": "Additional contacts",
   "viewContacts": "View contacts",
   "addContact": "Add contact",
-	"directory": "N° Orders"
+	"directory": "N° Orders",
+	"allCustomers": "All customers",
+	"createTitle": "Create customer",
+	"editTitle": "Edit customer",
+	"deleteTitle": "Delete customer",
+	"deleteMessage": "Are you sure you want to delete this customer?",
+	"deleteSuccess": "Customer deleted successfully",
+	"deleteError": "Error deleting customer",
+	"updateSuccess": "Customer updated successfully",
+	"updateError": "Error updating customer",
+	"createSuccess": "Customer created successfully",
+	"createError": "Error creating customer"
 }
