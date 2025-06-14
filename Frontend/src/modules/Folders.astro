@@ -23,7 +23,7 @@ const folders: Folders[] = await fetch(`${apiBase}/api/directories/${id}`, {
 
 ---
 
-  <section id="folderSection" data-api-base={apiBase} data-file-server={fileServer} data-uuid={id} class="px-4 pt-16 pb-6 sm:px-6 lg:px-8">
+  <section id="folderSection" data-api-base={apiBase} data-file-server={fileServer} data-uuid={id} class="px-4 pt-24 pb-6 sm:px-6 lg:px-8">
 		<!-- Encabezado y breadcrumb -->
 		<header class="flex flex-col gap-4 border-b border-gray-200 dark:border-gray-700 pb-4">
 			<nav class="text-sm text-gray-500 dark:text-gray-400" aria-label="Breadcrumb">
@@ -37,14 +37,14 @@ const folders: Folders[] = await fetch(`${apiBase}/api/directories/${id}`, {
 						</a>
 					</li>
 					<li aria-current="page" class="flex items-center text-gray-400 dark:text-gray-300 font-medium">
-						<span class="mx-1">/ <a href="/admin/clients">{t.carpetas.customers}</a> / </span>{t.carpetas.title}
+						<span class="mx-1">/ <a href="/admin/clients">{t.carpetas.customers} </a> / </span>{t.carpetas.title}
 					</li>
 				</ol>
 			</nav>
 
 			<!-- Título -->
 			<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-				<h1 id="clientTitle" class="text-3xl font-bold text-gray-900 dark:text-white">{decodedClientName} {t.carpetas.title}</h1>
+				<h1 id="clientTitle" class="text-3xl font-bold text-gray-900 dark:text-white">{decodedClientName} {t.carpetas.orders}</h1>
 			</div>
 
 			<!-- Búsqueda y botón agregar carpeta -->
@@ -73,8 +73,8 @@ const folders: Folders[] = await fetch(`${apiBase}/api/directories/${id}`, {
 		</header>
 
     <!-- Tabla de carpetas -->
-    <div class="overflow-x-auto">
-      <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm">
+    <div class="overflow-auto mt-6 rounded-xl shadow ring-1 ring-gray-200 dark:ring-gray-700">
+      <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 table-fixed">
         <thead class="bg-gray-100 dark:bg-gray-800 sticky top-0 z-10">
           <tr>
             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t.carpetas.name}</th>
@@ -86,14 +86,14 @@ const folders: Folders[] = await fetch(`${apiBase}/api/directories/${id}`, {
         </thead>
         <tbody id="foldersTableBody" class="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900">
           {folders.map(folder => (
-						<tr data-id={folder.id} class="hover:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+						<tr data-id={folder.id} class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-sm min-h-[600px]">
 							<td class="px-6 py-4 items-center gap-3">{folder.name}</td>
 							<td class="px-4 py-3 break-all text-blue-600 dark:text-blue-400">{folder.path}</td>
 							<td class="px-6 py-4 items-center gap-3">{folder.created_at}</td>
 							<td class="px-6 py-4 items-center text-center gap-3">{folder.fileCount}</td>
 							<td class="w-[25%] px-6 py-4 text-sm">
 						<div class="flex justify-center items-center gap-3 text-gray-900 dark:text-white">
-							<a href={`/admin/clients/documents/view/${folder.customer_uuid}?f=${folder.id}&pc=${folder.name}`} title={`Ver documentos en ${folder.name}`} class="hover:text-blue-500 transition">
+							<a href={`/admin/clients/documents/view/${folder.customer_uuid}?f=${folder.id}&pc=${folder.name}&c=${clientName}`} title={`Ver documentos en ${folder.name}`} class="hover:text-blue-500 transition">
 								<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
 							</a>
 							<a href="#" title={`Ver Lista de archivos de ${folder.name}`} class="hover:text-indigo-500 transition">
@@ -184,19 +184,12 @@ const folders: Folders[] = await fetch(`${apiBase}/api/directories/${id}`, {
 		const apiBase = section?.dataset.apiBase;
 		const allRows = Array.from(tableBody.querySelectorAll('tr'));
 	
-
 		let currentPage = 1;
 		let itemsPerPage = parseInt(itemsPerPageSelect.value, 10);
 		let filteredRows = [...allRows];
 
 		const params = new URLSearchParams(window.location.search);
 		const clientName = params.get('c');
-	
-		if (clientName) {
-			const decoded = decodeURIComponent(clientName);
-			const title = qs('clientTitle');
-			if (title) title.textContent = decoded;
-		}
 	
 		/**
 	 * Función principal de render de la tabla según búsqueda y paginación.
@@ -218,7 +211,7 @@ const folders: Folders[] = await fetch(`${apiBase}/api/directories/${id}`, {
 
 			const totalPages = Math.ceil(filteredRows.length / itemsPerPage);
 			pageIndicator.textContent = `Page ${currentPage} of ${totalPages}`;
-	}
+		}
 	
 		/**
 		 * Buscador dinámico.
@@ -304,16 +297,16 @@ const folders: Folders[] = await fetch(`${apiBase}/api/directories/${id}`, {
 				const customerId = customer.id;
 
 				const res = await fetch(`${apiBase}/api/directories/create`, {
-						method: 'POST',
-						headers: {
-								'Content-Type': 'application/json',
-								Authorization: `Bearer ${localStorage.getItem('token')}`
-						},
-						body: JSON.stringify({ 
-								customer_id: customerId, 
-								name: folderName,
-								path: `${clientName}/${folderName}`
-						})
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						Authorization: `Bearer ${localStorage.getItem('token')}`
+					},
+					body: JSON.stringify({ 
+						customer_id: customerId, 
+						name: folderName,
+						path: `${clientName}/${folderName}`
+					})
 				});
 
 				const result = await res.json();
@@ -324,9 +317,9 @@ const folders: Folders[] = await fetch(`${apiBase}/api/directories/${id}`, {
 				folderMessage.classList.add('text-green-600');
 
 				setTimeout(() => {
-						toggleModal(false);
-						addFolderForm.reset();
-						folderMessage.classList.add('hidden');
+					toggleModal(false);
+					addFolderForm.reset();
+					folderMessage.classList.add('hidden');
 				}, 1500);
 
 				window.location.reload();
@@ -335,9 +328,7 @@ const folders: Folders[] = await fetch(`${apiBase}/api/directories/${id}`, {
 					folderMessage.classList.remove('hidden');
 			}
 	});
-
 	
-		// Render inicial:
 		renderTable();
 	})();
 </script>

@@ -15,7 +15,7 @@ const insertFile = async ({
   etd = null,
   was_sent = false,
   document_type = null,
-  file_type = null,
+  file_type = 'PDF',
   status_id = 1
 }) => {
   
@@ -64,7 +64,6 @@ const getFiles = async (customerId, folderId) => {
      ORDER BY f.created_at DESC`,
     [customerId, folderId]
   );
-  console.log('consultando archivos para el cliente:', customerId, 'y carpeta:', folderId);
   return rows.map(row => new File(row));
 };
 
