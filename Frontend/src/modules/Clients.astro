@@ -8,6 +8,7 @@ const setLang = import.meta.env.PUBLIC_LANG;
 const lang = setLang;
 const t: any = {
   clientes: await loadTranslations(lang, 'clientes'),
+	comond: await loadTranslations(lang, 'comond'),
 };
 
 const token = Astro.cookies.get('token')?.value;
@@ -36,7 +37,7 @@ const customers: Customers[] = await fetch(`${apiBase}/api/customers`, {
     </nav>
 
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{t.clientes.title}</h1>
+      <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{t.clientes.allCustomers}</h1>
     </div>
 
     <!-- Búsqueda y botón agregar cliente -->
@@ -143,32 +144,63 @@ const customers: Customers[] = await fetch(`${apiBase}/api/customers`, {
 </section>
 
 <!-- Modal overlay and form -->
-<div id="addClientModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm hidden">
-  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md mx-4 p-6 relative">
-    <!-- Close button -->
-    <button id="closeModalBtn" class="absolute top-3 right-3 text-gray-500 dark:text-gray-300 hover:text-red-500 transition">
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-      </svg>
-    </button>
+<div id="addClientModal" class="fixed inset-0 bg-black bg-opacity-50 hidden justify-center items-center z-50">
+	<div class="bg-white rounded-lg p-6 w-full max-w-md relative"> <!-- <-- Aquí -->
+		<!-- Botón de cerrar -->
+		<button id="closeModalBtn" class="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition">
+			<svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+				<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+			</svg>
+		</button>
+		<h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">{t.clientes.createTitle}</h2>
 
-    <!-- Modal content -->
-    <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Add Client</h2>
+		<div class="mb-4">
+			<label for="clientName" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{t.clientes.name}</label>
+			<input id="clientName" type="text" class="w-full mt-1 px-4 py-2 border rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white" required />
+		</div>
 
-    <form id="addClientForm" class="space-y-4">
-      <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Client Name</label>
-        <input type="text" name="name" class="w-full mt-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500" required>
-      </div>
+		<div class="mb-4 flex gap-4">
+			<div class="w-1/2">
+				<label for="clientCountry" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{t.clientes.country}</label>
+				<input id="clientCountry" type="text" class="w-full mt-1 px-4 py-2 border rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white" required />
+			</div>
+			<div class="w-1/2">
+				<label for="clientCity" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{t.clientes.city}</label>
+				<input id="clientCity" type="text" class="w-full mt-1 px-4 py-2 border rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white" required />
+			</div>
+		</div>
 
-      <div class="flex justify-end">
-        <button type="submit" class="bg-[#00538C] hover:bg-[#004773] text-white px-4 py-2 rounded-md font-medium shadow transition">
-          Save
-        </button>
-      </div>
-    </form>
-  </div>
+		<div class="mb-4 flex gap-4">
+			<div class="w-1/2">
+				<label for="clientPhoneCode" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{t.clientes.country_code}</label>
+				<input id="clientPhoneCode" type="text" class="w-full mt-1 px-4 py-2 border rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white" required />
+			</div>
+			<div class="w-1/2">
+				<label for="clientPhone" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{t.clientes.phone}</label>
+				<input id="clientPhone" type="text" class="w-full mt-1 px-4 py-2 border rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white" required />
+			</div>
+		</div>
+
+		<div class="mb-4">
+			<label for="clientAddress" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{t.clientes.address}</label>
+			<input id="clientAddress" type="text" class="w-full mt-1 px-4 py-2 border rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white" required />
+		</div>
+
+		<div class="mb-4">
+			<label for="clientEmail" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{t.clientes.email}</label>
+			<input id="clientEmail" type="email" class="w-full mt-1 px-4 py-2 border rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white" required />
+		</div>
+
+		<div class="flex justify-end gap-2">
+			<button id="cancelUploadBtn" class="px-4 py-2 bg-gray-300 rounded-md">{t.comond.cancel}</button>
+			<button id="confirmUploadBtn" class="bg-[#00538C] hover:bg-[#004773] text-white px-4 py-2 rounded-md font-medium">{t.comond.confirm}</button>
+		</div>
+
+		<p id="folderMessage" class="text-sm font-medium text-center text-red-600 dark:text-red-400 hidden pt-4"></p>
+	</div>
 </div>
+
+
 
 <script is:inline>
 	const qs = id => document.getElementById(id);
@@ -181,8 +213,6 @@ const customers: Customers[] = await fetch(`${apiBase}/api/customers`, {
 	const addClientBtn = qs('addClientBtn');
 	const addIcon = qs('addIcon');
 	const spinnerIcon = qs('spinnerIcon');
-	const modal = qs('addClientModal');
-	const closeModalBtn = qs('closeModalBtn');
 	const allRows = Array.from(tableBody.querySelectorAll('tr'));
 
 	let currentPage = 1;
@@ -239,23 +269,28 @@ const customers: Customers[] = await fetch(`${apiBase}/api/customers`, {
 		pageIndicator.textContent = `Page ${currentPage} of ${totalPages}`;
 	}
 
-	// Función para abrir/cerrar el modal
-	const toggleModal = show => modal.classList.toggle('hidden', !show);
-
 	addClientBtn?.addEventListener('click', () => {
 		addIcon.classList.add('hidden');
 		spinnerIcon.classList.remove('hidden');
 		setTimeout(() => {
 			spinnerIcon.classList.add('hidden');
 			addIcon.classList.remove('hidden');
-			toggleModal(true);
+			const uploadModal = qs('addClientModal');
+			uploadModal.classList.remove('hidden');
+			uploadModal.style.display = 'flex';
 		}, 500);
 	});
 
-	// Eventos para cerrar el modal
-	closeModalBtn?.addEventListener('click', () => toggleModal(false));
-  modal?.addEventListener('click', e => e.target === modal && toggleModal(false));
-  document.addEventListener('keydown', e => e.key === 'Escape' && !modal.classList.contains('hidden') && toggleModal(false));
+	// Cerrar modal
+	['cancelUploadBtn', 'closeModalBtn'].forEach(id => {
+    qs(id).addEventListener('click', () => {
+        const uploadModal = qs('addClientModal');
+        uploadModal.classList.add('hidden');
+        uploadModal.style.display = 'none';
+
+        qs('clientName').value = '';
+    });
+	});
 
 	/**
 	 * Buscador dinámico: filtra las filas según el texto ingresado.

@@ -25,5 +25,21 @@
 	"folderExists": "A folder with this name already exists.",
 	"folderNotFound": "Folder not found.",
 	"filesCount": "Files Count",
-	"customers": "Customers"
+	"customers": "Customers",
+	"createdAt": "Created At",
+	"updatedAt": "Updated At",
+	"actions": "Actions",
+	"viewDetails": "View Details",
+	"editFolder": "Edit Folder",
+	"deleteFolder": "Delete Folder",
+	"noFolders": "No folders available.",
+	"loading": "Loading folders...",
+	"searchPlaceholder": "Search by N° SAP or Path",
+	"sortBy": {
+		"nameAsc": "Name Ascending",
+		"nameDesc": "Name Descending",
+		"dateAsc": "Date Ascending",
+		"dateDesc": "Date Descending"
+	},
+	"filterByCustomer": "Filter by Customer"
 }

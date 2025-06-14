@@ -25,5 +25,21 @@
   "folderExists": "Ya existe una carpeta con este nombre.",
   "folderNotFound": "Carpeta no encontrada.",
 	"filesCount": "N° de Documentos",
-	"customers": "Clientes"
+	"customers": "Clientes",
+	"createdAt": "Creada el",
+	"updatedAt": "Actualizada el",
+	"actions": "Acciones",
+	"viewDetails": "Ver Detalles",
+	"editFolder": "Editar Carpeta",
+	"deleteFolder": "Eliminar Carpeta",
+	"noFolders": "No hay carpetas disponibles.",
+	"loading": "Cargando carpetas...",
+	"searchPlaceholder": "Buscar por N° SAP o Ruta",
+	"sortBy": {
+		"nameAsc": "Nombre Ascendente",
+		"nameDesc": "Nombre Descendente",
+		"dateAsc": "Fecha Ascendente",
+		"dateDesc": "Fecha Descendente"
+	},
+	"filterByCustomer": "Filtrar por Cliente"
 }

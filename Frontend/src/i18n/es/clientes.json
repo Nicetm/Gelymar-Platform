@@ -10,6 +10,8 @@
   "mobile": "Celular",
   "address": "Dirección",
   "country": "País",
+	"country_code": "Código de país",
+	"state": "Estado/Provincia",
   "city": "Ciudad",
   "status": "Estado",
   "status_active": "Activo",
@@ -28,5 +30,16 @@
   "contacts": "Contactos adicionales",
   "viewContacts": "Ver contactos",
   "addContact": "Agregar contacto",
-	"directory": "N° Pedidos"
+	"directory": "N° Pedidos",
+	"allCustomers": "Todos los clientes",
+	"createTitle": "Crear cliente",
+	"editTitle": "Editar cliente",
+	"deleteTitle": "Eliminar cliente",
+	"deleteMessage": "¿Estás seguro de que deseas eliminar este cliente?",
+	"deleteSuccess": "Cliente eliminado correctamente",
+	"deleteError": "Error al eliminar el cliente",
+	"updateSuccess": "Cliente actualizado correctamente",
+	"updateError": "Error al actualizar el cliente",
+	"createSuccess": "Cliente creado correctamente",
+	"createError": "Error al crear el cliente"
 }
