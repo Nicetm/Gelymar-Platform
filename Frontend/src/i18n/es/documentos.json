@@ -11,5 +11,18 @@
   "path": "Ruta",
   "upload": "Subir documentos",
   "perPage": "Documentos por página",
-	"filesCount": "N° Decumentos"
+	"filesCount": "N° Decumentos",
+	"dragAndDrop": "Arrastra y suelta archivos aquí o haz clic para seleccionar archivos",
+	"selectDocument": "Seleccionar Documento",
+	"typeofDocument": "Tipo de Documento",
+	"nameOfDocument": "Nombre del Documento",
+	"dragTitle": "Subir nuevo documento",
+	"orderNumber": "Número de orden",
+	"orderNumberPlaceholder": "Número de orden (opcional)",
+	"orderNumberTooltip": "Número de orden para identificar el documento",
+	"documentDescription": "Descripción del documento",
+	"documentDescriptionPlaceholder": "Descripción del documento (opcional)",
+	"documentDescriptionTooltip": "Proporciona una breve descripción del documento para referencia futura",
+	"sendCustomMessage": "Enviar mensaje personalizado",
+	"message": "Mensaje"
 }

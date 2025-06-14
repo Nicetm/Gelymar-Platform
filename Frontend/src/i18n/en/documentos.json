@@ -10,5 +10,22 @@
   "docType": "Document type",
   "path": "Path",
   "upload": "Upload file",
-  "perPage": "Files per page"
+  "perPage": "Files per page",
+	"filesCount": "Number of files",
+	"dragAndDrop": "Drag and drop files here or click to select files",
+	"selectDocument": "Select Document",
+	"typeofDocument": "Type of Document",
+	"nameOfDocument": "Name of Document",
+	"dragTitle": "Upload new document",
+	"orderNumber": "Order number",
+	"noFiles": "No files available",
+	"fileSize": "File size",
+	"fileFormat": "File format",
+	"uploadSuccess": "File uploaded successfully",
+	"uploadError": "Error uploading file",
+	"deleteFile": "Delete file",
+	"confirmDelete": "Are you sure you want to delete this file?",
+	"fileDeleted": "File deleted successfully",
+	"sendCustomMessage": "Send custom message",
+	"message": "Message"
 }
