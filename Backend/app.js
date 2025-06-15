@@ -4,6 +4,7 @@ const cors = require('cors');
 const path = require('path');
 const cookieParser = require('cookie-parser');
 const swaggerSpec = require('./docs/swagger');
+require('module-alias/register');
 
 // Middlewares
 const authMiddleware = require('./middleware/auth.middleware');

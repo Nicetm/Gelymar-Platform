@@ -1,6 +1,6 @@
 // db.js
 require('dotenv').config();
-
+const logger = require('../utils/logger');
 const mysql = require('mysql2/promise');
 
 const dbConfig = {
@@ -20,12 +20,14 @@ async function connectWithRetry(retries = 5, delayMs = 5000) {
     try {
       console.log(`Intentando conectar a MySQL (Intento ${attempt + 1} de ${retries})...`);
       const connection = await mysql.createConnection(dbConfig);
+
       await connection.ping();
-      console.log('✅ Conectado a MySQL');
       await connection.end();
+
+      logger.info('Conexión a MySQL exitosa');
       return mysql.createPool(dbConfig);
     } catch (err) {
-      console.error(`Error de conexión: ${err.message}`);
+      logger.error(`Error conectando a MySQL: ${err.message}`);
       attempt++;
       if (attempt < retries) {
         console.log(`Reintentando en ${delayMs / 1000} segundos...`);

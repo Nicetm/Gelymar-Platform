@@ -7,6 +7,7 @@ const { generateRO, generateInvoice, generateBL } = require('../pdf-generator/ge
 const fileService = require('../services/file.service');
 const emailService = require('../services/email.service');
 const PDFDocument = require('pdfkit');
+const logger = require('../utils/logger');
 
 const UPLOADS_ROOT = path.join(__dirname, '../uploads');
 
@@ -42,13 +43,14 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({ storage, fileFilter });
 
 // Middleware listo para una sola subida bajo el campo 'file'
-const uploadFile = upload.single('file');
+exports.uploadFile = upload.single('file');
 
 /**
- * POST /api/files/upload
- * Procesa la carga física del archivo y registra su metadata en la base de datos
+ * @route POST /api/files/upload
+ * @desc Procesa la carga física del archivo y registra su metadata en la base de datos
+ * @access Protegido (requiere JWT)
  */
-const handleUpload = async (req, res) => {
+exports.handleUpload = async (req, res) => {
   try {
     const {
       customer_id, folder_id, client_name, subfolder, name
@@ -56,6 +58,7 @@ const handleUpload = async (req, res) => {
     const file = req.file;
 
     if (!file || !customer_id || !folder_id || !client_name || !subfolder) {
+      logger.warn('Faltan parámetros obligatorios en handleUpload');
       return res.status(400).json({ message: 'Faltan parámetros obligatorios' });
     }
 
@@ -71,18 +74,20 @@ const handleUpload = async (req, res) => {
 
     await insertFile(fileData);
     
+    logger.info(`Archivo subido y registrado correctamente: ${file.originalname}`);
     res.status(201).json({ message: 'Archivo subido y registrado con éxito' });
   } catch (err) {
-    console.error('Error al subir archivo:', err);
+    logger.error(`Error al subir archivo: ${err.message}`);
     res.status(500).json({ message: 'Error interno del servidor', error: err.message });
   }
 };
 
 /**
- * GET /api/files/:customerUuid?f=folderId
- * Obtiene todos los archivos de una carpeta específica de un cliente dado su UUID
+ * @route GET /api/files/:customerUuid?f=folderId
+ * @desc Obtiene todos los archivos de una carpeta específica de un cliente dado su UUID
+ * @access Protegido (requiere JWT)
  */
-const getFilesByCustomerAndFolder = async (req, res) => {
+exports.getFilesByCustomerAndFolder = async (req, res) => {
   const { customerUuid } = req.params;
   const folderId = req.query.f;
 
@@ -91,32 +96,37 @@ const getFilesByCustomerAndFolder = async (req, res) => {
     const [[customer]] = await pool.query(`SELECT id FROM customers WHERE uuid = ?`, [customerUuid]);
 
     if (!customer) {
+      logger.warn(`Cliente no encontrado UUID: ${customerUuid}`);
       return res.status(404).json({ message: 'Cliente no encontrado' });
     }
 
     const files = await getFiles(customer.id, folderId);
+    logger.info(`Se obtuvieron ${files.length} archivos para cliente ID ${customer.id}`);
     res.json(files);
   } catch (err) {
-    console.error('Error al obtener archivos:', err);
+    logger.error(`Error al obtener archivos: ${err.message}`);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 };
 
-const generateFile = async (req, res) => {
+/**
+ * @route POST /api/files/generate/:id
+ * @desc Genera el archivo PDF para el registro de archivo solicitado
+ * @access Protegido (requiere JWT)
+ */
+exports.generateFile = async (req, res) => {
   const { id } = req.params;
 
   try {
-    // Primero obtener el registro del archivo
     const file = await fileService.getFileById(id);
     if (!file) {
+      logger.warn(`Archivo no encontrado ID: ${id}`);
       return res.status(404).json({ message: 'Archivo no encontrado' });
     }
 
-    // Definir ruta de generación
     const FILE_SERVER_ROOT = process.env.FILE_SERVER_ROOT;
     const customerFolder = path.join(FILE_SERVER_ROOT, file.customer_name, file.folder_name);
     
-    // Validamos que exista el directorio del cliente
     if (!fs.existsSync(customerFolder)) {
       fs.mkdirSync(customerFolder, { recursive: true });
     }
@@ -124,7 +134,6 @@ const generateFile = async (req, res) => {
     const fileName = `${file.name}.pdf`;
     const filePath = path.join(customerFolder, fileName);
 
-    // Generar el PDF
     await generateRO(filePath, {
       title: 'Reception Order Advice',
       subtitle: 'Este es el ROA generado',
@@ -138,14 +147,6 @@ const generateFile = async (req, res) => {
       signRole: 'Logistics Manager'
     });
 
-    /*
-    const doc = new PDFDocument();
-    doc.pipe(fs.createWriteStream(filePath));
-    doc.fontSize(18).text(`Documento generado para ${file.name}`);
-    doc.end();
-    */
-
-    // Actualizar el registro en la tabla files
     const updateData = {
       id: file.id,
       status_id: 2,
@@ -155,100 +156,101 @@ const generateFile = async (req, res) => {
 
     await fileService.updateFile(updateData);
 
+    logger.info(`Archivo generado exitosamente: ${fileName}`);
     return res.json({ message: 'Archivo generado exitosamente', path: updateData.path });
 
   } catch (error) {
-    console.error('Error al generar archivo:', error);
+    logger.error(`Error al generar archivo: ${error.message}`);
     return res.status(500).json({ message: 'Error al generar el archivo' });
   }
 };
 
-const sendFile = async (req, res) => {
+/**
+ * @route POST /api/files/send/:id
+ * @desc Envía el archivo por correo al cliente
+ * @access Protegido (requiere JWT)
+ */
+exports.sendFile = async (req, res) => {
   const { id } = req.params;
 
   try {
-    // Buscar archivo, obtener datos del cliente, preparar el mail
     const file = await fileService.getFileById(id);
-    if (!file) return res.status(404).json({ message: 'Archivo no encontrado' });
+    if (!file) {
+      logger.warn(`Archivo no encontrado para enviar: ${id}`);
+      return res.status(404).json({ message: 'Archivo no encontrado' });
+    }
 
-    await emailService.sendFileToClient(file);  // envía el email
+    await emailService.sendFileToClient(file);
 
     await fileService.updateFile({
       id: id,
       status_id: 3,
       updated_at: new Date(),
       path: file.path 
-    }); // actualiza a estado enviado
+    });
 
+    logger.info(`Archivo enviado correctamente: ${file.name}`);
     res.json({ message: 'Documento enviado correctamente' });
   } catch (err) {
-    console.error(err);
+    logger.error(`Error al enviar archivo: ${err.message}`);
     res.status(500).json({ message: 'Error al enviar documento' });
   }
 };
 
 /**
- * DELETE /api/files/delete
- * Elimina un archivo del sistema de archivos y su registro en la base de datos
+ * @route DELETE /api/files/delete
+ * @desc Elimina un archivo del sistema de archivos y su registro en la base de datos
+ * @access Protegido (requiere JWT)
  */
-const deleteFile = async (req, res) => {
+exports.deleteFile = async (req, res) => {
   const { customer_id, folder_id, filename } = req.body;
 
   if (!customer_id || !folder_id || !filename) {
+    logger.warn('Faltan parámetros en deleteFile');
     return res.status(400).json({ message: 'Faltan parámetros obligatorios' });
   }
 
   try {
-    // Obtener path del archivo desde la BD
     const file = await fileService.getFileByName(customer_id, folder_id, filename);
     if (!file) {
+      logger.warn(`Archivo no encontrado en BD: ${filename}`);
       return res.status(404).json({ message: 'Archivo no encontrado en la base de datos' });
     }
 
-    // Eliminar archivo físico
     const fullPath = path.join(UPLOADS_ROOT, file.path);
     if (fs.existsSync(fullPath)) {
       fs.unlinkSync(fullPath);
     }
 
-    // Eliminar registro en la base de datos
     await fileService.deleteFileById(file.id);
 
+    logger.info(`Archivo eliminado correctamente: ${filename}`);
     res.json({ message: `Archivo ${filename} eliminado correctamente` });
   } catch (error) {
-    console.error('Error al eliminar archivo:', error);
+    logger.error(`Error al eliminar archivo: ${error.message}`);
     res.status(500).json({ message: 'Error interno del servidor', error: error.message });
   }
 };
 
-const resendFile = async (req, res) => {
+/**
+ * @route POST /api/files/resend/:id
+ * @desc Duplica y reenvía el archivo por correo al cliente
+ * @access Protegido (requiere JWT)
+ */
+exports.resendFile = async (req, res) => {
   const { id } = req.params;
 
   try {
-    // Duplicar el registro
     const newFileId = await fileService.duplicateFile(id);
-
-    // Obtener el nuevo registro completo (para enviar el email)
     const newFile = await fileService.getFileById(newFileId);
     if (!newFile) throw new Error('Error al obtener nuevo archivo para enviar');
 
-    // Enviar el correo
     await emailService.sendFileToClient(newFile);
 
-    // Responder OK
+    logger.info(`Archivo reenviado correctamente ID: ${newFileId}`);
     res.json({ message: 'Documento reenviado y enviado por correo correctamente' });
   } catch (err) {
-    console.error(err);
+    logger.error(`Error al reenviar archivo: ${err.message}`);
     res.status(500).json({ message: 'Error al reenviar y enviar el documento' });
   }
-};
-
-module.exports = {
-  uploadFile,
-  generateFile,
-  sendFile,
-  handleUpload,
-  getFilesByCustomerAndFolder,
-  deleteFile,
-  resendFile,
 };
