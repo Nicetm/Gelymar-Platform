@@ -3,6 +3,7 @@ const path = require('path');
 const multer = require('multer');
 const { insertFile, getFiles } = require('../services/file.service');
 const { poolPromise } = require('../config/db');
+const { generateRO, generateInvoice, generateBL } = require('../pdf-generator/generator');
 const fileService = require('../services/file.service');
 const emailService = require('../services/email.service');
 const PDFDocument = require('pdfkit');
@@ -123,11 +124,26 @@ const generateFile = async (req, res) => {
     const fileName = `${file.name}.pdf`;
     const filePath = path.join(customerFolder, fileName);
 
-    // Generar el PDF (puedes reemplazar por tu propia lógica de contenido)
+    // Generar el PDF
+    await generateRO(filePath, {
+      title: 'Reception Order Advice',
+      subtitle: 'Este es el ROA generado',
+      customerName: file.customer_name,
+      orderNumber: file.order_number,
+      items: [ 
+        { product: 'Producto A', quantity: 10, price: 1000 },
+        { product: 'Producto B', quantity: 5, price: 500 }
+      ],
+      signName: 'Juan Pérez',
+      signRole: 'Logistics Manager'
+    });
+
+    /*
     const doc = new PDFDocument();
     doc.pipe(fs.createWriteStream(filePath));
     doc.fontSize(18).text(`Documento generado para ${file.name}`);
     doc.end();
+    */
 
     // Actualizar el registro en la tabla files
     const updateData = {
