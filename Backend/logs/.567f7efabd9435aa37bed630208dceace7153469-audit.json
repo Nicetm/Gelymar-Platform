@@ -1,0 +1,20 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "E:\\Softkey\\Gelymar\\Proyecto\\gelymar-management-platform\\Backend\\logs\\.567f7efabd9435aa37bed630208dceace7153469-audit.json",
+    "files": [
+        {
+            "date": 1749952184811,
+            "name": "E:\\Softkey\\Gelymar\\Proyecto\\gelymar-management-platform\\Backend\\logs\\app-2025-06-14.log",
+            "hash": "5984448a247991382a5450d0b1f14c10999542f857b7a5b6d4a31e55cc27dd1c"
+        },
+        {
+            "date": 1749960183974,
+            "name": "E:\\Softkey\\Gelymar\\Proyecto\\gelymar-management-platform\\Backend\\logs\\app-2025-06-15.log",
+            "hash": "8ab307132969c03a803a6c9d4ec0e9baff195891363d2e27b463c949bc816a42"
+        }
+    ],
+    "hashType": "sha256"
+}
