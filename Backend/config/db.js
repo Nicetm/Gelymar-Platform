@@ -1,7 +1,5 @@
 // db.js
-
 require('dotenv').config();
-
 
 const mysql = require('mysql2/promise');
 
@@ -15,17 +13,32 @@ const dbConfig = {
   queueLimit: 0
 };
 
-const poolPromise = mysql.createPool(dbConfig)
-  .getConnection()
-  .then(connection => {
-    console.log('Conectado a MySQL');
-    console.log('DB_USER:', process.env.DB_USER);
-    connection.release(); // libera la conexión de prueba
-    return mysql.createPool(dbConfig); // retorna el pool
-  })
-  .catch(err => {
-    console.error('Error de conexión a MySQL:', err);
-    process.exit(1);
-  });
+// Función de conexión con reintentos
+async function connectWithRetry(retries = 5, delayMs = 5000) {
+  let attempt = 0;
+  while (attempt < retries) {
+    try {
+      console.log(`Intentando conectar a MySQL (Intento ${attempt + 1} de ${retries})...`);
+      const connection = await mysql.createConnection(dbConfig);
+      await connection.ping();
+      console.log('✅ Conectado a MySQL');
+      await connection.end();
+      return mysql.createPool(dbConfig);
+    } catch (err) {
+      console.error(`Error de conexión: ${err.message}`);
+      attempt++;
+      if (attempt < retries) {
+        console.log(`Reintentando en ${delayMs / 1000} segundos...`);
+        await new Promise(res => setTimeout(res, delayMs));
+      } else {
+        console.error('❌ No se pudo conectar a MySQL después de múltiples intentos.');
+        process.exit(1);
+      }
+    }
+  }
+}
+
+// Exportamos el poolPromise cuando la conexión esté lista
+const poolPromise = connectWithRetry();
 
 module.exports = { poolPromise };
