@@ -24,5 +24,6 @@
 	"documentDescriptionPlaceholder": "Descripción del documento (opcional)",
 	"documentDescriptionTooltip": "Proporciona una breve descripción del documento para referencia futura",
 	"sendCustomMessage": "Enviar mensaje personalizado",
-	"message": "Mensaje"
+	"message": "Mensaje",
+	"is_visible_to_customer": "Publico"
 }

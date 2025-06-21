@@ -1,7 +1,7 @@
 import { defineConfig, envField } from 'astro/config';
 import sitemap from '@astrojs/sitemap';
+import react from '@astrojs/react';
 import tailwind from '@astrojs/tailwind';
-import node from '@astrojs/node';
 import fs from 'fs';
 import path from 'path';
 
@@ -42,6 +42,7 @@ export default defineConfig({
   integrations: [
     sitemap(),
     tailwind(),
+		react(),
   ],
 
   env: {

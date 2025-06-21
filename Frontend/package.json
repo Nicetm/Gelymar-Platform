@@ -29,6 +29,7 @@
 	"dependencies": {
 		"@astrojs/netlify": "^6.3.4",
 		"@astrojs/node": "^9.2.2",
+		"@astrojs/react": "^4.3.0",
 		"@astrojs/sitemap": "^3.4.1",
 		"@astrojs/tailwind": "^6.0.2",
 		"@faker-js/faker": "^7.6.0",
@@ -37,6 +38,8 @@
 		"flowbite": "^2.1.1",
 		"flowbite-typography": "^1.0.3",
 		"jsonwebtoken": "^9.0.2",
+		"react": "^19.1.0",
+		"react-dom": "^19.1.0",
 		"shiki": "^0.14.1",
 		"sweetalert2": "^11.22.0",
 		"tailwind-scrollbar": "^3.0.0",

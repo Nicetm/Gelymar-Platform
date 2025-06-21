@@ -42,6 +42,20 @@ const insertFile = async ({
   return result;
 };
 
+/**
+ * Renombra un archivo existente en la base de datos
+ * @param {number} id 
+ * @param {string} newName 
+ * @returns 
+ */
+const RenameFile = async (id, newName) => {
+  const pool = await poolPromise;
+  const [result] = await pool.query(
+    'UPDATE files SET name = ?, updated_at = NOW() WHERE id = ?',
+    [newName, id]
+  );
+  return result.affectedRows > 0;
+}
 
 /**
  * Obtiene todos los archivos de una carpeta específica para un cliente
@@ -149,6 +163,7 @@ const duplicateFile = async (fileId) => {
 };
 
 module.exports = {
+  RenameFile,
   getFileById,
   insertFile,
   getFiles,

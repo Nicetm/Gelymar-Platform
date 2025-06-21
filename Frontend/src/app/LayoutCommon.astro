@@ -79,6 +79,7 @@ const { class: clazz } = Astro.props;
 
               stopTokenWatcher();
               iniciarWatcher();
+							window.location.reload(); // Recargar la página para aplicar el nuevo token
             } else {
               console.warn('⚠️ Token no renovado. Redirigiendo...');
               window.location.href = '/authentication/sign-in';

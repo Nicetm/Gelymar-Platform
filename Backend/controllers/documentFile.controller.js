@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
-const { insertFile, getFiles } = require('../services/file.service');
+const { insertFile, getFiles, RenameFile } = require('../services/file.service');
 const { poolPromise } = require('../config/db');
 const { generateRO, generateInvoice, generateBL } = require('../pdf-generator/generator');
 const fileService = require('../services/file.service');
@@ -53,7 +53,7 @@ exports.uploadFile = upload.single('file');
 exports.handleUpload = async (req, res) => {
   try {
     const {
-      customer_id, folder_id, client_name, subfolder, name
+      customer_id, folder_id, client_name, subfolder, name, is_visible_to_customer
     } = req.body;
     const file = req.file;
 
@@ -70,6 +70,7 @@ exports.handleUpload = async (req, res) => {
       name: name,
       path: filePath,
       status_id: 2,
+      is_visible_to_customer: is_visible_to_customer,
     };
 
     await insertFile(fileData);
@@ -106,6 +107,27 @@ exports.getFilesByCustomerAndFolder = async (req, res) => {
   } catch (err) {
     logger.error(`Error al obtener archivos: ${err.message}`);
     res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
+
+/**
+ * @route PUT /api/files/rename/:id
+ * @desc Modifica el nombre de un archivo existente
+ * @access Protegido (requiere JWT)
+ */
+exports.RenameFile = async (req, res) => {
+  const { id } = req.params;
+  const { name } = req.body;
+
+  if (!name || !id) return res.status(400).json({ message: 'Faltan datos' });
+
+  try {
+    const result = await RenameFile(id, name);
+    if (result.affectedRows === 0) return res.status(404).json({ message: 'Archivo no encontrado' });
+    res.json({ success: true, name });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Error en la BD' });
   }
 };
 
