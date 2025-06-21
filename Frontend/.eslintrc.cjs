@@ -105,5 +105,25 @@ module.exports = {
 				astroHTML: 'readonly',
 			},
 		},
+		// React / JSX / TSX
+		{
+			files: ['*.jsx', '*.tsx'],
+			parser: '@babel/eslint-parser',
+			parserOptions: {
+				requireConfigFile: false,
+				ecmaVersion: 'latest',
+				sourceType: 'module',
+				ecmaFeatures: {
+					jsx: true,
+				},
+			},
+			plugins: ['react'],
+			extends: ['plugin:react/recommended'],
+			rules: {
+				'react/react-in-jsx-scope': 'off', // No necesario con React 17+
+				'import/extensions': 'off',
+				'import/prefer-default-export': 'off',
+			},
+		},
 	],
 };

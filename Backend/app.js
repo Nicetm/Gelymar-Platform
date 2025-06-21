@@ -58,7 +58,7 @@ app.use('/api/files', authMiddleware, documentFileRoutes);
 // Sirve archivos estáticos desde la carpeta 'uploads'
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// 🔒 Rutas protegidas del frontend (HTML)
+// Rutas protegidas del frontend (HTML)
 const pathAdmin = path.join(__dirname, 'views-protegidas/admin/index.html');
 const pathClient = path.join(__dirname, 'views-protegidas/client/index.html');
 

@@ -118,4 +118,7 @@ router.post('/send/:id', authMiddleware, authorizeRoles(['admin']), controller.s
 
 router.post('/resend/:id', authMiddleware, authorizeRoles(['admin']), controller.resendFile);
 
+router.put('/rename/:id', authMiddleware, authorizeRoles(['admin']), controller.RenameFile);
+
+
 module.exports = router;

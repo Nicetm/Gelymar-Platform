@@ -72,6 +72,7 @@ export interface Files {
   status_name?: string; // <-- importante para los JOINs cuando ya haces el LEFT JOIN con order_status
   created_at: string;
   updated_at: string;
+	is_visible_to_client: boolean;
 }
 
 // --- ORDER STATUS ---

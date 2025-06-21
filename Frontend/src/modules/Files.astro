@@ -84,11 +84,12 @@ const files: Files[] = await fetch(`${apiBase}/api/files/${id}?f=${folderId}`, {
           <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t.documentos.status}</th>
           <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t.documentos.created}</th>
           <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t.documentos.updated}</th>
+          <th class="px-4 py-3 text-center text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t.documentos.is_visible_to_customer}</th>
           <th class="px-4 py-3 text-center text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t.comond.actions}</th>
         </tr>
       </thead>
       <tbody id="filesTableBody" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-sm min-h-[600px]">
-				{files.map(file => {
+				{Array.isArray(files) && files.map(file => {
 					let statusColor = '';
 					switch (file.status_id) {
 						case 1:
@@ -109,67 +110,63 @@ const files: Files[] = await fetch(`${apiBase}/api/files/${id}?f=${folderId}`, {
 			
 					return (
 					<tr data-id={file.id} class="hover:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition">
-						<td class="px-6 py-4 items-center gap-3">{file.name}</td>
+						<td class="px-6 py-4 text-sm editable-filename" data-id={file.id}>
+							<span class="filename-text">{file.name}</span>
+							<input id="newFileName" data-id={file.id} type="text" class="filename-input text-sm hidden px-1 py-0.5" value={file.name} />
+						</td>
 						<td class="px-4 py-3"><div class="flex items-center"><span class={`w-2.5 h-2.5 rounded-full mr-2 ${statusColor}`}></span>{file.status_name || '-'}</div></td>
 						<td class="px-6 py-4 items-center gap-3">{new Date(file.created_at).toLocaleString("es-CL")}</td>
 						<td class="px-6 py-4 items-center gap-3">{new Date(file.updated_at).toLocaleString("es-CL")}</td>
+						<td class="px-6 py-4 text-center gap-3">
+							<input type="checkbox" disabled checked={file.is_visible_to_client} />
+						</td>
 						<td class="px-6 py-4 items-center gap-3">
-							{file.status_id === 1 && (
-								<div class="flex items-center gap-3 justify-center">
+							<div class="flex items-center gap-3 justify-center">
+								{file.status_id === 1 && (
 									<a href="#" class="generate-btn" data-file-id={file.id} title="Generar documento">
 										<svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 											<path stroke-linecap="round" stroke-linejoin="round" d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7zm7.5-.5a7.49 7.49 0 0 1-1.035 3.743l1.432 1.432a1 1 0 1 1-1.414 1.414l-1.432-1.432A7.49 7.49 0 0 1 12.5 20.5v2a1 1 0 1 1-2 0v-2a7.49 7.49 0 0 1-3.743-1.035l-1.432 1.432a1 1 0 1 1-1.414-1.414l1.432-1.432A7.49 7.49 0 0 1 3.5 15.5h-2a1 1 0 1 1 0-2h2a7.49 7.49 0 0 1 1.035-3.743L3.103 8.325a1 1 0 1 1 1.414-1.414l1.432 1.432A7.49 7.49 0 0 1 11.5 3.5v-2a1 1 0 1 1 2 0v2a7.49 7.49 0 0 1 3.743 1.035l1.432-1.432a1 1 0 1 1 1.414 1.414l-1.432 1.432A7.49 7.49 0 0 1 20.5 11.5h2a1 1 0 1 1 0 2h-2z" />
 										</svg>
 									</a>
-									<a href="#" class="delete-btn hover:text-red-500 transition" data-file-id="{file.id}" title="Eliminar documento">
-										<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-											<path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12M10 11v6M14 11v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
-										</svg>
-									</a>
-								</div>
-							)}
-			
-							{file.status_id === 2 && (
-								<div class="flex items-center gap-3 justify-center">
+								)}
+
+								{file.status_id === 2 && (
 									<a href="#" class="send-btn" data-file-id={file.id} data-file-name={file.name} data-order={pc} title="Enviar documento">
-										<svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-											<path d="M4 4l16 8-16 8V4z"/>
+										<svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8" />
+											<path stroke-linecap="round" stroke-linejoin="round" d="M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
 										</svg>
 									</a>
-									<a href={`${fileServer}/uploads/${file.path}`} target="_blank" class="hover:text-blue-500 transition">
-										<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-											<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-											<polyline points="14 2 14 8 20 8"/>
-										</svg>
-									</a>
-									<a href="#" class="delete-btn hover:text-red-500 transition" data-file-id="{file.id}" title="Eliminar documento">
-										<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-											<path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12M10 11v6M14 11v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
-										</svg>
-									</a>
-								</div>
-							)}
-			
-							{(file.status_id === 3 || file.status_id === 4) && (
-								<div class="flex items-center gap-3 justify-center">
+								)}
+
+								{(file.status_id === 3 || file.status_id === 4) && (
 									<a href="#" class="resend-btn" data-file-id={file.id} data-file-name={file.name} data-order={pc} title="Reenviar documento">
 										<svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-											<path d="M4 4l16 8-16 8V4z"/>
+											<path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H7a4 4 0 010-8h1" />
 										</svg>
 									</a>
-									<a href={`${fileServer}/uploads/${file.path}`} target="_blank" class="hover:text-blue-500 transition">
+								)}
+
+								{(file.status_id === 2 || file.status_id === 3 || file.status_id === 4) && (
+									<a href={`${fileServer}/uploads/${file.path}`} target="_blank" class="hover:text-blue-500 transition" title="Ver documento">
 										<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 											<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
 											<polyline points="14 2 14 8 20 8"/>
 										</svg>
 									</a>
-									<a href="#" class="delete-btn hover:text-red-500 transition" data-file-id="{file.id}" title="Eliminar documento">
-										<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-											<path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12M10 11v6M14 11v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
-										</svg>
-									</a>
-								</div>
-							)}
+								)}
+
+								<a href="#" class="edit-btn hover:text-blue-500 transition" data-file-id={file.id} title="Editar documento">
+									<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" />
+									</svg>
+								</a>
+								<a href="#" class="delete-btn hover:text-red-500 transition" data-file-id={file.id} title="Eliminar documento">
+									<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12M10 11v6M14 11v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
+									</svg>
+								</a>
+							</div>
 						</td>
 					</tr>
 					);
@@ -235,11 +232,23 @@ const files: Files[] = await fetch(`${apiBase}/api/files/${id}?f=${folderId}`, {
 				<input type="text" id="uploadFileName" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
 			</div>
 	
-			<div class="mb-4">
-				<label for="uploadFileType" class="block text-sm font-medium text-gray-700">{t.documentos.typeofDocument}</label>
-				<select id="uploadFileType" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
-					<option value="PDF">PDF </option>
-				</select>
+			<div class="mb-4 flex gap-4">
+				<!-- Tipo de Documento -->
+				<div class="w-1/2">
+					<label for="uploadFileType" class="block text-sm font-medium text-gray-700">{t.documentos.typeofDocument}</label>
+					<select id="uploadFileType" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+						<option value="PDF">PDF</option>
+					</select>
+				</div>
+			
+				<!-- Visible al cliente -->
+				<div class="w-1/2">
+					<label for="isVisibleToClient" class="block text-sm font-medium text-gray-700">¿Visible al cliente?</label>
+					<select id="isVisibleToClient" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+						<option value="true">Sí</option>
+						<option value="false">No</option>
+					</select>
+				</div>
 			</div>
 	
 			<div class="mb-4">
@@ -256,6 +265,7 @@ const files: Files[] = await fetch(`${apiBase}/api/files/${id}?f=${folderId}`, {
 			</div>
 		</div>
 	</div>
+
 	<div id="notification" class="hidden fixed top-5 right-5 px-6 py-4 rounded-lg shadow-lg z-50 text-black text-base font-semibold transition-all duration-300 ease-in-out"></div>
 	<div id="globalSpinner" class="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50 invisible">
 		<div class="w-16 h-16 border-4 border-white border-t-transparent border-solid rounded-full animate-spin"></div>
@@ -422,67 +432,64 @@ const files: Files[] = await fetch(`${apiBase}/api/files/${id}?f=${folderId}`, {
 					default: statusColor = 'bg-gray-400';
 				}
 
-				let actions = '';
+				let actions = `<div class="flex items-center gap-3 justify-center">`;
 
+				// Botones por estado
 				if (file.status_id === 1) {
-					actions = `
-					<div class="flex items-center gap-3 justify-center">
+					actions += `
 						<a href="#" class="generate-btn" data-file-id="${file.id}" title="Generar documento">
 							<svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7zm7.5-.5a7.49 7.49 0 0 1-1.035 3.743l1.432 1.432a1 1 0 1 1-1.414 1.414l-1.432-1.432A7.49 7.49 0 0 1 12.5 20.5v2a1 1 0 1 1-2 0v-2a7.49 7.49 0 0 1-3.743-1.035l-1.432 1.432a1 1 0 1 1-1.414-1.414l1.432-1.432A7.49 7.49 0 0 1 3.5 15.5h-2a1 1 0 1 1 0-2h2a7.49 7.49 0 0 1 1.035-3.743L3.103 8.325a1 1 0 1 1 1.414-1.414l1.432 1.432A7.49 7.49 0 0 1 11.5 3.5v-2a1 1 0 1 1 2 0v2a7.49 7.49 0 0 1 3.743 1.035l1.432-1.432a1 1 0 1 1 1.414 1.414l-1.432 1.432A7.49 7.49 0 0 1 20.5 11.5h2a1 1 0 1 1 0 2h-2z" />
 							</svg>
 						</a>
-						<a href="#" class="delete-btn hover:text-red-500 transition" data-file-id="${file.id}" title="Eliminar documento">
-							<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12M10 11v6M14 11v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
-							</svg>
-						</a>
-					</div>`;
+					`;
 				}
 
 				if (file.status_id === 2) {
-					actions = `
-					<div class="flex items-center gap-3 justify-center">
+					actions += `
 						<a href="#" class="send-btn" data-file-id="${file.id}" data-file-name="${file.name}" data-order="${pc}" title="Enviar documento">
-							<svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-								<path d="M4 4l16 8-16 8V4z"/>
+							<svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8" />
+								<path stroke-linecap="round" stroke-linejoin="round" d="M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
 							</svg>
 						</a>
-						<a href="${fileServer}/uploads/${file.path}" target="_blank" class="hover:text-blue-500 transition">
-							<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-								<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-								<polyline points="14 2 14 8 20 8"/>
-							</svg>
-						</a>
-						<a href="#" class="delete-btn hover:text-red-500 transition" data-file-id="${file.id}" title="Eliminar documento">
-							<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12M10 11v6M14 11v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
-							</svg>
-						</a>
-					</div>`;
+					`;
 				}
 
-				if (file.status_id === 3 || file.status_id === 4) {
-					actions = `
-					<div class="flex items-center gap-3 justify-center">
-						<a href="#" class="resend-btn" data-file-id="${file.id}" data-file-name="${file.name}" data-order="${pc}" title="Reenviar documento">
-							<svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-								<path d="M4 4l16 8-16 8V4z"/>
-							</svg>
-						</a>
-						<a href="${fileServer}/uploads/${file.path}" target="_blank" class="hover:text-blue-500 transition">
+				if ([2, 3, 4].includes(file.status_id)) {
+					actions += `
+						<a href="${fileServer}/uploads/${file.path}" target="_blank" class="hover:text-blue-500 transition" title="Ver documento">
 							<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 								<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
 								<polyline points="14 2 14 8 20 8"/>
 							</svg>
 						</a>
-						<a href="#" class="delete-btn hover:text-red-500 transition" data-file-id="${file.id}" title="Eliminar documento">
-							<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12M10 11v6M14 11v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
+					`;
+				}
+
+				if ([3, 4].includes(file.status_id)) {
+					actions += `
+						<a href="#" class="resend-btn" data-file-id="${file.id}" data-file-name="${file.name}" data-order="${pc}" title="Reenviar documento">
+							<svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H7a4 4 0 010-8h1" />
 							</svg>
 						</a>
-					</div>`;
+					`;
 				}
+
+				// Comunes (eliminar y editar)
+				actions += `
+					<a href="#" class="edit-btn hover:text-blue-500 transition" data-file-id="${file.id}" title="Editar documento">
+						<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" />
+						</svg>
+					</a>
+					<a href="#" class="delete-btn hover:text-red-500 transition" data-file-id="${file.id}" title="Eliminar documento">
+						<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12M10 11v6M14 11v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
+						</svg>
+					</a>
+				</div>`;
 
 				return `
 				<tr data-id="${file.id}" class="hover:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition">
@@ -490,6 +497,9 @@ const files: Files[] = await fetch(`${apiBase}/api/files/${id}?f=${folderId}`, {
 						<td class="px-4 py-3"><div class="flex items-center"><span class="w-2.5 h-2.5 rounded-full mr-2 ${statusColor}"></span>${file.status_name || '-'}</div></td>
 						<td class="px-6 py-4 items-center gap-3">${new Date(file.created_at).toLocaleString("es-CL")}</td>
 						<td class="px-6 py-4 items-center gap-3">${new Date(file.updated_at).toLocaleString("es-CL")}</td>
+						<td data-v="${file.is_visible_to_client}" class="px-6 py-4 text-center gap-3">
+							<input type="checkbox" disabled ${file.is_visible_to_client === 1 ? 'checked' : ''} />
+						</td>
 						<td class="px-6 py-4 items-center gap-3">${actions}</td>
 				</tr>`;
 			}).join('');
@@ -603,6 +613,7 @@ const files: Files[] = await fetch(`${apiBase}/api/files/${id}?f=${folderId}`, {
 					} finally {
 						hideGlobalSpinner();
 						await refreshFiles();
+						attachGenerateEvents();
 					}
 				});
 			});
@@ -662,6 +673,7 @@ const files: Files[] = await fetch(`${apiBase}/api/files/${id}?f=${folderId}`, {
 			const pcName = qs('uploadModal').dataset.folderName;
 			const idFolder = qs('uploadModal').dataset.folderId;
 			const fileInput = qs('uploadFileInput');
+			const IsVisiblToCustomer = qs('isVisibleToClient').value;
 			const fileObject = fileInput.files[0];
 
 			if (!fileName || !fileType || !fileObject) {
@@ -694,6 +706,7 @@ const files: Files[] = await fetch(`${apiBase}/api/files/${id}?f=${folderId}`, {
 				formData.append('subfolder', pcName);
 				formData.append('name', fileName);
 				formData.append('file', fileObject);
+				formData.append('is_visible_to_customer', IsVisiblToCustomer);
 
 				const res = await fetch(`${apiBase}/api/files/upload`, {
 					method: 'POST',
@@ -724,6 +737,52 @@ const files: Files[] = await fetch(`${apiBase}/api/files/${id}?f=${folderId}`, {
 			} finally {
 				hideGlobalSpinner();
 			}
+		});
+
+		document.querySelectorAll('.editable-filename').forEach(cell => {
+			const span = cell.querySelector('.filename-text');
+			const input = cell.querySelector('.filename-input');
+			const fileId = cell.dataset.id;
+
+			if (!span || !input) return;
+
+			// Doble clic para activar edición
+			span.addEventListener('dblclick', () => {
+				span.classList.add('hidden');
+				input.classList.remove('hidden');
+				input.focus();
+			});
+
+			// Guardar al presionar Enter o salir del campo
+			function save() {
+				const newName = input.value.trim();
+				if (newName && newName !== span.textContent) {
+					fetch(`${apiBase}/api/files/rename/${fileId}`, {
+						method: 'PUT',
+						headers: {
+							'Content-Type': 'application/json',
+							Authorization: `Bearer ${localStorage.getItem('token')}`
+						},
+						body: JSON.stringify({ name: newName })
+					}).then(res => {
+						if (!res.ok) throw new Error('Error al renombrar el documento');
+						span.textContent = newName;
+						showNotification('Documento actualizado correctamente', 'success');
+					}).catch(err => showNotification(err.message, 'error'));
+				}
+				span.classList.remove('hidden');
+				input.classList.add('hidden');
+			}
+
+			input.addEventListener('blur', save);
+			input.addEventListener('keydown', e => {
+				if (e.key === 'Enter') save();
+				if (e.key === 'Escape') {
+					input.value = span.textContent;
+					span.classList.remove('hidden');
+					input.classList.add('hidden');
+				}
+			});
 		});
 
 		// Activar zona de drop
