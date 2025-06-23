@@ -48,14 +48,41 @@ const insertFile = async ({
  * @param {string} newName 
  * @returns 
  */
-const RenameFile = async (id, newName) => {
+const RenameFile = async (id, newName, visible) => {
   const pool = await poolPromise;
-  const [result] = await pool.query(
-    'UPDATE files SET name = ?, updated_at = NOW() WHERE id = ?',
-    [newName, id]
-  );
+
+  let sql = 'UPDATE files SET name = ?, updated_at = NOW()';
+  const params = [newName];
+
+  if (visible !== undefined && visible !== null && visible !== '') {
+    sql += ', is_visible_to_client = ?';
+    params.push(visible);
+  }
+
+  sql += ' WHERE id = ?';
+  params.push(id);
+  
+  const [result] = await pool.query(sql, params);
   return result.affectedRows > 0;
 }
+
+/**
+ * Elimina el archivo de la base de datos
+ * @param {number} id
+ * @returns {Promise<boolean>}
+ */
+const deleteFileById = async (id) => {
+  const pool = await poolPromise;
+
+  // Obtener la ruta del archivo antes de eliminar
+  const [rows] = await pool.query('SELECT path FROM files WHERE id = ?', [id]);
+  if (rows.length === 0) return false;
+
+  // Eliminar de la BD
+  await pool.query('DELETE FROM files WHERE id = ?', [id]);
+
+  return true;
+};
 
 /**
  * Obtiene todos los archivos de una carpeta específica para un cliente
@@ -170,4 +197,5 @@ module.exports = {
   updateFile,
   getFileCountByCustomer,
   duplicateFile,
+  deleteFileById
 };

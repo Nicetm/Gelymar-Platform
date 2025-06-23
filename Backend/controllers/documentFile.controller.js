@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
-const { insertFile, getFiles, RenameFile } = require('../services/file.service');
+const { insertFile, getFiles, RenameFile, deleteFileById } = require('../services/file.service');
 const { poolPromise } = require('../config/db');
 const { generateRO, generateInvoice, generateBL } = require('../pdf-generator/generator');
 const fileService = require('../services/file.service');
@@ -117,12 +117,12 @@ exports.getFilesByCustomerAndFolder = async (req, res) => {
  */
 exports.RenameFile = async (req, res) => {
   const { id } = req.params;
-  const { name } = req.body;
+  const { name, visible } = req.body;
 
   if (!name || !id) return res.status(400).json({ message: 'Faltan datos' });
 
   try {
-    const result = await RenameFile(id, name);
+    const result = await RenameFile(id, name, visible);
     if (result.affectedRows === 0) return res.status(404).json({ message: 'Archivo no encontrado' });
     res.json({ success: true, name });
   } catch (err) {
@@ -224,30 +224,28 @@ exports.sendFile = async (req, res) => {
  * @desc Elimina un archivo del sistema de archivos y su registro en la base de datos
  * @access Protegido (requiere JWT)
  */
-exports.deleteFile = async (req, res) => {
-  const { customer_id, folder_id, filename } = req.body;
-
-  if (!customer_id || !folder_id || !filename) {
-    logger.warn('Faltan parámetros en deleteFile');
-    return res.status(400).json({ message: 'Faltan parámetros obligatorios' });
-  }
-
+exports.deleteFileById = async (req, res) => {
+  const { id } = req.params;
+  
   try {
-    const file = await fileService.getFileByName(customer_id, folder_id, filename);
+    const file = await fileService.getFileById(id);
+
     if (!file) {
-      logger.warn(`Archivo no encontrado en BD: ${filename}`);
+      logger.warn(`Archivo no encontrado en BD: ${file}`);
       return res.status(404).json({ message: 'Archivo no encontrado en la base de datos' });
     }
-
-    const fullPath = path.join(UPLOADS_ROOT, file.path);
-    if (fs.existsSync(fullPath)) {
-      fs.unlinkSync(fullPath);
+    
+    if (typeof file.path === 'string' && file.path.trim()) {
+      const fullPath = path.join(UPLOADS_ROOT, file.path);
+      if (fs.existsSync(fullPath)) {
+        fs.unlinkSync(fullPath);
+        logger.info(`Archivo físico eliminado: ${fullPath}`);
+      }
     }
-
     await fileService.deleteFileById(file.id);
-
-    logger.info(`Archivo eliminado correctamente: ${filename}`);
-    res.json({ message: `Archivo ${filename} eliminado correctamente` });
+    
+    logger.info(`Archivo eliminado correctamente: ${file.name}`);
+    res.json({ message: `Archivo ${file.name} eliminado correctamente` });
   } catch (error) {
     logger.error(`Error al eliminar archivo: ${error.message}`);
     res.status(500).json({ message: 'Error interno del servidor', error: error.message });

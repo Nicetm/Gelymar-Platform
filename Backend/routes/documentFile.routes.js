@@ -110,7 +110,6 @@ router.post('/upload', authMiddleware, authorizeRoles(['admin']), controller.upl
  *       400:
  *         description: Datos faltantes
  */
-router.delete('/delete', authMiddleware, authorizeRoles(['admin']), controller.deleteFile);
 
 router.post('/generate/:id', authMiddleware, authorizeRoles(['admin']), controller.generateFile);
 
@@ -119,6 +118,8 @@ router.post('/send/:id', authMiddleware, authorizeRoles(['admin']), controller.s
 router.post('/resend/:id', authMiddleware, authorizeRoles(['admin']), controller.resendFile);
 
 router.put('/rename/:id', authMiddleware, authorizeRoles(['admin']), controller.RenameFile);
+
+router.delete('/delete/:id', authMiddleware, authorizeRoles(['admin']), controller.deleteFileById);
 
 
 module.exports = router;
