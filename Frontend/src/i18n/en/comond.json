@@ -1,6 +1,6 @@
 {
   "home": "Home",
-  "search": "Search...",
+  "search": "Search",
   "actions": "Actions",
   "status": "Status",
   "active": "Active",
@@ -12,6 +12,7 @@
   "save": "Save",
   "update": "Update",
   "confirm": "Confirm",
+	"clear": "Clear Form",
   "yes": "Yes",
   "no": "No",
   "close": "Close",
