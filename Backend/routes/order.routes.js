@@ -73,4 +73,7 @@ router.get('/:id', authMiddleware, authorizeRoles(['admin', 'cliente']), orderCo
  */
 router.get('/:id/details', authMiddleware, authorizeRoles(['admin', 'cliente']), orderController.getOrderDetails);
 
+
+router.post('/search', authMiddleware, authorizeRoles(['admin', 'cliente']), orderController.searchOrders);
+
 module.exports = router;

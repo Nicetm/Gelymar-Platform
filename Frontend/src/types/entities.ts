@@ -5,11 +5,27 @@ export type Endpoint = 'users' | 'customers' | 'folders' | 'files' | 'order_stat
 
 // --- OPERACIONES PARA CADA ENDPOINT ---
 export interface EndpointsToOperations {
+	orders: () => Orders[];
   users: () => Users[];
   customers: () => Customers[];
   folders: () => Folders[];
   files: () => Files[];
   order_status: () => OrderStatus[];
+}
+
+// --- ORDERS ---
+export interface Orders {
+  id: number;
+  customer_id: number;
+  name: string;
+  path: string;
+  created_at: string;
+  updated_at: string;
+  date_etd: string | null;
+  date_eta: string | null;
+  customer_name?: string;
+  customer_uuid?: string;
+  files_count?: number;
 }
 
 // --- USERS ---
@@ -40,7 +56,7 @@ export interface Customers {
   country: string;
   created_at: string;
   updated_at: string;
-  folder_count?: number;
+  order_count?: number;
 	status?: string; // <-- opcional, para mostrar el estado del cliente
 }
 

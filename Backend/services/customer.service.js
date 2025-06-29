@@ -11,9 +11,9 @@ async function getAllCustomers() {
   const [rows] = await pool.query(`
     SELECT 
       c.*, 
-      COUNT(f.id) AS folder_count
+      COUNT(o.id) AS order_count
     FROM customers c
-    LEFT JOIN folders f ON f.customer_id = c.id
+    LEFT JOIN orders o ON o.customer_id = c.id
     GROUP BY c.id
   `);
 

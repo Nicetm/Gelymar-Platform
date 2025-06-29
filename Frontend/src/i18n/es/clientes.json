@@ -4,6 +4,7 @@
   "search": "Buscar cliente...",
   "addClient": "Agregar cliente",
   "name": "Nombre",
+	"client_name": "Cliente",
   "email": "Correo principal",
   "email_secondary": "Correo alternativo",
   "phone": "Teléfono fijo",

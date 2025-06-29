@@ -6,16 +6,6 @@
     "auditLog": "E:\\Softkey\\Gelymar\\Proyecto\\gelymar-management-platform\\Backend\\logs\\.567f7efabd9435aa37bed630208dceace7153469-audit.json",
     "files": [
         {
-            "date": 1749952184811,
-            "name": "E:\\Softkey\\Gelymar\\Proyecto\\gelymar-management-platform\\Backend\\logs\\app-2025-06-14.log",
-            "hash": "5984448a247991382a5450d0b1f14c10999542f857b7a5b6d4a31e55cc27dd1c"
-        },
-        {
-            "date": 1749960183974,
-            "name": "E:\\Softkey\\Gelymar\\Proyecto\\gelymar-management-platform\\Backend\\logs\\app-2025-06-15.log",
-            "hash": "8ab307132969c03a803a6c9d4ec0e9baff195891363d2e27b463c949bc816a42"
-        },
-        {
             "date": 1750114757064,
             "name": "E:\\Softkey\\Gelymar\\Proyecto\\gelymar-management-platform\\Backend\\logs\\app-2025-06-16.log",
             "hash": "829e28b3557fca915319fb0ce63e6bb0eba0439a5bfa77a4c588e3b1162ec350"
@@ -49,6 +39,21 @@
             "date": 1750682515912,
             "name": "E:\\Softkey\\Gelymar\\Proyecto\\gelymar-management-platform\\Backend\\logs\\app-2025-06-23.log",
             "hash": "b35a946475ecdfc3c70b9812e95dd2ce96089d5dc7d07a819ab6fa1d5bd52d5e"
+        },
+        {
+            "date": 1750784013037,
+            "name": "E:\\Softkey\\Gelymar\\Proyecto\\gelymar-management-platform\\Backend\\logs\\app-2025-06-24.log",
+            "hash": "14de73a8ca8fc592a8620bb31b8df4fea0be1615c3ff044cbf3328c5c39c7687"
+        },
+        {
+            "date": 1750900764199,
+            "name": "E:\\Softkey\\Gelymar\\Proyecto\\gelymar-management-platform\\Backend\\logs\\app-2025-06-25.log",
+            "hash": "29529a5746904c794e0faccaca67d5bca66561baf66a5747cf1cd8e23d6d7da1"
+        },
+        {
+            "date": 1751177401752,
+            "name": "E:\\Softkey\\Gelymar\\Proyecto\\gelymar-management-platform\\Backend\\logs\\app-2025-06-29.log",
+            "hash": "bbf12511ada4a6b552db2f58afbf7c6056e80a790d282d3699e9b75aa86b8738"
         }
     ],
     "hashType": "sha256"
