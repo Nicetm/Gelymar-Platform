@@ -30,12 +30,12 @@ const insertFile = async ({
 
   const [result] = await pool.query(
     `INSERT INTO files (
-      customer_id, folder_id, name, path, 
+      folder_id, name, path, 
       created_at, updated_at, eta, etd, was_sent, 
       document_type, file_type, status_id
-    ) VALUES (?, ?, ?, ?, NOW(), NOW(), ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, NOW(), NOW(), ?, ?, ?, ?, ?, ?)`,
     [
-      realCustomerId, folder_id, name, path,
+      folder_id, name, path,
       eta, etd, was_sent, document_type, file_type, status_id
     ]
   );
@@ -97,13 +97,13 @@ const getFiles = async (customerId, folderId) => {
         f.*, 
         os.id AS status_id, 
         os.name AS status_name,
-        fd.name AS folder_name
+        o.name AS folder_name
      FROM files f
      LEFT JOIN order_status os ON f.status_id = os.id
-     JOIN folders fd ON f.folder_id = fd.id
-     WHERE f.customer_id = ? AND f.folder_id = ?
+     JOIN orders o ON f.folder_id = o.id
+     WHERE f.folder_id = ?
      ORDER BY f.created_at DESC`,
-    [customerId, folderId]
+    [folderId]
   );
   return rows.map(row => new File(row));
 };
@@ -115,13 +115,14 @@ const getFiles = async (customerId, folderId) => {
  */
 const getFileCountByCustomer = async (customerId) => {
   const pool = await poolPromise;
-  const [rows] = await pool.query(
-    `SELECT folder_id, COUNT(*) AS fileCount 
-     FROM files 
-     WHERE customer_id = ? 
-     GROUP BY folder_id`,
-    [customerId]
-  );
+
+  const [rows] = await pool.query(`
+    SELECT f.folder_id, COUNT(*) AS fileCount
+    FROM files f
+    INNER JOIN orders o ON f.folder_id = o.id
+    WHERE o.customer_id = ?
+    GROUP BY f.folder_id
+  `, [customerId]);
 
   const countMap = {};
   rows.forEach(row => {
@@ -141,8 +142,8 @@ const getFileById = async(id) => {
       GROUP_CONCAT(cc.email SEPARATOR ',') AS contact_emails,
       fd.name AS folder_name 
     FROM files f
-    JOIN customers c ON f.customer_id = c.id
-    JOIN folders fd ON f.folder_id = fd.id
+    JOIN orders fd ON f.folder_id = fd.id
+    JOIN customers c ON fd.customer_id = c.id
     LEFT JOIN customer_contacts cc ON c.id = cc.customer_id
     WHERE f.id = ?
     GROUP BY f.id
@@ -176,12 +177,12 @@ const duplicateFile = async (fileId) => {
   // Insertar el nuevo registro duplicado
   const [result] = await pool.query(`
     INSERT INTO files (
-      customer_id, folder_id, name, path, 
+      folder_id, name, path, 
       created_at, updated_at, eta, etd, was_sent, 
       document_type, file_type, status_id
-    ) VALUES (?, ?, ?, ?, NOW(), NOW(), ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, NOW(), NOW(), ?, ?, ?, ?, ?, ?)`,
     [
-      file.customer_id, file.folder_id, file.name, file.path,
+      file.folder_id, file.name, file.path,
       file.eta, file.etd, true, file.document_type, file.file_type, 4
     ]
   );

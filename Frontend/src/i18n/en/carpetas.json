@@ -28,6 +28,8 @@
 	"customers": "Customers",
 	"createdAt": "Created At",
 	"updatedAt": "Updated At",
+	"dateEta": "ETA Date",
+	"dateEtd": "ETD Date",
 	"actions": "Actions",
 	"viewDetails": "View Details",
 	"editFolder": "Edit Folder",

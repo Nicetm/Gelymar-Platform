@@ -81,13 +81,13 @@ const customers: Customers[] = await fetch(`${apiBase}/api/customers`, {
       </thead>
       <tbody id="customersTableBody" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-sm min-h-[600px]">
         <!-- Las filas <tr> se agregan dinámicamente aquí con JavaScript -->
-				 {customers.map(customer => (
+				 {Array.isArray(customers) && customers.map(customer => (
 						<tr data-id={customer.id} class="hover:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition">
 							<td class="px-6 py-4 items-center gap-3">{customer.name}</td>
 							<td class="px-6 py-4 items-center gap-3">{customer.email}</td>
 							<td class="px-6 py-4 items-center gap-3">{customer.country}</td>
 							<td data-status={customer.status} class="px-6 py-4 text-center gap-3">{customer.status}</td>
-							<td class="px-6 py-4 text-center gap-3">{customer.folder_count}</td>
+							<td class="px-6 py-4 text-center gap-3">{customer.order_count}</td>
 							<td class="px-6 py-4 items-center gap-3">
 								<div class="flex justify-center items-center gap-3 text-gray-900 dark:text-white">
 									<a href={`/admin/clients/folders/view/${customer.uuid}?c=${customer.name}`} title="Orders" class="hover:text-yellow-500 transition">

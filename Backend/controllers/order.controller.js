@@ -1,25 +1,51 @@
-const orders = require('../dummy/orders.json');
+const orderService = require('../services/order.service');
 const orderDetails = require('../dummy/orderDetails.json');
 
 /**
  * GET /api/orders
- * Lista todas las órdenes (admin) o solo las del cliente autenticado
+ * Lista todas las órdenes, filtradas por campos opcionales:
+ * - Cliente: solo puede ver sus órdenes
+ * - Admin: puede ver todas
+ * - Soporta filtros por: nombre orden, cliente, fecha ingreso, ETD, ETA, estado
  */
-exports.getAllOrders = (req, res) => {
-  if (req.user.role === 'admin') {
-    return res.json(orders);
-  }
+exports.getAllOrders = async (req, res) => {
+  try {
+    const filters = {};
 
-  if (req.user.role === 'cliente') {
-    const filtered = orders.filter(o => o.CardCode === req.user.cardCode);
-    if (filtered.length === 0) {
-      return res.status(404).json({ message: 'No se encontraron órdenes para este cliente' });
+    // Si es cliente, se filtra automáticamente por UUID
+    if (req.user.role === 'cliente') {
+      filters.customerUUID = req.user.uuid; // o req.user.customer_uuid
     }
-    return res.json(filtered);
-  }
 
-  const filtered = orders.filter(o => o.CardCode === req.user.cardCode);
-  return res.json(filtered);
+    const data = await orderService.getOrdersByFilters(filters);
+
+    res.json(data);
+  } catch (err) {
+    console.error('[getAllOrders] Error:', err.message);
+    res.status(500).json({ message: 'Error al obtener órdenes' });
+  }
+};
+
+/**
+ * POST /api/orders/search
+ * Devuelve órdenes según filtros entregados
+ */
+exports.searchOrders = async (req, res) => {
+  try {
+    const filters = req.body || {};
+
+    // Si es cliente, forzamos el filtro por su UUID
+    if (req.user.role === 'cliente') {
+      filters.customerUUID = req.user.uuid;
+    }
+
+    const data = await orderService.getOrdersByFilters(filters);
+
+    res.json(data);
+  } catch (err) {
+    console.error('[searchOrders] Error:', err.message);
+    res.status(500).json({ message: 'Error interno al buscar órdenes' });
+  }
 };
 
 /**
@@ -51,4 +77,20 @@ exports.getOrderDetails = (req, res) => {
 
   const details = orderDetails.filter(d => d.DocEntry == req.params.id);
   res.json(details);
+};
+
+exports.searchOrders = async (req, res) => {
+  try {
+    const filters = req.body;
+
+    if (!filters || typeof filters !== 'object') {
+      return res.status(400).json({ message: 'Filtros no válidos' });
+    }
+
+    const data = await orderService.getOrdersByFilters(filters);
+    res.json(data);
+  } catch (err) {
+    console.error('[searchOrders] Error:', err.message);
+    res.status(500).json({ message: 'Error interno al buscar órdenes' });
+  }
 };

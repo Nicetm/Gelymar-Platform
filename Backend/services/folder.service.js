@@ -15,11 +15,11 @@ async function getFoldersByCustomer(customerId) {
 
   const [rows] = await pool.query(`
     SELECT 
-      f.*, 
+      o.*, 
       c.uuid AS customer_uuid 
-    FROM folders f
-    INNER JOIN customers c ON f.customer_id = c.id
-    WHERE f.customer_id = ?
+    FROM orders o
+    INNER JOIN customers c ON o.customer_id = c.id
+    WHERE o.customer_id = ?
   `, [customerId]);
 
   const countMap = await getFileCountByCustomer(customerId);
@@ -45,7 +45,7 @@ async function createFolder({ customer_id, name, path }) {
 
   // Insert en folders
   const [result] = await pool.query(
-    'INSERT INTO folders (customer_id, name, path) VALUES (?, ?, ?)',
+    'INSERT INTO orders (customer_id, name, path) VALUES (?, ?, ?)',
     [customer_id, name, path]
   );
 
@@ -60,13 +60,13 @@ async function createFolder({ customer_id, name, path }) {
 
   for (const file of filesToInsert) {
     await pool.query(
-      `INSERT INTO files (customer_id, folder_id, name, path, eta, etd, was_sent, document_type, file_type, status_id)
-       VALUES (?, ?, ?, NULL, NULL, NULL, NULL, NULL, NULL, 1)`,
-      [customer_id, folderId, file.name]
+      `INSERT INTO files (folder_id, name, path, eta, etd, was_sent, document_type, file_type, status_id)
+       VALUES (?, ?, NULL, NULL, NULL, NULL, NULL, NULL, 1)`,
+      [folderId, file.name]
     );
   }
 
-  return { id: folderId, customer_id, name, path };
+  return { id: folderId, name, path };
 }
 
 
@@ -120,7 +120,7 @@ async function deleteSubfolder(folderId, subfolderName) {
  */
 async function existsGlobalPCFolder(name) {
   const pool = await poolPromise;
-  const [rows] = await pool.query('SELECT id FROM folders WHERE name = ?', [name]);
+  const [rows] = await pool.query('SELECT id FROM orders WHERE name = ?', [name]);
   return rows.length > 0;
 }
 
@@ -132,7 +132,7 @@ async function existsGlobalPCFolder(name) {
  */
 async function existsCustomerFolder(customer_id, name) {
   const pool = await poolPromise;
-  const [rows] = await pool.query('SELECT id FROM folders WHERE customer_id = ? AND name = ?', [customer_id, name]);
+  const [rows] = await pool.query('SELECT id FROM orders WHERE customer_id = ? AND name = ?', [customer_id, name]);
   return rows.length > 0;
 }
 
@@ -144,7 +144,7 @@ async function existsCustomerFolder(customer_id, name) {
 async function getCountDirectoryByCustomerID(customer_id) {
   const pool = await poolPromise;
   const [rows] = await pool.query(
-    'SELECT COUNT(*) AS total FROM folders WHERE customer_id = ?',
+    'SELECT COUNT(*) AS total FROM orders WHERE customer_id = ?',
     [customer_id]
   );
   return rows[0].total;

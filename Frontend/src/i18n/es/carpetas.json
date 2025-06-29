@@ -28,6 +28,8 @@
 	"customers": "Clientes",
 	"createdAt": "Creada el",
 	"updatedAt": "Actualizada el",
+	"dateEta": "Fecha ETA",
+	"dateEtd": "Fecha ETD",
 	"actions": "Acciones",
 	"viewDetails": "Ver Detalles",
 	"editFolder": "Editar Carpeta",

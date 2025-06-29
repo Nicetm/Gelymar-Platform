@@ -26,7 +26,7 @@ const files: Files[] = await fetch(`${apiBase}/api/files/${id}?f=${folderId}`, {
 }).then(res => res.json());
 ---
 
-<section id="filesSection" data-api-base={apiBase} data-file-server={fileServer} data-uuid={id} class="px-4 pt-24 pb-6 sm:px-6 lg:px-8">
+<section id="filesSection" data-api-base={apiBase} data-file-server={fileServer} data-uuid={id} data-lang={lang} class="px-4 pt-24 pb-6 sm:px-6 lg:px-8">
   <!-- Encabezado y breadcrumb -->
   <header class="flex flex-col gap-4 border-b border-gray-200 dark:border-gray-700 pb-4">
     <nav class="text-sm text-gray-500 dark:text-gray-400" aria-label="Breadcrumb">
