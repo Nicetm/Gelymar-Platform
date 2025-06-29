@@ -6,11 +6,6 @@ const apiBase = import.meta.env.PUBLIC_API_URL;
 const setLang = import.meta.env.PUBLIC_LANG;
 const lang = setLang;
 
-const url = new URL(Astro.url.href);
-const clientName = url.searchParams.get('c') ?? '';
-const decodedClientName = decodeURIComponent(clientName);
-
-const { id } = Astro.params;
 const t: any = {
   documentos: await loadTranslations(lang, 'documentos'),
   carpetas: await loadTranslations(lang, 'carpetas'),
@@ -38,14 +33,14 @@ const orders: Orders[] = await fetch(`${apiBase}/api/orders`, {
           </a>
         </li>
         <li class="flex items-center text-gray-400 dark:text-gray-300 font-medium" aria-current="page">
-          <span class="mx-1">/ <a href="/admin/clients">{t.carpetas.customers} </a> / <a href={`/admin/clients/folders/view/${id}?c=${decodedClientName}`}>{t.carpetas.title}</a> / </span>{t.documentos.title}
+          <span class="mx-1">/ {t.comond.search} {t.carpetas.orders}
         </li>
 			</ol>
     </nav>
 
     <!-- Título -->
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <h1 id="titleFile" class="text-3xl font-bold text-gray-900 dark:text-white">{decodedClientName} - Order {t.documentos.title}</h1>
+      <h1 id="titleFile" class="text-3xl font-bold text-gray-900 dark:text-white">{t.comond.search} {t.carpetas.orders}</h1>
 		</div>
   </header>
 
@@ -105,7 +100,7 @@ const orders: Orders[] = await fetch(`${apiBase}/api/orders`, {
 			<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 				<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
 			</svg>
-			Limpiar
+			{t.comond.clear}
 		</button>
 	
 		<!-- Botón Buscar -->
@@ -118,33 +113,39 @@ const orders: Orders[] = await fetch(`${apiBase}/api/orders`, {
 	</div>
 
 	<!-- Tabla de resultados -->
-	<div class="mt-6 overflow-x-auto rounded-md border border-gray-200 dark:border-gray-700 shadow-sm">
-		<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-600 bg-white dark:bg-gray-900 text-sm text-left text-gray-800 dark:text-white">
-			<thead class="bg-gray-100 dark:bg-gray-800">
+	<div class="overflow-auto mt-6 rounded-xl shadow ring-1 ring-gray-200 dark:ring-gray-700">
+		<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 table-fixed">
+			<thead class="bg-gray-100 dark:bg-gray-800 sticky top-0 z-10">
 				<tr>
-					<th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t.carpetas.name}</th>
-					<th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t.clientes.client_name}</th>
-					<th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t.carpetas.createdAt}</th>
-					<th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t.carpetas.updatedAt}</th>
-					<th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t.carpetas.dateEtd}</th>
-					<th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t.carpetas.dateEta}</th>
-					<th class="w-[25%] px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.comond.actions}</th>
+					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.carpetas.name}</th>
+					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.clientes.client_name}</th>
+					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.carpetas.createdAt}</th>
+					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.carpetas.updatedAt}</th>
+					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.carpetas.dateEtd}</th>
+					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.carpetas.dateEta}</th>
+					<th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.comond.actions}</th>
 				</tr>
 			</thead>
-			<tbody id="resultadosTabla" class="divide-y divide-gray-200 dark:divide-gray-700">
+			<tbody id="resultadosTabla" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-sm min-h-[600px]">
 				{Array.isArray(orders) && orders.map(order => (
-					<tr data-id={order.id} class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-sm min-h-[600px]">
+					<tr data-id={order.id} class="hover:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition">
 						<td class="px-6 py-4 text-sm editable-filename group cursor-pointer" data-id={order.id}>{order.name}</td>
-						<td class="px-6 py-4 items-center gap-3">{order.customer_name}</td>
-						<td class="px-6 py-4 items-center gap-3">{order.created_at || '-'}</td>
-						<td class="px-6 py-4 items-center gap-3">{order.updated_at || '-'}</td>
+						<td class="px-4 py-3 break-all text-blue-600 dark:text-blue-400">{order.customer_name}</td>
+						<td class="px-6 py-4 items-center gap-3">{new Date(order.created_at).toLocaleString("es-CL")}</td>
+						<td class="px-6 py-4 items-center gap-3">{new Date(order.updated_at).toLocaleString("es-CL")}</td>
 						<td class="px-6 py-4 items-center gap-3">{order.date_etd || '-'}</td>
 						<td class="px-6 py-4 items-center gap-3">{order.date_eta || '-'}</td>
 						<td class="px-6 py-4 items-center gap-3">
-							<div class="flex items-center gap-3 justify-center">
+							<div class="flex justify-center items-center gap-3 text-gray-900 dark:text-white">
 								<a href={`/admin/clients/documents/view/${order.customer_uuid}?f=${order.id}&pc=${order.name}&c=${order.customer_name}`} class="go-to-order-btn" title="Ir a la orden">
 									<svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 										<path stroke-linecap="round" stroke-linejoin="round" d="M14 3h7m0 0v7m0-7L10 14m-4 0h.01M5 14a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1h5a1 1 0 0 0 1-1v-.01" />
+									</svg>
+								</a>
+								<a href="#" title={`Editar ${order.name}`} class="hover:text-green-500 transition">
+									<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.586-6.586a2 2 0 112.828 2.828L11.828 13.83a2 2 0 01-.586.414L9 15l.756-2.243a2 2 0 01.414-.586z" />
+										<path stroke-linecap="round" stroke-linejoin="round" d="M19 20H5" />
 									</svg>
 								</a>
 							</div>
@@ -154,6 +155,34 @@ const orders: Orders[] = await fetch(`${apiBase}/api/orders`, {
 			</tbody>
 		</table>
 	</div>
+
+	<!-- Paginación -->
+  <div class="mt-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-6 text-sm">
+    <div class="flex items-center gap-3">
+      <label for="itemsPerPageSelect" class="text-sm font-medium text-gray-700 dark:text-gray-300">{t.clientes.perPage}</label>
+      <div class="relative">
+        <select id="itemsPerPageSelect" class="block w-20 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-sm text-gray-900 dark:text-white rounded-md pl-3 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="10">10</option>
+          <option value="20">20</option>
+          <option value="30">30</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <button id="prevPageBtn" aria-label="Previous page" class="w-9 h-9 flex items-center justify-center bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-white rounded-md transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+      </button>
+      <span id="pageIndicator" class="px-4 py-1 rounded-lg bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-white text-sm font-medium shadow-sm">Page 1 of 5</span>
+      <button id="nextPageBtn" aria-label="Next page" class="w-9 h-9 flex items-center justify-center bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-white rounded-md transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+      </button>
+    </div>
+  </div>
 
 </section>
 
@@ -213,22 +242,28 @@ const orders: Orders[] = await fetch(`${apiBase}/api/orders`, {
 			}
 
 			tablaBody.innerHTML = data.map(order => `
-				<tr data-id="${order.id}" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-sm min-h-[600px]">
+				<tr data-id="${order.id}" class="hover:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition">
 					<td class="px-6 py-4 items-center gap-3">${order.name || '-'}</td>
-					<td class="px-6 py-4 items-center gap-3">${order.customer_name || '-'}</td>
-					<td class="px-6 py-4 items-center gap-3">${order.created_at || '-'}</td>
-					<td class="px-6 py-4 items-center gap-3">${order.updated_at || '-'}</td>
+					<td class="px-4 py-3 break-all text-blue-600 dark:text-blue-400">${order.customer_name || '-'}</td>
+					<td class="px-6 py-4 items-center gap-3">${new Date(order.created_at).toLocaleString("es-CL")}</td>
+					<td class="px-6 py-4 items-center gap-3">${new Date(order.updated_at).toLocaleString("es-CL")}</td>
 					<td class="px-6 py-4 items-center gap-3">${order.fecha_etd || '-'}</td>
 					<td class="px-6 py-4 items-center gap-3">${order.date_etd || '-'}</td>
-					<td class="px-6 py-4 items-center gap-3">
-							<div class="flex items-center gap-3 justify-center">
-								<a href="/admin/clients/documents/view/${order.customer_uuid}?f=${order.id}&pc=${order.name}&c=${order.customer_name}" class="go-to-order-btn" title="Ir a la orden">
-									<svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-										<path stroke-linecap="round" stroke-linejoin="round" d="M14 3h7m0 0v7m0-7L10 14m-4 0h.01M5 14a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1h5a1 1 0 0 0 1-1v-.01" />
-									</svg>
-								</a>
-							</div>
-						</td>
+					<td class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300"">
+						<div class="flex justify-center items-center gap-3 text-gray-900 dark:text-whiter">
+							<a href="/admin/clients/documents/view/${order.customer_uuid}?f=${order.id}&pc=${order.name}&c=${order.customer_name}" class="go-to-order-btn" title="Ir a la orden">
+								<svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M14 3h7m0 0v7m0-7L10 14m-4 0h.01M5 14a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1h5a1 1 0 0 0 1-1v-.01" />
+								</svg>
+							</a>
+							<a href="#" title="Editar ${order.name}" class="hover:text-green-500 transition">
+							<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.586-6.586a2 2 0 112.828 2.828L11.828 13.83a2 2 0 01-.586.414L9 15l.756-2.243a2 2 0 01.414-.586z" />
+								<path stroke-linecap="round" stroke-linejoin="round" d="M19 20H5" />
+							</svg>
+						</a>
+						</div>
+					</td>
 				</tr>
 			`).join('');
 		} catch (error) {

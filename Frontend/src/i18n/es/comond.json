@@ -1,6 +1,6 @@
 {
   "home": "Inicio",
-  "search": "Buscar...",
+  "search": "Buscar",
   "actions": "Acciones",
   "status": "Estado",
   "active": "Activo",
@@ -12,6 +12,7 @@
   "save": "Guardar",
   "update": "Actualizar",
   "confirm": "Confirmar",
+	"clear": "Limpiar",
   "yes": "Sí",
   "no": "No",
   "close": "Cerrar",
