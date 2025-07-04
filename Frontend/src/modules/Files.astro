@@ -246,15 +246,15 @@ const files: Files[] = await fetch(`${apiBase}/api/files/${id}?f=${folderId}`, {
 		</div>
 	</div>
 
-	<div id="uploadModal" data-folder-name={pc} data-folder-id={folderId} class="fixed inset-0 bg-black bg-opacity-50 hidden justify-center items-center z-50">
-		<div class="bg-white dark:bg-gray-800 dark:text-white rounded-lg p-6 w-full max-w-md relative"> <!-- <-- Aquí -->
+	<div id="uploadModal" data-folder-name={pc} data-folder-id={folderId} class="fixed inset-0 hidden justify-center items-center z-50 bg-black/50 flex backdrop-blur-sm opacity-0 transition-opacity duration-500">
+		<div class="modal-card bg-white/95 dark:bg-gray-800/95 text-gray-900 dark:text-gray-100 rounded-2xl p-8 w-full max-w-lg relative shadow-2xl ring-1 ring-gray-200 dark:ring-white/10 transform opacity-0 scale-90 translate-y-6 transition-all duration-500 ease-[cubic-bezier(.22,1,.36,1)]"> <!-- <-- Aquí -->
 			<!-- Botón de cerrar -->
 			<button id="closeModalBtn" class="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition">
 				<svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
 				</svg>
 			</button>
-			<h2 class="text-xl font-bold mb-4">{t.documentos.dragTitle}</h2>
+			<h2 class="text-xl font-bold mb-4 dark:text-white">{t.documentos.dragTitle}</h2>
 	
 			<div class="mb-4">
 				<label for="uploadFileName" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{t.documentos.nameOfDocument}</label>
@@ -303,8 +303,18 @@ const files: Files[] = await fetch(`${apiBase}/api/files/${id}?f=${folderId}`, {
 			</div>
 	
 			<div class="flex justify-end gap-2">
-				<button id="cancelUploadBtn" class="px-4 py-2 bg-gray-300 dark:bg-gray-600 dark:text-white rounded-md">{t.comond.cancel}</button>
-				<button id="confirmUploadBtn" class="px-4 py-2 bg-blue-600 text-white rounded-md">{t.comond.upload}</button>
+				<button
+					id="cancelUploadBtn"
+					class="px-4 py-2 bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-500 dark:text-white rounded-md transition-transform duration-150 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary-500"
+				>
+					{t.comond.cancel}
+				</button>
+				<button
+					id="confirmUploadBtn"
+					class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-transform duration-150 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary-500"
+				>
+					{t.comond.upload}
+				</button>
 			</div>
 		</div>
 	</div>
@@ -329,6 +339,37 @@ const files: Files[] = await fetch(`${apiBase}/api/files/${id}?f=${folderId}`, {
 	const uploadFileBtn = qs('uploadFileBtn');
 	const addIcon = qs('addIcon');
 	const spinnerIcon = qs('spinnerIcon');
+	const uploadModal = qs('uploadModal');
+	const uploadCard  = uploadModal.querySelector('.modal-card');
+
+	function showUploadModal() {
+	  uploadModal.classList.remove('hidden', 'opacity-0');
+	  uploadModal.classList.add('flex');
+	  // Trigger card entrance on next frame
+	  requestAnimationFrame(() => {
+	    uploadCard.classList.remove('opacity-0', 'scale-90', 'translate-y-6');
+	  });
+	}
+
+	function hideUploadModal() {
+	  // Start exit animation
+	  uploadModal.classList.add('opacity-0');
+	  uploadCard.classList.add('opacity-0', 'scale-90', 'translate-y-6');
+	  uploadModal.addEventListener(
+	    'transitionend',
+	    function handler() {
+	      uploadModal.removeEventListener('transitionend', handler);
+	      uploadModal.classList.remove('flex');
+	      uploadModal.classList.add('hidden');
+	    },
+	    { once: true },
+	  );
+	}
+
+	// Close modal when clicking on the backdrop
+	uploadModal.addEventListener('click', (e) => {
+	  if (e.target === uploadModal) hideUploadModal();
+	});
 
 	const uuid = section?.dataset.uuid;
 	const apiBase = section?.dataset.apiBase;
@@ -685,7 +726,6 @@ const files: Files[] = await fetch(`${apiBase}/api/files/${id}?f=${folderId}`, {
     spinnerIcon.classList.remove('hidden');
 
     setTimeout(() => {
-      const uploadModal = qs('uploadModal');
       const clientName = qs('titleFile').textContent.replace('Documentos ', '').trim();
       const orderNumber = pc;
 
@@ -698,22 +738,20 @@ const files: Files[] = await fetch(`${apiBase}/api/files/${id}?f=${folderId}`, {
       qs('uploadFileName').value = '';
       qs('uploadFileType').value = 'PDF';
       qs('uploadFileInput').value = '';
-      uploadModal.classList.remove('hidden');
-      uploadModal.style.display = 'flex';
+      showUploadModal();
     }, 500);
   });
 
   ['cancelUploadBtn', 'closeModalBtn'].forEach(id => {
     qs(id).addEventListener('click', () => {
       const uploadModal = qs('uploadModal');
-      uploadModal.classList.add('hidden');
-      uploadModal.style.display = 'none';
+      hideUploadModal();
 
       spinnerIcon.classList.add('hidden');
       addIcon.classList.remove('hidden');
 
-      qs('uploadFileName').value = '';
-      qs('uploadFileType').value = 'PDF';
+      qs('uploadFileName').value  = '';
+      qs('uploadFileType').value  = 'PDF';
       qs('uploadFileInput').value = '';
       qs('dropZoneText').textContent = 'Arrastra el archivo aquí o haz click para seleccionar';
     });
