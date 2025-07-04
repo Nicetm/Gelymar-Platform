@@ -1,7 +1,75 @@
 ---
+import { loadTranslations } from '../lib/i18n.js';
+import type { Users } from '../types/entities.js';
+
+const apiBase    = import.meta.env.PUBLIC_API_URL;
+const fileServer = import.meta.env.PUBLIC_FILE_SERVER_URL;
+const lang       = import.meta.env.PUBLIC_LANG || 'en';   // idioma dinámico
+
+const t: any = {
+  sidebar        : await loadTranslations(lang, 'sidebar'),
+  admin_settings : await loadTranslations(lang, 'admin_settings'),
+};
+
+// ── Datos del usuario autenticado ───────────────────────────────────────────────
+const token =
+  Astro.cookies.get('token')?.value ??
+  Astro.cookies.get('accessToken')?.value ??
+  Astro.cookies.get('jwt')?.value ??
+  null;
+
+// Devuelve un único usuario (la API puede responder array o objeto)
+let user: Users | null = null;
+
+try {
+  // Construye cabeceras solo si hay token
+  const reqHeaders: Record<string, string> = {};
+  if (token) reqHeaders.Authorization = `Bearer ${token}`;
+
+  const res = await fetch(`${apiBase}/api/users`, {
+    headers     : reqHeaders,
+    credentials : 'include',
+  });
+
+  if (res.ok) {
+    const data = await res.json();
+    user = Array.isArray(data) ? (data[0] ?? null) : data;
+  }
+} catch (err) {
+  console.error('Error al obtener usuario:', err);
+  /* se deja user = null */
+}
+
+// Si no hay usuario, creamos uno por defecto para evitar 'undefined'
+if (!user) {
+  user = {
+    id        : 0,
+    full_name : 'Admin',
+    email     : '',
+    phone     : '',
+    avatar    : null,
+  } as Users;
+}
+
+// ── Avatares por defecto ───────────────────────────────────────────────────────
+let avatarLightSrc = '';
+let avatarDarkSrc  = '';
+
+if (user.avatar) {
+  const url = user.avatar.startsWith('http')
+    ? user.avatar
+    : `${fileServer}/${user.avatar}`;
+  avatarLightSrc = url;
+  avatarDarkSrc  = url;
+} else {
+  const seed = encodeURIComponent(user.full_name ?? 'Admin');
+  avatarLightSrc = `https://api.dicebear.com/7.x/initials/svg?seed=${seed}&backgroundColor=4b5563&fontColor=ffffff`;
+  avatarDarkSrc  = `https://api.dicebear.com/7.x/initials/svg?seed=${seed}&backgroundColor=1e293b&fontColor=ffffff`;
+}
 ---
 
-<script src="https://unpkg.com/lucide@latest"></script>
+<!-- Carga Lucide diferido y renderiza íconos al terminar -->
+<script src="https://unpkg.com/lucide@latest" defer onload="window.lucide?.createIcons?.()"></script>
 
 <aside
   id="sidebar"
@@ -9,56 +77,73 @@
   aria-label="Sidebar"
 >
   <!-- Scrollable content -->
-  <div class="flex-1 px-3 overflow-y-auto scrollbar scrollbar-w-2 scrollbar-thumb-rounded-md scrollbar-thumb-slate-200 scrollbar-track-gray-400 dark:scrollbar-thumb-slate-900 dark:scrollbar-track-gray-800">
+  <div
+    class="flex-1 px-3 overflow-y-auto scrollbar scrollbar-w-2 scrollbar-thumb-rounded-md scrollbar-thumb-slate-200 scrollbar-track-gray-400 dark:scrollbar-thumb-slate-900 dark:scrollbar-track-gray-800"
+  >
     <div class="mt-4 space-y-2">
-
       <!-- dashboard -->
-      <a href="/admin/dashboard" class="flex items-center p-2 text-base text-gray-900 rounded-lg hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700">
+      <a
+        href="/admin/dashboard"
+        class="flex items-center p-2 text-base text-gray-900 rounded-lg hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+      >
         <i data-lucide="layout-dashboard" class="w-6 h-6 text-gray-500 dark:text-gray-400"></i>
-        <span class="ml-3">Dashboard</span>
+        <span class="ml-3">{t.sidebar.dashboard}</span>
       </a>
 
       <!-- clients -->
-      <a href="/admin/clients" class="flex items-center p-2 text-base text-gray-900 rounded-lg hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700">
+      <a
+        href="/admin/clients"
+        class="flex items-center p-2 text-base text-gray-900 rounded-lg hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+      >
         <i data-lucide="briefcase" class="w-6 h-6 text-gray-500 dark:text-gray-400"></i>
-        <span class="ml-3">Customers</span>
+        <span class="ml-3">{t.sidebar.customers}</span>
       </a>
 
       <!-- orders -->
-      <a href="/admin/orders" class="flex items-center p-2 text-base text-gray-900 rounded-lg hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700">
+      <a
+        href="/admin/orders"
+        class="flex items-center p-2 text-base text-gray-900 rounded-lg hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+      >
         <i data-lucide="file-text" class="w-6 h-6 text-gray-500 dark:text-gray-400"></i>
-        <span class="ml-3">Orders</span>
+        <span class="ml-3">{t.sidebar.orders}</span>
       </a>
 
       <!-- messaging -->
-      <a href="/admin/messaging" class="flex items-center p-2 text-base text-gray-900 rounded-lg hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700">
+      <a
+        href="/admin/messaging"
+        class="flex items-center p-2 text-base text-gray-900 rounded-lg hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+      >
         <i data-lucide="message-circle" class="w-6 h-6 text-gray-500 dark:text-gray-400"></i>
-        <span class="ml-3">Messaging</span>
+        <span class="ml-3">{t.sidebar.messaging}</span>
       </a>
 
       <!-- shipments -->
-	  <a href="/admin/shipments" class="flex items-center p-2 text-base text-gray-900 rounded-lg hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700">
-	  <i data-lucide="ship" class="w-6 h-6 text-gray-500 dark:text-gray-400"></i>
-	  <span class="ml-3">Shipments</span>
-	  </a>
+      <a
+        href="/admin/shipments"
+        class="flex items-center p-2 text-base text-gray-900 rounded-lg hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+      >
+        <i data-lucide="ship" class="w-6 h-6 text-gray-500 dark:text-gray-400"></i>
+        <span class="ml-3">{t.sidebar.shipments}</span>
+      </a>
 
       <!-- users -->
-      <button type="button" class="flex items-center w-full p-2 text-base text-gray-900 rounded-lg group hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700" data-collapse-toggle="users-submenu">
+      <button
+        type="button"
+        class="flex items-center w-full p-2 text-base text-gray-900 rounded-lg group hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+        data-collapse-toggle="users-submenu"
+      >
         <i data-lucide="users" class="w-6 h-6 text-gray-500 dark:text-gray-400"></i>
-        <span class="flex-1 ml-3 text-left">Users</span>
+        <span class="flex-1 ml-3 text-left">{t.sidebar.users}</span>
         <i data-lucide="chevron-down" class="w-4 h-4 ml-auto transition-transform group-hover:rotate-180"></i>
       </button>
       <ul id="users-submenu" class="hidden py-2 space-y-2 pl-7">
         <li>
-          <a href="/admin/users" class="flex items-center gap-2 p-2 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-200">
+          <a
+            href="/admin/users"
+            class="flex items-center gap-2 p-2 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-200"
+          >
             <i data-lucide="user" class="w-4 h-4 text-gray-400 dark:text-gray-300"></i>
-            Users list
-          </a>
-        </li>
-        <li>
-          <a href="/admin/roles" class="flex items-center gap-2 p-2 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-200">
-            <i data-lucide="shield" class="w-4 h-4 text-gray-400 dark:text-gray-300"></i>
-            Roles
+            {t.sidebar.users_list}
           </a>
         </li>
       </ul>
@@ -66,44 +151,70 @@
       <hr class="my-3 border-gray-300 dark:border-gray-600" />
 
       <!-- support -->
-      <a href="info/support" class="flex items-center p-2 text-base text-gray-900 rounded-lg hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700">
+      <a
+        href="/admin/info/support"
+        class="flex items-center p-2 text-base text-gray-900 rounded-lg hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+      >
         <i data-lucide="help-circle" class="w-6 h-6 text-gray-500 dark:text-gray-400"></i>
-        <span class="ml-3">Support</span>
+        <span class="ml-3">{t.sidebar.support}</span>
       </a>
     </div>
   </div>
 
   <!-- Footer: settings + language -->
-  <div class="absolute bottom-0 left-0 w-full p-4 bg-white border-t border-gray-200 lg:flex justify-center gap-3 dark:bg-gray-800 dark:border-gray-700">
-    <!-- Configuración -->
-    <a href="/settings/" data-tooltip-target="tooltip-settings" class="inline-flex items-center justify-center w-10 h-10 text-gray-500 rounded-full shadow-md hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-400 dark:hover:text-white transition">
-      <i data-lucide="settings" class="w-6 h-6"></i>
+  <div
+    class="absolute bottom-0 left-0 w-full p-4 bg-white border-t border-gray-200 lg:flex justify-center gap-3 dark:bg-gray-800 dark:border-gray-700"
+  >
+    <!-- Botón de configuración que abre modal -->
+    <a
+      href="#"
+      id="openAdminSettings"
+      data-tooltip-target="tooltip-settings"
+      class="inline-flex items-center justify-center w-10 h-10 text-gray-500 rounded-full shadow-md hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-400 dark:hover:text-white transition"
+    >
+      <i data-lucide="user-cog" class="w-6 h-6"></i>
     </a>
-    <div id="tooltip-settings" role="tooltip" class="absolute z-10 invisible px-3 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg shadow-sm opacity-0 tooltip dark:bg-gray-700">
-      Settings page
+    <div
+      id="tooltip-settings"
+      role="tooltip"
+      class="absolute z-10 invisible px-3 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg shadow-sm opacity-0 tooltip dark:bg-gray-700"
+    >
+      {t.sidebar.admin_settings}
       <div class="tooltip-arrow" data-popper-arrow></div>
     </div>
 
-    <!-- Idioma con flecha abajo tipo cómic -->
+    <!-- Idioma -->
     <div class="relative inline-block">
-      <button type="button" data-dropdown-toggle="language-dropdown" class="inline-flex items-center justify-center w-10 h-10 text-xl rounded-full shadow-md text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700 transition">
+      <button
+        type="button"
+        data-dropdown-toggle="language-dropdown"
+        class="inline-flex items-center justify-center w-10 h-10 text-xl rounded-full shadow-md text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700 transition"
+      >
         🇺🇸
       </button>
-      <div id="language-dropdown"
-           class="absolute bottom-14 left-1/2 -translate-x-1/2 z-50 hidden w-52 rounded-xl shadow-2xl border border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 transition-all duration-200 ease-out">
-        
-        <!-- Flecha tipo cómic apuntando hacia el botón -->
-        <div class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-white rotate-45 border-b border-r border-gray-200 dark:bg-gray-800 dark:border-gray-600"></div>
+      <div
+        id="language-dropdown"
+        class="absolute bottom-14 left-1/2 -translate-x-1/2 z-50 hidden w-52 rounded-xl shadow-2xl border border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 transition-all duration-200 ease-out"
+      >
+        <div
+          class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-white rotate-45 border-b border-r border-gray-200 dark:bg-gray-800 dark:border-gray-600"
+        ></div>
 
         <ul class="py-2 text-sm text-gray-700 dark:text-gray-200">
           <li>
-            <a href="#" class="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white rounded-md transition">
-              🇺🇸 English (US)
+            <a
+              href="#"
+              class="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white rounded-md transition"
+            >
+              🇺🇸 {t.sidebar.english}
             </a>
           </li>
           <li>
-            <a href="#" class="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white rounded-md transition">
-              🇨🇱 Español (CL)
+            <a
+              href="#"
+              class="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white rounded-md transition"
+            >
+              🇨🇱 {t.sidebar.spanish}
             </a>
           </li>
         </ul>
@@ -112,40 +223,252 @@
   </div>
 </aside>
 
+<!-- MODAL DE CONFIGURACIÓN DE ADMINISTRADOR -->
+<div
+  id="adminSettingsModal"
+  class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50"
+>
+  <div
+    class="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md relative shadow-xl"
+  >
+    <button
+      id="closeAdminSettings"
+      class="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition"
+    >
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+
+    <div class="flex items-center gap-3 mb-6">
+      <i data-lucide="shield-check" class="w-6 h-6 text-blue-600"></i>
+      <h2 class="text-xl font-semibold text-gray-900 dark:text-white">{t.admin_settings.title}</h2>
+    </div>
+
+    <form id="adminSettingsForm" class="space-y-5">
+      <!-- Foto / Avatar -->
+      <div class="flex items-center gap-4">
+        <div class="w-16 h-16 relative">
+          <!-- Modo claro -->
+          <img id="adminAvatarLight" class="w-16 h-16 rounded-full object-contain dark:hidden"
+               src={avatarLightSrc} alt="Avatar administrador">
+          <!-- Modo oscuro -->
+          <img id="adminAvatarDark"  class="w-16 h-16 rounded-full object-contain hidden dark:inline"
+               src={avatarDarkSrc}  alt="Avatar administrador">
+        </div>
+
+        <label class="cursor-pointer px-3 py-2 text-sm bg-gray-200 rounded-lg hover:bg-gray-300 transition dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">
+          <input id="adminAvatarInput" type="file" accept="image/*" class="hidden" />
+          {t.admin_settings.change_photo}
+        </label>
+      </div>
+
+      <!-- Nombre -->
+      <div>
+        <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+          <i data-lucide="user" class="w-4 h-4 inline mr-1.5"></i>
+          {t.admin_settings.full_name}
+        </label>
+        <input
+          id="adminNameInput"
+          type="text"
+          placeholder={t.admin_settings.placeholder_full_name}
+          class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+          value={user?.full_name ?? ''}
+        />
+      </div>
+
+      <!-- Email (solo lectura) -->
+      <div>
+        <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+          <i data-lucide="mail" class="w-4 h-4 inline mr-1.5"></i>
+          {t.admin_settings.corporate_email}
+        </label>
+        <input
+          id="adminEmailInput"
+          type="email"
+          readonly
+          class="w-full p-3 border bg-gray-100 text-gray-500 rounded-lg cursor-not-allowed dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600"
+          value={user?.email ?? ''}
+        />
+        <p class="text-xs text-gray-500 mt-1">{t.admin_settings.email_cannot_be_changed}</p>
+      </div>
+
+      <!-- Teléfono -->
+      <div>
+        <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+          <i data-lucide="phone" class="w-4 h-4 inline mr-1.5"></i>
+          {t.admin_settings.contact_phone}
+        </label>
+        <input
+          id="adminPhoneInput"
+          type="tel"
+          placeholder="+56 9 1234 5678"
+          class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+          value={user?.phone ?? ''}
+        />
+      </div>
+
+      <!-- Botones -->
+      <div class="flex justify-end gap-3 pt-2">
+        <button type="button" id="cancelAdminEdit"
+          class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500">
+          {t.admin_settings.cancel}
+        </button>
+        <button type="submit" id="saveAdminChanges"
+          class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
+          <i data-lucide="save" class="w-4 h-4"></i> {t.admin_settings.save_changes}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
 <!-- Backdrop móvil -->
-<div class="fixed inset-0 z-10 hidden bg-gray-900/50 dark:bg-gray-900/90" id="sidebarBackdrop"></div>
-<!-- Script -->
-<script>
-  declare global {
-    interface Window {
-      lucide?: { createIcons: () => void };
+<div
+  class="fixed inset-0 z-10 hidden bg-gray-900/50 dark:bg-gray-900/90"
+  id="sidebarBackdrop"
+></div>
+
+<!-- SCRIPTS -->
+<script is:inline type="module">
+/* ---------- helpers que usan las traducciones ---------- */
+/* ---------- consts de entorno ---------- */
+const API_BASE    = "{import.meta.env.PUBLIC_API_URL}";
+const FILE_SERVER = "{import.meta.env.PUBLIC_FILE_SERVER_URL}";
+
+async function loadAdminData () {
+  // 1. Intenta recuperar un token desde localStorage o cookies accesibles
+  let clientToken =
+    localStorage.getItem("token")        ||
+    localStorage.getItem("accessToken")  ||
+    localStorage.getItem("jwt")          ||
+    null;
+
+  if (!clientToken) {
+    const match = document.cookie.match(/(?:^|; )(?:token|accessToken|jwt)=([^;]+)/);
+    clientToken = match ? decodeURIComponent(match[1]) : null;
+  }
+
+  // 2. Llama a la API.  Si no hay token, igualmente probamos con credenciales de cookie httpOnly
+  try {
+    const res = await fetch(`${API_BASE}/api/users`, {
+      headers     : clientToken ? { Authorization: `Bearer ${clientToken}` } : undefined,
+      credentials : "include"
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const data = await res.json();
+    const u = Array.isArray(data) ? (data[0] ?? {}) : data;
+
+    // 3. Actualiza campos del formulario
+    if (u.full_name)  document.getElementById("adminNameInput").value  = u.full_name;
+    if (u.email)      document.getElementById("adminEmailInput").value = u.email;
+    if (u.phone)      document.getElementById("adminPhoneInput").value = u.phone;
+
+    // 4. Actualiza avatar con URL absoluta al file‑server o fallback de iniciales
+    if (u.avatar) {
+      const avatarUrl = u.avatar.startsWith("http") ? u.avatar : `${FILE_SERVER}/${u.avatar}`;
+      document.getElementById("adminAvatarLight").src = avatarUrl;
+      document.getElementById("adminAvatarDark").src  = avatarUrl;
+    } else if (u.full_name) {
+      const seed = encodeURIComponent(u.full_name);
+      document.getElementById("adminAvatarLight").src =
+        `https://api.dicebear.com/7.x/initials/svg?seed=${seed}&backgroundColor=4b5563&fontColor=ffffff`;
+      document.getElementById("adminAvatarDark").src  =
+        `https://api.dicebear.com/7.x/initials/svg?seed=${seed}&backgroundColor=1e293b&fontColor=ffffff`;
     }
+  } catch (err) {
+    console.error("No se pudo cargar el perfil del admin:", err);
+    // Si algo falla, dejamos valores por defecto vacíos
+  }
+}
+
+function validateForm () {
+  const name  = document.getElementById("adminNameInput").value.trim();
+  const phone = document.getElementById("adminPhoneInput").value.trim();
+  if (!name || !phone) {
+    alert(t.admin_settings.name_and_phone_required);
+    return false;
+  }
+  return true;
+}
+
+/* ---------- script principal: corre cuando el DOM está listo ---------- */
+document.addEventListener("DOMContentLoaded", () => {
+
+  /* ---------- lógica de íconos y submenu ---------- */
+  const path            = window.location.pathname;
+  const usersSubmenu    = document.getElementById("users-submenu");
+  const nestedUserPaths = ["/admin/users", "/admin/roles"];
+  if (usersSubmenu && nestedUserPaths.some(p => path === p || path.startsWith(p + "/"))) {
+    usersSubmenu.classList.remove("hidden");
   }
 
-  const path = window.location.pathname;
+  /* ---------- refs DOM ---------- */
+  const openBtn   = document.getElementById("openAdminSettings");
+  const closeBtn  = document.getElementById("closeAdminSettings");
+  const cancelBtn = document.getElementById("cancelAdminEdit");
+  const form      = document.getElementById("adminSettingsForm");
+  const modal     = document.getElementById("adminSettingsModal");
 
-  // Users submenu expansion logic
-  const usersSubmenu = document.getElementById('users-submenu');
-  const nestedUserPaths = ['/admin/users', '/admin/roles'];
-  const isInUsersModule = nestedUserPaths.some((p) => path === p || path.startsWith(p + '/'));
-  if (usersSubmenu && isInUsersModule) {
-    usersSubmenu.classList.remove('hidden');
-  }
+  const avatarInput = document.getElementById("adminAvatarInput");
+  const avatarLight = document.getElementById("adminAvatarLight");
+  const avatarDark  = document.getElementById("adminAvatarDark");
 
-  window.addEventListener("DOMContentLoaded", () => {
-    if (window.lucide) {
-      window.lucide.createIcons();
+  /* ---------- util modal ---------- */
+  const showModal = () => {
+    modal.classList.remove("hidden");
+    modal.classList.add("flex");
+  };
+  const hideModal = () => {
+    modal.classList.remove("flex");
+    modal.classList.add("hidden");
+  };
+
+  /* ---------- avatar preview ---------- */
+  avatarInput?.addEventListener("change", () => {
+    const file = avatarInput.files?.[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    avatarLight.src = url;
+    avatarDark.src  = url;
+  });
+
+  /* ---------- eventos modal ---------- */
+  openBtn?.addEventListener("click",  e => { e.preventDefault(); showModal(); });
+  closeBtn?.addEventListener("click", hideModal);
+  cancelBtn?.addEventListener("click", hideModal);
+  modal?.addEventListener("click",    e => { if (e.target === modal) hideModal(); });
+
+  /* ---------- envío de formulario ---------- */
+  form?.addEventListener("submit", async e => {
+    e.preventDefault();
+    if (!validateForm()) return;
+
+    const formData = new FormData(form);
+    if (avatarInput?.files?.[0]) formData.set("avatar", avatarInput.files[0]);
+
+    try {
+      console.log("▶️ Payload a enviar", [...formData.entries()]);
+      await new Promise(r => setTimeout(r, 800)); // simulación de API
+      alert(t.admin_settings.data_updated_successfully);
+      hideModal();
+    } catch (err) {
+      console.error(err);
+      alert(t.admin_settings.error_saving_changes);
     }
   });
 
-  document.querySelectorAll('[data-collapse-toggle]').forEach((btn) => {
-    const targetId = btn.getAttribute('data-collapse-toggle');
-    if (!targetId) return;
-    const target = document.getElementById(targetId);
+  /* ---------- toggles de submenús ---------- */
+  document.querySelectorAll("[data-collapse-toggle]").forEach(btn => {
+    const targetId = btn.getAttribute("data-collapse-toggle");
+    const target   = targetId ? document.getElementById(targetId) : null;
     if (!target) return;
-    btn.addEventListener('click', () => {
-      target.classList.toggle('hidden');
+
+    btn.addEventListener("click", () => {
+      target.classList.toggle("hidden");
+      btn.querySelector("[data-lucide='chevron-down']")?.classList.toggle("rotate-180");
     });
   });
-
+});
 </script>

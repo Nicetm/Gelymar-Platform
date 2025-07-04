@@ -1,0 +1,13 @@
+{
+  "dashboard": "Dashboard",
+  "customers": "Clients",
+  "orders": "Orders",
+  "messaging": "Messaging",
+  "shipments": "Shipments",
+  "users": "Users",
+  "users_list": "Users List",
+  "support": "Support",
+  "admin_settings": "Admin Settings",
+  "english": "English (US)",
+  "spanish": "Spanish (CL)"
+}

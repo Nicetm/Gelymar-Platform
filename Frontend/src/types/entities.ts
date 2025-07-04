@@ -37,6 +37,7 @@ export interface Users {
   twoFASecret: string;
   twoFAEnabled: number;
   full_name: string;
+  avatar?: string | null;
   phone: string;
   country: string;
   city: string;

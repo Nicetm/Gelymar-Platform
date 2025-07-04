@@ -7,4 +7,5 @@ const { authorizeRoles } = require('../middleware/role.middleware.js');
 
 router.get('/', authMiddleware, authorizeRoles(['admin']), userController.getAllUsers);
 
+
 module.exports = router;

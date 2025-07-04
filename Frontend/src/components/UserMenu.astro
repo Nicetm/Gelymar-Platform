@@ -1,78 +1,174 @@
 ---
-const user = {
-  name: "Test User",
-  email: "test.user@example.com",
-  avatar: "https://i.pravatar.cc/150?img=12"
+import { loadTranslations } from '../lib/i18n.js';
+
+const lang = import.meta.env.PUBLIC_LANG || 'en';
+const t: any = {
+  usermenu: await loadTranslations(lang, 'usermenu'),
 };
+
+const apiBase   = import.meta.env.PUBLIC_API_URL;        // p.ej. http://localhost:2121
+const fileServer = import.meta.env.PUBLIC_FILE_SERVER_URL; // p.ej. http://localhost:2121/storage
+
+// Intenta varios nombres de cookie por compatibilidad
+const token =
+  Astro.cookies.get('token')?.value ??
+  Astro.cookies.get('accessToken')?.value ??
+  Astro.cookies.get('jwt')?.value ??
+  null;
+
+/** @type {import('../types/entities.js').Users | null} */
+let user = null;
+
+try {
+  // En SSR (Node), 'credentials' no es soportado por los tipos de fetch, y las cookies httpOnly
+  // no se envían automáticamente. Solo usamos el header Authorization si tenemos token.
+  if (token) {
+    const data = await fetch(`${apiBase}/api/users`, {
+      headers: { Authorization: `Bearer ${token}` }
+    }).then(r => (r.ok ? r.json() : null));
+    user = Array.isArray(data) ? data[0] ?? null : data;
+    if (user && !user.role && user.role_id !== undefined) {
+      user.role = user.role_id === 1 ? 'admin'
+                : user.role_id === 2 ? 'client'
+                : String(user.role_id);
+    }
+  }
+} catch (err) {
+  console.error('Error fetching user (SSR):', err);
+}
+
+if (!user) {
+  user = { full_name: 'User', email: 'user@example.com', role: 'guest', avatar: '' };
+}
+
+const avatarUrl = user.avatar
+  ? (user.avatar.startsWith('http') ? user.avatar : `${fileServer}/${user.avatar}`)
+  // Fallback: avatar con iniciales (modo claro)
+  : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.full_name)}&backgroundColor=4b5563&fontColor=ffffff`;
 ---
+
 <div class="relative flex items-center ml-3">
-  <!-- Botón -->
+  <!-- Botón para abrir el dropdown -->
   <button
     id="user-toggle"
     type="button"
     data-dropdown-toggle="user-dropdown"
-    class="flex text-sm rounded-full transition-all duration-200 ease-in-out hover:ring-2 hover:ring-[#F6B234] hover:scale-105 focus:outline-none"
+    class="flex text-sm rounded-full transition hover:ring-2 hover:ring-[#F6B234] hover:scale-105 focus:outline-none"
   >
-    <span class="sr-only">Open user menu</span>
+    <span class="sr-only">{t.usermenu.open_menu}</span>
     <img
+      id="userAvatar"
       class="w-8 h-8 rounded-full border-2 border-gray-200 dark:border-gray-600"
-      src={user.avatar}
+      src={avatarUrl}
       alt="user photo"
     />
   </button>
 
-  <!-- Dropdown con estilo similar a notificaciones -->
+  <!-- Dropdown -->
   <div
     id="user-dropdown"
-    class="absolute right-0 top-full mt-3 z-50 hidden w-64 max-w-sm bg-white border border-gray-200 rounded-2xl shadow-2xl dark:bg-gray-800 dark:border-gray-700 transition-all duration-300 ring-1 ring-slate-100 dark:ring-white/10"
+    class="absolute right-0 top-full mt-3 z-50 hidden w-64 max-w-sm bg-white border border-gray-200 rounded-2xl shadow-2xl dark:bg-gray-800 dark:border-gray-700 ring-1 ring-slate-100 dark:ring-white/10"
   >
     <!-- Encabezado -->
     <div class="px-6 pt-5 pb-4 border-b border-gray-100 dark:border-gray-700">
-      <p class="text-sm font-semibold text-gray-700 dark:text-white">{user.name}</p>
-      <p class="text-sm text-gray-500 truncate dark:text-[#F6B234]">{user.email}</p>
+      <p class="text-sm font-semibold text-gray-700 dark:text-white">
+        <span id="userFullName">{user.full_name}</span>
+        <span id="userRole" class="ml-1 text-xs font-normal text-gray-500 dark:text-gray-400">
+          ({user.role})
+        </span>
+      </p>
+      <p id="userEmail" class="text-sm text-gray-500 truncate dark:text-[#F6B234]">
+        {user.email}
+      </p>
     </div>
 
     <!-- Opciones -->
-    <ul class="py-2 divide-y divide-gray-100 dark:divide-gray-700">
-      <li>
-        <a
-          href="#"
-          class="block px-6 py-3 text-sm text-gray-700 hover:bg-gray-50 dark:text-white dark:hover:bg-gray-700 transition"
-        >
-          Profile
-        </a>
-      </li>
+    <ul class="py-2">
       <li>
         <button
-          type="button"
-					id="logoutButton"
+          id="logoutButton"
           class="w-full text-left px-6 py-3 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-gray-700 dark:hover:text-white transition"
         >
-          Sign out
+          {t.usermenu.sign_out}
         </button>
       </li>
     </ul>
   </div>
 </div>
 
-<script>
-  const logoutButton = document.getElementById('logoutButton');
+<script is:inline>
+  // Constantes embebidas desde el servidor
+  const API_BASE   = "${apiBase}";
+  const FILE_SERVER = "${fileServer}";
 
-  if (logoutButton) {
-    logoutButton.addEventListener('click', async () => {
-      try {
-        await fetch('/api/auth/logout', {
-          method: 'POST',
-          credentials: 'include'
-        });
+  // Alias para compatibilidad con código anterior
+  const apiBase = API_BASE;
+  const fileServer = FILE_SERVER;
 
-        localStorage.removeItem('token');
-        document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+  /* ---------- Logout ---------- */
+  document.getElementById('logoutButton')?.addEventListener('click', async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+      localStorage.removeItem('token');
+      document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+      window.location.href = '/authentication/sign-in';
+    } catch (err) {
+      console.error('Error logging out:', err);
+    }
+  });
 
-        window.location.href = '/authentication/sign-in';
-      } catch (error) {
-        console.error('Error logging out:', error);
+  /* ---------- Hidratación en cliente ---------- */
+  document.addEventListener('DOMContentLoaded', async () => {
+    const nameEl  = document.querySelector('#userFullName');
+    const roleEl  = document.querySelector('#userRole');
+    const emailEl = document.querySelector('#userEmail');
+    /** @type {HTMLImageElement|null} */
+    const avatarEl = document.querySelector('#userAvatar');
+
+    if (!nameEl || !emailEl || !avatarEl) return;
+
+    // Busca token en localStorage con distintos nombres
+    let clientToken =
+      localStorage.getItem('token') ||
+      localStorage.getItem('accessToken') ||
+      localStorage.getItem('jwt') ||
+      null;
+
+    // Si no está en localStorage, intenta leer cookies accesibles por JS
+    if (!clientToken) {
+      const match = document.cookie.match(/(?:^|; )(?:token|accessToken|jwt)=([^;]+)/);
+      clientToken = match ? decodeURIComponent(match[1]) : null;
+    }
+    if (!clientToken) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/api/users`, {
+        headers: clientToken ? { Authorization: `Bearer ${clientToken}` } : undefined,
+        credentials: 'include'
+      });
+      if (!res.ok) return;
+
+      const data = await res.json();
+      const u = Array.isArray(data) ? data[0] ?? {} : data;
+
+      nameEl.textContent  = u.full_name ?? 'User';
+      const roleNameClient =
+        u.role ??
+        (u.role_id === 1 ? 'admin'
+         : u.role_id === 2 ? 'client'
+         : 'guest');
+      roleEl.textContent = `(${roleNameClient})`;
+      emailEl.textContent = u.email ?? '';
+
+      if (u.avatar) {
+        avatarEl.src = u.avatar.startsWith('http')
+          ? u.avatar
+          : `${FILE_SERVER}/${u.avatar}`;
+      } else if (u.full_name) {
+        avatarEl.src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(u.full_name)}&backgroundColor=4b5563&fontColor=ffffff`;
       }
-    });
-  }
+    } catch (err) {
+      console.error('Client-side user fetch failed:', err);
+    }
+  });
 </script>

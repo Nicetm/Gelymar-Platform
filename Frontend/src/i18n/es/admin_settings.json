@@ -1,0 +1,14 @@
+{
+  "title": "Configuración de Administrador",
+  "change_photo": "Cambiar foto",
+  "full_name": "Nombre completo",
+  "placeholder_full_name": "Ingresa tu nombre completo",
+  "corporate_email": "Email corporativo",
+  "email_cannot_be_changed": "El email no se puede modificar",
+  "contact_phone": "Teléfono de contacto",
+  "cancel": "Cancelar",
+  "save_changes": "Guardar cambios",
+  "name_and_phone_required": "Nombre y teléfono son obligatorios",
+  "data_updated_successfully": "Datos actualizados correctamente",
+  "error_saving_changes": "Error al guardar los cambios"
+}
