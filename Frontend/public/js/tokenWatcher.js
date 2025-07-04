@@ -1,4 +1,4 @@
-// src/lib/tokenWatcher.js
+// public/js/tokenWatcher.js
 let timeoutId;
 let expireTimeoutId;
 

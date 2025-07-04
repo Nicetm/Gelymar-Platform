@@ -31,3 +31,13 @@ El sistema utiliza una base de datos MySQL. Puedes importar la estructura y dato
 
 🔗 [Descargar script SQL de la base de datos] --> https://drive.google.com/file/d/1CixfoDYXNUUTgxe2jKWis2ZNpTI5Veqp/view?usp=sharing
 
+
+# Cron PM2
+
+npm install node-cron
+npm install -g pm2
+
+pm2 start .\cron\checkETD.js --name gelymar-etd-checker
+pm2 stop gelymar-etd-checker
+pm2 logs gelymar-etd-checker
+

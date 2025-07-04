@@ -16,6 +16,7 @@
     "mssql": "^11.0.1",
     "multer": "^2.0.0",
     "mysql2": "^3.14.1",
+    "node-cron": "^4.1.1",
     "nodemailer": "^7.0.3",
     "pdfkit": "^0.17.1",
     "qrcode": "^1.5.4",
