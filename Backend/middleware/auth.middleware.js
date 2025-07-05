@@ -4,7 +4,10 @@ const { poolPromise } = require('../config/db');
 
 module.exports = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
-  const token = authHeader?.split(' ')[1];
+  // Intenta primero la cookie "token", luego el header Authorization: Bearer <jwt>
+  const token =
+    req.cookies?.token ||
+    (authHeader?.startsWith('Bearer ') ? authHeader.split(' ')[1] : undefined);
 
   if (!token) return res.status(401).json({ message: 'Token requerido' });
 

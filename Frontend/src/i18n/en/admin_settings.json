@@ -1,0 +1,14 @@
+{
+  "title": "Admin Settings",
+  "change_photo": "Change Photo",
+  "full_name": "Full Name",
+  "placeholder_full_name": "Enter your full name",
+  "corporate_email": "Corporate Email",
+  "email_cannot_be_changed": "Email cannot be changed",
+  "contact_phone": "Contact Phone",
+  "cancel": "Cancel",
+  "save_changes": "Save Changes",
+  "name_and_phone_required": "Name and phone are required",
+  "data_updated_successfully": "Data updated successfully",
+  "error_saving_changes": "Error saving changes"
+}

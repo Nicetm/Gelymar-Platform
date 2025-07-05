@@ -26,41 +26,63 @@ const t: any = {
 </style>
 
 <LayoutSidebar>
-  <section class="flex items-center justify-center min-h-[calc(100vh-250px)] px-6 py-10 font-sans text-gray-800 dark:text-gray-200 dark:bg-gray-900">
-    <div class="max-w-6xl w-full text-center fade-in">
+  <section class="relative overflow-hidden flex flex-col justify-center items-center min-h-screen px-6 py-12 bg-gradient-to-b from-white to-slate-50 dark:from-gray-900 dark:to-gray-800 font-sans text-gray-800 dark:text-gray-200">
+    <!-- Decorative blobs -->
+    <span class="absolute -top-24 -left-24 w-80 h-80 bg-[#00538C]/20 rounded-full blur-3xl pointer-events-none"></span>
+    <span class="absolute bottom-0 -right-24 w-96 h-96 bg-[#F6B234]/20 dark:bg-[#F6B234]/10 rounded-full blur-3xl pointer-events-none"></span>
+    <!-- Glass-card -->
+    <div class="flex flex-col items-center bg-white/70 dark:bg-gray-900/60 backdrop-blur-sm border border-white/30 dark:border-gray-700 rounded-xl p-10 shadow-xl fade-in">
+      <div class="max-w-6xl w-full text-center">
+        <!-- Lifebuoy icon -->
+        <svg
+          class="mx-auto mb-4 w-12 h-12 text-[#00538C] dark:text-[#38bdf8]"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <circle cx="12" cy="12" r="4" />
+          <line x1="4.93" y1="4.93" x2="9.17" y2="9.17" />
+          <line x1="14.83" y1="14.83" x2="19.07" y2="19.07" />
+          <line x1="4.93" y1="19.07" x2="9.17" y2="14.83" />
+          <line x1="14.83" y1="9.17" x2="19.07" y2="4.93" />
+        </svg>
       <h2 class="text-4xl font-extrabold text-[#002E50] dark:text-white mb-4 tracking-tight">
-        {t.support.title}
+        Softkey&nbsp;Support&nbsp;Center
       </h2>
       <p class="mb-12 text-lg text-gray-600 dark:text-gray-400 max-w-xl mx-auto">
         {t.support.subtitle}
       </p>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-        <!-- FAQ -->
-        <div class="rounded-2xl shadow-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-6 hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300">
-          <h3 class="text-xl font-semibold text-[#00538C] dark:text-[#38bdf8] mb-2">{t.support.faqTitle}</h3>
-          <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">{t.support.faqDescription}</p>
-          <a href="/admin/info/faqs" class="text-sm font-medium text-[#00538C] dark:text-[#38bdf8] hover:underline transition">
-            {t.support.faqLink}
-          </a>
-        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+          <!-- FAQ -->
+          <div class="rounded-2xl shadow-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-6 hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300">
+            <h3 class="text-xl font-semibold text-[#00538C] dark:text-[#38bdf8] mb-2">{t.support.faqTitle}</h3>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">{t.support.faqDescription}</p>
+            <a href="/admin/info/faqs" class="text-sm font-medium text-[#00538C] dark:text-[#38bdf8] hover:underline transition">
+              {t.support.faqLink}
+            </a>
+          </div>
 
-        <!-- Contact -->
-        <div class="rounded-2xl shadow-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-6 hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300">
-          <h3 class="text-xl font-semibold text-[#00538C] dark:text-[#38bdf8] mb-2">{t.support.contactTitle}</h3>
-          <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">{t.support.contactDescription}</p>
-          <a href="mailto:support@gelymar.com" class="text-sm font-medium text-[#00538C] dark:text-[#38bdf8] hover:underline transition">
-            {t.support.contactLink}
-          </a>
-        </div>
+          <!-- Contact -->
+          <div class="rounded-2xl shadow-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-6 hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300">
+            <h3 class="text-xl font-semibold text-[#00538C] dark:text-[#38bdf8] mb-2">{t.support.contactTitle}</h3>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">{t.support.contactDescription}</p>
+            <a href="mailto:support@gelymar.com" class="text-sm font-medium text-[#00538C] dark:text-[#38bdf8] hover:underline transition">
+              {t.support.contactLink}
+            </a>
+          </div>
 
-        <!-- Tickets -->
-        <div class="rounded-2xl shadow-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-6 hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300">
-          <h3 class="text-xl font-semibold text-[#00538C] dark:text-[#38bdf8] mb-2">{t.support.ticketsTitle}</h3>
-          <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">{t.support.ticketsDescription}</p>
-          <a href="/admin/info/tickets" class="text-sm font-medium text-[#00538C] dark:text-[#38bdf8] hover:underline transition">
-            {t.support.ticketsLink}
-          </a>
+          <!-- Tickets -->
+          <div class="rounded-2xl shadow-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-6 hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300">
+            <h3 class="text-xl font-semibold text-[#00538C] dark:text-[#38bdf8] mb-2">{t.support.ticketsTitle}</h3>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">{t.support.ticketsDescription}</p>
+            <a href="/admin/info/tickets" class="text-sm font-medium text-[#00538C] dark:text-[#38bdf8] hover:underline transition">
+              {t.support.ticketsLink}
+            </a>
+          </div>
         </div>
       </div>
     </div>

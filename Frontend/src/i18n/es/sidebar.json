@@ -1,0 +1,13 @@
+{
+  "dashboard": "Inicio",
+  "customers": "Clientes",
+  "orders": "Pedidos",
+  "messaging": "Mensajes",
+  "shipments": "Envíos",
+  "users": "Usuarios",
+  "users_list": "Lista de usuarios",
+  "support": "Soporte",
+  "admin_settings": "Configuración",
+  "english": "Inglés (US)",
+  "spanish": "Español (CL)"
+}

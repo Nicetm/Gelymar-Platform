@@ -5,6 +5,9 @@ const translationsMap = {
     carpetas: () => import('../i18n/es/carpetas.json'),
     documentos: () => import('../i18n/es/documentos.json'),
     support: () => import('../i18n/es/support.json'), 
+    sidebar: () => import('../i18n/es/sidebar.json'),
+    admin_settings: () => import('../i18n/es/admin_settings.json'),
+    usermenu: () => import('../i18n/es/usermenu.json'),
   },
   en: {
     comond: () => import('../i18n/en/comond.json'),
@@ -12,6 +15,9 @@ const translationsMap = {
     carpetas: () => import('../i18n/en/carpetas.json'),
     documentos: () => import('../i18n/en/documentos.json'),
     support: () => import('../i18n/en/support.json'), 
+    sidebar: () => import('../i18n/en/sidebar.json'),
+    admin_settings: () => import('../i18n/en/admin_settings.json'),
+    usermenu: () => import('../i18n/en/usermenu.json'),
   }
 };
 /**

@@ -78,7 +78,7 @@ const files: Files[] = await fetch(`${apiBase}/api/files/${id}?f=${folderId}`, {
 
   <div class="overflow-auto mt-6 rounded-xl shadow ring-1 ring-gray-200 dark:ring-gray-700">
     <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 table-fixed">
-      <thead class="bg-gray-100 dark:bg-gray-800 sticky top-0 z-10">
+      <thead id="filesHead" class="bg-gray-100/70 dark:bg-gray-800/70 backdrop-blur-md transition-shadow sticky top-0 z-10">
         <tr>
           <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t.documentos.name}</th>
           <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t.documentos.status}</th>
@@ -88,7 +88,7 @@ const files: Files[] = await fetch(`${apiBase}/api/files/${id}?f=${folderId}`, {
           <th class="px-4 py-3 text-center text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t.comond.actions}</th>
         </tr>
       </thead>
-      <tbody id="filesTableBody" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-sm min-h-[600px]">
+      <tbody id="filesTableBody" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-sm min-h-[600px] text-gray-900 dark:text-gray-200 transition-all duration-300 ease-out motion-safe:animate-fade-slide">
 				{Array.isArray(files) && files.map(file => {
 					let statusColor = '';
 					switch (file.status_id) {
@@ -109,7 +109,7 @@ const files: Files[] = await fetch(`${apiBase}/api/files/${id}?f=${folderId}`, {
 					}
 			
 					return (
-					<tr data-id={file.id} class="hover:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+					<tr data-id={file.id} class="transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-800 hover:shadow-[0_1px_3px_rgba(0,0,0,0.12)]">
 						<td class="px-6 py-4 text-sm editable-filename group cursor-pointer" data-id={file.id} title="Doble clic para editar">
 							<div class="inline-flex items-center gap-1">
 								<span class="filename-text block truncate">{file.name}</span>
@@ -121,8 +121,21 @@ const files: Files[] = await fetch(`${apiBase}/api/files/${id}?f=${folderId}`, {
 						<td class="px-4 py-3"><div class="flex items-center"><span class={`w-2.5 h-2.5 rounded-full mr-2 ${statusColor}`}></span>{file.status_name || '-'}</div></td>
 						<td class="px-6 py-4 items-center gap-3">{new Date(file.created_at).toLocaleString("es-CL")}</td>
 						<td class="px-6 py-4 items-center gap-3">{new Date(file.updated_at).toLocaleString("es-CL")}</td>
-						<td data-v={file.is_visible_to_client} class="px-6 py-4 text-center gap-3">
-							<input type="checkbox" disabled checked={file.is_visible_to_client} />
+						<td data-v={file.is_visible_to_client} class="px-6 py-4 text-center">
+							<label class="relative inline-flex items-center cursor-pointer">
+								<input
+									type="checkbox"
+									class="sr-only peer visibility-toggle"
+									data-file-id={file.id}
+									checked={file.is_visible_to_client} />
+								<div
+									class="w-9 h-5 bg-gray-200 rounded-full transition-colors
+												 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary-500
+												 peer-checked:bg-primary-600 dark:bg-gray-700 dark:peer-checked:bg-primary-500"></div>
+								<div
+									class="absolute left-1 top-1 w-3 h-3 bg-white rounded-full transition-transform
+												 peer-checked:translate-x-4"></div>
+							</label>
 						</td>
 						<td class="px-6 py-4 items-center gap-3">
 							<div class="flex items-center gap-3 justify-center">
@@ -179,76 +192,102 @@ const files: Files[] = await fetch(`${apiBase}/api/files/${id}?f=${folderId}`, {
     </table>
   </div>
 
-  <div class="mt-6 flex justify-between items-center text-sm">
+  <!-- Paginación -->
+  <div class="mt-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-6 text-sm">
     <div class="flex items-center gap-3">
-      <label for="itemsPerPageSelect">{t.documentos.perPage}</label>
-      <select id="itemsPerPageSelect" class="w-20 bg-white dark:bg-gray-800 border rounded-md">
-        <option value="10">10</option>
-        <option value="20">20</option>
-        <option value="30">30</option>
-      </select>
+      <label for="itemsPerPageSelect" class="text-sm font-medium text-gray-700 dark:text-gray-300">{t.documentos.perPage}</label>
+      <div class="relative">
+        <select id="itemsPerPageSelect" class="block w-20 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-sm text-gray-900 dark:text-white rounded-md pl-3 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="10">10</option>
+          <option value="20">20</option>
+          <option value="30">30</option>
+        </select>
+      </div>
     </div>
+
     <div class="flex items-center gap-3">
-      <button id="prevPageBtn" class="w-9 h-9 flex items-center justify-center bg-gray-200 dark:bg-gray-700 rounded-md">‹</button>
-      <span id="pageIndicator" class="text-sm text-gray-700 dark:text-gray-300">Página 1</span>
-      <button id="nextPageBtn" class="w-9 h-9 flex items-center justify-center bg-gray-200 dark:bg-gray-700 rounded-md">›</button>
+      <button id="prevPageBtn" aria-label="Previous page" class="w-9 h-9 flex items-center justify-center bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-white rounded-md transition-transform duration-150 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary-500">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+      </button>
+      <span id="pageIndicator" class="px-4 py-1 rounded-lg bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-white text-sm font-medium shadow-sm">Página 1</span>
+      <button id="nextPageBtn" aria-label="Next page" class="w-9 h-9 flex items-center justify-center bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-white rounded-md transition-transform duration-150 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary-500">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+      </button>
     </div>
   </div>
 
 	<div id="messageModal" class="fixed inset-0 bg-black bg-opacity-50 hidden justify-center items-center z-50">
-		<div class="bg-white rounded-lg p-6 w-full max-w-md">
+		<div class="bg-white dark:bg-gray-800 dark:text-white rounded-lg p-6 w-full max-w-md">
 			<h2 class="text-xl font-bold mb-4">{t.documentos.sendCustomMessage}</h2>
 	
 			<div class="mb-4">
-				<label for="orderNumber" class="block text-sm font-medium text-gray-700">{t.documentos.orderNumber}</label>
-				<input type="text" id="orderNumber" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" readonly>
+				<label for="orderNumber" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{t.documentos.orderNumber}</label>
+				<input type="text" id="orderNumber" class="mt-1 block w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-md shadow-sm p-2" readonly>
 			</div>
 
 			<div class="mb-4">
-				<label for="orderDocument" class="block text-sm font-medium text-gray-700">{t.documentos.nameOfDocument}</label>
-				<input type="text" id="orderDocument" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" readonly>
+				<label for="orderDocument" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{t.documentos.nameOfDocument}</label>
+				<input type="text" id="orderDocument" class="mt-1 block w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-md shadow-sm p-2" readonly>
 			</div>
 	
 			<div class="mb-4">
-				<label for="customMessage" class="block text-sm font-medium text-gray-700">{t.documentos.message}</label>
-				<textarea id="customMessage" rows="4" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"></textarea>
+				<label for="customMessage" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{t.documentos.message}</label>
+				<textarea id="customMessage" rows="4" class="mt-1 block w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-md shadow-sm p-2"></textarea>
 			</div>
 	
 			<div class="flex justify-end gap-2">
-				<button id="cancelMessageBtn" class="px-4 py-2 bg-gray-300 rounded-md">{t.comond.cancel}</button>
+				<button id="cancelMessageBtn" class="px-4 py-2 bg-gray-300 dark:bg-gray-600 dark:text-white rounded-md">{t.comond.cancel}</button>
 				<button id="confirmMessageBtn" class="px-4 py-2 bg-blue-600 text-white rounded-md">{t.comond.confirm}</button>
 			</div>
 		</div>
 	</div>
 
-	<div id="uploadModal" data-folder-name={pc} data-folder-id={folderId} class="fixed inset-0 bg-black bg-opacity-50 hidden justify-center items-center z-50">
-		<div class="bg-white rounded-lg p-6 w-full max-w-md relative"> <!-- <-- Aquí -->
+	<div id="uploadModal" data-folder-name={pc} data-folder-id={folderId} class="fixed inset-0 hidden justify-center items-center z-50 bg-black/50 flex backdrop-blur-sm opacity-0 transition-opacity duration-500">
+		<div class="modal-card bg-white/95 dark:bg-gray-800/95 text-gray-900 dark:text-gray-100 rounded-2xl p-8 w-full max-w-lg relative shadow-2xl ring-1 ring-gray-200 dark:ring-white/10 transform opacity-0 scale-90 translate-y-6 transition-all duration-500 ease-[cubic-bezier(.22,1,.36,1)]"> <!-- <-- Aquí -->
 			<!-- Botón de cerrar -->
 			<button id="closeModalBtn" class="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition">
 				<svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
 				</svg>
 			</button>
-			<h2 class="text-xl font-bold mb-4">{t.documentos.dragTitle}</h2>
+			<h2 class="text-xl font-bold mb-4 dark:text-white">{t.documentos.dragTitle}</h2>
 	
 			<div class="mb-4">
-				<label for="uploadFileName" class="block text-sm font-medium text-gray-700">{t.documentos.nameOfDocument}</label>
-				<input type="text" id="uploadFileName" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+				<label for="uploadFileName" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{t.documentos.nameOfDocument}</label>
+				<!-- Solo valores predefinidos -->
+				<div class="relative">
+				  <select id="uploadFileName"
+				          class="appearance-none pr-10 pl-3 py-2 block w-full border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+				    <option value="" disabled selected>— {t.documentos.selectDocumentName} —</option>
+				    <option value="Recepcion de orden">Recepción de orden</option>
+				    <option value="Aviso de Embarque">Aviso de Embarque</option>
+				    <option value="Aviso de Recepcion de orden">Aviso de Recepción de orden</option>
+				  </select>
+				  <!-- Flecha personalizada -->
+				  <svg class="w-4 h-4 text-gray-500 dark:text-gray-400 pointer-events-none absolute right-3 top-1/2 -translate-y-1/2"
+				       fill="currentColor" viewBox="0 0 20 20">
+				    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 011.08 1.04l-4.25 4.25a.75.75 0 01-1.06 0L5.25 8.27a.75.75 0 01-.02-1.06z" clip-rule="evenodd"/>
+				  </svg>
+				</div>
 			</div>
 	
 			<div class="mb-4 flex gap-4">
 				<!-- Tipo de Documento -->
 				<div class="w-1/2">
-					<label for="uploadFileType" class="block text-sm font-medium text-gray-700">{t.documentos.typeofDocument}</label>
-					<select id="uploadFileType" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+					<label for="uploadFileType" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{t.documentos.typeofDocument}</label>
+					<select id="uploadFileType" class="mt-1 block w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-md shadow-sm p-2">
 						<option value="PDF">PDF</option>
 					</select>
 				</div>
 			
 				<!-- Visible al cliente -->
 				<div class="w-1/2">
-					<label for="isVisibleToClient" class="block text-sm font-medium text-gray-700">¿Visible al cliente?</label>
-					<select id="isVisibleToClient" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+					<label for="isVisibleToClient" class="block text-sm font-medium text-gray-700 dark:text-gray-300">¿Visible al cliente?</label>
+					<select id="isVisibleToClient" class="mt-1 block w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-md shadow-sm p-2">
 						<option value="true">Sí</option>
 						<option value="false">No</option>
 					</select>
@@ -256,16 +295,26 @@ const files: Files[] = await fetch(`${apiBase}/api/files/${id}?f=${folderId}`, {
 			</div>
 	
 			<div class="mb-4">
-				<label class="block text-sm font-medium text-gray-700">{t.documentos.selectDocument}</label>
-				<div id="dropZone" class="flex flex-col items-center justify-center border-2 border-dashed border-gray-400 rounded-md p-6 cursor-pointer hover:bg-gray-100">
+				<label class="block text-sm font-medium text-gray-700 dark:text-gray-300">{t.documentos.selectDocument}</label>
+				<div id="dropZone" class="flex flex-col items-center justify-center border-2 border-dashed border-gray-400 dark:border-gray-600 rounded-md p-6 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700">
 					<p id="dropZoneText" class="text-gray-500">{t.documentos.dragAndDrop}</p>
 					<input type="file" id="uploadFileInput" class="hidden" />
 				</div>
 			</div>
 	
 			<div class="flex justify-end gap-2">
-				<button id="cancelUploadBtn" class="px-4 py-2 bg-gray-300 rounded-md">{t.comond.cancel}</button>
-				<button id="confirmUploadBtn" class="px-4 py-2 bg-blue-600 text-white rounded-md">{t.comond.upload}</button>
+				<button
+					id="cancelUploadBtn"
+					class="px-4 py-2 bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-500 dark:text-white rounded-md transition-transform duration-150 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary-500"
+				>
+					{t.comond.cancel}
+				</button>
+				<button
+					id="confirmUploadBtn"
+					class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-transform duration-150 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary-500"
+				>
+					{t.comond.upload}
+				</button>
 			</div>
 		</div>
 	</div>
@@ -290,6 +339,37 @@ const files: Files[] = await fetch(`${apiBase}/api/files/${id}?f=${folderId}`, {
 	const uploadFileBtn = qs('uploadFileBtn');
 	const addIcon = qs('addIcon');
 	const spinnerIcon = qs('spinnerIcon');
+	const uploadModal = qs('uploadModal');
+	const uploadCard  = uploadModal.querySelector('.modal-card');
+
+	function showUploadModal() {
+	  uploadModal.classList.remove('hidden', 'opacity-0');
+	  uploadModal.classList.add('flex');
+	  // Trigger card entrance on next frame
+	  requestAnimationFrame(() => {
+	    uploadCard.classList.remove('opacity-0', 'scale-90', 'translate-y-6');
+	  });
+	}
+
+	function hideUploadModal() {
+	  // Start exit animation
+	  uploadModal.classList.add('opacity-0');
+	  uploadCard.classList.add('opacity-0', 'scale-90', 'translate-y-6');
+	  uploadModal.addEventListener(
+	    'transitionend',
+	    function handler() {
+	      uploadModal.removeEventListener('transitionend', handler);
+	      uploadModal.classList.remove('flex');
+	      uploadModal.classList.add('hidden');
+	    },
+	    { once: true },
+	  );
+	}
+
+	// Close modal when clicking on the backdrop
+	uploadModal.addEventListener('click', (e) => {
+	  if (e.target === uploadModal) hideUploadModal();
+	});
 
 	const uuid = section?.dataset.uuid;
 	const apiBase = section?.dataset.apiBase;
@@ -488,7 +568,7 @@ const files: Files[] = await fetch(`${apiBase}/api/files/${id}?f=${folderId}`, {
 			</div>`;
 
 			return `
-				<tr data-id="${file.id}" class="hover:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+				<tr data-id="${file.id}" class="transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-800 hover:shadow-[0_1px_3px_rgba(0,0,0,0.12)]">
 					<td class="px-6 py-4 text-sm editable-filename" data-id="${file.id}">
 						<span class="filename-text block w-full">${file.name}</span>
 					</td>
@@ -501,7 +581,20 @@ const files: Files[] = await fetch(`${apiBase}/api/files/${id}?f=${folderId}`, {
 					<td class="px-6 py-4">${new Date(file.created_at).toLocaleString("es-CL")}</td>
 					<td class="px-6 py-4">${new Date(file.updated_at).toLocaleString("es-CL")}</td>
 					<td data-v="${file.is_visible_to_client}" class="px-6 py-4 text-center">
-						<input type="checkbox" disabled ${file.is_visible_to_client === 1 ? 'checked' : ''} />
+						<label class="relative inline-flex items-center cursor-pointer">
+							<input
+								type="checkbox"
+								class="sr-only peer visibility-toggle"
+								data-file-id="${file.id}"
+								${file.is_visible_to_client === 1 ? 'checked' : ''} />
+							<div
+								class="w-9 h-5 bg-gray-200 rounded-full transition-colors
+												 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary-500
+												 peer-checked:bg-primary-600 dark:bg-gray-700 dark:peer-checked:bg-primary-500"></div>
+							<div
+								class="absolute left-1 top-1 w-3 h-3 bg-white rounded-full transition-transform
+												 peer-checked:translate-x-4"></div>
+						</label>
 					</td>
 					<td class="px-6 py-4">${actions}</td>
 				</tr>`;
@@ -633,7 +726,6 @@ const files: Files[] = await fetch(`${apiBase}/api/files/${id}?f=${folderId}`, {
     spinnerIcon.classList.remove('hidden');
 
     setTimeout(() => {
-      const uploadModal = qs('uploadModal');
       const clientName = qs('titleFile').textContent.replace('Documentos ', '').trim();
       const orderNumber = pc;
 
@@ -646,22 +738,20 @@ const files: Files[] = await fetch(`${apiBase}/api/files/${id}?f=${folderId}`, {
       qs('uploadFileName').value = '';
       qs('uploadFileType').value = 'PDF';
       qs('uploadFileInput').value = '';
-      uploadModal.classList.remove('hidden');
-      uploadModal.style.display = 'flex';
+      showUploadModal();
     }, 500);
   });
 
   ['cancelUploadBtn', 'closeModalBtn'].forEach(id => {
     qs(id).addEventListener('click', () => {
       const uploadModal = qs('uploadModal');
-      uploadModal.classList.add('hidden');
-      uploadModal.style.display = 'none';
+      hideUploadModal();
 
       spinnerIcon.classList.add('hidden');
       addIcon.classList.remove('hidden');
 
-      qs('uploadFileName').value = '';
-      qs('uploadFileType').value = 'PDF';
+      qs('uploadFileName').value  = '';
+      qs('uploadFileType').value  = 'PDF';
       qs('uploadFileInput').value = '';
       qs('dropZoneText').textContent = 'Arrastra el archivo aquí o haz click para seleccionar';
     });
@@ -928,5 +1018,62 @@ const files: Files[] = await fetch(`${apiBase}/api/files/${id}?f=${folderId}`, {
   renderTable();
   attachGenerateEvents();
   attachSendResendEvents();
+
+  /* ---------- visibilidad (checkbox) ---------- */
+  tableBody.addEventListener('change', async (e) => {
+    const checkbox = e.target.closest('.visibility-toggle');
+    if (!checkbox) return;
+
+    const fileId    = checkbox.dataset.fileId;
+    const newVisible = checkbox.checked ? 1 : 0;
+
+    // Mantén el nombre actual para el endpoint de actualización
+    const row         = checkbox.closest('tr');
+    const currentName = row.querySelector('.filename-text')?.textContent?.trim() || '';
+
+    try {
+      const res = await fetch(`${apiBase}/api/files/rename/${fileId}/`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          name   : currentName,
+          visible: newVisible === 1
+        })
+      });
+
+      if (!res.ok) throw new Error();
+
+      // Actualiza el atributo data-v para reflejar el nuevo estado
+      row.querySelector('[data-v]')?.setAttribute('data-v', String(newVisible));
+      showNotification('Visibilidad actualizada correctamente');
+    } catch (err) {
+      // Revierte el estado si hay error
+      checkbox.checked = !checkbox.checked;
+      showNotification('Error al actualizar visibilidad', 'error');
+    }
+  });
+
+  // --- sombra header al hacer scroll ---
+  const head = document.getElementById('filesHead');
+  window.addEventListener('scroll', () => {
+    if (!head) return;
+    head.classList.toggle('shadow-lg', window.scrollY > 40);
+  });
 })();
 </script>
+
+
+<style is:inline>
+  @layer utilities {
+    @keyframes fade-slide {
+      0%   { opacity: 0; transform: translateY(8px); }
+      100% { opacity: 1; transform: translateY(0);   }
+    }
+    .animate-fade-slide {
+      animation: fade-slide .25s both;
+    }
+  }
+</style>
