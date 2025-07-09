@@ -18,26 +18,46 @@ const { class: clazz } = Astro.props;
     <meta name="description" content={pkg.description} />
     <meta name="author" content="Sebastián Allende - Pablo Santibañez | Softkey" />
     <meta name="copyright" content="MIT" />
-		<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
-		<meta http-equiv="Pragma" content="no-cache" />
-		<meta http-equiv="Expires" content="0" />
-		
+    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <link rel="sitemap" type="application/xml" href={url('sitemap-index.xml')} />
 
+    <!-- SPINNER QUE SE VE INSTANTÁNEAMENTE -->
+    <script is:inline>
+      document.write(`
+        <style>
+          #globalSpinnerInit {
+            position: fixed;
+            inset: 0;
+            background-color: white;
+            opacity: 0.8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+          }
+        </style>
+        <div id="globalSpinnerInit">
+          <div class="w-16 h-16 border-4 border-blue-600 border-t-transparent border-solid rounded-full animate-spin"></div>
+        </div>
+      `);
+    </script>
+
+    <!-- WATCHER TOKEN -->
     <script type="module">
-			// eslint-disable-next-line import/no-unresolved, import/extensions, import/no-absolute-path
       import { startTokenWatcher, stopTokenWatcher } from '/js/tokenWatcher.js';
 
       function iniciarWatcher() {
         startTokenWatcher({
-          minutesBefore: 5, // Notificar 5 minutos antes de la expiración
+          minutesBefore: 5,
           onExpireSoon: () => {
-						console.log('🟦 onExpireSoon');
+            console.log('🟦 onExpireSoon');
             const modal = document.getElementById('tokenWarningModal');
             if (modal) modal.classList.remove('hidden');
           },
           onExpired: () => {
-						console.log('🟦 onExpireSoon');
+            console.log('🟦 onExpired');
             localStorage.removeItem('token');
             window.location.href = '/authentication/sign-in';
           }
@@ -73,13 +93,10 @@ const { class: clazz } = Astro.props;
             if (res.ok && data.token) {
               console.log('✅ Nuevo token recibido');
               localStorage.setItem('token', data.token);
-
               if (modal) modal.classList.add('hidden');
-              console.log('🧼 Modal cerrado');
-
               stopTokenWatcher();
               iniciarWatcher();
-							window.location.reload(); // Recargar la página para aplicar el nuevo token
+              window.location.reload();
             } else {
               console.warn('⚠️ Token no renovado. Redirigiendo...');
               window.location.href = '/authentication/sign-in';
@@ -91,8 +108,8 @@ const { class: clazz } = Astro.props;
         });
       });
     </script>
-		
-		<script is:inline src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <script is:inline src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <script is:inline>
       if (
@@ -112,13 +129,14 @@ const { class: clazz } = Astro.props;
       clazz,
       'bg-gray-50 dark:bg-gray-800',
       'scrollbar scrollbar-w-3 scrollbar-thumb-rounded-[0.25rem]',
-      'scrollbar-track-slate-200  scrollbar-thumb-gray-400',
+      'scrollbar-track-slate-200 scrollbar-thumb-gray-400',
       'dark:scrollbar-track-gray-900 dark:scrollbar-thumb-gray-700',
     ]}
   >
-
-	<AuthGuard /> 
+    <AuthGuard />
     <slot />
+
+    <!-- MODAL DE SESIÓN -->
     <div id="tokenWarningModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden justify-center items-center">
       <div class="bg-white dark:bg-gray-800 p-6 rounded-xl max-w-md w-full mx-4 shadow-xl">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Sesión por expirar</h2>
@@ -129,6 +147,14 @@ const { class: clazz } = Astro.props;
         </div>
       </div>
     </div>
+
+    <!-- ELIMINA SPINNER CUANDO CARGUE -->
+    <script>
+      window.addEventListener('DOMContentLoaded', () => {
+        const spinner = document.getElementById('globalSpinnerInit');
+        if (spinner) spinner.remove();
+      });
+    </script>
   </body>
 </html>
 

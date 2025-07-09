@@ -48,17 +48,23 @@ export interface Users {
 // --- CUSTOMERS ---
 export interface Customers {
   id: number;
-	uuid: string; // <-- opcional, para mostrar el UUID del cliente
+  uuid: string;
+  rut: string;
   name: string;
-  email: string;
+  email?: string;
   address: string;
+  address_alt?: string;
   phone: string;
+  fax?: string;
+  mobile?: string;
+  contact_name?: string;
+  contact_secondary?: string;
   city: string;
   country: string;
   created_at: string;
   updated_at: string;
   order_count?: number;
-	status?: string; // <-- opcional, para mostrar el estado del cliente
+  status?: string;
 }
 
 // --- FOLDERS ---

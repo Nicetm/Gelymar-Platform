@@ -2,11 +2,16 @@ class Customer {
   constructor({
     id,
     uuid,
+    rut,
     name,
     email,
     phone,
+    fax,
     mobile,
     address,
+    address_alt,
+    contact_name,
+    contact_secondary,
     country,
     city,
     status,
@@ -17,11 +22,16 @@ class Customer {
   }) {
     this.id = id;
     this.uuid = uuid;
+    this.rut = rut;
     this.name = name;
     this.email = email;
     this.phone = phone;
+    this.fax = fax;
     this.mobile = mobile;
     this.address = address;
+    this.address_alt = address_alt;
+    this.contact_name = contact_name;
+    this.contact_secondary = contact_secondary;
     this.country = country;
     this.city = city;
     this.status = status;

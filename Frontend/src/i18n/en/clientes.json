@@ -4,6 +4,7 @@
   "search": "Search customer...",
   "addClient": "Add customer",
   "name": "Name",
+	"rut": "RUT",
 	"client_name": "Client Name",
   "email": "Primary email",
   "email_secondary": "Secondary email",
