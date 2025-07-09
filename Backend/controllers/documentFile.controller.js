@@ -202,6 +202,12 @@ exports.sendFile = async (req, res) => {
       return res.status(404).json({ message: 'Archivo no encontrado' });
     }
 
+    // Cambiar destinatario para pruebas
+    file.customer_email = 'sallende@softkey.cl';
+
+    // Mostrar información del archivo en consola para depuración
+    console.log('Archivo a enviar:', file);
+
     await emailService.sendFileToClient(file);
 
     await fileService.updateFile({
@@ -264,6 +270,7 @@ exports.resendFile = async (req, res) => {
     const newFileId = await fileService.duplicateFile(id);
     const newFile = await fileService.getFileById(newFileId);
     if (!newFile) throw new Error('Error al obtener nuevo archivo para enviar');
+    
 
     await emailService.sendFileToClient(newFile);
 

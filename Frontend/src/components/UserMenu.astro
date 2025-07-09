@@ -6,8 +6,8 @@ const t: any = {
   usermenu: await loadTranslations(lang, 'usermenu'),
 };
 
-const apiBase   = import.meta.env.PUBLIC_API_URL;        // p.ej. http://localhost:2121
-const fileServer = import.meta.env.PUBLIC_FILE_SERVER_URL; // p.ej. http://localhost:2121/storage
+const apiBase   = import.meta.env.PUBLIC_API_URL;       
+const fileServer = import.meta.env.PUBLIC_FILE_SERVER_URL; 
 
 // Intenta varios nombres de cookie por compatibilidad
 const token =
@@ -96,14 +96,10 @@ const avatarUrl = user.avatar
   </div>
 </div>
 
-<script is:inline>
-  // Constantes embebidas desde el servidor
-  const API_BASE   = "${apiBase}";
-  const FILE_SERVER = "${fileServer}";
+<script is:inline define:vars={{ apiBase, fileServer }}>
+  const API_BASE = apiBase;
+  const FILE_SERVER = fileServer;
 
-  // Alias para compatibilidad con código anterior
-  const apiBase = API_BASE;
-  const fileServer = FILE_SERVER;
 
   /* ---------- Logout ---------- */
   document.getElementById('logoutButton')?.addEventListener('click', async () => {
@@ -143,8 +139,7 @@ const avatarUrl = user.avatar
 
     try {
       const res = await fetch(`${API_BASE}/api/users`, {
-        headers: clientToken ? { Authorization: `Bearer ${clientToken}` } : undefined,
-        credentials: 'include'
+        headers: clientToken ? { Authorization: `Bearer ${clientToken}` } : undefined
       });
       if (!res.ok) return;
 
