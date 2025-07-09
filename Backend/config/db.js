@@ -1,4 +1,4 @@
-// db.js
+// config/db.js
 require('dotenv').config();
 const logger = require('../utils/logger');
 const mysql = require('mysql2/promise');

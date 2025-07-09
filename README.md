@@ -37,7 +37,12 @@ El sistema utiliza una base de datos MySQL. Puedes importar la estructura y dato
 npm install node-cron
 npm install -g pm2
 
-pm2 start .\cron\checkETD.js --name gelymar-etd-checker
-pm2 stop gelymar-etd-checker
+cd backend
+
+pm2 start ecosystem.config.js
+pm2 logs gelymar-client-fetcher
 pm2 logs gelymar-etd-checker
+pm2 delete gelymar-client-fetcher
+pm2 delete gelymar-etd-checker
+pm2 logs
 
