@@ -5,9 +5,8 @@ import type { Users } from '../types/entities.js';
 
 const apiBase = import.meta.env.PUBLIC_API_URL;
 const fileServer = import.meta.env.PUBLIC_FILE_SERVER_URL;
-const setLang = import.meta.env.PUBLIC_LANG;
+const lang = import.meta.env.PUBLIC_LANG;
 
-const lang = setLang;
 const t: any = {
   clientes: await loadTranslations(lang, 'clientes'),
 };
@@ -108,3 +107,7 @@ const users: Users[] = await fetch(`${apiBase}/api/users`, {
     </table>
   </div>
 </section>
+
+<script is:inline define:vars={{ apiBase, fileServer, lang }}>
+  // Usa apiBase, fileServer, lang en vez de import.meta.env.PUBLIC_API_URL, etc.
+</script>

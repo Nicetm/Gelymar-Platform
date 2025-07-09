@@ -29,7 +29,7 @@ if (fs.existsSync(pagesPath)) {
 export default defineConfig({
   site: process.env.CI
     ? 'https://themesberg.github.io'
-    : `http://localhost:${DEV_PORT}`,
+    : process.env.PUBLIC_FRONTEND_BASE_URL || `http://localhost:${DEV_PORT}`,
   base: process.env.CI ? '/flowbite-astro-admin-dashboard' : undefined,
 
   server: {

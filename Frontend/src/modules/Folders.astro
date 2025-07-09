@@ -3,9 +3,8 @@ import { loadTranslations } from '../lib/i18n.js';
 import type { Folders } from '../types/entities.js';
 
 const apiBase = import.meta.env.PUBLIC_API_URL;
-const setLang = import.meta.env.PUBLIC_LANG;
 const fileServer = import.meta.env.PUBLIC_FILE_SERVER_URL;
-const lang = setLang;
+const lang = import.meta.env.PUBLIC_LANG;
 
 const url = new URL(Astro.url.href);
 const clientName = url.searchParams.get('c') ?? '';
@@ -170,7 +169,7 @@ const folders: Folders[] = await fetch(`${apiBase}/api/directories/${id}`, {
 </div>
 <div id="notification" class="hidden fixed top-5 right-5 px-6 py-4 rounded-lg shadow-lg z-50 text-white text-base font-semibold transition-all duration-300 ease-in-out"></div>
 
-<script is:inline>
+<script is:inline define:vars={{ apiBase, fileServer, lang }}>
 	(() => {
 		const qs = id => document.getElementById(id);
 		const tableBody = qs('foldersTableBody');
@@ -298,7 +297,7 @@ const folders: Folders[] = await fetch(`${apiBase}/api/directories/${id}`, {
 			currentPage = 1;
 			renderTable();
 		}
-
+	
 	
 		searchInput.addEventListener('input', () => {
 			const query = searchInput.value.toLowerCase();

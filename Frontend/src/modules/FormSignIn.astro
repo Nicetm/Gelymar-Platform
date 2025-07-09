@@ -1,5 +1,6 @@
 ---
 // import { asset } from '../lib/data.js';
+const apiBase = import.meta.env.PUBLIC_API_BASE_URL;
 ---
 
 <div class="w-full max-w-md mx-auto mt-10 space-y-6 animate-fade-in">
@@ -63,7 +64,7 @@
   }
 </style>
 
-<script is:inline>
+<script is:inline define:vars={{ apiBase }}>
   let otpShown = false;
 
   // Mostrar mensaje si viene de reseteo de contraseña
@@ -83,7 +84,7 @@
     msg.classList.add('hidden');
 
     try {
-      const res = await fetch('http://localhost:3000/api/auth/login', {
+      const res = await fetch(`${apiBase}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, otp })
@@ -92,16 +93,16 @@
       const data = await res.json();
 
       if (!res.ok) {
-        if (data.message?.includes('2FA') && !otpShown) {
+        if ((data.message?.toLowerCase().includes('2fa') || data.message?.toLowerCase().includes('código 2fa')) && !otpShown) {
           otpShown = true;
           document.getElementById('otpContainer').classList.remove('hidden');
 
-          const statusRes = await fetch(`http://localhost:3000/api/auth/2fa/status?email=${encodeURIComponent(email)}`);
+          const statusRes = await fetch(`${apiBase}/auth/2fa/status?email=${encodeURIComponent(email)}`);
           const { twoFAEnabled } = await statusRes.json();
 
           if (!twoFAEnabled) {
             document.getElementById('qrContainer').classList.remove('hidden');
-            const qrRes = await fetch(`http://localhost:3000/api/auth/2fa/setup?email=${encodeURIComponent(email)}`);
+            const qrRes = await fetch(`${apiBase}/auth/2fa/setup?email=${encodeURIComponent(email)}`);
             const { qr } = await qrRes.json();
             document.getElementById('qrImage').src = qr;
           }
@@ -125,7 +126,7 @@
       localStorage.setItem('token', data.token);
 
       // ✅ Consultar /me para obtener el rol seguro
-      const meRes = await fetch('http://localhost:3000/api/auth/me', {
+      const meRes = await fetch(`${apiBase}/auth/me`, {
         headers: {
           Authorization: `Bearer ${data.token}`
         }

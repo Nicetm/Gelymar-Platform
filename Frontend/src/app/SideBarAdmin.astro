@@ -69,22 +69,37 @@ if (user.avatar) {
 ---
 
 <style is:global>
-  /* Re‑usable style for every entry in the sidebar  */
+  /* Fondo sólido y sombra */
+  #sidebar {
+    @apply bg-white dark:bg-gray-800 border-r border-gray-300 dark:border-gray-700 shadow-2xl transition-all duration-500;
+  }
+  /* Hover animado y barra de acento */
   .sidebar-link {
-    @apply flex items-center gap-2 p-2 text-base rounded-lg border-l-4 border-transparent transition-colors duration-150 ease-out;
-    @apply text-gray-900 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700;
+    @apply flex items-center gap-2 p-2 px-4 text-base rounded-lg border-l-4 border-transparent transition-all duration-200 ease-out relative;
+    @apply text-black hover:bg-gray-300 dark:text-gray-200 dark:hover:bg-gray-700;
+    overflow: hidden;
   }
-  /* Visual emphasis for the page that is currently open */
-  .sidebar-link.active {
-    @apply bg-blue-50 text-blue-600 border-blue-600;
-    @apply dark:bg-blue-900/40 dark:text-blue-300;
+
+  .sidebar-link.active::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 4px; /* o 4px si prefieres más delgado */
+    background: #00538C;
+    border-radius: 0; /* Sin bordes redondeados */
+    transition: background 0.3s;
   }
-  /* Icon colour / size */
   .sidebar-link i {
-    @apply w-6 h-6 text-gray-500 dark:text-gray-400;
+    @apply w-6 h-6 text-gray-700 dark:text-gray-400 transition-colors duration-200;
   }
-  .sidebar-link.active i {
-    @apply text-blue-600 dark:text-blue-300;
+
+  .sidebar-link.active {
+    @apply bg-blue-50 text-black border-[#00538C] dark:bg-blue-900/40 dark:text-blue-300;
+    box-shadow: 0 2px 8px 0 #00538C22;
+  }
+  /* Transición suave para el sidebar */
+  #sidebar, .sidebar-link, .sidebar-link i {
+    transition: all 0.3s cubic-bezier(.4,0,.2,1);
   }
 </style>
 ---
@@ -94,14 +109,14 @@ if (user.avatar) {
 
 <aside
   id="sidebar"
-  class="fixed top-2 left-0 z-20 flex-col flex-shrink-0 hidden w-56 h-full pt-20 font-normal duration-75 lg:flex transition-width bg-white border-r border-gray-200 dark:bg-gray-800 dark:border-gray-700"
+  class="fixed top-0 left-0 z-20 flex-col flex-shrink-0 hidden w-56 h-full pt-20 font-normal lg:flex transition-width bg-white border-r border-gray-200 dark:bg-gray-800 dark:border-gray-700 -px-2"
   aria-label="Sidebar"
 >
   <!-- Scrollable content -->
   <div
     class="flex-1 px-3 overflow-y-auto scrollbar scrollbar-w-2 scrollbar-thumb-rounded-md scrollbar-thumb-slate-200 scrollbar-track-gray-400 dark:scrollbar-thumb-slate-900 dark:scrollbar-track-gray-800"
   >
-    <div class="mt-4 space-y-2">
+    <div class="mt-4 space-y-4">
       <!-- dashboard -->
       <a
         href="/admin/dashboard"

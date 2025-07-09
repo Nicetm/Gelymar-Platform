@@ -173,3 +173,8 @@ module.exports = {
   generateInvoice: (filePath, data) => generatePDF(filePath, 'invoice', data),
   generateBL: (filePath, data) => generatePDF(filePath, 'bl', data)
 };
+
+
+
+
+

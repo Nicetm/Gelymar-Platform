@@ -3,9 +3,8 @@ import { loadTranslations } from '../lib/i18n.js';
 import type { Customers } from '../types/entities.js';
 
 const apiBase = import.meta.env.PUBLIC_API_URL;
-const setLang = import.meta.env.PUBLIC_LANG;
+const lang = import.meta.env.PUBLIC_LANG;
 
-const lang = setLang;
 const t: any = {
   clientes: await loadTranslations(lang, 'clientes'),
 	comond: await loadTranslations(lang, 'comond'),
@@ -200,7 +199,7 @@ const customers: Customers[] = await fetch(`${apiBase}/api/customers`, {
 	</div>
 </div>
 
-<script is:inline>
+<script is:inline define:vars={{ apiBase, lang }}>
 	const qs = id => document.getElementById(id);
   const searchInput = qs('searchInput');
 	const itemsPerPageSelect = qs('itemsPerPageSelect');
