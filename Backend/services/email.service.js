@@ -3,13 +3,15 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
+require('dotenv').config(); // Esto debe estar al inicio de tu app principal (app.js), si no lo tienes ya
+
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: process.env.SMTP_PORT,
-  secure: false,
+  secure: false, 
   auth: {
     user: process.env.SMTP_USER,
-    pass: process.env.RESEND_KEY
+    pass: process.env.SMTP_PASS
   }
 });
 
@@ -30,10 +32,19 @@ async function sendFileToClient(file) {
   }
 
   const mailOptions = {
-    from: '"Gelymar Documentos" <onboarding@resend.dev>',
+    from: 'Gelymar Documentos <onboarding@resend.dev>',
     to: `${file.customer_email},${file.contact_emails}`,
-    subject: `Documento ${file.name}`,
-    text: `Estimado cliente, adjunto encontrará el documento ${file.name}`,
+    subject: `Documento importante: ${file.name}`,
+    text: `Estimado/a ${file.customer_name},\n\nLe enviamos adjunto el documento "${file.name}" correspondiente a su gestión con Gelymar.\n\nPor favor, revise el archivo y no dude en contactarnos si requiere información adicional.\n\nAtentamente,\nEquipo Gelymar\nwww.gelymar.com` ,
+    html: `<div style="font-family: Arial, sans-serif; color: #222;">
+      <p>Estimado/a <b>${file.customer_name}</b>,</p>
+      <p>Le enviamos adjunto el documento <b>"${file.name}"</b> correspondiente a su gestión con <b>Gelymar</b>.</p>
+      <p>Por favor, revise el archivo y no dude en contactarnos si requiere información adicional.</p>
+      <br>
+      <p style="margin-bottom:2px;">Atentamente,</p>
+      <p style="font-weight:bold; color:#1d4ed8; margin:0;">Equipo Gelymar</p>
+      <p style="margin:0; font-size:13px;">www.gelymar.com</p>
+    </div>`,
     attachments: [{
       filename: file.name,
       path: absolutePath
