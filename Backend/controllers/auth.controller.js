@@ -208,7 +208,7 @@ exports.recoverPassword = async (req, res) => {
     }
 
     const token = jwt.sign({ email }, process.env.JWT_SECRET, { expiresIn: '15m' });
-    const resetUrl = `http://localhost:2121/authentication/reset-password?token=${token}`;
+    const resetUrl = `${process.env.FRONTEND_BASE_URL || 'http://localhost:2121'}/authentication/reset-password?token=${token}`;
 
     await sendEmail({
       to: email,

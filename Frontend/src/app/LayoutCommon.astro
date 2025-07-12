@@ -23,26 +23,22 @@ const { class: clazz } = Astro.props;
     <meta http-equiv="Expires" content="0" />
     <link rel="sitemap" type="application/xml" href={url('sitemap-index.xml')} />
 
-    <!-- SPINNER QUE SE VE INSTANTÁNEAMENTE -->
-    <script is:inline>
-      document.write(`
-        <style>
-          #globalSpinnerInit {
-            position: fixed;
-            inset: 0;
-            background-color: white;
-            opacity: 0.8;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 9999;
-          }
-        </style>
-        <div id="globalSpinnerInit">
-          <div class="w-16 h-16 border-4 border-blue-600 border-t-transparent border-solid rounded-full animate-spin"></div>
-        </div>
-      `);
-    </script>
+    <!-- CSS del spinner inicial -->
+    <style>
+      #globalSpinnerInit {
+        position: fixed;
+        inset: 0;
+        background-color: white;
+        opacity: 0.8;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+      }
+      html.dark #globalSpinnerInit {
+        background-color: #111827;
+      }
+    </style>
 
     <!-- WATCHER TOKEN -->
     <script type="module">
@@ -80,7 +76,7 @@ const { class: clazz } = Astro.props;
           console.log('🟦 Click en Mantener sesión');
 
           try {
-            const res = await fetch('http://localhost:3000/api/auth/refresh', {
+            const res = await fetch(`${import.meta.env.PUBLIC_API_BASE_URL}/auth/refresh`, {
               method: 'POST',
               headers: {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -133,6 +129,10 @@ const { class: clazz } = Astro.props;
       'dark:scrollbar-track-gray-900 dark:scrollbar-thumb-gray-700',
     ]}
   >
+    <!-- Spinner inicial -->
+    <div id="globalSpinnerInit">
+      <div class="w-16 h-16 border-4 border-blue-600 border-t-transparent border-solid rounded-full animate-spin"></div>
+    </div>
     <AuthGuard />
     <slot />
 

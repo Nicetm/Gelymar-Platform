@@ -3,8 +3,7 @@ import { loadTranslations } from '../lib/i18n.js';
 import type { Orders } from '../types/entities.js';
 
 const apiBase = import.meta.env.PUBLIC_API_URL;
-const setLang = import.meta.env.PUBLIC_LANG;
-const lang = setLang;
+const lang = import.meta.env.PUBLIC_LANG;
 
 const t: any = {
   documentos: await loadTranslations(lang, 'documentos'),
@@ -19,7 +18,7 @@ const orders: Orders[] = await fetch(`${apiBase}/api/orders`, {
 }).then(res => res.json());
 ---
 
-<section id="OrderSection" class="px-4 pt-24 pb-6 sm:px-6 lg:px-8">
+<section id="OrderSection" class="px-4 pt-20 pb-6 sm:px-6 lg:px-8">
   <!-- Encabezado y breadcrumb -->
   <header class="flex flex-col gap-4 border-b border-gray-200 dark:border-gray-700 pb-4">
     <nav class="text-sm text-gray-500 dark:text-gray-400" aria-label="Breadcrumb">
@@ -202,8 +201,9 @@ const orders: Orders[] = await fetch(`${apiBase}/api/orders`, {
 	</div>
 </section>
 
-<script is:inline type="module">
-	import { showNotification, openEditFileModal } from '../../public/js/notifications';
+<script type="module" src="/js/notifications.js"></script>
+<script is:inline define:vars={{ apiBase, lang }}>
+  // Ahora puedes usar window.showNotification y window.openEditFileModal
 
 	// Abrir modal editar
 	document.addEventListener('click', async (e) => {
@@ -220,7 +220,7 @@ const orders: Orders[] = await fetch(`${apiBase}/api/orders`, {
 		const currentVisible = visibleCell?.dataset?.v === '1';
 		console.log('currentVisible', currentVisible);
 
-		await openEditFileModal(fileId, currentName, currentVisible);
+		await window.openEditFileModal(fileId, currentName, currentVisible);
 	});
 
 </script>

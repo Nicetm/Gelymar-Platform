@@ -4,8 +4,7 @@ import type { Files } from '../types/entities.js';
 
 const apiBase = import.meta.env.PUBLIC_API_URL;
 const fileServer = import.meta.env.PUBLIC_FILE_SERVER_URL;
-const setLang = import.meta.env.PUBLIC_LANG;
-const lang = setLang;
+const lang = import.meta.env.PUBLIC_LANG;
 
 const url = new URL(Astro.url.href);
 const clientName = url.searchParams.get('c') ?? '';
@@ -325,7 +324,7 @@ const files: Files[] = await fetch(`${apiBase}/api/files/${id}?f=${folderId}`, {
 	</div>
 </section>
 
-<script is:inline>
+<script is:inline define:vars={{ apiBase, fileServer, lang }}>
 (() => {
 	const qs = id => document.getElementById(id);
 	const section = qs('filesSection');
@@ -374,6 +373,7 @@ const files: Files[] = await fetch(`${apiBase}/api/files/${id}?f=${folderId}`, {
 	const uuid = section?.dataset.uuid;
 	const apiBase = section?.dataset.apiBase;
 	const fileServer = section?.dataset.fileServer;
+	const lang = section?.dataset.lang;
 
 	let currentPage = 1;
 	let itemsPerPage = parseInt(itemsPerPageSelect.value, 10);

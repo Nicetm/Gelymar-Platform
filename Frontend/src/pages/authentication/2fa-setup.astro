@@ -1,5 +1,5 @@
 ---
-const res = await fetch('http://localhost:3000/api/auth/2fa/setup');
+const res = await fetch(`${import.meta.env.PUBLIC_API_BASE_URL}/auth/2fa/setup`);
 const { qr, secret } = await res.json();
 ---
 

@@ -27,7 +27,7 @@ Gestión de Clientes, Ítems, Órdenes, Stock y Documentos.
   ],
   servers: [
     {
-      url: 'http://localhost:3000',
+      url: process.env.BACKEND_BASE_URL || 'http://localhost:3000',
       description: 'Servidor local'
     },
     {
