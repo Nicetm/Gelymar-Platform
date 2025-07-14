@@ -43,5 +43,8 @@
 	"updateSuccess": "Cliente actualizado correctamente",
 	"updateError": "Error al actualizar el cliente",
 	"createSuccess": "Cliente creado correctamente",
-	"createError": "Error al crear el cliente"
+	"createError": "Error al crear el cliente",
+	"existingContacts": "Contactos existentes",
+	"addNewContact": "Agregar nuevo contacto",
+	"position": "Cargo/Puesto"
 }

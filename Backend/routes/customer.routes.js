@@ -43,4 +43,8 @@ router.get('/:id', authMiddleware, authorizeRoles(['admin']), customerController
 
 router.get('/uuid/:uuid', authMiddleware, authorizeRoles(['admin']), customerController.getCustomerByUUID);
 
+router.post('/contacts', authMiddleware, authorizeRoles(['admin']), customerController.createCustomerContact);
+
+router.get('/:uuid/contacts', authMiddleware, authorizeRoles(['admin']), customerController.getCustomerContacts);
+
 module.exports = router;

@@ -43,5 +43,8 @@
 	"updateSuccess": "Customer updated successfully",
 	"updateError": "Error updating customer",
 	"createSuccess": "Customer created successfully",
-	"createError": "Error creating customer"
+	"createError": "Error creating customer",
+	"existingContacts": "Existing contacts",
+	"addNewContact": "Add new contact",
+	"position": "Position/Title"
 }

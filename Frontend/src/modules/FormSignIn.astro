@@ -82,6 +82,7 @@ const apiBase = import.meta.env.PUBLIC_API_BASE_URL;
     const msg = document.getElementById('loginMessage');
 
     msg.classList.add('hidden');
+    console.log(apiBase)
 
     try {
       const res = await fetch(`${apiBase}/auth/login`, {
