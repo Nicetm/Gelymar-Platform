@@ -87,11 +87,33 @@ async function insertCustomer(data) {
   await pool.query(query, params);
 }
 
+async function createCustomerContacts(customer_uuid, contacts) {
+  const pool = await poolPromise;
+  // Buscar el ID numérico a partir del UUID
+  const [customer] = await pool.query('SELECT id FROM customers WHERE uuid = ?', [customer_uuid]);
+  if (!customer[0]) throw new Error('Cliente no encontrado');
+  const customer_id = customer[0].id;
+  const query = `INSERT INTO customer_contacts (customer_id, name, email) VALUES ?`;
+  const values = contacts.map(c => [customer_id, c.name, c.email]);
+  await pool.query(query, [values]);
+}
+
+async function getContactsByCustomerUUID(uuid) {
+  const pool = await poolPromise;
+  // Suponiendo que tienes una relación entre customers y customer_contacts por customer_id
+  const [customer] = await pool.query('SELECT id FROM customers WHERE uuid = ?', [uuid]);
+  if (!customer[0]) return [];
+  const customerId = customer[0].id;
+  const [contacts] = await pool.query('SELECT id, name, email FROM customer_contacts WHERE customer_id = ?', [customerId]);
+  return contacts;
+}
 
 module.exports = {
   getAllCustomerRuts,
   insertCustomer,
   getAllCustomers,
-  getCustomerById,
-  getCustomerByUUID
+  getCustomerById,  
+  getCustomerByUUID,
+  createCustomerContacts,
+  getContactsByCustomerUUID
 };

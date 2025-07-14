@@ -211,11 +211,11 @@ function generateModernTable(doc, items) {
     }
     
     doc.fontSize(9).font(STYLES.font).fillColor(STYLES.textPrimary)
-      .text(item.product, itemX, y + 8, { width: 210 })
-      .text(item.quantity, qtyX, y + 8, { width: 60, align: 'center' })
-      .text(item.price, priceX, y + 8, { width: 70, align: 'center' });
+      .text(item.product || '', itemX, y + 8, { width: 210 })
+      .text(item.quantity || '', qtyX, y + 8, { width: 60, align: 'center' })
+      .text(String(item.price || ''), priceX, y + 8, { width: 70, align: 'center' });
     
-    const priceValue = item.price.replace(/[^\d]/g, '');
+    const priceValue = String(item.price || '').replace(/[^\d]/g, '');
     const price = parseFloat(priceValue);
     if (!isNaN(price)) {
       grandTotal += price;

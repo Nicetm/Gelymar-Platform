@@ -68,3 +68,34 @@ exports.getCustomerByUUID = async (req, res) => {
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 };
+
+/**
+ * @route POST /api/customers/contacts
+ * @desc Crea un contacto para un cliente
+ * @access Protegido (requiere JWT)
+ */
+exports.createCustomerContact = async (req, res) => {
+  const { customer_id, contacts } = req.body;
+  if (!customer_id || !Array.isArray(contacts) || contacts.length === 0) {
+    return res.status(400).json({ message: 'Debe enviar el customer_id y al menos un contacto' });
+  }
+
+  try {
+    await customerService.createCustomerContacts(customer_id, contacts);
+    res.status(201).json({ message: 'Contactos creados correctamente' });
+  } catch (error) {
+    logger.error(`Error al crear contactos: ${error.message}`);
+    res.status(500).json({ message: 'Error al crear contactos' });
+  }
+};
+
+exports.getCustomerContacts = async (req, res) => {
+  const { uuid } = req.params;
+  try {
+    const contacts = await customerService.getContactsByCustomerUUID(uuid);
+    res.json(contacts);
+  } catch (error) {
+    logger.error(`Error al obtener contactos: ${error.message}`);
+    res.status(500).json({ message: 'Error al obtener contactos' });
+  }
+};
