@@ -1,10 +1,10 @@
 ---
-import { loadTranslations } from '../lib/i18n.js';
+import { loadTranslations, getServerLang } from '../lib/i18n.js';
 import type { Users } from '../types/entities.js';
 
 const apiBase    = import.meta.env.PUBLIC_API_URL;
 const fileServer = import.meta.env.PUBLIC_FILE_SERVER_URL;
-const lang       = import.meta.env.PUBLIC_LANG || 'en';   // idioma dinámico
+const lang       = getServerLang(Astro.cookies);   // idioma dinámico
 
 const t: any = {
   sidebar        : await loadTranslations(lang, 'sidebar'),
@@ -225,8 +225,9 @@ if (user.avatar) {
         type="button"
         data-dropdown-toggle="language-dropdown"
         class="inline-flex items-center justify-center w-10 h-10 text-xl rounded-full shadow-md text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700 transition"
+        id="currentLangBtn"
       >
-        🇺🇸
+        <span id="currentLangFlag">🇺🇸</span>
       </button>
       <div
         id="language-dropdown"
@@ -240,7 +241,8 @@ if (user.avatar) {
           <li>
             <a
               href="#"
-              class="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white rounded-md transition"
+              data-lang="en"
+              class="language-option flex items-center gap-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white rounded-md transition"
             >
               🇺🇸 {t.sidebar.english}
             </a>
@@ -248,7 +250,8 @@ if (user.avatar) {
           <li>
             <a
               href="#"
-              class="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white rounded-md transition"
+              data-lang="es"
+              class="language-option flex items-center gap-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white rounded-md transition"
             >
               🇨🇱 {t.sidebar.spanish}
             </a>
@@ -530,6 +533,38 @@ const hideModal = () => {
     btn.addEventListener("click", () => {
       target.classList.toggle("hidden");
       btn.querySelector("[data-lucide='chevron-down']")?.classList.toggle("rotate-180");
+    });
+  });
+
+  /* ---------- cambio de idioma ---------- */
+  // Función para actualizar el flag del idioma actual
+  function updateCurrentLangFlag() {
+    const currentLang = localStorage.getItem('lang') || '{lang}';
+    const flagElement = document.getElementById('currentLangFlag');
+    if (flagElement) {
+      flagElement.textContent = currentLang === 'es' ? '🇨🇱' : '🇺🇸';
+    }
+  }
+
+  // Actualizar flag al cargar
+  updateCurrentLangFlag();
+
+  document.querySelectorAll(".language-option").forEach(option => {
+    option.addEventListener("click", (e) => {
+      e.preventDefault();
+      const lang = option.getAttribute("data-lang");
+      if (lang) {
+        // Importar y usar la función setLang
+        import('/src/lib/i18n.js').then(({ setLang }) => {
+          setLang(lang);
+        }).catch(err => {
+          console.error('Error al cambiar idioma:', err);
+          // Fallback manual
+          localStorage.setItem('lang', lang);
+          document.cookie = `user-lang=${lang}; path=/; max-age=31536000`;
+          window.location.reload();
+        });
+      }
     });
   });
 });

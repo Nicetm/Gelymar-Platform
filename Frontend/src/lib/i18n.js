@@ -20,6 +20,71 @@ const translationsMap = {
     usermenu: () => import('../i18n/en/usermenu.json'),
   }
 };
+
+/**
+ * Determina el idioma para el servidor (Astro)
+ * @param {any} cookies - Objeto de cookies de Astro (opcional)
+ * @returns {string} 'es' o 'en'
+ */
+export function getServerLang(cookies = null) {
+  // Prioridad 1: Cookie de preferencia del usuario (si está disponible)
+  if (cookies) {
+    const userLang = cookies.get('user-lang')?.value;
+    if (userLang && (userLang === 'es' || userLang === 'en')) {
+      return userLang;
+    }
+  }
+  
+  // Prioridad 2: Variable de entorno (configuración del servidor)
+  if (typeof import.meta !== 'undefined' && import.meta.env?.PUBLIC_LANG) {
+    return import.meta.env.PUBLIC_LANG;
+  }
+  
+  // Prioridad 3: Fallback por defecto
+  return 'es';
+}
+
+/**
+ * Determina el idioma para el cliente (browser)
+ * @returns {string} 'es' o 'en'
+ */
+export function getCurrentLang() {
+  // Prioridad 1: localStorage (preferencia explícita del usuario)
+  if (typeof window !== 'undefined') {
+    const storedLang = localStorage.getItem('lang');
+    if (storedLang) {
+      return storedLang;
+    }
+  }
+  
+  // Prioridad 2: Variable de entorno (configuración del servidor)
+  if (typeof import.meta !== 'undefined' && import.meta.env?.PUBLIC_LANG) {
+    return import.meta.env.PUBLIC_LANG;
+  }
+  
+  // Prioridad 3: Idioma del navegador
+  if (typeof window !== 'undefined' && navigator.language) {
+    return navigator.language.slice(0, 2);
+  }
+  
+  // Prioridad 4: Fallback por defecto
+  return 'es';
+}
+
+/**
+ * Función universal que determina el idioma (funciona en servidor y cliente)
+ * @returns {string} 'es' o 'en'
+ */
+export function getLang() {
+  // Si estamos en el servidor (Astro)
+  if (typeof window === 'undefined') {
+    return getServerLang();
+  }
+  
+  // Si estamos en el cliente
+  return getCurrentLang();
+}
+
 /**
  * Carga las traducciones por idioma y sección (ej: 'clientes')
  * @param {string} lang 'es' o 'en'
@@ -35,16 +100,17 @@ export async function loadTranslations(lang = 'es', section = 'clientes') {
   }
 }
 
-export function getCurrentLang() {
-  if (typeof window !== 'undefined') {
-    return localStorage.getItem('lang') || navigator.language.slice(0, 2) || 'es';
-  }
-  return 'es';
-}
-
 export function setLang(lang) {
   if (typeof window !== 'undefined') {
+    // Guardar en localStorage
     localStorage.setItem('lang', lang);
-  	window.location.reload();
+    
+    // Guardar en cookie para que el servidor lo sepa
+    document.cookie = `user-lang=${lang}; path=/; max-age=31536000`; // 1 año
+    
+    // Recargar la página para que el servidor renderice con el nuevo idioma
+    window.location.reload();
   }
 }
+
+
