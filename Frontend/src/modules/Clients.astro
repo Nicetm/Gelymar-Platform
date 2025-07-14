@@ -1,9 +1,9 @@
 ---
-import { loadTranslations } from '../lib/i18n.js';
+import { loadTranslations, getServerLang } from '../lib/i18n.js';
 import type { Customers } from '../types/entities.js';
 
 const apiBase = import.meta.env.PUBLIC_API_URL;
-const lang = import.meta.env.PUBLIC_LANG;
+const lang = getServerLang(Astro.cookies);
 
 const t: any = {
   clientes: await loadTranslations(lang, 'clientes'),

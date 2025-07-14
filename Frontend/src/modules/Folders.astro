@@ -1,10 +1,10 @@
 ---
-import { loadTranslations } from '../lib/i18n.js';
+import { loadTranslations, getServerLang } from '../lib/i18n.js';
 import type { Folders } from '../types/entities.js';
 
 const apiBase = import.meta.env.PUBLIC_API_URL;
 const fileServer = import.meta.env.PUBLIC_FILE_SERVER_URL;
-const lang = import.meta.env.PUBLIC_LANG;
+const lang = getServerLang(Astro.cookies);
 
 const url = new URL(Astro.url.href);
 const clientName = url.searchParams.get('c') ?? '';
