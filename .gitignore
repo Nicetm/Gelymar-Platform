@@ -1,16 +1,63 @@
 # Variables de entorno
 .env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
-# Node modules
+# Node modules - Ignorar en todas las carpetas
 node_modules/
+**/node_modules/
+Backend/node_modules/
+Frontend/node_modules/
 
 # Archivos subidos
 uploads/
 dummy/
 
-# Archivos temporales
+# Archivos temporales y logs
 *.log
+logs/
 .DS_Store
 Thumbs.db
 
+# Archivos de build y dist
+dist/
+build/
+.astro/
+
+# Archivos de cache
+.cache/
+.parcel-cache/
+.npm/
+
+# Archivos de IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Archivos de sistema
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Archivos de lock (opcional - algunos prefieren incluirlos)
+# package-lock.json
+# pnpm-lock.yaml
+# yarn.lock
+
+# Archivos de TypeScript
 **/*.astro.tsx
+*.tsbuildinfo
+
+# Archivos de testing
+coverage/
+.nyc_output/
+
+# Archivos de PM2
+.pm2/
