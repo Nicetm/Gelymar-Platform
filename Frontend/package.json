@@ -27,14 +27,14 @@
 		"start": "astro dev"
 	},
 	"dependencies": {
-		"@astrojs/netlify": "^6.4.1",
+		"@astrojs/netlify": "^6.5.1",
 		"@astrojs/node": "^9.3.0",
 		"@astrojs/react": "^4.3.0",
 		"@astrojs/sitemap": "^3.4.1",
 		"@astrojs/tailwind": "^6.0.2",
 		"@faker-js/faker": "^7.6.0",
 		"apexcharts": "^3.37.2",
-		"astro": "^5.11.0",
+		"astro": "^5.12.0",
 		"flowbite": "^2.1.1",
 		"flowbite-typography": "^1.0.3",
 		"jsonwebtoken": "^9.0.2",

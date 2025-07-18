@@ -55,7 +55,10 @@ export function initClientsScript() {
     });
 
     const totalPages = Math.ceil(filteredRows.length / itemsPerPage);
-    pageIndicator.textContent = `Page ${currentPage} of ${totalPages}`;
+    // Usar las traducciones inyectadas por Astro
+    let pageLabel = (typeof translations !== 'undefined' && translations.pageIndicator) ? translations.pageIndicator : '';
+    let ofLabel = (typeof translations !== 'undefined' && translations.pageIndicatorSeparator) ? translations.pageIndicatorSeparator : ' -- ';
+    pageIndicator.textContent = `${pageLabel} ${currentPage} ${ofLabel} ${totalPages}`;
   }
 
   /**

@@ -46,5 +46,7 @@
 	"createError": "Error creating customer",
 	"existingContacts": "Existing contacts",
 	"addNewContact": "Add new contact",
-	"position": "Position/Title"
+	"position": "Position/Title",
+  "pageIndicator": "Page",
+  "pageIndicatorSeparator": "of"
 }

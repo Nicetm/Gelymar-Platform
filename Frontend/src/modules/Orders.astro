@@ -48,35 +48,35 @@ const orders: Orders[] = await fetch(`${apiBase}/api/orders`, {
 		<!-- Orden -->
 		<div>
 			<label for="orden" class="block text-sm font-medium text-gray-700 dark:text-gray-200">{t.documentos.orden ?? 'Orden'}</label>
-			<input type="text" id="orden" name="orden" placeholder="Ej: OC-1234"
+			<input type="text" id="orden" name="orden" placeholder={t.documentos.orderPlaceholder}
 				class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500">
 		</div>
 
 		<!-- Cliente -->
 		<div>
 			<label for="cliente" class="block text-sm font-medium text-gray-700 dark:text-gray-200">{t.documentos.cliente ?? 'Cliente'}</label>
-			<input type="text" id="cliente" name="cliente" placeholder="Nombre cliente"
+			<input type="text" id="cliente" name="cliente" placeholder={t.documentos.clientPlaceholder}
 				class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500">
 		</div>
 
 		<!-- Fecha Ingreso -->
 		<div>
 			<label for="fechaIngreso" class="block text-sm font-medium text-gray-700 dark:text-gray-200">{t.documentos.fecha_ingreso ?? 'Fecha Ingreso'}</label>
-			<input type="date" id="fechaIngreso" name="fechaIngreso"
+			<input type="date" id="fechaIngreso" name="fechaIngreso" placeholder={t.documentos.fechaIngresoPlaceholder}
 				class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500">
 		</div>
 
 		<!-- Fecha ETD -->
 		<div>
 			<label for="fechaETD" class="block text-sm font-medium text-gray-700 dark:text-gray-200">{t.documentos.fecha_etd ?? 'Fecha ETD'}</label>
-			<input type="date" id="fechaETD" name="fechaETD"
+			<input type="date" id="fechaETD" name="fechaETD" placeholder={t.documentos.fechaETDPlaceholder}
 				class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500">
 		</div>
 
 		<!-- Fecha ETA -->
 		<div>
 			<label for="fechaETA" class="block text-sm font-medium text-gray-700 dark:text-gray-200">{t.documentos.fecha_eta ?? 'Fecha ETA'}</label>
-			<input type="date" id="fechaETA" name="fechaETA"
+			<input type="date" id="fechaETA" name="fechaETA" placeholder={t.documentos.fechaETAPlaceholder}
 				class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500">
 		</div>
 
@@ -85,10 +85,10 @@ const orders: Orders[] = await fetch(`${apiBase}/api/orders`, {
 			<label for="estado" class="block text-sm font-medium text-gray-700 dark:text-gray-200">{t.documentos.estado ?? 'Estado'}</label>
 			<select id="estado" name="estado"
 				class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500">
-				<option value="">{t.comond.all ?? 'Todos'}</option>
-				<option value="pendiente">Pendiente</option>
-				<option value="enviado">Enviado</option>
-				<option value="completado">Completado</option>
+				<option value="">{t.documentos.estadoTodos}</option>
+				<option value="pendiente">{t.documentos.estadoPendiente}</option>
+				<option value="enviado">{t.documentos.estadoEnviado}</option>
+				<option value="completado">{t.documentos.estadoCompletado}</option>
 			</select>
 		</div>
 	</div>

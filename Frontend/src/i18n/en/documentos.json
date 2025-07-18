@@ -28,5 +28,20 @@
 	"fileDeleted": "File deleted successfully",
 	"sendCustomMessage": "Send custom message",
 	"message": "Message",
-	"is_visible_to_customer": "Public"
+	"is_visible_to_customer": "Public",
+	"orderPlaceholder": "e.g. OC-1234",
+	"clientPlaceholder": "Client name",
+	"fechaIngresoPlaceholder": "mm / dd / yyyy",
+	"fechaETDPlaceholder": "mm / dd / yyyy",
+	"fechaETAPlaceholder": "mm / dd / yyyy",
+	"estadoTodos": "All",
+	"estadoPendiente": "Pending",
+	"estadoEnviado": "Sent",
+	"estadoCompletado": "Completed",
+	"order": "Order",
+	"client": "Client",
+	"fechaIngreso": "Entry date",
+	"fechaETD": "ETD date",
+	"fechaETA": "ETA date",
+	"estado": "Status"
 }
