@@ -7,7 +7,25 @@ import {
   formatDate
 } from './utils.js';
 
-export function initFoldersScript() {
+// Función para cargar traducciones
+async function loadTranslations(lang, section) {
+  try {
+    const module = await import(`/src/i18n/${lang}/${section}.json`);
+    return module.default || {};
+  } catch (err) {
+    console.warn('Fallo carga traducción:', err);
+    return {};
+  }
+}
+
+export async function initFoldersScript() {
+  // Obtener apiBase desde las variables de entorno
+  const apiBase = import.meta.env?.PUBLIC_API_URL || 'http://localhost:3000';
+  
+  // Cargar traducciones
+  const currentLang = localStorage.getItem('lang') || 'en';
+  const messages = await loadTranslations(currentLang, 'messages');
+  
   const tableBody = qs('foldersTableBody');
   const searchInput = qs('searchInput');
   const itemsPerPageSelect = qs('itemsPerPageSelect');
@@ -16,7 +34,6 @@ export function initFoldersScript() {
   const pageIndicator = qs('pageIndicator');
   const section = qs('folderSection');
   const uuID = section?.dataset?.uuid;
-  const apiBase = window.apiBase || section?.dataset?.apiBase;
   const addFolderBtn = qs('addFolderBtn');
   const addIcon = qs('addIcon');
   const spinnerIcon = qs('spinnerIcon');
@@ -34,13 +51,11 @@ export function initFoldersScript() {
     const pageData = filteredRows.slice(start, start + itemsPerPage);
 
     allRows.forEach(row => {
-      const currentRow = row;
-      currentRow.style.display = 'none';
+      row.style.display = 'none';
     });
 
     pageData.forEach(row => {
-      const currentRow = row;
-      currentRow.style.display = '';
+      row.style.display = '';
     });
     
     if (pageIndicator) {
@@ -174,7 +189,7 @@ export function initFoldersScript() {
       }
 
       if (!folderName) {
-        showNotification("El campo N° SAP es obligatorio", "warning");
+        showNotification(messages.folders?.folderNameRequired || "El campo N° SAP es obligatorio", "warning");
         return;
       }
 
@@ -189,7 +204,7 @@ export function initFoldersScript() {
 
         if (!response.ok) {
           const errorText = await response.text();
-          throw new Error(`Error al obtener cliente: ${response.status} - ${errorText}`);
+          throw new Error(`${messages.folders?.getCustomerError || 'Error al obtener cliente'}: ${response.status} - ${errorText}`);
         }
 
         const customer = await response.json();
@@ -217,10 +232,10 @@ export function initFoldersScript() {
         const uploadFolderName = qs('uploadFolderName');
         if (uploadFolderName) uploadFolderName.value = '';
 
-        showNotification("Orden creada correctamente", "success");
+        showNotification(messages.folders?.folderCreatedSuccess || "Carpeta creada correctamente", "success");
 
       } catch (err) {
-        showNotification(err.message || 'Error al crear carpeta', "error");
+        showNotification(err.message || (messages.folders?.folderCreatedError || 'Error al crear carpeta'), "error");
       }
     });
   }

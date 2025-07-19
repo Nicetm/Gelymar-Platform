@@ -12,9 +12,24 @@ import {
   isValidEmail
 } from './utils.js';
 
-export function initClientsScript() {
+// Función para cargar traducciones
+async function loadTranslations(lang, section) {
+  try {
+    const module = await import(`/src/i18n/${lang}/${section}.json`);
+    return module.default || {};
+  } catch (err) {
+    console.warn('Fallo carga traducción:', err);
+    return {};
+  }
+}
+
+export async function initClientsScript() {
   // Obtener apiBase desde las variables de entorno
   const apiBase = import.meta.env?.PUBLIC_API_URL || 'http://localhost:3000';
+  
+  // Cargar traducciones
+  const currentLang = localStorage.getItem('lang') || 'en';
+  const messages = await loadTranslations(currentLang, 'messages');
   
   // Verificar que todos los elementos necesarios existan
   const searchInput = qs('searchInput');
@@ -198,8 +213,8 @@ export function initClientsScript() {
       const contactId = btn.dataset.contactId;
       
       const confirmed = await confirmAction(
-        '¿Eliminar contacto?',
-        'Esta acción no se puede deshacer.'
+        messages.clients.deleteContactConfirm,
+        messages.clients.deleteContactMessage
       );
       
       if (confirmed) {
@@ -213,12 +228,12 @@ export function initClientsScript() {
           });
           if (response.ok) {
             await loadContacts(currentClientUuid);
-            showNotification('Contacto eliminado correctamente', 'success');
+            showNotification(messages.clients.deleteContactSuccess, 'success');
           } else {
-            showNotification('No se pudo eliminar el contacto', 'error');
+            showNotification(messages.clients.deleteContactError, 'error');
           }
         } catch (error) {
-          showNotification('No se pudo eliminar el contacto', 'error');
+          showNotification(messages.clients.deleteContactError, 'error');
         }
       }
     }
@@ -295,7 +310,7 @@ export function initClientsScript() {
         contacts.push({ name, email });
       });
       if (invalid) {
-        showNotification('Todos los contactos deben tener nombre y un email válido', 'error');
+        showNotification(messages.clients.addContactValidation, 'error');
         return;
       }
 
@@ -316,13 +331,16 @@ export function initClientsScript() {
         if (response.ok) {
           // Cierra el modal
           hideModal('#contactsModal');
-          showNotification(`${contacts.length} contacto${contacts.length > 1 ? 's' : ''} agregado${contacts.length > 1 ? 's' : ''} correctamente`, 'success');
+          const message = contacts.length > 1 
+            ? `${contacts.length} ${messages.clients.contactsAddedPlural}`
+            : `1 ${messages.clients.contactsAdded}`;
+          showNotification(message, 'success');
         } else {
           const error = await response.json();
-          showNotification(error.message || 'Error al agregar los contactos', 'error');
+          showNotification(error.message || messages.clients.addContactError, 'error');
         }
       } catch (error) {
-        showNotification('Error al agregar los contactos', 'error');
+        showNotification(messages.clients.addContactError, 'error');
       }
     });
   }
