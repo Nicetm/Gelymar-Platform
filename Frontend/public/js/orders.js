@@ -1,6 +1,15 @@
 import { qs, showNotification, createPagination, formatDate, setupScrollShadow } from './utils.js';
 
-export function initOrdersScript() {
+// Detectar idioma
+let lang = localStorage.getItem('lang') || 'es';
+// Eliminar toda la lógica de importación dinámica de traducciones
+let t = {
+  editOrder: "Editar {order}",
+  noResults: "Sin resultados",
+  searchError: "Error al buscar"
+};
+
+export async function initOrdersScript() {
   const buscarBtn = qs('buscarBtn');
   const limpiarBtn = qs('limpiarBtn');
   const tablaBody = qs('resultadosTabla');
@@ -20,7 +29,7 @@ export function initOrdersScript() {
       currentPage = page;
       renderPage();
     });
-    pageIndicator.textContent = `Page ${currentPage} of ${totalPages}`;
+    pageIndicator.textContent = ` ${currentPage}  -- ${totalPages}`;
   }
 
   function renderPage() {
@@ -29,7 +38,7 @@ export function initOrdersScript() {
     const pageData = currentData.slice(start, end);
 
     if (pageData.length === 0) {
-      tablaBody.innerHTML = `<tr><td colspan="7" class="px-4 py-4 text-center text-gray-400 dark:text-gray-500">Sin resultados</td></tr>`;
+      tablaBody.innerHTML = `<tr><td colspan="7" class="px-4 py-4 text-center text-gray-400 dark:text-gray-500">${t.noResults}</td></tr>`;
       updatePagination();
       return;
     }
@@ -49,7 +58,7 @@ export function initOrdersScript() {
                 <path stroke-linecap="round" stroke-linejoin="round" d="M14 3h7m0 0v7m0-7L10 14m-4 0h.01M5 14a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1h5a1 1 0 0 0 1-1v-.01" />
               </svg>
             </a>
-            <a href="#" title="Editar ${order.name}" class="edit-btn hover:text-green-500 transition" data-file-id="${order.id}">
+            <a href="#" title="${t.editOrder.replace('{order}', order.name)}" class="edit-btn hover:text-green-500 transition" data-file-id="${order.id}">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.586-6.586a2 2 0 112.828 2.828L11.828 13.83a2 2 0 01-.586.414L9 15l.756-2.243a2 2 0 01.414-.586z" />
                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 20H5" />
@@ -92,7 +101,7 @@ export function initOrdersScript() {
       estado: estado !== 'Todos' && estado !== '' ? estado : undefined,
       fechaIngreso: fechaIngreso || undefined,
       fechaETD: fechaETD || undefined,
-      fechaETA: fechaETA || undefined
+      fechaETA: fechaETA || undefined 
     };
     Object.keys(filtros).forEach(key => {
       if (filtros[key] === undefined || filtros[key] === '') {
@@ -118,7 +127,7 @@ export function initOrdersScript() {
       renderPage();
     } catch (error) {
       console.error(error);
-      tablaBody.innerHTML = `<tr><td colspan="6" class="px-4 py-4 text-center text-red-500">Error al buscar</td></tr>`;
+      tablaBody.innerHTML = `<tr><td colspan="6" class="px-4 py-4 text-center text-red-500">${t.searchError}</td></tr>`;
     }
   }
 

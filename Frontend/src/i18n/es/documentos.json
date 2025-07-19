@@ -25,5 +25,20 @@
 	"documentDescriptionTooltip": "Proporciona una breve descripción del documento para referencia futura",
 	"sendCustomMessage": "Enviar mensaje personalizado",
 	"message": "Mensaje",
-	"is_visible_to_customer": "Publico"
+	"is_visible_to_customer": "Publico",
+  "orderPlaceholder": "Ej: OC-1234",
+  "clientPlaceholder": "Nombre cliente",
+  "fechaIngresoPlaceholder": "dd/mm/yyyy",
+  "fechaETDPlaceholder": "dd/mm/yyyy",
+  "fechaETAPlaceholder": "dd/mm/yyyy",
+  "estadoTodos": "Todos",
+  "estadoPendiente": "Pendiente",
+  "estadoEnviado": "Enviado",
+  "estadoCompletado": "Completado",
+  "order": "Orden",
+  "client": "Cliente",
+  "fechaIngreso": "Fecha ingreso",
+  "fechaETD": "Fecha ETD",
+  "fechaETA": "Fecha ETA",
+  "estado": "Estado"
 }

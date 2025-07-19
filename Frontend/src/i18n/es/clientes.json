@@ -46,5 +46,7 @@
 	"createError": "Error al crear el cliente",
 	"existingContacts": "Contactos existentes",
 	"addNewContact": "Agregar nuevo contacto",
-	"position": "Cargo/Puesto"
+	"position": "Cargo/Puesto",
+  "pageIndicator": "Página",
+  "pageIndicatorSeparator": "de"
 }
