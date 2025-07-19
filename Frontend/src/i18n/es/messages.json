@@ -1,0 +1,19 @@
+{
+  "clients": {
+    "deleteContactConfirm": "¿Eliminar contacto?",
+    "deleteContactMessage": "Esta acción no se puede deshacer.",
+    "deleteContactSuccess": "Contacto eliminado correctamente",
+    "deleteContactError": "No se pudo eliminar el contacto",
+    "addContactSuccess": "contacto agregado correctamente",
+    "addContactError": "Error al agregar los contactos",
+    "addContactValidation": "Todos los contactos deben tener nombre y un email válido",
+    "contactsAdded": "contacto agregado correctamente",
+    "contactsAddedPlural": "contactos agregados correctamente"
+  },
+  "folders": {
+    "folderNameRequired": "El campo N° SAP es obligatorio",
+    "folderCreatedSuccess": "Carpeta creada correctamente",
+    "folderCreatedError": "Error al crear carpeta",
+    "getCustomerError": "Error al obtener cliente"
+  }
+} 

@@ -192,11 +192,11 @@ const customers: Customers[] = await fetch(`${apiBase}/api/customers`, {
 
   // Inicializar el script cuando el DOM esté completamente cargado
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-      initClientsScript();
+    document.addEventListener('DOMContentLoaded', async () => {
+      await initClientsScript();
     });
   } else {
     // Si el DOM ya está cargado, ejecutar inmediatamente
-    initClientsScript();
+    await initClientsScript();
   } 
 </script>

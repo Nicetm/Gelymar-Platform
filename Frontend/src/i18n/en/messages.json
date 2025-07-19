@@ -1,0 +1,19 @@
+{
+  "clients": {
+    "deleteContactConfirm": "Delete contact?",
+    "deleteContactMessage": "This action cannot be undone.",
+    "deleteContactSuccess": "Contact deleted successfully",
+    "deleteContactError": "Could not delete contact",
+    "addContactSuccess": "contact added successfully",
+    "addContactError": "Error adding contacts",
+    "addContactValidation": "All contacts must have a name and valid email",
+    "contactsAdded": "contact added successfully",
+    "contactsAddedPlural": "contacts added successfully"
+  },
+  "folders": {
+    "folderNameRequired": "The SAP field is required",
+    "folderCreatedSuccess": "Folder created successfully",
+    "folderCreatedError": "Error creating folder",
+    "getCustomerError": "Error getting customer"
+  }
+} 

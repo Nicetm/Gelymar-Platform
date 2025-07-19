@@ -8,7 +8,7 @@ const translationsMap = {
     sidebar: () => import('../i18n/es/sidebar.json'),
     admin_settings: () => import('../i18n/es/admin_settings.json'),
     usermenu: () => import('../i18n/es/usermenu.json'),
-    footer: () => import('../i18n/es/footer.json'),
+    messages: () => import('../i18n/es/messages.json'),
   },
   en: {
     comond: () => import('../i18n/en/comond.json'),
@@ -19,7 +19,7 @@ const translationsMap = {
     sidebar: () => import('../i18n/en/sidebar.json'),
     admin_settings: () => import('../i18n/en/admin_settings.json'),
     usermenu: () => import('../i18n/en/usermenu.json'),
-    footer: () => import('../i18n/en/footer.json'),
+    messages: () => import('../i18n/en/messages.json'),
   }
 };
 
