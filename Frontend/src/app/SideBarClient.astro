@@ -116,36 +116,60 @@ if (user.avatar) {
   <div
     class="flex-1 px-3 overflow-y-auto scrollbar scrollbar-w-2 scrollbar-thumb-rounded-md scrollbar-thumb-slate-200 scrollbar-track-gray-400 dark:scrollbar-thumb-slate-900 dark:scrollbar-track-gray-800"
   >
-    <div class="mt-4 space-y-4">
+    <!-- Client Panel Indicator -->
+    <div class="mt-4 mb-6 text-center">
+      <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 rounded-xl flex items-center justify-center mx-auto mb-2 shadow-lg">
+        <i data-lucide="shield" class="w-5 h-5 text-white"></i>
+      </div>
+      <span class="text-xs font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wide">Client Panel</span>
+    </div>
+    
+    <!-- Divider -->
+    <hr class="my-4 border-gray-300 dark:border-gray-600" />
+    
+    <div class="space-y-3">
       <!-- dashboard -->
       <a
         href="/client/dashboard"
-        class="sidebar-link"
+        class="group flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 border-l-4 border-transparent hover:border-gray-400 dark:hover:border-gray-500"
       >
-        <i data-lucide="layout-dashboard"></i>
-        <span class="ml-3">{t.sidebar.dashboard}</span>
+        <div class="w-8 h-8 bg-gray-200 dark:bg-gray-600 rounded-lg flex items-center justify-center shadow-sm group-hover:shadow-md transition-all duration-200">
+          <i data-lucide="layout-dashboard" class="w-4 h-4 text-gray-600 dark:text-gray-300"></i>
+        </div>
+        <span class="font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors duration-200">
+          {t.sidebar.dashboard}
+        </span>
       </a>
 
       <!-- documents -->
       <a
         href="/client/documents"
-        class="sidebar-link"
+        class="group flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 border-l-4 border-transparent hover:border-gray-400 dark:hover:border-gray-500"
       >
-        <i data-lucide="folder-open"></i>
-        <span class="ml-3">{t.sidebar.documents}</span>
-      </a>
-
-      <hr class="my-3 border-gray-300 dark:border-gray-600" />
-
-      <!-- support -->
-      <a
-        href="/client/support"
-        class="sidebar-link"
-      >
-        <i data-lucide="help-circle"></i>
-        <span class="ml-3">{t.sidebar.support}</span>
+        <div class="w-8 h-8 bg-gray-200 dark:bg-gray-600 rounded-lg flex items-center justify-center shadow-sm group-hover:shadow-md transition-all duration-200">
+          <i data-lucide="folder-open" class="w-4 h-4 text-gray-600 dark:text-gray-300"></i>
+        </div>
+        <span class="font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors duration-200">
+          {t.sidebar.documents}
+        </span>
       </a>
     </div>
+  </div>
+
+  <!-- Support section at bottom -->
+  <div class="absolute bottom-20 left-0 w-full px-4">
+    <!-- Divider -->
+    <hr class="mb-4 border-gray-300 dark:border-gray-600" />
+    
+    <!-- Support link -->
+    <a href="/client/info/support" class="text-center group block relative">
+      <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 rounded-xl flex items-center justify-center mx-auto mb-3 shadow-lg group-hover:shadow-xl group-hover:scale-105 transition-all duration-300 cursor-pointer">
+        <i data-lucide="headphones" class="w-6 h-6 text-white"></i>
+      </div>
+      <span class="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-300 group-hover:font-semibold">
+        {t.sidebar.support}
+      </span>
+    </a>
   </div>
 
   <!-- Footer: settings + language -->
@@ -157,7 +181,7 @@ if (user.avatar) {
       href="#"
       id="openClientSettings"
       data-tooltip-target="tooltip-settings"
-      class="inline-flex items-center justify-center w-10 h-10 text-gray-500 rounded-full shadow-md hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-400 dark:hover:text-white transition"
+      class="inline-flex items-center justify-center w-10 h-10 text-gray-600 rounded-full shadow-md hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-400 dark:hover:text-white transition bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600"
     >
       <i data-lucide="user-cog" class="w-6 h-6"></i>
     </a>
@@ -175,17 +199,17 @@ if (user.avatar) {
       <button
         type="button"
         data-dropdown-toggle="language-dropdown"
-        class="inline-flex items-center justify-center w-10 h-10 text-xl rounded-full shadow-md text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700 transition"
+        class="inline-flex items-center justify-center w-10 h-10 text-xl rounded-full shadow-md text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700 transition bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600"
         id="currentLangBtn"
       >
         <span id="currentLangFlag">🇺🇸</span>
       </button>
       <div
         id="language-dropdown"
-        class="absolute bottom-14 left-1/2 -translate-x-1/2 z-50 hidden w-52 rounded-xl shadow-2xl border border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 transition-all duration-200 ease-out"
+        class="absolute bottom-14 right-0 z-50 hidden w-40 rounded-xl shadow-2xl border border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 transition-all duration-200 ease-out"
       >
         <div
-          class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-white rotate-45 border-b border-r border-gray-200 dark:bg-gray-800 dark:border-gray-600"
+          class="absolute -bottom-1.5 right-4 w-3 h-3 bg-white rotate-45 border-b border-r border-gray-200 dark:bg-gray-800 dark:border-gray-600"
         ></div>
 
         <ul class="py-2 text-sm text-gray-700 dark:text-gray-200">
@@ -393,6 +417,30 @@ document.addEventListener("DOMContentLoaded", () => {
     const href = link.getAttribute("href");
     if (href && (path === href || path.startsWith(href + "/"))) {
       link.classList.add("active");
+      
+      // Special styling for support link when active
+      if (href === "/client/info/support") {
+        const supportLink = link;
+        const iconContainer = supportLink.querySelector("div");
+        
+        if (iconContainer) {
+          iconContainer.classList.add("ring-4", "ring-blue-500", "ring-opacity-75", "shadow-2xl", "scale-110");
+        }
+      }
+      
+      // Special styling for dashboard and documents when active
+      if (href === "/client/dashboard" || href === "/client/documents") {
+        const navLink = link;
+        const iconContainer = navLink.querySelector("div");
+        const textSpan = navLink.querySelector("span");
+        
+        // Add subtle active styling
+        navLink.classList.add("bg-blue-50", "dark:bg-gray-700", "border-blue-300", "dark:border-gray-500");
+        
+        if (textSpan) {
+          textSpan.classList.add("text-blue-700", "dark:text-white", "font-semibold");
+        }
+      }
     }
   });
 
