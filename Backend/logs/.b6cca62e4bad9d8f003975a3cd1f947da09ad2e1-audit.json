@@ -24,6 +24,11 @@
             "date": 1752947320673,
             "name": "/Users/ressc/Desktop/Proyectos/SoftkeyProyects/gelymar-management-platform/Backend/logs/app-2025-07-19.log",
             "hash": "b28160055e14f6480b43c09e9b3d5e40f076a89c72adbc196bff06509f39c936"
+        },
+        {
+            "date": 1753034360366,
+            "name": "/Users/ressc/Desktop/Proyectos/SoftkeyProyects/gelymar-management-platform/Backend/logs/app-2025-07-20.log",
+            "hash": "7f83d590d3379ae5e46bf6d1451282262988d120f58db8859b9cab8b3aa1faee"
         }
     ],
     "hashType": "sha256"

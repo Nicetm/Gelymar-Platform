@@ -1,0 +1,11 @@
+---
+import StatsCard from './StatsCard.astro'
+// Mostrar por defecto, no depender del JavaScript para visibilidad
+---
+<section id="documents-stats"
+         class="grid grid-cols-1 md:grid-cols-4 gap-6">
+  <StatsCard  icon="file-text"    colour="blue"   label="Total Documents"  valueId="total-docs"    />
+  <StatsCard  icon="trending-up"  colour="green"  label="Recent"           valueId="recent-docs"   extraId="recent-info"   />
+  <StatsCard  icon="clock"        colour="yellow" label="Unread"           valueId="pending-docs"  extraId="pending-info"  />
+  <StatsCard  icon="check-circle" colour="purple" label="Reviewed"         valueId="reviewed-docs" barId="reviewed-progress"/>
+</section>
