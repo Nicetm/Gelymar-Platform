@@ -1,48 +1,48 @@
 ---
-// navbar-cliente.astro
-import NotificationDropdown from '../components/NotificationDropdown.astro';
-import UserMenu from '../components/UserMenu.astro';
+// navbar.astro
+// import NotificationDropdown from '../components/NotificationDropdown.astro';
+// import AppsDropdown from '../components/AppsDropdown.astro';
 import ColorModeSwitcher from '../components/ColorModeSwitcher.astro';
-import AppsDropdown from '../components/AppsDropdown.astro';
+import UserMenu from '../components/UserMenu.astro';
 ---
 
-<nav class="fixed z-50 w-full bg-white border-b border-gray-200 dark:bg-gray-800 dark:border-gray-700">
+<nav
+  role="navigation"
+  aria-label="Main navigation"
+  class="fixed z-50 w-full bg-white/80 dark:bg-gray-900/70 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 ring-1 ring-white/10 dark:ring-gray-700 shadow-md transition-colors motion-reduce:transition-none">
   <div class="px-3 py-2 lg:px-5 lg:pl-3">
     <div class="flex items-center justify-between">
       <!-- Logo + Toggle -->
-      <div class="flex items-center justify-start ml-6">
+      <div class="flex items-center justify-start ml-4 lg:ml-6 px-1">
         <button
           id="toggleSidebarMobile"
-          aria-expanded="true"
-          aria-controls="sidebar"
-          class="p-2 text-gray-600 rounded cursor-pointer lg:hidden hover:text-gray-900 hover:bg-gray-100 focus:bg-gray-100 dark:focus:bg-gray-700 focus:ring-2 focus:ring-gray-100 dark:focus:ring-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"
+          aria-label="Toggle sidebar"
+          aria-expanded="false"
+          class="p-2 xl:hidden relative z-20 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 transition"
         >
-          <svg id="toggleSidebarMobileHamburger" class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M3 5h14M3 10h14M3 15h14"/>
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 6h16M4 12h16M4 18h16"/>
           </svg>
         </button>
-
-        <!-- Logo (con animación hover) -->
         <a
-          href="/"
-          class="group -ml-5 inline-flex items-center gap-2 px-2 py-1 rounded-xl bg-white dark:bg-[#dcdcdc] shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105"
+          href="/client"
+          class="ml-2 md:ml-0 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/90 dark:bg-gray-800/70 backdrop-blur-md ring-1 ring-inset ring-gray-200 dark:ring-gray-700 shadow-md hover:shadow-lg hover:-translate-y-0.5 hover:scale-105 transition-transform duration-300 ease-out focus:outline-none focus:ring-2 focus:ring-primary-500"
         >
           <img
             src="/assets/gelymar.svg"
-            alt="Logo"
-            class="h-8 w-auto transition-transform duration-300 ease-in-out group-hover:scale-110"
-          />
-          <span class="text-lg font-extrabold text-[#002E50] dark:text-[#002E50] relative">
+            alt="Gelymar logo"
+            class="h-9 w-auto drop-shadow-sm transition-transform duration-300 ease-in-out group-hover:scale-150 filter dark:invert dark:brightness-200 -px-2"
+          >
+          <span class="text-xl dark:text-xl font-extrabold tracking-tight text-[#002E50] dark:text-gray-100 transition-colors duration-300 px-1">
             Gelymar
-            <span class="absolute left-0 -bottom-1 h-[2px] w-0 bg-[#002E50] dark:bg-[#002E50] transition-all duration-300 ease-in-out group-hover:w-full"></span>
           </span>
         </a>
       </div>
 
       <!-- Iconos -->
-      <div class="flex items-center space-x-5 ml-3 mr-8">
-        <NotificationDropdown />
-        <AppsDropdown />
+      <div class="flex items-center space-x-5 ml-3 pr-4 lg:pr-8">
+        <!-- <NotificationDropdown /> -->
+        <!-- <AppsDropdown /> -->
         <ColorModeSwitcher />
         <UserMenu />
       </div>
@@ -50,41 +50,63 @@ import AppsDropdown from '../components/AppsDropdown.astro';
   </div>
 </nav>
 
+<!-- Script que maneja los dropdowns -->
 <script is:inline>
-  document.addEventListener('DOMContentLoaded', () => {
-    const toggles = document.querySelectorAll('[data-dropdown-toggle]');
+// @ts-nocheck
+  window.addEventListener("DOMContentLoaded", () => {
+    const toggles = document.querySelectorAll("[data-dropdown-toggle]");
 
     toggles.forEach((btn) => {
-      btn.addEventListener('click', (e) => {
+      btn.addEventListener("click", (e) => {
         e.stopPropagation();
 
-        const targetId = btn.getAttribute('data-dropdown-toggle');
+        const targetId = btn.getAttribute("data-dropdown-toggle");
         if (!targetId) return;
 
         const dropdown = document.getElementById(targetId);
         if (!dropdown) return;
 
-        document.querySelectorAll('[id$="-dropdown"]').forEach((el) => {
-          if (el !== dropdown) {
-            el.classList.add('hidden');
-          }
+        // Oculta todos excepto el actual
+        document.querySelectorAll("[id$='-dropdown']").forEach((el) => {
+          if (el !== dropdown) el.classList.add("hidden");
         });
 
-        dropdown.classList.toggle('hidden');
+        // Alterna este
+        dropdown.classList.toggle("hidden");
       });
     });
 
-    document.addEventListener('click', (e) => {
-      const target = e.target;
-      if (!(target instanceof Element)) return;
+    // Cierra todos si haces clic afuera
+    document.addEventListener("click", (e) => {
+      const { target } = e;
+      if (!(target instanceof Node)) return;
 
-      const clickedDropdownToggle = target.closest('[data-dropdown-toggle]');
-      const clickedDropdownPanel = target.closest('[id$="-dropdown"]');
+      const isInsideDropdown = [...document.querySelectorAll("[id$='-dropdown']")].some(el => el.contains(target));
+      const isToggle = [...document.querySelectorAll("[data-dropdown-toggle]")].some(el => el.contains(target));
 
-      if (!clickedDropdownToggle && !clickedDropdownPanel) {
-        document.querySelectorAll('[id$="-dropdown"]').forEach((el) =>
-          el.classList.add('hidden')
-        );
+      if (!isInsideDropdown && !isToggle) {
+        document.querySelectorAll("[id$='-dropdown']").forEach((el) => el.classList.add("hidden"));
+      }
+    });
+    // --- Navbar shadow on scroll ---
+    const nav = document.querySelector('nav[aria-label="Main navigation"]');
+    const toggleBtn = document.getElementById('toggleSidebarMobile');
+    const sidebar   = document.getElementById('sidebar');         // aside element
+
+    function handleScroll() {
+      if (!nav) return;
+      nav.classList.toggle('shadow-lg', window.scrollY > 0);
+    }
+    window.addEventListener('scroll', handleScroll);
+    handleScroll();
+
+    // --- aria-expanded sync for the hamburger ---
+    toggleBtn?.addEventListener('click', () => {
+      const expanded = toggleBtn.getAttribute('aria-expanded') === 'true';
+      toggleBtn.setAttribute('aria-expanded', (!expanded).toString());
+      // toggle sidebar visibility on mobile
+      if (sidebar) {
+        sidebar.classList.toggle('-translate-x-full');
       }
     });
   });

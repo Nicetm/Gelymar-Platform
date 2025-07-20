@@ -1,5 +1,11 @@
 ---
 import CopyrightNotice from '../components/CopyrightNotice.astro';
+import { loadTranslations, getServerLang } from '../lib/i18n.js';
+
+const lang = getServerLang(Astro.cookies);
+const t: any = {
+  footer: await loadTranslations(lang, 'footer'),
+};
 ---
 
 <footer
@@ -8,21 +14,21 @@ import CopyrightNotice from '../components/CopyrightNotice.astro';
   <!-- Enlaces legales -->
   <ul class="flex flex-wrap items-center mb-6 space-y-1 md:mb-0 animate-fade-in-up delay-100">
     <li>
-  <a
-    href="/terms-and-conditions"
-    class="mr-4 text-sm font-normal text-gray-500 hover:underline md:mr-6 dark:text-gray-400 transition-all duration-300"
-  >
-    Terms and Conditions
-  </a>
-</li>
+    <a
+      href="/client/info/terms-and-conditions"
+      class="mr-4 text-sm font-normal text-gray-500 hover:underline md:mr-6 dark:text-gray-400 transition-all duration-300"
+    >
+      {t.footer.terms_and_conditions}
+    </a>
+    </li>
     <li>
-  <a
-    href="/privacy-policy"
-    class="mr-4 text-sm font-normal text-gray-500 hover:underline md:mr-6 dark:text-gray-400 transition-all duration-300"
-  >
-    Privacy Policy
-  </a>
-</li>
+      <a
+        href="/client/info/privacy-policy"
+        class="mr-4 text-sm font-normal text-gray-500 hover:underline md:mr-6 dark:text-gray-400 transition-all duration-300"
+      >
+        {t.footer.privacy_policy}
+      </a>
+    </li>
   </ul>
 
   <!-- Enlaces sociales -->
@@ -31,7 +37,7 @@ import CopyrightNotice from '../components/CopyrightNotice.astro';
     <a
       href="https://www.gelymar.com"
       target="_blank"
-      aria-label="Sitio Web Gelymar"
+      aria-label="{t.footer.website_aria}"
       class="text-gray-500 hover:text-gray-700 dark:hover:text-white transition-transform transform hover:scale-110"
     >
       <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -46,7 +52,7 @@ import CopyrightNotice from '../components/CopyrightNotice.astro';
     <a
       href="https://www.linkedin.com/company/gelymar-sa"
       target="_blank"
-      aria-label="LinkedIn Gelymar"
+      aria-label="{t.footer.linkedin_aria}"
       class="text-gray-500 hover:text-gray-700 dark:hover:text-white transition-transform transform hover:scale-110"
     >
       <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">

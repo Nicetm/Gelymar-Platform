@@ -1,0 +1,1887 @@
+---
+import LayoutSidebarClient from '../../../app/LayoutSidebarClient.astro';
+---
+
+<LayoutSidebarClient title="Documents - Client Panel">
+  <div class="min-h-screen pt-5">
+    <!-- Header -->
+    <div class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+      <div class="px-6 py-6">
+        <div class="text-center mb-4">
+          <div class="inline-flex items-center justify-center w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full mb-3">
+            <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+          </div>
+          <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-1">Document Center</h1>
+          <p class="text-base text-gray-600 dark:text-gray-400">Access and manage your shared documents</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Contenido principal -->
+    <div class="p-6">
+      <!-- Selección de Orden -->
+      <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 mb-8">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Select Order</h3>
+            <p class="text-sm text-gray-600 dark:text-gray-400">Choose an order to view its documents</p>
+          </div>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="orders-grid">
+          <!-- Las órdenes se cargarán dinámicamente aquí -->
+        </div>
+      </div>
+
+      <!-- Estadísticas de documentos (solo visible cuando hay orden seleccionada) -->
+      <div id="documents-stats" class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+          <div class="flex items-center">
+            <div class="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+              <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+            </div>
+            <div class="ml-4">
+              <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Total Documents</p>
+              <p class="text-2xl font-bold text-gray-900 dark:text-white" id="total-docs">0</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+          <div class="flex items-center">
+            <div class="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
+              <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+              </svg>
+            </div>
+            <div class="ml-4">
+              <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Recent</p>
+              <p class="text-2xl font-bold text-gray-900 dark:text-white" id="recent-docs">0</p>
+              <p class="text-xs text-gray-500 dark:text-gray-400" id="recent-info">0 new today</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+          <div class="flex items-center">
+            <div class="p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
+              <svg class="w-6 h-6 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </div>
+            <div class="ml-4">
+              <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Unread</p>
+              <p class="text-2xl font-bold text-gray-900 dark:text-white" id="pending-docs">0</p>
+              <p class="text-xs text-gray-500 dark:text-gray-400" id="pending-info">0 remaining</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+          <div class="flex items-center">
+            <div class="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+              <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </div>
+            <div class="ml-4">
+              <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Reviewed</p>
+              <p class="text-2xl font-bold text-gray-900 dark:text-white" id="reviewed-docs">0/0</p>
+              <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-2">
+                <div class="bg-purple-600 h-2 rounded-full transition-all duration-300" id="reviewed-progress" style="width: 0%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lista de documentos -->
+      <div id="documents-section" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hidden">
+        <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Shared Documents</h2>
+              <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">View, download, and manage all documents shared with you by the company</p>
+            </div>
+            <div class="flex items-center gap-3">
+              <!-- Filtro por tipo -->
+              <select class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <option value="">All types</option>
+                <option value="pdf">PDF</option>
+                <option value="doc">Documents</option>
+                <option value="img">Images</option>
+                <option value="other">Others</option>
+              </select>
+              
+              <!-- Buscador -->
+              <div class="relative">
+                <input 
+                  type="text" 
+                  placeholder="Search documents..." 
+                  class="pl-8 pr-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent w-48"
+                >
+                <svg class="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="divide-y divide-gray-200 dark:divide-gray-700">
+          <!-- Documento 1 -->
+          <div class="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-200">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-4">
+                <div class="flex-shrink-0">
+                  <div class="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                    </svg>
+                  </div>
+                </div>
+                <div>
+                  <h3 class="text-sm font-medium text-gray-900 dark:text-white">Invoice_2024_001.pdf</h3>
+                  <p class="text-sm text-gray-500 dark:text-gray-400">Billing • 2.4 MB • Updated 2 days ago</p>
+                </div>
+              </div>
+              <div class="flex items-center space-x-3">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                  Completed
+                </span>
+                <button class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors duration-200">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                  </svg>
+                </button>
+                <button class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors duration-200">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Documento 2 -->
+          <div class="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-200">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-4">
+                <div class="flex-shrink-0">
+                  <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                  </div>
+                </div>
+                <div>
+                  <h3 class="text-sm font-medium text-gray-900 dark:text-white">Service_Contract.docx</h3>
+                  <p class="text-sm text-gray-500 dark:text-gray-400">Contracts • 1.8 MB • Updated 1 week ago</p>
+                </div>
+              </div>
+              <div class="flex items-center space-x-3">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+                  Pending
+                </span>
+                <button class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors duration-200">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                  </svg>
+                </button>
+                <button class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors duration-200">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Documento 3 -->
+          <div class="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-200">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-4">
+                <div class="flex-shrink-0">
+                  <div class="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                  </div>
+                </div>
+                <div>
+                  <h3 class="text-sm font-medium text-gray-900 dark:text-white">Quality_Certificate.jpg</h3>
+                  <p class="text-sm text-gray-500 dark:text-gray-400">Certificates • 3.2 MB • Updated 3 days ago</p>
+                </div>
+              </div>
+              <div class="flex items-center space-x-3">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                  Completed
+                </span>
+                <button class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors duration-200">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                  </svg>
+                </button>
+                <button class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors duration-200">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Documento 4 -->
+          <div class="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-200">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-4">
+                <div class="flex-shrink-0">
+                  <div class="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                  </div>
+                </div>
+                <div>
+                  <h3 class="text-sm font-medium text-gray-900 dark:text-white">Procedures_Manual.pdf</h3>
+                  <p class="text-sm text-gray-500 dark:text-gray-400">Manuals • 5.1 MB • Updated 1 month ago</p>
+                </div>
+              </div>
+              <div class="flex items-center space-x-3">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                  Reviewed
+                </span>
+                <button class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors duration-200">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                  </svg>
+                </button>
+                <button class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors duration-200">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Paginación -->
+        <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+          <div class="flex items-center justify-between">
+            <div class="text-sm text-gray-700 dark:text-gray-300">
+              <span id="pagination-info">Showing 1-4 of 24 documents</span>
+            </div>
+            <div class="flex items-center space-x-2" id="pagination-controls">
+              <button 
+                id="prev-btn" 
+                class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled
+              >
+                Previous
+              </button>
+              <div id="page-numbers" class="flex items-center space-x-2">
+                <button class="page-btn px-3 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700" data-page="1">
+                  1
+                </button>
+                <button class="page-btn px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-600" data-page="2">
+                  2
+                </button>
+                <button class="page-btn px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-600" data-page="3">
+                  3
+                </button>
+              </div>
+              <button 
+                id="next-btn" 
+                class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-600"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal para enviar email -->
+  <div id="email-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm overflow-y-auto h-full w-full hidden z-50 transition-all duration-200 ease-out flex items-center justify-center p-4">
+    <div class="relative mx-auto p-0 border-0 w-full max-w-6xl transform transition-all duration-200 ease-out scale-95 opacity-0">
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <!-- Header con gradiente -->
+        <div class="bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-700 dark:to-blue-800 px-10 py-6">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-4">
+              <div class="p-3 bg-white/20 rounded-lg">
+                <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                </svg>
+              </div>
+              <div>
+                <h3 class="text-2xl font-semibold text-white">Report Document Issue</h3>
+                <p class="text-blue-100 text-sm mt-1">Notify about problems or specific details found</p>
+              </div>
+            </div>
+            <button id="close-email-modal" class="text-white/80 hover:text-white transition-colors duration-200 p-3 rounded-lg hover:bg-white/10">
+              <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        
+        <!-- Contenido del modal en layout horizontal -->
+        <div class="p-10">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Columna izquierda - Documento y problema -->
+            <div class="space-y-6">
+              <!-- Sección del documento -->
+              <div class="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-600">
+                <div class="flex items-center space-x-3 mb-4">
+                  <div class="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                    <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                  </div>
+                  <h4 class="text-lg font-semibold text-gray-900 dark:text-white">Document in Question</h4>
+                </div>
+                <div id="document-details" class="space-y-3">
+                  <!-- Los detalles del documento se insertarán aquí -->
+                </div>
+              </div>
+
+              <!-- Sección del problema -->
+              <div class="space-y-6">
+                <div>
+                  <label class="block text-base font-medium text-gray-700 dark:text-gray-300 mb-3">Issue Type:</label>
+                  <div class="grid grid-cols-2 gap-3">
+                    <label class="flex items-center p-4 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                      <input type="radio" name="issue-type" value="error" class="mr-3 text-blue-600 focus:ring-blue-500">
+                      <div>
+                        <div class="font-medium text-gray-900 dark:text-white">Error Found</div>
+                        <div class="text-sm text-gray-500 dark:text-gray-400">Incorrect information or data</div>
+                      </div>
+                    </label>
+                    <label class="flex items-center p-4 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                      <input type="radio" name="issue-type" value="missing" class="mr-3 text-blue-600 focus:ring-blue-500">
+                      <div>
+                        <div class="font-medium text-gray-900 dark:text-white">Missing Information</div>
+                        <div class="text-sm text-gray-500 dark:text-gray-400">Required data not present</div>
+                      </div>
+                    </label>
+                    <label class="flex items-center p-4 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                      <input type="radio" name="issue-type" value="format" class="mr-3 text-blue-600 focus:ring-blue-500">
+                      <div>
+                        <div class="font-medium text-gray-900 dark:text-white">Format Issue</div>
+                        <div class="text-sm text-gray-500 dark:text-gray-400">Layout or presentation problem</div>
+                      </div>
+                    </label>
+                    <label class="flex items-center p-4 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                      <input type="radio" name="issue-type" value="other" class="mr-3 text-blue-600 focus:ring-blue-500">
+                      <div>
+                        <div class="font-medium text-gray-900 dark:text-white">Other</div>
+                        <div class="text-sm text-gray-500 dark:text-gray-400">Different concern</div>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                <div>
+                  <label class="block text-base font-medium text-gray-700 dark:text-gray-300 mb-3">Priority Level:</label>
+                  <div class="flex space-x-3">
+                    <label class="flex items-center">
+                      <input type="radio" name="priority" value="low" class="mr-2 text-green-600 focus:ring-green-500">
+                      <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Low</span>
+                    </label>
+                    <label class="flex items-center">
+                      <input type="radio" name="priority" value="medium" class="mr-2 text-yellow-600 focus:ring-yellow-500">
+                      <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Medium</span>
+                    </label>
+                    <label class="flex items-center">
+                      <input type="radio" name="priority" value="high" class="mr-2 text-red-600 focus:ring-red-500">
+                      <span class="text-sm font-medium text-gray-700 dark:text-gray-300">High</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div>
+                  <label class="block text-base font-medium text-gray-700 dark:text-gray-300 mb-3">Detailed Description:</label>
+                  <div class="relative">
+                    <textarea id="issue-description" rows="8" class="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-400 dark:focus:border-blue-400 transition-all duration-200 resize-none" placeholder="Describe the specific issue or concern you found in this document..."></textarea>
+                  </div>
+                  <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    <p><strong>Template:</strong> Feel free to modify this text or write your own description.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Columna derecha - Contacto y archivos -->
+            <div class="space-y-6">
+              <!-- Información de contacto -->
+              <div class="bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 p-6 rounded-lg border border-blue-200 dark:border-blue-700">
+                <div class="flex items-center space-x-3 mb-4">
+                  <div class="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                    <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                    </svg>
+                  </div>
+                  <h4 class="text-lg font-semibold text-gray-900 dark:text-white">Contact Information</h4>
+                </div>
+                
+                <div class="space-y-4">
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Your Name:</label>
+                    <input type="text" id="contact-name" class="w-full px-4 py-3 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-400 dark:focus:border-blue-400 transition-all duration-200" placeholder="Your full name">
+                  </div>
+                  
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Your Email:</label>
+                    <input type="email" id="contact-email" class="w-full px-4 py-3 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-400 dark:focus:border-blue-400 transition-all duration-200" placeholder="your.email@company.com">
+                  </div>
+                  
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Phone (Optional):</label>
+                    <input type="tel" id="contact-phone" class="w-full px-4 py-3 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-400 dark:focus:border-blue-400 transition-all duration-200" placeholder="+1 (555) 123-4567">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Archivos adicionales -->
+              <div class="bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 p-6 rounded-lg border border-green-200 dark:border-green-700">
+                <div class="flex items-center space-x-3 mb-4">
+                  <div class="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                    <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                  </div>
+                  <h4 class="text-lg font-semibold text-gray-900 dark:text-white">Additional Files</h4>
+                </div>
+                
+                <!-- Tabs para diferentes tipos de archivos -->
+                <div class="mb-4">
+                  <div class="flex space-x-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                    <button type="button" id="upload-tab" class="flex-1 px-3 py-2 text-sm font-medium rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm transition-all duration-200">
+                      Upload New Files
+                    </button>
+                    <button type="button" id="select-tab" class="flex-1 px-3 py-2 text-sm font-medium rounded-md text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all duration-200">
+                      Select Existing Files
+                    </button>
+                  </div>
+                </div>
+                
+                <!-- Panel de subida de archivos -->
+                <div id="upload-panel" class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 text-center hover:border-blue-400 dark:hover:border-blue-500 transition-colors duration-200">
+                  <div class="space-y-3">
+                    <div class="flex justify-center">
+                      <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <p class="text-xs font-medium text-gray-700 dark:text-gray-300">Drop files here or click to upload</p>
+                      <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">PDF, DOC, JPG, PNG up to 10MB each</p>
+                    </div>
+                    <input type="file" id="file-upload" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" class="hidden">
+                    <button type="button" id="upload-btn" class="px-3 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors duration-200">
+                      Choose Files
+                    </button>
+                  </div>
+                </div>
+                
+                <!-- Panel de selección de archivos existentes -->
+                <div id="select-panel" class="hidden">
+                  <div class="space-y-3">
+                    <!-- Filtros -->
+                    <div class="flex space-x-2">
+                      <input type="text" id="file-search" placeholder="Search files..." class="flex-1 px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-400 dark:focus:border-blue-400">
+                      <select id="file-category-filter" class="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-400 dark:focus:border-blue-400">
+                        <option value="">All</option>
+                        <option value="Billing">Billing</option>
+                        <option value="Contracts">Contracts</option>
+                        <option value="Certificates">Certificates</option>
+                        <option value="Manuals">Manuals</option>
+                        <option value="Reports">Reports</option>
+                        <option value="Policies">Policies</option>
+                        <option value="Marketing">Marketing</option>
+                        <option value="Training">Training</option>
+                      </select>
+                    </div>
+                    
+                    <!-- Lista de archivos disponibles -->
+                    <div class="max-h-40 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-lg">
+                      <div id="available-files-list" class="divide-y divide-gray-200 dark:divide-gray-600">
+                        <!-- Los archivos disponibles se mostrarán aquí -->
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Lista de archivos seleccionados -->
+                <div id="selected-files" class="mt-3 space-y-2 hidden">
+                  <h5 class="text-xs font-medium text-gray-700 dark:text-gray-300">Selected Files:</h5>
+                  <div id="files-list" class="space-y-2">
+                    <!-- Los archivos se mostrarán aquí -->
+                  </div>
+                </div>
+              </div>
+
+              <!-- Report Summary -->
+              <div class="bg-gradient-to-r from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-800/20 p-4 rounded-lg border border-amber-200 dark:border-amber-700">
+                <div class="flex items-center space-x-2 mb-3">
+                  <div class="p-1 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
+                    <svg class="w-4 h-4 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                    </svg>
+                  </div>
+                  <h4 class="text-sm font-semibold text-gray-900 dark:text-white">Report Summary</h4>
+                </div>
+                
+                <div class="space-y-2 text-xs text-gray-600 dark:text-gray-400">
+                  <div class="flex items-center space-x-2">
+                    <div class="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                    <span>Document will be automatically attached</span>
+                  </div>
+                  <div class="flex items-center space-x-2">
+                    <div class="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
+                    <span>Issue details will be formatted professionally</span>
+                  </div>
+                  <div class="flex items-center space-x-2">
+                    <div class="w-1.5 h-1.5 bg-amber-500 rounded-full"></div>
+                    <span>Response expected within 24-48 hours</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Footer con botones mejorados -->
+        <div class="px-10 py-8 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-200 dark:border-gray-600">
+          <div class="flex justify-between items-center">
+            <div class="text-sm text-gray-500 dark:text-gray-400">
+              <span class="font-medium">Note:</span> This report will be sent to the document administrator
+            </div>
+            <div class="flex space-x-4">
+              <button id="cancel-email" class="px-8 py-3 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 hover:border-gray-400 dark:hover:border-gray-500 transition-all duration-200 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800">
+                Cancel
+              </button>
+              <button id="send-email" class="px-8 py-3 text-sm font-medium text-white bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 border border-transparent rounded-lg transition-all duration-200 focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transform hover:scale-105 active:scale-95">
+                <div class="flex items-center space-x-2">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                  </svg>
+                  <span>Submit Report</span>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Funciones para manejar el modal de email (definidas primero)
+    function openEmailModal(docId: number) {
+      const modal = document.getElementById('email-modal') as HTMLElement;
+      const modalContent = modal.querySelector('.relative') as HTMLElement;
+      
+      // Guardar el ID del documento en el modal
+      modal.dataset.docId = docId.toString();
+      
+      // Obtener el documento
+      const doc = documents.find(d => d.id === docId);
+      if (!doc) return;
+      
+      // Actualizar los detalles del documento en el modal
+      const documentDetails = document.getElementById('document-details') as HTMLElement;
+      documentDetails.innerHTML = `
+        <div class="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
+          <div class="flex items-center space-x-3 mb-3">
+            <div class="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+              <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+            </div>
+            <div>
+              <h5 class="font-semibold text-gray-900 dark:text-white">${doc.name}</h5>
+              <p class="text-sm text-gray-500 dark:text-gray-400">${doc.category}</p>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3 mb-3">
+            <div class="bg-gray-50 dark:bg-gray-700 p-2 rounded text-center">
+              <div class="text-xs text-gray-500 dark:text-gray-400">Size</div>
+              <div class="font-medium text-gray-900 dark:text-white">${doc.size}</div>
+            </div>
+            <div class="bg-gray-50 dark:bg-gray-700 p-2 rounded text-center">
+              <div class="text-xs text-gray-500 dark:text-gray-400">Type</div>
+              <div class="font-medium text-gray-900 dark:text-white">${doc.type.toUpperCase()}</div>
+            </div>
+          </div>
+          <div class="text-xs text-gray-500 dark:text-gray-400">
+            Last Updated: ${formatDate(doc.updated)}
+          </div>
+          <div class="mt-2">
+            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColors[doc.status as keyof typeof statusColors]}">
+              ${doc.status}
+            </span>
+          </div>
+        </div>
+      `;
+      
+      // Pre-llenar campos de contacto si están disponibles
+      const contactName = document.getElementById('contact-name') as HTMLInputElement;
+      const contactEmail = document.getElementById('contact-email') as HTMLInputElement;
+      const issueDescription = document.getElementById('issue-description') as HTMLTextAreaElement;
+      
+      // Intentar obtener datos del usuario actual (simulado)
+      if (contactName && contactEmail) {
+        // En un caso real, estos datos vendrían del backend
+        contactName.value = localStorage.getItem('userName') || '';
+        contactEmail.value = localStorage.getItem('userEmail') || '';
+      }
+      
+      // Pre-llenar descripción con template
+      if (issueDescription) {
+        const templateText = `I have reviewed the document "${doc.name}" and found the following issue:
+
+PROBLEM DESCRIPTION:
+[Please describe the specific problem you encountered]
+
+LOCATION IN DOCUMENT:
+[If applicable, mention page numbers, sections, or specific areas]
+
+IMPACT:
+[How does this issue affect the document or its users?]
+
+SUGGESTED SOLUTION:
+[If you have any suggestions for fixing this issue]
+
+ADDITIONAL CONTEXT:
+[Any other relevant information that might help resolve this issue]`;
+
+        issueDescription.value = templateText;
+      }
+      
+      // Mostrar modal con animación suave
+      modal.classList.remove('hidden');
+      
+      // Animar entrada con delay mínimo para evitar parpadeo
+      requestAnimationFrame(() => {
+        modalContent.classList.remove('scale-95', 'opacity-0');
+        modalContent.classList.add('scale-100', 'opacity-100');
+      });
+    }
+
+    function closeEmailModal() {
+      const modal = document.getElementById('email-modal') as HTMLElement;
+      const modalContent = modal.querySelector('.relative') as HTMLElement;
+      
+      // Limpiar archivos seleccionados
+      selectedFiles = [];
+      selectedExistingFiles = [];
+      const selectedFilesDiv = document.getElementById('selected-files') as HTMLElement;
+      if (selectedFilesDiv) {
+        selectedFilesDiv.classList.add('hidden');
+      }
+      
+      // Limpiar input de archivos
+      const fileInput = document.getElementById('file-upload') as HTMLInputElement;
+      if (fileInput) {
+        fileInput.value = '';
+      }
+      
+      // Animar salida suave
+      modalContent.classList.remove('scale-100', 'opacity-100');
+      modalContent.classList.add('scale-95', 'opacity-0');
+      
+      // Ocultar después de la animación
+      setTimeout(() => {
+        modal.classList.add('hidden');
+      }, 200);
+    }
+
+    function sendEmailFromModal(): void {
+      const modal = document.getElementById('email-modal') as HTMLElement;
+      const docId = parseInt(modal.dataset.docId || '0');
+      const contactName = document.getElementById('contact-name') as HTMLInputElement;
+      const contactEmail = document.getElementById('contact-email') as HTMLInputElement;
+      const contactPhone = document.getElementById('contact-phone') as HTMLInputElement;
+      const issueDescription = document.getElementById('issue-description') as HTMLTextAreaElement;
+      
+      // Validar campos requeridos
+      if (!contactName.value.trim() || !contactEmail.value.trim() || !issueDescription.value.trim()) {
+        // Mostrar error en campos vacíos
+        if (!contactName.value.trim()) {
+          contactName.classList.add('border-red-500', 'ring-red-500');
+          setTimeout(() => contactName.classList.remove('border-red-500', 'ring-red-500'), 2000);
+        }
+        if (!contactEmail.value.trim()) {
+          contactEmail.classList.add('border-red-500', 'ring-red-500');
+          setTimeout(() => contactEmail.classList.remove('border-red-500', 'ring-red-500'), 2000);
+        }
+        if (!issueDescription.value.trim()) {
+          issueDescription.classList.add('border-red-500', 'ring-red-500');
+          setTimeout(() => issueDescription.classList.remove('border-red-500', 'ring-red-500'), 2000);
+        }
+        return;
+      }
+      
+      // Obtener tipo de problema y prioridad seleccionados
+      const issueType = (document.querySelector('input[name="issue-type"]:checked') as HTMLInputElement)?.value || 'other';
+      const priority = (document.querySelector('input[name="priority"]:checked') as HTMLInputElement)?.value || 'medium';
+      
+      const originalDoc = documents.find(d => d.id === docId);
+      if (originalDoc) {
+        // Crear mensaje profesional
+        const subject = `[ISSUE REPORT] ${originalDoc.name} - ${issueType.toUpperCase()}`;
+        
+        let body = `Hello,
+
+I'm reporting an issue with the document "${originalDoc.name}".
+
+REPORT DETAILS:
+- Issue Type: ${issueType}
+- Priority: ${priority}
+- Reporter: ${contactName.value}
+- Contact Email: ${contactEmail.value}
+${contactPhone.value ? `- Contact Phone: ${contactPhone.value}` : ''}
+
+DOCUMENT INFORMATION:
+- Name: ${originalDoc.name}
+- Category: ${originalDoc.category}
+- Size: ${originalDoc.size}
+- Type: ${originalDoc.type.toUpperCase()}
+- Status: ${originalDoc.status}
+- Last Updated: ${formatDate(originalDoc.updated)}
+
+DESCRIPTION:
+${issueDescription.value}`;
+
+        // Agregar información sobre archivos adjuntos si los hay
+        const totalAttachments = selectedFiles.length + selectedExistingFiles.length;
+        if (totalAttachments > 0) {
+          body += `\n\nADDITIONAL FILES ATTACHED:`;
+          
+          if (selectedFiles.length > 0) {
+            body += `\n\nNew Uploads:`;
+            selectedFiles.forEach(file => {
+              body += `\n- ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+            });
+          }
+          
+          if (selectedExistingFiles.length > 0) {
+            body += `\n\nExisting Files:`;
+            selectedExistingFiles.forEach(doc => {
+              body += `\n- ${doc.name} (${doc.size}) - ${doc.category}`;
+            });
+          }
+          
+          body += `\n\nNote: Please check the attached files for additional context or examples related to this issue.`;
+        }
+
+        body += `\n\nPlease review this document and address the reported issue.
+
+Best regards,
+${contactName.value}`;
+
+        // Crear URL de mailto
+        const mailtoUrl = `mailto:admin@gelymar.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        
+        // Abrir cliente de email del usuario
+        window.open(mailtoUrl, '_blank');
+        
+        // Guardar datos de contacto para futuras sesiones
+        localStorage.setItem('userName', contactName.value);
+        localStorage.setItem('userEmail', contactEmail.value);
+        
+        // Cerrar el modal con animación
+        closeEmailModal();
+        
+        // Mostrar notificación
+        showNotification(`Issue report submitted for ${originalDoc.name}`);
+        
+        console.log('Issue report sent for:', originalDoc.name);
+      }
+    }
+
+    // Configuración de colores para estados
+            const statusColors: Record<string, string> = {
+          'Unread': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+          'Viewed': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+          'Reviewed': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+        };
+
+    // Tipos de datos
+    interface Order {
+      id: number;
+      orderNumber: string;
+      clientName: string;
+      status: string;
+      documents: number;
+      lastUpdated: string;
+      priority: string;
+    }
+
+    interface Document {
+      id: number;
+      name: string;
+      category: string;
+      size: string;
+      updated: string;
+      status: string;
+      type: string;
+      public: boolean;
+    }
+
+    // Declarar variables globales con tipos
+    let documents: Document[] = [];
+    let filteredDocuments: Document[] = [];
+    
+    // Variable para tracking de orden actual
+    let currentOrderId: number | null = null;
+    
+    // Expose to global scope to avoid linter warning
+    (window as any).currentOrderId = currentOrderId;
+
+    // Datos de ejemplo - en un caso real vendrían del backend
+    const orders: Order[] = [
+      {
+        id: 1,
+        orderNumber: "ORD-2024-001",
+        clientName: "Oceanic Freight Ltd",
+        status: "In Progress",
+        documents: 8,
+        lastUpdated: "2024-12-15T14:30:00",
+        priority: "high"
+      },
+      {
+        id: 2,
+        orderNumber: "ORD-2024-002",
+        clientName: "Maritime Solutions Inc",
+        status: "Completed",
+        documents: 12,
+        lastUpdated: "2024-12-10T09:15:00",
+        priority: "medium"
+      },
+      {
+        id: 3,
+        orderNumber: "ORD-2024-003",
+        clientName: "Global Shipping Co",
+        status: "Pending",
+        documents: 5,
+        lastUpdated: "2024-12-13T16:45:00",
+        priority: "low"
+      },
+      {
+        id: 4,
+        orderNumber: "ORD-2024-004",
+        clientName: "International Cargo",
+        status: "In Progress",
+        documents: 15,
+        lastUpdated: "2024-12-11T13:55:00",
+        priority: "high"
+      }
+    ];
+
+    // Documentos organizados por orden
+    const documentsByOrder: { [key: number]: Document[] } = {
+      1: [
+        {
+          id: 1,
+          name: "Invoice_2024_001.pdf",
+          category: "Billing",
+          size: "2.4 MB",
+          updated: new Date().toISOString(), // Hoy
+          status: "Unread",
+          type: "pdf",
+          public: true
+        },
+        {
+          id: 2,
+          name: "Service_Contract.docx",
+          category: "Contracts",
+          size: "1.8 MB",
+          updated: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // Hace 2 horas
+          status: "Viewed",
+          type: "doc",
+          public: false
+        },
+        {
+          id: 3,
+          name: "Quality_Certificate.jpg",
+          category: "Certificates",
+          size: "3.2 MB",
+          updated: "2024-12-13T16:45:00",
+          status: "Reviewed",
+          type: "img",
+          public: true
+        },
+        {
+          id: 4,
+          name: "Procedures_Manual.pdf",
+          category: "Manuals",
+          size: "5.1 MB",
+          updated: "2024-11-20T11:20:00",
+          status: "Reviewed",
+          type: "pdf",
+          public: true
+        }
+      ],
+      2: [
+        {
+          id: 5,
+          name: "Financial_Report_2024.pdf",
+          category: "Reports",
+          size: "4.2 MB",
+          updated: "2024-12-11T13:55:00",
+          status: "Reviewed",
+          type: "pdf",
+          public: false
+        },
+        {
+          id: 6,
+          name: "Company_Policy.docx",
+          category: "Policies",
+          size: "2.1 MB",
+          updated: "2024-12-01T10:30:00",
+          status: "Reviewed",
+          type: "doc",
+          public: true
+        }
+      ],
+      3: [
+        {
+          id: 7,
+          name: "Product_Catalog.jpg",
+          category: "Marketing",
+          size: "6.8 MB",
+          updated: "2024-12-08T15:10:00",
+          status: "Reviewed",
+          type: "img",
+          public: false
+        },
+        {
+          id: 8,
+          name: "Training_Material.pdf",
+          category: "Training",
+          size: "3.5 MB",
+          updated: "2024-12-13T08:25:00",
+          status: "Viewed",
+          type: "pdf",
+          public: true
+        }
+      ],
+      4: [
+        {
+          id: 9,
+          name: "Shipping_Manifest.pdf",
+          category: "Shipping",
+          size: "3.8 MB",
+          updated: "2024-12-14T10:20:00",
+          status: "Unread",
+          type: "pdf",
+          public: true
+        },
+        {
+          id: 10,
+          name: "Customs_Declaration.docx",
+          category: "Customs",
+          size: "2.5 MB",
+          updated: "2024-12-12T11:30:00",
+          status: "Viewed",
+          type: "doc",
+          public: false
+        }
+      ]
+    };
+
+
+
+    // Configuración de paginación
+    const itemsPerPage = 4;
+    let currentPage = 1;
+
+    // Funciones para manejar órdenes
+    function renderOrders() {
+      const ordersGrid = document.getElementById('orders-grid') as HTMLElement;
+      ordersGrid.innerHTML = '';
+      
+      orders.forEach(order => {
+        const orderCard = document.createElement('div');
+        orderCard.className = 'bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 cursor-pointer transition-all duration-200 hover:shadow-md';
+        orderCard.dataset.orderId = order.id.toString();
+        
+        const statusColors: Record<string, string> = {
+          'In Progress': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+          'Completed': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+          'Pending': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+        };
+        
+        const priorityColors: Record<string, string> = {
+          'high': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+          'medium': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+          'low': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+        };
+        
+        orderCard.innerHTML = `
+          <div class="flex items-start justify-between mb-3">
+            <div>
+              <h4 class="font-semibold text-gray-900 dark:text-white">${order.orderNumber}</h4>
+              <p class="text-sm text-gray-600 dark:text-gray-400">${order.clientName}</p>
+            </div>
+            <div class="flex space-x-2">
+              <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColors[order.status]}">
+                ${order.status}
+              </span>
+              <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${priorityColors[order.priority]}">
+                ${order.priority}
+              </span>
+            </div>
+          </div>
+          <div class="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
+            <span>${order.documents} documents</span>
+            <span>Updated ${formatDate(order.lastUpdated)}</span>
+          </div>
+        `;
+        
+        orderCard.addEventListener('click', () => selectOrder(order.id));
+        ordersGrid.appendChild(orderCard);
+      });
+    }
+    
+    function selectOrder(orderId: number) {
+      currentOrderId = orderId;
+      documents = documentsByOrder[orderId] || [];
+      filteredDocuments = [...documents];
+      currentPage = 1;
+      
+      // Mostrar estadísticas de documentos
+      const documentsStats = document.getElementById('documents-stats') as HTMLElement;
+      documentsStats.classList.remove('hidden');
+      
+      // Mostrar sección de documentos
+      const documentsSection = document.getElementById('documents-section') as HTMLElement;
+      documentsSection.classList.remove('hidden');
+      
+      // Actualizar UI
+      renderDocuments(filteredDocuments, currentPage);
+      updatePagination();
+      updateStatistics();
+      
+      // Resaltar orden seleccionada
+      const orderCards = document.querySelectorAll('[data-order-id]');
+      orderCards.forEach(card => {
+        card.classList.remove('ring-2', 'ring-blue-500', 'border-blue-500');
+      });
+      
+      const selectedCard = document.querySelector(`[data-order-id="${orderId}"]`) as HTMLElement;
+      if (selectedCard) {
+        selectedCard.classList.add('ring-2', 'ring-blue-500', 'border-blue-500');
+      }
+      
+      // Mostrar notificación
+      const order = orders.find(o => o.id === orderId);
+      if (order) {
+        showNotification(`Selected order: ${order.orderNumber} - ${order.clientName}`);
+      }
+    }
+
+    // Elementos del DOM
+    const documentsContainer = document.querySelector('.divide-y') as HTMLElement;
+    const paginationInfo = document.getElementById('pagination-info') as HTMLElement;
+    const prevBtn = document.getElementById('prev-btn') as HTMLButtonElement;
+    const nextBtn = document.getElementById('next-btn') as HTMLButtonElement;
+    const searchInput = document.querySelector('input[placeholder="Search documents..."]') as HTMLInputElement;
+    const typeFilter = document.querySelector('select') as HTMLSelectElement;
+    
+    // Elementos de estadísticas
+    const totalDocsElement = document.getElementById('total-docs') as HTMLElement;
+    const recentDocsElement = document.getElementById('recent-docs') as HTMLElement;
+    const pendingDocsElement = document.getElementById('pending-docs') as HTMLElement;
+
+    // Función para formatear fechas
+    function formatDate(dateString: string) {
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+      
+      // Obtener zona horaria del usuario
+      const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      
+      if (diffInHours < 24) {
+        // Si es hoy, mostrar hora específica
+        return date.toLocaleString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: userTimezone
+        }) + ` today`;
+      } else if (diffInHours < 48) {
+        // Si es ayer
+        return date.toLocaleString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: userTimezone
+        }) + ` yesterday`;
+      } else if (diffInHours < 168) {
+        // Si es esta semana
+        return date.toLocaleString('en-US', {
+          weekday: 'long',
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: userTimezone
+        });
+      } else {
+        // Si es más antiguo, mostrar fecha completa
+        return date.toLocaleString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: userTimezone
+        });
+      }
+    }
+
+    // Función para renderizar documentos
+    function renderDocuments(docs: Document[], page: number) {
+      const startIndex = (page - 1) * itemsPerPage;
+      const endIndex = startIndex + itemsPerPage;
+      const pageDocuments = docs.slice(startIndex, endIndex);
+
+      documentsContainer.innerHTML = '';
+
+      pageDocuments.forEach(doc => {
+
+        const typeIcons: Record<string, string> = {
+          'pdf': `<svg class="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                  </svg>`,
+          'doc': `<svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                  </svg>`,
+          'img': `<svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                  </svg>`
+        };
+
+        const iconBgColors: Record<string, string> = {
+          'pdf': 'bg-red-100 dark:bg-red-900/30',
+          'doc': 'bg-blue-100 dark:bg-blue-900/30',
+          'img': 'bg-green-100 dark:bg-green-900/30'
+        };
+
+        const documentDiv = document.createElement('div');
+        documentDiv.className = 'p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-200';
+        documentDiv.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-4">
+              <div class="flex-shrink-0">
+                <div class="w-12 h-12 ${iconBgColors[doc.type]} rounded-lg flex items-center justify-center">
+                  ${typeIcons[doc.type]}
+                </div>
+              </div>
+              <div>
+                <h3 class="text-sm font-medium text-gray-900 dark:text-white">${doc.name}</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400">${doc.category} • ${doc.size} • Updated ${formatDate(doc.updated)}</p>
+              </div>
+            </div>
+                          <div class="flex items-center space-x-3">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[doc.status]}">
+                  ${doc.status}
+                </span>
+                <button class="download-btn text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors duration-200" data-doc-id="${doc.id}" title="Download document">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                  </svg>
+                </button>
+                <button class="view-btn text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors duration-200" data-doc-id="${doc.id}" title="View document">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                  </svg>
+                </button>
+                <button class="email-btn text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200" data-doc-id="${doc.id}" title="Send document by email">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                  </svg>
+                </button>
+                ${doc.status !== 'Reviewed' ? `
+                <button class="review-btn text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors duration-200" data-doc-id="${doc.id}" title="Mark as reviewed">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                </button>
+                ` : `
+                <button class="unreview-btn text-green-400 hover:text-red-600 dark:hover:text-red-400 transition-colors duration-200" data-doc-id="${doc.id}" title="Mark as not reviewed">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                </button>
+                `}
+              </div>
+          </div>
+        `;
+
+        // Agregar event listeners a los botones
+        const downloadBtn = documentDiv.querySelector('.download-btn');
+        const viewBtn = documentDiv.querySelector('.view-btn');
+        const emailBtn = documentDiv.querySelector('.email-btn');
+        const reviewBtn = documentDiv.querySelector('.review-btn');
+        const unreviewBtn = documentDiv.querySelector('.unreview-btn');
+
+        if (downloadBtn) {
+          downloadBtn.addEventListener('click', () => downloadDocument(doc.id));
+        }
+        if (viewBtn) {
+          viewBtn.addEventListener('click', () => viewDocument(doc.id));
+        }
+        if (emailBtn) {
+          emailBtn.addEventListener('click', () => sendDocumentByEmail(doc.id));
+        }
+        if (reviewBtn) {
+          reviewBtn.addEventListener('click', () => markAsReviewed(doc.id));
+        }
+        if (unreviewBtn) {
+          unreviewBtn.addEventListener('click', () => markAsNotReviewed(doc.id));
+        }
+
+        documentsContainer.appendChild(documentDiv);
+      });
+    }
+
+    // Función para actualizar paginación
+    function updatePagination(): void {
+      const totalPages = Math.ceil(filteredDocuments.length / itemsPerPage);
+      const startItem = (currentPage - 1) * itemsPerPage + 1;
+      const endItem = Math.min(currentPage * itemsPerPage, filteredDocuments.length);
+
+      paginationInfo.textContent = `Showing ${startItem}-${endItem} of ${filteredDocuments.length} documents`;
+
+      // Generar botones de página dinámicamente
+      const pageNumbersContainer = document.getElementById('page-numbers') as HTMLElement;
+      pageNumbersContainer.innerHTML = '';
+
+      for (let i = 1; i <= totalPages; i++) {
+        const pageBtn = document.createElement('button');
+        pageBtn.className = `page-btn px-3 py-2 text-sm font-medium border rounded-md transition-colors duration-200 ${
+          i === currentPage 
+            ? 'text-white bg-blue-600 border-transparent' 
+            : 'text-gray-500 bg-white border-gray-300 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
+        }`;
+        pageBtn.textContent = i.toString();
+        pageBtn.dataset.page = i.toString();
+        
+        pageBtn.addEventListener('click', () => {
+          currentPage = i;
+          renderDocuments(filteredDocuments, currentPage);
+          updatePagination();
+        });
+        
+        pageNumbersContainer.appendChild(pageBtn);
+      }
+
+      // Actualizar botones Previous/Next
+      prevBtn.disabled = currentPage === 1;
+      nextBtn.disabled = currentPage === totalPages;
+    }
+
+    // Función para actualizar estadísticas
+    function updateStatistics() {
+      const totalDocs = filteredDocuments.length;
+      
+      // Calcular documentos recientes (últimos 7 días)
+      const recentDocs = filteredDocuments.filter(doc => {
+        const date = new Date(doc.updated);
+        const now = new Date();
+        const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+        return diffInHours < 168; // 7 días
+      }).length;
+      
+      // Calcular documentos nuevos hoy
+      const todayDocs = filteredDocuments.filter(doc => {
+        const date = new Date(doc.updated);
+        const now = new Date();
+        const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+        return diffInHours < 24; // Hoy
+      }).length;
+      
+      // Calcular documentos no leídos
+      const unreadDocs = filteredDocuments.filter(doc => 
+        doc.status === 'Unread'
+      ).length;
+      
+      // Calcular documentos revisados
+      const reviewedDocs = filteredDocuments.filter(doc => 
+        doc.status === 'Reviewed'
+      ).length;
+
+      // Calcular progreso de revisión
+      const reviewProgress = totalDocs > 0 ? (reviewedDocs / totalDocs) * 100 : 0;
+
+      // Actualizar elementos principales
+      totalDocsElement.textContent = totalDocs.toString();
+      recentDocsElement.textContent = recentDocs.toString();
+      pendingDocsElement.textContent = unreadDocs.toString();
+      
+      // Actualizar información adicional
+      const pendingInfo = document.getElementById('pending-info');
+      if (pendingInfo) {
+        if (unreadDocs === 0) {
+          pendingInfo.textContent = 'All read';
+        } else if (unreadDocs === 1) {
+          pendingInfo.textContent = '1 remaining';
+        } else {
+          pendingInfo.textContent = `${unreadDocs} remaining`;
+        }
+      }
+      
+      const recentInfo = document.getElementById('recent-info');
+      if (recentInfo) {
+        if (todayDocs === 0) {
+          recentInfo.textContent = 'No new today';
+        } else if (todayDocs === 1) {
+          recentInfo.textContent = '1 new today';
+        } else {
+          recentInfo.textContent = `${todayDocs} new today`;
+        }
+      }
+      
+      // Actualizar elemento de documentos revisados
+      const reviewedDocsElement = document.getElementById('reviewed-docs');
+      if (reviewedDocsElement) {
+        reviewedDocsElement.textContent = `${reviewedDocs}/${totalDocs}`;
+      }
+      
+      // Actualizar barra de progreso
+      const progressBar = document.getElementById('reviewed-progress');
+      if (progressBar) {
+        progressBar.style.width = `${reviewProgress}%`;
+        
+        // Cambiar color de la barra según el progreso
+        if (reviewProgress >= 80) {
+          progressBar.className = 'bg-green-600 h-2 rounded-full transition-all duration-300';
+        } else if (reviewProgress >= 50) {
+          progressBar.className = 'bg-yellow-600 h-2 rounded-full transition-all duration-300';
+        } else {
+          progressBar.className = 'bg-purple-600 h-2 rounded-full transition-all duration-300';
+        }
+      }
+    }
+
+    // Funciones para manejar acciones de documentos
+    function downloadDocument(docId: number) {
+      const originalDoc = documents.find(d => d.id === docId);
+      if (originalDoc) {
+        // Simular descarga
+        console.log(`Downloading ${originalDoc.name}`);
+        alert(`Downloading ${originalDoc.name}`);
+        
+        // Marcar como visto si no lo está
+        if (originalDoc.status === 'Unread') {
+          originalDoc.status = 'Viewed';
+          
+          // Actualizar también el documento en filteredDocuments
+          const filteredDoc = filteredDocuments.find(d => d.id === docId);
+          if (filteredDoc) {
+            filteredDoc.status = 'Viewed';
+          }
+          
+          renderDocuments(filteredDocuments, currentPage);
+          updateStatistics();
+        }
+      }
+    }
+
+    function viewDocument(docId: number) {
+      const originalDoc = documents.find(d => d.id === docId);
+      if (originalDoc) {
+        // Simular visualización
+        console.log(`Viewing ${originalDoc.name}`);
+        alert(`Opening ${originalDoc.name} for viewing`);
+        
+        // Marcar como visto si no lo está
+        if (originalDoc.status === 'Unread') {
+          originalDoc.status = 'Viewed';
+          
+          // Actualizar también el documento en filteredDocuments
+          const filteredDoc = filteredDocuments.find(d => d.id === docId);
+          if (filteredDoc) {
+            filteredDoc.status = 'Viewed';
+          }
+          
+          renderDocuments(filteredDocuments, currentPage);
+          updateStatistics();
+        }
+      }
+    }
+
+    function markAsReviewed(docId: number) {
+      console.log('markAsReviewed called with docId:', docId);
+      
+      // Buscar en el array original de documentos
+      const originalDoc = documents.find(d => d.id === docId);
+      console.log('Original doc found:', originalDoc);
+      
+      if (originalDoc && originalDoc.status !== 'Reviewed') {
+        console.log('Current status:', originalDoc.status);
+        originalDoc.status = 'Reviewed';
+        console.log(`Marked ${originalDoc.name} as reviewed`);
+        
+        // Actualizar también el documento en filteredDocuments
+        const filteredDoc = filteredDocuments.find(d => d.id === docId);
+        if (filteredDoc) {
+          filteredDoc.status = 'Reviewed';
+          console.log('Updated filtered doc status');
+        }
+        
+        // Re-renderizar para mostrar el cambio
+        renderDocuments(filteredDocuments, currentPage);
+        
+        // Actualizar estadísticas
+        updateStatistics();
+        
+        // Mostrar notificación
+        showNotification(`${originalDoc.name} marked as reviewed`);
+      } else {
+        console.log('Document not found or already reviewed');
+      }
+    }
+
+    function markAsNotReviewed(docId: number) {
+      console.log('markAsNotReviewed called with docId:', docId);
+      
+      // Buscar en el array original de documentos
+      const originalDoc = documents.find(d => d.id === docId);
+      console.log('Original doc found:', originalDoc);
+      
+      if (originalDoc && originalDoc.status === 'Reviewed') {
+        console.log('Current status:', originalDoc.status);
+        originalDoc.status = 'Viewed';
+        console.log(`Marked ${originalDoc.name} as not reviewed`);
+        
+        // Actualizar también el documento en filteredDocuments
+        const filteredDoc = filteredDocuments.find(d => d.id === docId);
+        if (filteredDoc) {
+          filteredDoc.status = 'Viewed';
+          console.log('Updated filtered doc status');
+        }
+        
+        // Re-renderizar para mostrar el cambio
+        renderDocuments(filteredDocuments, currentPage);
+        
+        // Actualizar estadísticas
+        updateStatistics();
+        
+        // Mostrar notificación
+        showNotification(`${originalDoc.name} marked as not reviewed`);
+      } else {
+        console.log('Document not found or not reviewed');
+      }
+    }
+
+    function sendDocumentByEmail(docId: number) {
+      console.log('sendDocumentByEmail called with docId:', docId);
+      
+      const originalDoc = documents.find(d => d.id === docId);
+      if (originalDoc) {
+        console.log(`Opening issue report modal for ${originalDoc.name}`);
+        
+        // Abrir el modal directamente con la nueva funcionalidad
+        openEmailModal(docId);
+        
+        console.log('Issue report modal opened for:', originalDoc.name);
+      } else {
+        console.log('Document not found');
+      }
+    }
+
+    function showNotification(message: string, type: 'success' | 'error' = 'success') {
+      // Crear notificación temporal
+      const notification = document.createElement('div');
+      const bgColor = type === 'success' ? 'bg-green-500' : 'bg-red-500';
+      const icon = type === 'success' ? 
+        '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>' :
+        '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>';
+      
+      notification.className = `fixed top-4 right-4 ${bgColor} text-white px-6 py-4 rounded-xl shadow-2xl z-50 transform transition-all duration-300 translate-x-full backdrop-blur-sm`;
+      notification.innerHTML = `
+        <div class="flex items-center space-x-3">
+          <div class="flex-shrink-0">
+            ${icon}
+          </div>
+          <div class="flex-1">
+            <p class="text-sm font-medium">${message}</p>
+          </div>
+          <button class="flex-shrink-0 text-white/80 hover:text-white transition-colors duration-200">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+      `;
+      
+      document.body.appendChild(notification);
+      
+      // Animar entrada
+      setTimeout(() => {
+        notification.classList.remove('translate-x-full');
+      }, 100);
+      
+      // Event listener para cerrar manualmente
+      const closeBtn = notification.querySelector('button');
+      closeBtn?.addEventListener('click', () => {
+        notification.classList.add('translate-x-full');
+        setTimeout(() => {
+          if (document.body.contains(notification)) {
+            document.body.removeChild(notification);
+          }
+        }, 300);
+      });
+      
+      // Remover después de 4 segundos
+      setTimeout(() => {
+        if (document.body.contains(notification)) {
+          notification.classList.add('translate-x-full');
+          setTimeout(() => {
+            if (document.body.contains(notification)) {
+              document.body.removeChild(notification);
+            }
+          }, 300);
+        }
+      }, 4000);
+    }
+
+    // Función para filtrar documentos
+    function filterDocuments(): void {
+      const searchTerm = searchInput.value.toLowerCase();
+      const selectedType = typeFilter.value;
+
+      filteredDocuments = documents.filter(doc => {
+        const matchesSearch = doc.name.toLowerCase().includes(searchTerm) || 
+                            doc.category.toLowerCase().includes(searchTerm);
+        const matchesType = !selectedType || doc.type === selectedType;
+        return matchesSearch && matchesType;
+      });
+
+      currentPage = 1;
+      renderDocuments(filteredDocuments, currentPage);
+      updatePagination();
+      updateStatistics();
+    }
+
+    // Event listeners
+    searchInput.addEventListener('input', filterDocuments);
+    typeFilter.addEventListener('change', filterDocuments);
+
+    prevBtn.addEventListener('click', () => {
+      if (currentPage > 1) {
+        currentPage--;
+        renderDocuments(filteredDocuments, currentPage);
+        updatePagination();
+      }
+    });
+
+    nextBtn.addEventListener('click', () => {
+      const totalPages = Math.ceil(filteredDocuments.length / itemsPerPage);
+      if (currentPage < totalPages) {
+        currentPage++;
+        renderDocuments(filteredDocuments, currentPage);
+        updatePagination();
+      }
+    });
+
+
+
+    // Variables para archivos adjuntos
+    let selectedFiles: File[] = [];
+    let selectedExistingFiles: any[] = [];
+
+    // Funciones para manejar archivos adjuntos
+    function handleFileUpload(): void {
+      const fileInput = document.getElementById('file-upload') as HTMLInputElement;
+      const uploadBtn = document.getElementById('upload-btn') as HTMLButtonElement;
+      
+      // Tabs functionality
+      const uploadTab = document.getElementById('upload-tab') as HTMLButtonElement;
+      const selectTab = document.getElementById('select-tab') as HTMLButtonElement;
+      const uploadPanel = document.getElementById('upload-panel') as HTMLElement;
+      const selectPanel = document.getElementById('select-panel') as HTMLElement;
+      
+      // Tab switching
+      uploadTab.addEventListener('click', () => {
+        uploadTab.classList.add('bg-white', 'dark:bg-gray-800', 'text-gray-900', 'dark:text-white', 'shadow-sm');
+        uploadTab.classList.remove('text-gray-600', 'dark:text-gray-400');
+        selectTab.classList.remove('bg-white', 'dark:bg-gray-800', 'text-gray-900', 'dark:text-white', 'shadow-sm');
+        selectTab.classList.add('text-gray-600', 'dark:text-gray-400');
+        uploadPanel.classList.remove('hidden');
+        selectPanel.classList.add('hidden');
+      });
+      
+      selectTab.addEventListener('click', () => {
+        selectTab.classList.add('bg-white', 'dark:bg-gray-800', 'text-gray-900', 'dark:text-white', 'shadow-sm');
+        selectTab.classList.remove('text-gray-600', 'dark:text-gray-400');
+        uploadTab.classList.remove('bg-white', 'dark:bg-gray-800', 'text-gray-900', 'dark:text-white', 'shadow-sm');
+        uploadTab.classList.add('text-gray-600', 'dark:text-gray-400');
+        selectPanel.classList.remove('hidden');
+        uploadPanel.classList.add('hidden');
+        loadAvailableFiles();
+      });
+      
+      // Trigger file input
+      uploadBtn.addEventListener('click', () => {
+        fileInput.click();
+      });
+      
+      // Handle file selection
+      fileInput.addEventListener('change', (e) => {
+        const files = (e.target as HTMLInputElement).files;
+        if (files) {
+          selectedFiles = Array.from(files);
+          displaySelectedFiles();
+        }
+      });
+      
+      // Handle drag and drop
+      const dropZone = document.querySelector('.border-dashed') as HTMLElement;
+      
+      dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('border-blue-400', 'bg-blue-50');
+        dropZone.classList.remove('border-gray-300');
+      });
+      
+      dropZone.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('border-blue-400', 'bg-blue-50');
+        dropZone.classList.add('border-gray-300');
+      });
+      
+      dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('border-blue-400', 'bg-blue-50');
+        dropZone.classList.add('border-gray-300');
+        
+        const files = Array.from(e.dataTransfer?.files || []);
+        selectedFiles = [...selectedFiles, ...files];
+        displaySelectedFiles();
+      });
+    }
+    
+    function displaySelectedFiles(): void {
+      const selectedFilesDiv = document.getElementById('selected-files') as HTMLElement;
+      const filesList = document.getElementById('files-list') as HTMLElement;
+      
+      const totalFiles = selectedFiles.length + selectedExistingFiles.length;
+      
+      if (totalFiles === 0) {
+        selectedFilesDiv.classList.add('hidden');
+        return;
+      }
+      
+      selectedFilesDiv.classList.remove('hidden');
+      filesList.innerHTML = '';
+      
+      // Mostrar archivos subidos
+      selectedFiles.forEach((file, index) => {
+        const fileItem = document.createElement('div');
+        fileItem.className = 'flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600';
+        
+        const fileSize = (file.size / 1024 / 1024).toFixed(2);
+        
+        fileItem.innerHTML = `
+          <div class="flex items-center space-x-3">
+            <div class="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+              <svg class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+              </svg>
+            </div>
+            <div>
+              <p class="text-sm font-medium text-gray-900 dark:text-white">${file.name}</p>
+              <p class="text-xs text-gray-500 dark:text-gray-400">${fileSize} MB • New Upload</p>
+            </div>
+          </div>
+          <button type="button" class="text-red-500 hover:text-red-700 transition-colors duration-200" onclick="removeFile(${index})">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        `;
+        
+        filesList.appendChild(fileItem);
+      });
+      
+      // Mostrar archivos existentes seleccionados
+      selectedExistingFiles.forEach((doc, index) => {
+        const fileItem = document.createElement('div');
+        fileItem.className = 'flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/30 rounded-lg border border-green-200 dark:border-green-600';
+        
+        fileItem.innerHTML = `
+          <div class="flex items-center space-x-3">
+            <div class="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+              <svg class="w-4 h-4 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+            </div>
+            <div>
+              <p class="text-sm font-medium text-gray-900 dark:text-white">${doc.name}</p>
+              <p class="text-xs text-gray-500 dark:text-gray-400">${doc.size} • ${doc.category} • Existing File</p>
+            </div>
+          </div>
+          <div class="flex items-center space-x-2">
+            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColors[doc.status as keyof typeof statusColors]}">
+              ${doc.status}
+            </span>
+            <button type="button" class="text-red-500 hover:text-red-700 transition-colors duration-200" onclick="removeExistingFile(${index})">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+        `;
+        
+        filesList.appendChild(fileItem);
+      });
+    }
+    
+    function removeFile(index: number) {
+      selectedFiles.splice(index, 1);
+      displaySelectedFiles();
+    }
+    
+    function loadAvailableFiles(): void {
+      const availableFilesList = document.getElementById('available-files-list') as HTMLElement;
+      const fileSearch = document.getElementById('file-search') as HTMLInputElement;
+      const fileCategoryFilter = document.getElementById('file-category-filter') as HTMLSelectElement;
+      
+      // Filtrar documentos (excluir el documento actual)
+      const currentDocId = parseInt(document.getElementById('email-modal')?.dataset.docId || '0');
+      let availableDocs = documents.filter(doc => doc.id !== currentDocId);
+      
+      // Aplicar filtros
+      const searchTerm = fileSearch.value.toLowerCase();
+      const selectedCategory = fileCategoryFilter.value;
+      
+      if (searchTerm) {
+        availableDocs = availableDocs.filter(doc => 
+          doc.name.toLowerCase().includes(searchTerm) || 
+          doc.category.toLowerCase().includes(searchTerm)
+        );
+      }
+      
+      if (selectedCategory) {
+        availableDocs = availableDocs.filter(doc => doc.category === selectedCategory);
+      }
+      
+      // Renderizar archivos disponibles
+      availableFilesList.innerHTML = '';
+      
+      if (availableDocs.length === 0) {
+        availableFilesList.innerHTML = `
+          <div class="p-4 text-center text-gray-500 dark:text-gray-400">
+            <svg class="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            <p class="text-sm">No files found</p>
+          </div>
+        `;
+        return;
+      }
+      
+      availableDocs.forEach(doc => {
+        const isSelected = selectedExistingFiles.some(selected => selected.id === doc.id);
+        const fileItem = document.createElement('div');
+        fileItem.className = `p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors duration-200 ${isSelected ? 'bg-blue-50 dark:bg-blue-900/30 border-l-4 border-blue-500' : ''}`;
+        
+        fileItem.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+              <div class="p-2 bg-gray-100 dark:bg-gray-600 rounded-lg">
+                <svg class="w-4 h-4 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+              </div>
+              <div class="flex-1">
+                <p class="text-sm font-medium text-gray-900 dark:text-white">${doc.name}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">${doc.category} • ${doc.size}</p>
+              </div>
+            </div>
+            <div class="flex items-center space-x-2">
+              <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColors[doc.status as keyof typeof statusColors]}">
+                ${doc.status}
+              </span>
+              <button type="button" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors duration-200" onclick="toggleExistingFile(${doc.id})">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${isSelected ? 'M5 13l4 4L19 7' : 'M12 6v6m0 0v6m0-6h6m-6 0H6'}"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        `;
+        
+        availableFilesList.appendChild(fileItem);
+      });
+    }
+    
+    function toggleExistingFile(docId: number) {
+      const doc = documents.find(d => d.id === docId);
+      if (!doc) return;
+      
+      const existingIndex = selectedExistingFiles.findIndex(selected => selected.id === docId);
+      
+      if (existingIndex > -1) {
+        // Remover archivo
+        selectedExistingFiles.splice(existingIndex, 1);
+      } else {
+        // Agregar archivo
+        selectedExistingFiles.push(doc);
+      }
+      
+      displaySelectedFiles();
+      loadAvailableFiles(); // Recargar para actualizar UI
+    }
+    
+    function removeExistingFile(index: number) {
+      selectedExistingFiles.splice(index, 1);
+      displaySelectedFiles();
+      loadAvailableFiles(); // Recargar para actualizar UI
+    }
+    
+    // Hacer las funciones globales para onclick
+    (window as any).removeFile = removeFile;
+    (window as any).toggleExistingFile = toggleExistingFile;
+    (window as any).removeExistingFile = removeExistingFile;
+
+    // Event listeners para el modal
+    document.getElementById('close-email-modal')?.addEventListener('click', closeEmailModal);
+    document.getElementById('cancel-email')?.addEventListener('click', closeEmailModal);
+    document.getElementById('send-email')?.addEventListener('click', sendEmailFromModal);
+    
+    // Event listeners para filtros de archivos
+    document.getElementById('file-search')?.addEventListener('input', loadAvailableFiles);
+    document.getElementById('file-category-filter')?.addEventListener('change', loadAvailableFiles);
+
+    // Cerrar modal al hacer click fuera de él
+    document.getElementById('email-modal')?.addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) {
+        closeEmailModal();
+      }
+    });
+
+    // Los event listeners para los botones de página ahora se crean dinámicamente en updatePagination()
+
+    // Inicializar
+    renderOrders();
+    handleFileUpload();
+  </script>
+</LayoutSidebarClient>
