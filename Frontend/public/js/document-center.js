@@ -180,7 +180,7 @@ function renderDocuments(docs, page) {
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9h8M8 12h8M8 15h8M8 18h8"/>
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 9v9M14 9v9"/>
               </svg>`,
-      'ppt': `<svg class="w-6 h-6 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      'ppt': `<svg class="w-6 h-6 text-red-500 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
               </svg>`,
       'zip': `<svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -196,7 +196,7 @@ function renderDocuments(docs, page) {
       'doc': 'bg-blue-100 dark:bg-blue-900/30',
       'img': 'bg-green-100 dark:bg-green-900/30',
       'xlsx': 'bg-green-100 dark:bg-green-900/30',
-      'ppt': 'bg-orange-100 dark:bg-orange-900/30',
+      'ppt': 'bg-red-100 dark:bg-red-900/30',
       'zip': 'bg-purple-100 dark:bg-purple-900/30',
       'vid': 'bg-red-100 dark:bg-red-900/30'
     };
@@ -482,9 +482,11 @@ function viewDocument(docId) {
 }
 
 function markAsReviewed(docId) {
+  console.log('🔍 markAsReviewed called with docId:', docId);
   const originalDoc = documents.find(d => d.id === docId);
   
   if (originalDoc && originalDoc.status !== 'Reviewed') {
+    console.log('✅ Document found, marking as reviewed:', originalDoc.name);
     originalDoc.status = 'Reviewed';
     
     const filteredDoc = filteredDocuments.find(d => d.id === docId);
@@ -494,7 +496,12 @@ function markAsReviewed(docId) {
     
     renderDocuments(filteredDocuments, currentPage);
     updateStatistics();
-    showNotification(`${originalDoc.name} marked as reviewed`);
+    console.log('📢 Showing notification for:', originalDoc.name);
+    
+    // Test directo de notificación
+    showNotification(`${originalDoc.name} marked as reviewed`, 'success');
+  } else {
+    console.log('❌ Document not found or already reviewed');
   }
 }
 
@@ -511,7 +518,7 @@ function markAsNotReviewed(docId) {
     
     renderDocuments(filteredDocuments, currentPage);
     updateStatistics();
-    showNotification(`${originalDoc.name} marked as not reviewed`);
+    showNotification(`${originalDoc.name} marked as not reviewed`, 'success');
   }
 }
 
@@ -566,14 +573,34 @@ function formatDate(dateString) {
   }
 }
 
+// Importar showNotification desde utils.js
+import { showNotification as globalShowNotification } from './utils.js';
+
 function showNotification(message, type = 'success') {
-  const notification = document.createElement('div');
+  // Verificar si el modal está abierto
+  const modal = document.getElementById('email-modal');
+  const isModalOpen = modal && !modal.classList.contains('hidden');
+  
+  if (isModalOpen) {
+    // Si el modal está abierto, mostrar la notificación dentro del modal
+    showModalNotification(message, type);
+  } else {
+    // Si el modal está cerrado, mostrar la notificación global
+    globalShowNotification(message, type);
+  }
+}
+
+function showModalNotification(message, type = 'success') {
+  const modal = document.getElementById('email-modal');
+  if (!modal) return;
+  
   const bgColor = type === 'success' ? 'bg-green-500' : 'bg-red-500';
   const icon = type === 'success' ? 
     '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>' :
     '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>';
   
-  notification.className = `fixed top-4 right-4 ${bgColor} text-white px-6 py-4 rounded-xl shadow-2xl z-50 transform transition-all duration-300 translate-x-full backdrop-blur-sm`;
+  const notification = document.createElement('div');
+  notification.className = `absolute top-12 right-4 ${bgColor} text-white px-6 py-4 rounded-xl shadow-2xl transform transition-all duration-300 translate-x-full z-[99999999]`;
   notification.innerHTML = `
     <div class="flex items-center space-x-3">
       <div class="flex-shrink-0">
@@ -590,7 +617,8 @@ function showNotification(message, type = 'success') {
     </div>
   `;
   
-  document.body.appendChild(notification);
+  // Agregar la notificación al modal
+  modal.appendChild(notification);
   
   // Animar entrada
   setTimeout(() => {
@@ -602,24 +630,26 @@ function showNotification(message, type = 'success') {
   closeBtn?.addEventListener('click', () => {
     notification.classList.add('translate-x-full');
     setTimeout(() => {
-      if (document.body.contains(notification)) {
-        document.body.removeChild(notification);
+      if (notification.parentNode) {
+        notification.parentNode.removeChild(notification);
       }
     }, 300);
   });
   
   // Remover después de 4 segundos
   setTimeout(() => {
-    if (document.body.contains(notification)) {
+    if (notification.parentNode) {
       notification.classList.add('translate-x-full');
       setTimeout(() => {
-        if (document.body.contains(notification)) {
-          document.body.removeChild(notification);
+        if (notification.parentNode) {
+          notification.parentNode.removeChild(notification);
         }
       }, 300);
     }
   }, 4000);
 }
+
+
 
 function setupEventListeners() {
   // Event listeners para filtros
@@ -668,7 +698,7 @@ function openEmailModal(docId) {
   console.log('📧 Opening email modal for document:', docId);
   
   const modal = document.getElementById('email-modal');
-  const modalContent = modal?.querySelector('.relative');
+  const modalContent = modal?.querySelector('.relative.mx-auto');
   
   if (!modal || !modalContent) {
     console.error('Modal elements not found');
@@ -735,6 +765,9 @@ function openEmailModal(docId) {
     contactEmail.value = localStorage.getItem('userEmail') || '';
   }
   
+  // Configurar event listeners de validación
+  setupValidationEventListeners();
+  
   // Pre-llenar descripción con template
   if (issueDescription) {
     const templateText = `I have reviewed the document "${doc.name}" and found the following issue:
@@ -759,6 +792,7 @@ ADDITIONAL CONTEXT:
   
   // Mostrar modal con animación suave
   modal.classList.remove('hidden');
+  modal.classList.add('flex');
   
   // Animar entrada con delay mínimo para evitar parpadeo
   requestAnimationFrame(() => {
@@ -774,7 +808,7 @@ function closeEmailModal() {
   console.log('📧 Closing email modal');
   
   const modal = document.getElementById('email-modal');
-  const modalContent = modal?.querySelector('.relative');
+  const modalContent = modal?.querySelector('.relative.mx-auto');
   
   if (!modal || !modalContent) return;
   
@@ -814,41 +848,69 @@ function sendEmailFromModal() {
   const contactEmail = document.getElementById('contact-email');
   const contactPhone = document.getElementById('contact-phone');
   const issueDescription = document.getElementById('issue-description');
+  const issueType = document.querySelector('input[name="issue-type"]:checked');
+  const priority = document.querySelector('input[name="priority"]:checked');
+  
+  // Limpiar errores previos
+  clearValidationErrors();
+  
+  // Array para almacenar errores
+  const errors = [];
   
   // Validar campos requeridos
-  if (!contactName?.value.trim() || !contactEmail?.value.trim() || !issueDescription?.value.trim()) {
-    // Mostrar error en campos vacíos
-    if (!contactName?.value.trim()) {
-      contactName?.classList.add('border-red-500', 'ring-red-500');
-      setTimeout(() => contactName?.classList.remove('border-red-500', 'ring-red-500'), 2000);
-    }
-    if (!contactEmail?.value.trim()) {
-      contactEmail?.classList.add('border-red-500', 'ring-red-500');
-      setTimeout(() => contactEmail?.classList.remove('border-red-500', 'ring-red-500'), 2000);
-    }
-    if (!issueDescription?.value.trim()) {
-      issueDescription?.classList.add('border-red-500', 'ring-red-500');
-      setTimeout(() => issueDescription?.classList.remove('border-red-500', 'ring-red-500'), 2000);
-    }
+  if (!contactName?.value.trim()) {
+    errors.push('contact-name');
+    showFieldError(contactName, 'Name is required');
+  }
+  
+  if (!contactEmail?.value.trim()) {
+    errors.push('contact-email');
+    showFieldError(contactEmail, 'Email is required');
+  } else if (!isValidEmail(contactEmail.value.trim())) {
+    errors.push('contact-email');
+    showFieldError(contactEmail, 'Please enter a valid email address');
+  }
+  
+  if (!issueDescription?.value.trim()) {
+    errors.push('issue-description');
+    showFieldError(issueDescription, 'Description is required');
+  } else if (issueDescription.value.trim().length < 20) {
+    errors.push('issue-description');
+    showFieldError(issueDescription, 'Description must be at least 20 characters');
+  }
+  
+  if (!issueType) {
+    errors.push('issue-type');
+    showSectionError('issue-type-section', 'Please select an issue type');
+  }
+  
+  if (!priority) {
+    errors.push('priority');
+    showSectionError('priority-section', 'Please select a priority level');
+  }
+  
+  // Si hay errores, mostrar notificación y detener
+  if (errors.length > 0) {
+    showNotification('Please fill in all required fields correctly', 'error');
     return;
   }
   
   // Obtener tipo de problema y prioridad seleccionados
-  const issueType = document.querySelector('input[name="issue-type"]:checked')?.value || 'other';
-  const priority = document.querySelector('input[name="priority"]:checked')?.value || 'medium';
+  const issueTypeValue = issueType?.value || 'other';
+  const priorityValue = priority?.value || 'medium';
   
   const originalDoc = documents.find(d => d.id === docId);
   if (originalDoc) {
     // Crear mensaje profesional
-    const subject = `[ISSUE REPORT] ${originalDoc.name} - ${issueType.toUpperCase()}`;
+    const subject = `[ISSUE REPORT] ${originalDoc.name} - ${issueTypeValue.toUpperCase()}`;
     
     let body = `Hello,
 
 I'm reporting an issue with the document "${originalDoc.name}".
 
 REPORT DETAILS:
-- Issue Type: ${issueType}
-- Priority: ${priority}
+- Issue Type: ${issueTypeValue}
+- Priority: ${priorityValue}
 - Reporter: ${contactName.value}
 - Contact Email: ${contactEmail.value}
 ${contactPhone?.value ? `- Contact Phone: ${contactPhone.value}` : ''}
@@ -914,6 +976,116 @@ ${contactName.value}`;
 // Variables para archivos adjuntos
 let selectedFiles = [];
 let selectedExistingFiles = [];
+
+/**
+ * Valida si un email es válido
+ */
+function isValidEmail(email) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+/**
+ * Muestra error en un campo específico
+ */
+function showFieldError(field, message) {
+  if (!field) return;
+  
+  // Agregar clases de error
+  field.classList.add('border-red-500', 'ring-red-500', 'ring-2');
+  
+  // Crear o actualizar mensaje de error
+  let errorMessage = field.parentNode.querySelector('.field-error');
+  if (!errorMessage) {
+    errorMessage = document.createElement('div');
+    errorMessage.className = 'field-error text-red-500 text-xs mt-1';
+    field.parentNode.appendChild(errorMessage);
+  }
+  errorMessage.textContent = message;
+  
+  // Remover error después de 5 segundos
+  setTimeout(() => {
+    field.classList.remove('border-red-500', 'ring-red-500', 'ring-2');
+    if (errorMessage) {
+      errorMessage.remove();
+    }
+  }, 5000);
+}
+
+/**
+ * Muestra error en una sección específica
+ */
+function showSectionError(sectionId, message) {
+  const section = document.getElementById(sectionId);
+  if (!section) return;
+  
+  // Crear o actualizar mensaje de error
+  let errorMessage = section.querySelector('.section-error');
+  if (!errorMessage) {
+    errorMessage = document.createElement('div');
+    errorMessage.className = 'section-error text-red-500 text-xs mt-2';
+    section.appendChild(errorMessage);
+  }
+  errorMessage.textContent = message;
+  
+  // Remover error después de 5 segundos
+  setTimeout(() => {
+    if (errorMessage) {
+      errorMessage.remove();
+    }
+  }, 5000);
+}
+
+/**
+ * Limpia todos los errores de validación
+ */
+function clearValidationErrors() {
+  // Limpiar errores de campos
+  document.querySelectorAll('.field-error').forEach(error => error.remove());
+  document.querySelectorAll('.section-error').forEach(error => error.remove());
+  
+  // Limpiar clases de error de campos
+  document.querySelectorAll('.border-red-500.ring-red-500').forEach(field => {
+    field.classList.remove('border-red-500', 'ring-red-500', 'ring-2');
+  });
+}
+
+/**
+ * Configura event listeners para limpiar errores al escribir
+ */
+function setupValidationEventListeners() {
+  // Limpiar errores cuando el usuario escriba en campos de texto
+  const textFields = ['contact-name', 'contact-email', 'contact-phone', 'issue-description'];
+  textFields.forEach(fieldId => {
+    const field = document.getElementById(fieldId);
+    if (field) {
+      field.addEventListener('input', () => {
+        const errorMessage = field.parentNode.querySelector('.field-error');
+        if (errorMessage) {
+          errorMessage.remove();
+        }
+        field.classList.remove('border-red-500', 'ring-red-500', 'ring-2');
+      });
+    }
+  });
+  
+  // Limpiar errores cuando el usuario seleccione radio buttons
+  const radioGroups = ['issue-type', 'priority'];
+  radioGroups.forEach(groupName => {
+    document.querySelectorAll(`input[name="${groupName}"]`).forEach(radio => {
+      radio.addEventListener('change', () => {
+        const sectionId = groupName === 'issue-type' ? 'issue-type-section' : 'priority-section';
+        const section = document.getElementById(sectionId);
+        if (section) {
+          const errorMessage = section.querySelector('.section-error');
+          if (errorMessage) {
+            errorMessage.remove();
+          }
+        }
+      });
+    });
+  });
+}
 
 /**
  * Maneja la carga de archivos

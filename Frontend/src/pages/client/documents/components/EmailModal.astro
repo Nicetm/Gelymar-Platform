@@ -4,7 +4,7 @@
 
 <div
   id="email-modal"
-  class="fixed inset-0 bg-black/50 backdrop-blur-sm overflow-y-auto h-full w-full hidden z-[9999] transition-all duration-200 ease-out flex items-center justify-center p-2 sm:p-4"
+  class="fixed inset-0 bg-black/50 backdrop-blur-sm h-full w-full hidden z-[9999999] transition-all duration-200 ease-out flex items-center justify-center p-2 sm:p-4"
 >
   <div
     class="relative mx-auto p-0 border-0 w-full max-w-6xl transform transition-all duration-300 ease-out scale-95 opacity-0 translate-y-4"
@@ -99,10 +99,10 @@
 
             <!-- Sección del problema -->
             <div class="space-y-6">
-              <div>
+              <div id="issue-type-section">
                 <label
                   class="block text-base font-medium text-gray-700 dark:text-gray-300 mb-3"
-                  >Issue Type:</label
+                  >Issue Type: <span class="text-red-500">*</span></label
                 >
                 <div class="grid grid-cols-2 gap-3">
                   <label
@@ -113,6 +113,7 @@
                       name="issue-type"
                       value="error"
                       class="mr-3 text-blue-600 focus:ring-blue-500"
+                      checked
                     />
                     <div>
                       <div class="font-medium text-gray-900 dark:text-white">
@@ -180,10 +181,10 @@
                 </div>
               </div>
 
-              <div>
+              <div id="priority-section">
                 <label
                   class="block text-base font-medium text-gray-700 dark:text-gray-300 mb-3"
-                  >Priority Level:</label
+                  >Priority Level: <span class="text-red-500">*</span></label
                 >
                 <div class="flex space-x-3">
                   <label class="flex items-center">
@@ -204,6 +205,7 @@
                       name="priority"
                       value="medium"
                       class="mr-2 text-yellow-600 focus:ring-yellow-500"
+                      checked
                     />
                     <span
                       class="text-sm font-medium text-gray-700 dark:text-gray-300"
@@ -228,7 +230,7 @@
               <div>
                 <label
                   class="block text-base font-medium text-gray-700 dark:text-gray-300 mb-3"
-                  >Detailed Description:</label
+                  >Detailed Description: <span class="text-red-500">*</span></label
                 >
                 <div class="relative">
                   <textarea
@@ -236,6 +238,7 @@
                     rows="8"
                     class="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-400 dark:focus:border-blue-400 transition-all duration-200 resize-none"
                     placeholder="Describe the specific issue or concern you found in this document..."
+                    required
                   ></textarea>
                 </div>
                 <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
@@ -281,26 +284,28 @@
                 <div>
                   <label
                     class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                    >Your Name:</label
+                    >Your Name: <span class="text-red-500">*</span></label
                   >
                   <input
                     type="text"
                     id="contact-name"
                     class="w-full px-4 py-3 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-400 dark:focus:border-blue-400 transition-all duration-200"
                     placeholder="Your full name"
+                    required
                   />
                 </div>
 
                 <div>
                   <label
                     class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                    >Your Email:</label
+                    >Your Email: <span class="text-red-500">*</span></label
                   >
                   <input
                     type="email"
                     id="contact-email"
                     class="w-full px-4 py-3 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-400 dark:focus:border-blue-400 transition-all duration-200"
                     placeholder="your.email@company.com"
+                    required
                   />
                 </div>
 
