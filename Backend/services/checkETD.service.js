@@ -19,7 +19,6 @@ async function checkOrdersWithETD() {
 
     for (const order of rows) {
       console.log(`- Orden ID: ${order.id}, Nombre: ${order.name}, ETD: ${order.date_etd}`);
-      // Aquí podrías:
       // await enviarCorreo(order);
       // await actualizarEstado(order.id);
     }

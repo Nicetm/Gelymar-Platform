@@ -34,15 +34,76 @@ El sistema utiliza una base de datos MySQL. Puedes importar la estructura y dato
 
 # Cron PM2
 
+## Instalación de dependencias
+
+```bash
 npm install node-cron
 npm install -g pm2
+```
 
+## Configuración
+
+El sistema utiliza PM2 para gestionar los procesos de cron que procesan automáticamente archivos desde la red compartida.
+
+### Procesos configurados:
+
+- **gelymar-client-fetcher**: Procesa archivo `CLIENTES.txt` → tabla `customers`
+- **gelymar-order-fetcher**: Procesa archivo `FAC_HDR_SOFTKEY.txt` → tabla `orders`
+- **gelymar-item-fetcher**: Procesa archivo `PRODUCTOS_SOFTKEY.txt` → tabla `items`
+- **gelymar-orderline-fetcher**: Procesa archivo `FAC_LIN_SOFTKEY.txt` → tabla `order_items`
+- **gelymar-etd-checker**: Verificación de ETD
+
+### Horarios de ejecución:
+Todos los procesos se ejecutan diariamente a las **6:00 AM** y evitan duplicados automáticamente.
+
+## Comandos principales
+
+```bash
+# Navegar al directorio backend
 cd backend
 
+# Iniciar todos los procesos
 pm2 start ecosystem.config.js
+
+# Ver estado de todos los procesos
+pm2 status
+
+# Ver logs de procesos específicos
 pm2 logs gelymar-client-fetcher
+pm2 logs gelymar-order-fetcher
+pm2 logs gelymar-item-fetcher
+pm2 logs gelymar-orderline-fetcher
 pm2 logs gelymar-etd-checker
-pm2 delete gelymar-client-fetcher
-pm2 delete gelymar-etd-checker
+
+# Ver logs de todos los procesos
 pm2 logs
+
+# Reiniciar todos los procesos
+pm2 restart all
+
+# Detener todos los procesos
+pm2 stop all
+
+# Eliminar todos los procesos
+pm2 delete all
+
+# Reiniciar proceso específico
+pm2 restart gelymar-client-fetcher
+```
+
+## Monitoreo
+
+Los procesos generan logs detallados que incluyen:
+- Número de registros procesados
+- Registros insertados vs omitidos (duplicados)
+- Errores encontrados
+- Archivos CSV de verificación en `documentos/`
+
+## Configuración de red
+
+Los procesos se conectan a:
+- **Servidor**: 172.20.10.167
+- **Ruta**: Users/above/Documents/BotArchivoWeb/archivos
+- **Usuario**: softkey
+- **Contraseña**: sK06.2025#
 

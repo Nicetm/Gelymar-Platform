@@ -73,6 +73,10 @@ export interface Folders {
   customer_id: number;
   name: string;
   path: string;
+  pc: number;
+  oc: string;
+  factura: number;
+  fec_factura: string;
   created_at: string;
   updated_at: string;
 	fileCount?: number; // <-- opcional, para mostrar el número de archivos en la carpeta
