@@ -148,7 +148,7 @@ Rut;Nombre;Direccion;Direccion2;Ciudad;Pais;Contacto;Contacto2;Fax;Telefono
 32000801-8;Nex-xus Distribution Inc.;1155 Blvd. Rene-Levesque O. Suite 2500;;Montreal H3B 2K4;Canada;Karhem;;;+ 514 9851115
 32000802-6;Parmalat Canadá INC;405 the west mall, 10th floor Toronto, Ontario m9c 5j1;;Ontario;Canada;;;;
 32000803-4;Univar Canada Ltd.;9800 Van Horne way V6X 1W5 , Richmond , British Columbia;;Richmond;Canada;Charles;;;604-273-1441
-32000804-2;QUADRA INGREDIENTS;1170 Invicta Drive, Oakville, Ontario  L6H 6G1;;Ontario;Canada;Dan;;;1 905-337-4257
+32000804-2;Quadra Chemicals Ltd;7930 Vantage Way;;Canada;Canada;Dan;;;1 905-337-4257
 32001001-2;ANDERCOL S.A.;CARRERA 64C NO. 95-84 MEDELLIN APARTADO / PO BOX 2065 COLOMBIA NIT 890.903.310-3;;;Colombia;;;;574 4700700
 32001002-0;TATE $ LYLE;;;;Colombia;;;;
 32001003-9;Duas Rodas Colombia S.A.S.;Carrera 48 C # 100 Sur 72 -La Estrella - Atioquia;;La Estrella;Colombia;Jannet Yepes;;574 333 52 34;574 448 14 12
@@ -235,6 +235,7 @@ Rut;Nombre;Direccion;Direccion2;Ciudad;Pais;Contacto;Contacto2;Fax;Telefono
 33002410-0;KERRY INGREDIENTS  DE MEXICO SA DE CV.;Carr Pan Irapuato Salamanca Km.11.2 Irapuato, Guanajuato C.P. 36660 R.F.C. KIM-941206-S20;;Irapuato;Mexico;;;;
 33002411-9;GLOBAL SPICE S.A.;SAN JOAQUIN DE LAS FLORES, HEREDIA COSTA RICA;;Heredia;Costa Rica;;;;
 33002412-7;Kerry LATAM;Oriente 2,4 Nuevo Parque Industrial. San Juan del Rio. Queretaro CP 76809;;Mexico;Mexico;;;;52085324
+33002413-5;EXTRACTOS NATURALES GELYMEX SA DE CV;Melchor Ocampo No. 330, Interior PH, Colonia Cuauhtémoc, C.P. 06500, Alcaldía Cuauhtémoc;;Ciudad de México;Mexico;Carla;;;
 33002413-5;EXTRACTOS NATURALES GELYMEX SA DE CV;Melchor Ocampo No. 330, Interior PH, Colonia Cuauhtémoc, C.P. 06500, Alcaldía Cuauhtémoc;;Ciudad de México;Mexico;David;;;
 33002414-3;Derivados de Leche La Esmeralda;Frente a la Estación del FF CC, S/N, Colonia La Estacion, San Miguel de Allende, Guanajuato;;Guanajuato, C.P. 37759;Mexico;Norma;;;
 34500000-3;Clientes EEUU;;;;USA;;;;
@@ -351,6 +352,8 @@ Rut;Nombre;Direccion;Direccion2;Ciudad;Pais;Contacto;Contacto2;Fax;Telefono
 35002401-8;BRENNTAG MALAYSIA,SDN.BHD.;LEVEL 3,BLOCK B,PEREMBA SQUARE, SAUJANA;;;Malaysia;;;;60378459228
 35002402-6;DIORCHEM SDN. BHD.;No.7,Jalan Semtec 2 Semtec Park 43500 Semenyih Selangor Darrul Ehsan;;43500 Semenyih Selangor Darul Ehsan;Malaysia;;;;03 8727 7421
 35002403-4;ECOLEX SDN. BHD.;LOT 11,SECTION 5,FASA 2B,PULAU INDAH INDUSTRIAL PARK, JALAN SUNGAI PINANG 4/2 42920 P. I. SELANGOR;;SELANGOR;Malaysia;;;;603 3258 3054
+35002403-4;ECOLEX SDN. BHD.;LOT 11,SECTION 5,FASA 2B,PULAU INDAH INDUSTRIAL PARK, JALAN SUNGAI PINANG 4/2 42920 P. I. SELANGOR;;SELANGOR;Malaysia;ECOLEX.PROCUREMENT;;;603 3258 3054
+35002403-4;ECOLEX SDN. BHD.;LOT 11,SECTION 5,FASA 2B,PULAU INDAH INDUSTRIAL PARK, JALAN SUNGAI PINANG 4/2 42920 P. I. SELANGOR;;SELANGOR;Malaysia;;;;603 3258 3054
 35002404-2;Nova Laboratories Sdn. Bhd.;Lot 708, Nova Avenue, 43950 Sungai Pelek, Sepang Selangor Malasia;;;Malaysia;Ms Wong Mei Chiun;;;03 3141 3181
 35002405-0;KERRY INGREDIENTS (SINGAPORE) PTE LTD;P.O.BOX 73, PEJABAT POS BESAR JOHOR BAHRU 80000 JOHOR BAHRU, MALAYSIA;;JOHOR BAHRU;Malaysia;;;;+6073409447
 35002406-9;KERRY INGREDIENTS (M) SDN BHD;27TH FLOOR MENARA ZURICH 15, JALAN DATO ABDULLAH TAHIR 80300 JOHOR BAHRU, MALAYSIA;;JOHOR BAHRU;Malaysia;;;;+6073409447
@@ -385,6 +388,7 @@ Rut;Nombre;Direccion;Direccion2;Ciudad;Pais;Contacto;Contacto2;Fax;Telefono
 35004201-6;Anphachem Company Limited;16  18 STREET NO. 4, CITYLAND PARK HILLS, WARD 10, GO VAP DISTRICT, HO CHI MINH CITY, VIETNAM.;;CITYLAND PARK HILLS, WARD 10, GO VAP DISTRICT, HO CHI MINH CITY;Vietnam;Nhut;;;
 35004400-0;MSC Co Ltd;"45-73, Soju Hoeya-ro, Yangsan-Si; Gyeongsangnam-do";;Gyeongsangnam-do;South Korea;Juho;;;
 35004401-9;Geltech Co., Ltd.;40, janghan-ro, Dongdaemun-gu, Seoul, Korea;;Seoul;South Korea;Ji Hee Choi;;;
+35004402-7;KOREA KARAGEN CO.,LTD.;#1022,Haenam Building, 64, Sejong-daero, jung-gu;;;South Korea;Misunnang so (director);;;82-2-773-6501
 36000000-1;Cliente de Europa;;;;.;;;;
 36000200-4;Condetta GmbH & Co. KG;Paulinenweg 12 33790 Halle;;Halle;Germany;Sarra;;;+49 (0) 5201 12-8975
 36000201-2;FRIESLANDCAMPINA GERMANY GMB H;PO BOX 31 51 D-74021 HEILBRONN;;HEILBRONN;Germany;;;;4971314898811
@@ -430,6 +434,7 @@ Rut;Nombre;Direccion;Direccion2;Ciudad;Pais;Contacto;Contacto2;Fax;Telefono
 36000240-3;Landliebe GmbH;Zollerstraße 7, 86850 Fischach, Germany;;Fischach;Germany;Maren;;;
 36000241-1;OQEMA GmbH;Aachener Straße 258, D-41061;;MÖNCHENGLADBACH;Germany;Jill;;;49 2161 3563594
 36000242-K;Dr. August Oetker Nahrungsmittel KG;Lutterstraße 14, 33617 Bielefeld;;Bielefeld;Germany;Tjard;;;
+36000243-8;DISPROQUIMA GERMANY;MOORFLEETER STASSE 40 DE 22113;;HAMBURG;Germany;;;;
 36000501-1;RUPP AG- PRIVATKASEREI RUPP;;;;Austria;;;;
 36000502-K;ESAROM GmbH;;;;Austria;;;;
 36000701-4;BRENNTAG NV;NIJVERHEIDSLAAN 38.  8540 DEERLIJK;;DEERLIJK;Belgium;;;;3256788257
@@ -949,6 +954,8 @@ Rut;Nombre;Direccion;Direccion2;Ciudad;Pais;Contacto;Contacto2;Fax;Telefono
 76269045-4;AVITRANS SPA;AV. 11 DE SEPTIEMBRE 1881;;PROVIDENCIA;Chile;;;;
 76270063-8;LABIMED SPA;FUENZALIDA URREJOLA 171;;LA CISTERNA;Chile;FRANCISCO MUÑOZ;;;
 76270063-8;LABIMED SPA;FUENZALIDA URREJOLA 171;;LA CISTERNA;Chile;CLAUDIA LEAL;;;
+76270554-0;Intecbol SpA;Av. Américo Vespucio 01273, oficina B;;La Cisterna;Chile;Fabiola Barrios;;;
+76270554-0;Intecbol SpA;Av. Américo Vespucio 01273, oficina B;;La Cisterna;Chile;;;;
 76272411-1;GSCOM SpA;DIAGONAL ORIENTE #1374;;PROVIDENCIA;Chile;DEBORAH BARRERA;;;22-5709984
 76272411-1;GSCOM SpA;DIAGONAL ORIENTE #1374;;PROVIDENCIA;Chile;ANDRES SCHLEYER;;;22-5709984
 76272456-1;COM. Y REPRES. INDUSCAS SPA;MANUEL ANTONIO TOCORNAL #1302;;SANTIAGO CENTRO;Chile;JUAN CASTILLO TAPIA;;;
@@ -1049,6 +1056,7 @@ Rut;Nombre;Direccion;Direccion2;Ciudad;Pais;Contacto;Contacto2;Fax;Telefono
 76497220-1;Comercial Aportas S.A.;Patricia Viñuela 485, Galpón G.;;Quilicura;Chile;Maricarmen Santos;;;
 76498047-6;ALIMENTOS GALMO LTDA;Luis Cruchaga  694 -Curacaví;;Curacaví;Chile;Ariel;;;
 76499485-K;Servicios de construcción y módulos Infiniski Ltda.;José Vargas Reyes 1163 -Cumbres de Buin - BUIN;;Buin;Chile;Karina;;;
+76502523-0;CORRALES CHILE SPA;RUTA 678 KM 0,5;;Valdivia;Chile;;;;
 76505471-0;ADITIVOS ALEJANDRA CARTES SPA;Parcela 10 El Curato;;Padre Hurtado;Chile;Alejandra;;;
 76505774-4;SOCIEDAD COMERCIAL METALEC SPa;Cardonal Bajo S/N lote 12 Lagunitas;;PUERTO MONTT;Chile;;;;
 76509229-9;Fabricación y Distribución de confites Myriam Gloria Herrera Tapia EIRL;Hermana Armella 506;;San Ignacio;Chile;Fernando Saldías;;;25485513

@@ -90,6 +90,73 @@ const getOrdersByFilters = async (filters = {}) => {
   });
 };
 
+/**
+ * Inserta una nueva orden en la base de datos
+ * @param {object} data - Datos de la orden
+ * @returns {Promise<void>}
+ */
+const insertOrder = async (data) => {
+  try {
+    const pool = await poolPromise;
+    
+    const query = `
+      INSERT INTO orders (
+        customer_id, rut, pc, oc, factura, fec_factura, name, path, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+    `;
+
+    const params = [
+      data.customer_id,
+      data.rut,
+      data.pc,
+      data.oc,
+      data.factura,
+      data.fec_factura,
+      data.name,
+      data.path || ''
+    ];
+
+    console.log(`Ejecutando INSERT en MySQL:`);
+    console.log(`   Query: ${query}`);
+    console.log(`   Params: [${params.map(p => `"${p}"`).join(', ')}]`);
+
+    const [result] = await pool.query(query, params);
+    
+    console.log(`INSERT exitoso - ID insertado: ${result.insertId}`);
+    
+  } catch (error) {
+    console.error(`Error en INSERT MySQL:`);
+    console.error(`   Error: ${error.message}`);
+    console.error(`   SQL State: ${error.sqlState}`);
+    console.error(`   Error Code: ${error.errno}`);
+    throw error; // Re-lanzar el error para que se maneje en el nivel superior
+  }
+};
+
+/**
+ * Obtiene todas las órdenes existentes por PC y OC
+ * @returns {Promise<Array<string>>}
+ */
+const getAllExistingOrders = async () => {
+  const pool = await poolPromise;
+  const [rows] = await pool.query('SELECT pc, oc FROM orders WHERE pc IS NOT NULL AND oc IS NOT NULL');
+  return rows.map(row => `${row.pc}-${row.oc}`);
+};
+
+/**
+ * Obtiene el order_id por el campo pc
+ * @param {string} pc - Número de PC
+ * @returns {Promise<number|null>}
+ */
+const getOrderIdByPc = async (pc) => {
+  const pool = await poolPromise;
+  const [rows] = await pool.query('SELECT id FROM orders WHERE pc = ?', [pc]);
+  return rows.length > 0 ? rows[0].id : null;
+};
+
 module.exports = {
   getOrdersByFilters,
+  insertOrder,
+  getAllExistingOrders,
+  getOrderIdByPc
 };

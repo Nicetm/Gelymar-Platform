@@ -53,6 +53,41 @@ async function getCustomerByUUID(uuid) {
   return new Customer(rows[0]);
 }
 
+/**
+ * Obtiene un cliente por su RUT
+ * @param {string} rut - RUT del cliente
+ * @returns {Customer|null} Objeto Customer si existe, null si no encontrado
+ */
+async function getCustomerByRut(rut) {
+  try {
+    const pool = await poolPromise;
+    const query = 'SELECT * FROM customers WHERE rut = ?';
+    const params = [rut];
+    
+    console.log(`Buscando cliente en MySQL:`);
+    console.log(`   Query: ${query}`);
+    console.log(`   RUT buscado: "${rut}"`);
+    
+    const [rows] = await pool.query(query, params);
+    
+    if (rows.length === 0) {
+      console.log(`No se encontró cliente con RUT: "${rut}"`);
+      return null;
+    }
+    
+    const customer = new Customer(rows[0]);
+    console.log(`Cliente encontrado en BD: ID=${customer.id}, RUT=${customer.rut}, Nombre=${customer.name}`);
+    
+    return customer;
+    
+  } catch (error) {
+    console.error(`Error buscando cliente por RUT "${rut}":`);
+    console.error(`   Error: ${error.message}`);
+    console.error(`   SQL State: ${error.sqlState}`);
+    console.error(`   Error Code: ${error.errno}`);
+    throw error;
+  }
+}
 
 async function getAllCustomerRuts() {
   const pool = await poolPromise;
@@ -114,6 +149,7 @@ module.exports = {
   getAllCustomers,
   getCustomerById,  
   getCustomerByUUID,
+  getCustomerByRut,
   createCustomerContacts,
   getContactsByCustomerUUID
 };

@@ -12,6 +12,24 @@ module.exports = {
         script: './cron/checkClients.js',
         watch: false,
         autorestart: true
+      },
+      {
+        name: 'gelymar-order-fetcher',
+        script: './cron/checkOrders.js',
+        watch: false,
+        autorestart: true
+      },
+      {
+        name: 'gelymar-item-fetcher',
+        script: './cron/checkItems.js',
+        watch: false,
+        autorestart: true
+      },
+      {
+        name: 'gelymar-orderline-fetcher',
+        script: './cron/checkOrderLines.js',
+        watch: false,
+        autorestart: true
       }
     ]
   };
