@@ -190,6 +190,66 @@ const duplicateFile = async (fileId) => {
   return result.insertId;
 };
 
+/**
+ * Obtiene todas las órdenes agrupadas por RUT
+ * @returns {Promise<Object>} Objeto con RUT como clave y array de órdenes como valor
+ */
+const getAllOrdersGroupedByRut = async () => {
+  const pool = await poolPromise;
+  const [rows] = await pool.query(`
+    SELECT id, rut, pc, oc, name, created_at 
+    FROM orders 
+    WHERE rut IS NOT NULL AND pc IS NOT NULL AND oc IS NOT NULL
+    ORDER BY rut, created_at
+  `);
+  
+  // Agrupar por RUT
+  const ordersByRut = {};
+  rows.forEach(order => {
+    if (!ordersByRut[order.rut]) {
+      ordersByRut[order.rut] = [];
+    }
+    ordersByRut[order.rut].push(order);
+  });
+  
+  return ordersByRut;
+};
+
+/**
+ * Obtiene el siguiente folder_id disponible
+ * @returns {Promise<number>} El siguiente folder_id
+ */
+const getNextFolderId = async () => {
+  const pool = await poolPromise;
+  
+  // Obtener el máximo folder_id actual
+  const [rows] = await pool.query('SELECT MAX(folder_id) as max_folder_id FROM files');
+  const maxFolderId = rows[0].max_folder_id || 4800; // Si no hay registros, empezar en 4800
+  
+  return maxFolderId + 1;
+};
+
+/**
+ * Obtiene todos los archivos
+ * @returns {Promise<Array>}
+ */
+const getAllFiles = async () => {
+  const pool = await poolPromise;
+  const [rows] = await pool.query('SELECT * FROM files ORDER BY created_at DESC');
+  return rows;
+};
+
+/**
+ * Obtiene archivos por folder_id
+ * @param {number} folderId - ID del folder
+ * @returns {Promise<Array>}
+ */
+const getFilesByFolderId = async (folderId) => {
+  const pool = await poolPromise;
+  const [rows] = await pool.query('SELECT * FROM files WHERE folder_id = ?', [folderId]);
+  return rows;
+};
+
 module.exports = {
   RenameFile,
   getFileById,
@@ -198,5 +258,9 @@ module.exports = {
   updateFile,
   getFileCountByCustomer,
   duplicateFile,
-  deleteFileById
+  deleteFileById,
+  getAllOrdersGroupedByRut,
+  getNextFolderId,
+  getAllFiles,
+  getFilesByFolderId
 };

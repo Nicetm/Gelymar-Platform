@@ -20,10 +20,14 @@ DB_USER=root
 DB_PASS=
 DB_SERVER=localhost
 DB_NAME=gelymar
+
 #API
 PORT=3000
 JWT_SECRET=claveSuperSecreta123
 RESEND_KEY=re_fA1mA4H1_GJrLoZvz3Up3L8W7TwpcreAg
+
+#FILE SERVER
+FILE_SERVER_ROOT=C:/xampp/htdocs/gelymar/uploads
 ```
 # 🗄️ Base de Datos MySQL
 
@@ -51,10 +55,13 @@ El sistema utiliza PM2 para gestionar los procesos de cron que procesan automát
 - **gelymar-order-fetcher**: Procesa archivo `FAC_HDR_SOFTKEY.txt` → tabla `orders`
 - **gelymar-item-fetcher**: Procesa archivo `PRODUCTOS_SOFTKEY.txt` → tabla `items`
 - **gelymar-orderline-fetcher**: Procesa archivo `FAC_LIN_SOFTKEY.txt` → tabla `order_items`
+- **gelymar-defaultfiles-generator**: Genera documentos por defecto → tabla `files` + directorios físicos
 - **gelymar-etd-checker**: Verificación de ETD
 
 ### Horarios de ejecución:
-Todos los procesos se ejecutan diariamente a las **6:00 AM** y evitan duplicados automáticamente.
+- **6:00 AM**: Procesamiento de archivos de red (clientes, órdenes, items, líneas de orden)
+- **6:05 AM**: Generación de documentos por defecto
+Todos los procesos evitan duplicados automáticamente.
 
 ## Comandos principales
 
@@ -73,6 +80,7 @@ pm2 logs gelymar-client-fetcher
 pm2 logs gelymar-order-fetcher
 pm2 logs gelymar-item-fetcher
 pm2 logs gelymar-orderline-fetcher
+pm2 logs gelymar-defaultfiles-generator
 pm2 logs gelymar-etd-checker
 
 # Ver logs de todos los procesos
@@ -106,4 +114,26 @@ Los procesos se conectan a:
 - **Ruta**: Users/above/Documents/BotArchivoWeb/archivos
 - **Usuario**: softkey
 - **Contraseña**: sK06.2025#
+
+## Generación de documentos por defecto
+
+El proceso `gelymar-defaultfiles-generator` crea automáticamente tres documentos por defecto para cada orden:
+
+1. **Recepcion de orden**
+2. **Aviso de Embarque**
+3. **Aviso de Recepcion de orden**
+
+### Funcionamiento:
+- Lee todas las órdenes de la tabla `orders`
+- Agrupa por RUT del cliente
+- Para cada orden, verifica si ya existen los 3 documentos
+- Si no existen, crea los registros en la tabla `files`
+- Crea directorios físicos en `FILE_SERVER_ROOT` con estructura: `/CLIENTE_NOMBRE/Numero PC`
+- Asigna `folder_id` incremental para agrupar los 3 documentos
+
+### Configuración requerida:
+Asegúrate de que `FILE_SERVER_ROOT` esté configurado en el archivo `.env`:
+```
+FILE_SERVER_ROOT=C:/xampp/htdocs/gelymar/uploads
+```
 

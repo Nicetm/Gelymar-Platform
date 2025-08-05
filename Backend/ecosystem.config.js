@@ -30,6 +30,12 @@ module.exports = {
         script: './cron/checkOrderLines.js',
         watch: false,
         autorestart: true
+      },
+      {
+        name: 'gelymar-defaultfiles-generator',
+        script: './cron/checkDefaultFiles.js',
+        watch: true,
+        autorestart: true
       }
     ]
   };
