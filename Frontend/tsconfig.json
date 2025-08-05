@@ -5,5 +5,5 @@
     "types": ["astro/client"],
     "typeRoots": ["./src/types", "./node_modules/@types"]
   },
-  "include": ["src", "astro.config.*", "env.d.ts", "public/js/tokenWatcher.js", "src/types/locals.d.ts"]
+  "include": ["src", "astro.config.*", "env.d.ts", "public/js/tokenWatcher.js", "src/types/locals.d.ts"],
 }

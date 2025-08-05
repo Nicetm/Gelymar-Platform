@@ -1,6 +1,5 @@
 ---
 import { loadTranslations, getServerLang } from '../lib/i18n.js';
-import type { Users } from '../types/entities.js';
 
 const apiBase    = import.meta.env.PUBLIC_API_URL;
 const fileServer = import.meta.env.PUBLIC_FILE_SERVER_URL;
@@ -18,54 +17,47 @@ const token =
   Astro.cookies.get('jwt')?.value ??
   null;
 
-// Devuelve un único usuario (la API puede responder array o objeto)
-let user: Users | null = null;
+/** @type {import('../types/entities.js').Users | null} */
+let user = null;
 
 try {
-  // Construye cabeceras solo si hay token
-  const reqHeaders: Record<string, string> = {};
-  if (token) reqHeaders.Authorization = `Bearer ${token}`;
-
-  const res = await fetch(`${apiBase}/api/users`, {
-    headers     : reqHeaders,
-    credentials : 'include',
-  });
-
-  if (res.ok) {
-    const data = await res.json();
-    user = Array.isArray(data) ? (data[0] ?? null) : data;
+  // En SSR (Node), 'credentials' no es soportado por los tipos de fetch, y las cookies httpOnly
+  // no se envían automáticamente. Solo usamos el header Authorization si tenemos token.
+  if (token) {
+    const data = await fetch(`${apiBase}/api/users`, {
+      headers: { Authorization: `Bearer ${token}` }
+    }).then(r => (r.ok ? r.json() : null));
+    user = Array.isArray(data) ? data[0] ?? null : data;
+    if (user && !user.role && user.role_id !== undefined) {
+      user.role = user.role_id === 1 ? 'admin'
+                : user.role_id === 2 ? 'client'
+                : String(user.role_id);
+    }
   }
 } catch (err) {
-  console.error('Error al obtener usuario:', err);
-  /* se deja user = null */
+  console.error('Error fetching user (SSR):', err);
 }
 
-// Si no hay usuario, creamos uno por defecto para evitar 'undefined'
 if (!user) {
-  user = {
-    id        : 0,
-    full_name : 'Cliente',
-    email     : '',
-    phone     : '',
-    avatar    : null,
-  } as Users;
+  user = { full_name: 'User', email: 'user@example.com', role: 'guest', avatar: '' };
 }
+
+// Convertir role a nombre capitalizado para mostrar
+const userRole = user.role === 'admin' ? 'Admin' 
+               : user.role === 'client' ? 'Client' 
+               : user.role === 'guest' ? 'Guest'
+               : 'User';
 
 // ── Avatares por defecto ───────────────────────────────────────────────────────
-let avatarLightSrc = '';
-let avatarDarkSrc  = '';
+const avatarUrl = user.avatar
+  ? (user.avatar.startsWith('http') ? user.avatar : `${fileServer}/${user.avatar}`)
+  // Fallback: avatar con iniciales (modo claro)
+  : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.full_name)}&backgroundColor=4b5563&fontColor=ffffff`;
 
-if (user.avatar) {
-  const url = user.avatar.startsWith('http')
-    ? user.avatar
-    : `${fileServer}/${user.avatar}`;
-  avatarLightSrc = url;
-  avatarDarkSrc  = url;
-} else {
-  const seed = encodeURIComponent(user.full_name ?? 'Cliente');
-  avatarLightSrc = `https://api.dicebear.com/7.x/initials/svg?seed=${seed}&backgroundColor=4b5563&fontColor=ffffff`;
-  avatarDarkSrc  = `https://api.dicebear.com/7.x/initials/svg?seed=${seed}&backgroundColor=1e293b&fontColor=ffffff`;
-}
+let avatarLightSrc = avatarUrl;
+let avatarDarkSrc  = user.avatar 
+  ? avatarUrl 
+  : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.full_name)}&backgroundColor=1e293b&fontColor=ffffff`;
 ---
 
 <style is:global>
@@ -75,7 +67,7 @@ if (user.avatar) {
   }
   /* Hover animado y barra de acento */
   .sidebar-link {
-    @apply flex items-center gap-2 p-2 px-4 text-base rounded-lg border-l-4 border-transparent transition-all duration-200 ease-out relative;
+    @apply flex items-center gap-2 p-2 px-4 text-base rounded-lg border-transparent transition-all duration-200 ease-out relative;
     @apply text-black hover:bg-gray-300 dark:text-gray-200 dark:hover:bg-gray-700;
     overflow: hidden;
   }
@@ -84,9 +76,9 @@ if (user.avatar) {
     content: '';
     position: absolute;
     left: 0; top: 0; bottom: 0;
-    width: 4px; /* o 4px si prefieres más delgado */
-    background: #00538C;
-    border-radius: 0; /* Sin bordes redondeados */
+    width: 4px;
+    background: #6b7280;
+    border-radius: 0;
     transition: background 0.3s;
   }
   .sidebar-link i {
@@ -97,9 +89,63 @@ if (user.avatar) {
     @apply bg-blue-50 text-black border-[#00538C] dark:bg-blue-900/40 dark:text-blue-300;
     box-shadow: 0 2px 8px 0 #00538C22;
   }
+
+  /* Estilos específicos para elementos activos en modo claro */
+  .sidebar-link.active {
+    @apply bg-gray-100 border-gray-400 text-gray-800 dark:bg-gray-700 dark:border-gray-500 dark:text-gray-200;
+    box-shadow: 0 2px 8px 0 rgba(107, 114, 128, 0.2);
+  }
+
+  /* Estilos para el contenedor del ícono cuando está activo */
+  .sidebar-link.active .icon-container {
+    @apply bg-gray-300 dark:bg-gray-600 shadow-md;
+  }
+
+  /* Estilos para el texto cuando está activo */
+  .sidebar-link.active .nav-text {
+    @apply text-gray-800 dark:text-gray-200 font-semibold;
+  }
+
+  /* Estilos para el ícono cuando está activo */
+  .sidebar-link.active .icon-container i {
+    @apply text-gray-700 dark:text-gray-300;
+  }
+
+  /* Estilos específicos para el botón de soporte cuando está activo */
+  .support-link.active {
+    transform: scale(1.05);
+  }
+  
+  .support-link.active > div {
+    @apply bg-gradient-to-br from-green-100 to-blue-100 dark:from-green-800/40 dark:to-blue-800/40;
+    @apply border-green-300 dark:border-green-600;
+    @apply ring-2 ring-green-400/50 dark:ring-green-500/50;
+    @apply shadow-lg;
+  }
+  
+  .support-link.active span:last-child {
+    @apply text-green-800 dark:text-green-200 font-semibold;
+  }
   /* Transición suave para el sidebar */
   #sidebar, .sidebar-link, .sidebar-link i {
     transition: all 0.3s cubic-bezier(.4,0,.2,1);
+  }
+
+  /* Animación para el dropdown de idioma */
+  #language-dropdown {
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.2s ease-out;
+  }
+  
+  #language-dropdown:not(.hidden) {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  
+  /* Rotar chevron cuando dropdown está abierto */
+  button[data-dropdown-toggle="language-dropdown"][aria-expanded="true"] i[data-lucide="chevron-up"] {
+    transform: rotate(180deg);
   }
 </style>
 ---
@@ -116,12 +162,21 @@ if (user.avatar) {
   <div
     class="flex-1 px-3 overflow-y-auto scrollbar scrollbar-w-2 scrollbar-thumb-rounded-md scrollbar-thumb-slate-200 scrollbar-track-gray-400 dark:scrollbar-thumb-slate-900 dark:scrollbar-track-gray-800"
   >
-    <!-- Client Panel Indicator -->
-    <div class="mt-4 mb-6 text-center">
-      <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 rounded-xl flex items-center justify-center mx-auto mb-2 shadow-lg">
-        <i data-lucide="shield" class="w-5 h-5 text-white"></i>
+    <!-- Minimal Client Panel -->
+    <div class="mt-4 mb-6 mx-2">
+      <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+        <div class="flex items-center justify-center gap-2 mb-2">
+          <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+          <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Client Panel</span>
+        </div>
+        <div class="text-center">
+          <div class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{user?.full_name || 'Cliente'}</div>
+          <div class="flex items-center justify-center gap-2 mb-1">
+            <span class="text-xs font-medium text-blue-700 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded-full border border-blue-200 dark:border-blue-800">{userRole}</span>
+          </div>
+          <span class="text-xs text-gray-500 dark:text-gray-400">Active Session</span>
+        </div>
       </div>
-      <span class="text-xs font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wide">Client Panel</span>
     </div>
     
     <!-- Divider -->
@@ -129,27 +184,27 @@ if (user.avatar) {
     
     <div class="space-y-3">
       <!-- dashboard -->
-      <a
-        href="/client/dashboard"
-        class="group flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 border-l-4 border-transparent hover:border-gray-400 dark:hover:border-gray-500"
-      >
-        <div class="w-8 h-8 bg-gray-200 dark:bg-gray-600 rounded-lg flex items-center justify-center shadow-sm group-hover:shadow-md transition-all duration-200">
+              <a
+          href="/client/dashboard"
+          class="sidebar-link group flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 border-transparent hover:border-gray-400 dark:hover:border-gray-500"
+        >
+        <div class="icon-container w-8 h-8 bg-gray-200 dark:bg-gray-600 rounded-lg flex items-center justify-center shadow-sm group-hover:shadow-md transition-all duration-200">
           <i data-lucide="layout-dashboard" class="w-4 h-4 text-gray-600 dark:text-gray-300"></i>
         </div>
-        <span class="font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors duration-200">
+        <span class="nav-text font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors duration-200">
           {t.sidebar.dashboard}
         </span>
       </a>
 
       <!-- documents -->
-      <a
-        href="/client/documents"
-        class="group flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 border-l-4 border-transparent hover:border-gray-400 dark:hover:border-gray-500"
-      >
-        <div class="w-8 h-8 bg-gray-200 dark:bg-gray-600 rounded-lg flex items-center justify-center shadow-sm group-hover:shadow-md transition-all duration-200">
+              <a
+          href="/client/documents"
+          class="sidebar-link group flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 border-transparent hover:border-gray-400 dark:hover:border-gray-500"
+        >
+        <div class="icon-container w-8 h-8 bg-gray-200 dark:bg-gray-600 rounded-lg flex items-center justify-center shadow-sm group-hover:shadow-md transition-all duration-200">
           <i data-lucide="folder-open" class="w-4 h-4 text-gray-600 dark:text-gray-300"></i>
         </div>
-        <span class="font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors duration-200">
+        <span class="nav-text font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors duration-200">
           {t.sidebar.documents}
         </span>
       </a>
@@ -162,76 +217,70 @@ if (user.avatar) {
     <hr class="mb-4 border-gray-300 dark:border-gray-600" />
     
     <!-- Support link -->
-    <a href="/client/info/support" class="text-center group block relative">
-      <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 rounded-xl flex items-center justify-center mx-auto mb-3 shadow-lg group-hover:shadow-xl group-hover:scale-105 transition-all duration-300 cursor-pointer">
-        <i data-lucide="headphones" class="w-6 h-6 text-white"></i>
+    <a href="/client/info/support" class="support-link group block transition-all duration-200">
+      <div class="bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 rounded-xl shadow-sm border border-green-200 dark:border-green-700 p-3 group-hover:shadow-md group-hover:scale-[1.02] transition-all duration-200">
+        <div class="flex items-center justify-center gap-2">
+          <span class="text-lg">💬</span>
+          <span class="text-sm font-medium text-green-700 dark:text-green-300 group-hover:font-semibold transition-all duration-200">
+            Chat with us
+          </span>
+        </div>
       </div>
-      <span class="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-300 group-hover:font-semibold">
-        {t.sidebar.support}
-      </span>
     </a>
   </div>
 
   <!-- Footer: settings + language -->
   <div
-    class="absolute bottom-0 left-0 w-full p-4 bg-white border-t border-gray-200 lg:flex justify-center gap-3 dark:bg-gray-800 dark:border-gray-700"
+    class="absolute bottom-0 left-0 w-full p-3 bg-white border-t border-gray-200 flex gap-2 dark:bg-gray-800 dark:border-gray-700"
   >
     <!-- Botón de configuración que abre modal -->
     <a
       href="#"
       id="openClientSettings"
-      data-tooltip-target="tooltip-settings"
-      class="inline-flex items-center justify-center w-10 h-10 text-gray-600 rounded-full shadow-md hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-400 dark:hover:text-white transition bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600"
+      class="flex-1 bg-gray-50 dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-2 hover:shadow-md hover:scale-[1.02] transition-all duration-200 group"
     >
-      <i data-lucide="user-cog" class="w-6 h-6"></i>
+      <div class="flex items-center justify-center gap-1">
+        <div class="w-5 h-5 bg-gray-200 dark:bg-gray-600 rounded-lg flex items-center justify-center group-hover:bg-gray-300 dark:group-hover:bg-gray-500 transition-colors duration-200">
+          <i data-lucide="user-cog" class="w-3 h-3 text-gray-600 dark:text-gray-300"></i>
+        </div>
+        <span class="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors duration-200">Settings</span>
+      </div>
     </a>
-    <div
-      id="tooltip-settings"
-      role="tooltip"
-      class="absolute z-10 invisible px-3 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg shadow-sm opacity-0 tooltip dark:bg-gray-700"
-    >
-      {t.sidebar.client_settings}
-      <div class="tooltip-arrow" data-popper-arrow></div>
-    </div>
 
     <!-- Idioma -->
-    <div class="relative inline-block">
+    <div class="relative flex-1">
       <button
         type="button"
         data-dropdown-toggle="language-dropdown"
-        class="inline-flex items-center justify-center w-10 h-10 text-xl rounded-full shadow-md text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700 transition bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600"
+        class="w-full bg-gray-50 dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-2 hover:shadow-md hover:scale-[1.02] transition-all duration-200"
         id="currentLangBtn"
       >
-        <span id="currentLangFlag">🇺🇸</span>
+        <div class="flex items-center justify-center gap-1">
+          <span id="currentLangFlag" class="text-sm">🇺🇸</span>
+          <span id="currentLangText" class="text-xs font-medium text-gray-700 dark:text-gray-300">EN</span>
+          <i data-lucide="chevron-up" class="w-3 h-3 text-gray-500 transform transition-transform duration-200"></i>
+        </div>
       </button>
       <div
         id="language-dropdown"
-        class="absolute bottom-14 right-0 z-50 hidden w-40 rounded-xl shadow-2xl border border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 transition-all duration-200 ease-out"
+        class="absolute bottom-14 left-0 right-0 z-50 hidden bg-gray-50 dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 transition-all duration-200 ease-out"
       >
-        <div
-          class="absolute -bottom-1.5 right-4 w-3 h-3 bg-white rotate-45 border-b border-r border-gray-200 dark:bg-gray-800 dark:border-gray-600"
-        ></div>
-
-        <ul class="py-2 text-sm text-gray-700 dark:text-gray-200">
-          <li>
-            <a
-              href="#"
-              data-lang="en"
-              class="language-option flex items-center gap-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white rounded-md transition"
-            >
-              🇺🇸 {t.sidebar.english}
-            </a>
-          </li>
-          <li>
-            <a
-              href="#"
-              data-lang="es"
-              class="language-option flex items-center gap-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white rounded-md transition"
-            >
-              🇨🇱 {t.sidebar.spanish}
-            </a>
-          </li>
-        </ul>
+        <div class="flex p-2 gap-1">
+          <a
+            href="#"
+            data-lang="en"
+            class="language-option flex-1 flex items-center justify-center gap-1 px-2 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white rounded-lg transition-all duration-200"
+          >
+            🇺🇸 EN
+          </a>
+          <a
+            href="#"
+            data-lang="es"
+            class="language-option flex-1 flex items-center justify-center gap-1 px-2 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white rounded-lg transition-all duration-200"
+          >
+            🇨🇱 ES
+          </a>
+        </div>
       </div>
     </div>
   </div>
@@ -420,26 +469,8 @@ document.addEventListener("DOMContentLoaded", () => {
       
       // Special styling for support link when active
       if (href === "/client/info/support") {
-        const supportLink = link;
-        const iconContainer = supportLink.querySelector("div");
-        
-        if (iconContainer) {
-          iconContainer.classList.add("ring-4", "ring-blue-500", "ring-opacity-75", "shadow-2xl", "scale-110");
-        }
-      }
-      
-      // Special styling for dashboard and documents when active
-      if (href === "/client/dashboard" || href === "/client/documents") {
-        const navLink = link;
-        const iconContainer = navLink.querySelector("div");
-        const textSpan = navLink.querySelector("span");
-        
-        // Add subtle active styling
-        navLink.classList.add("bg-blue-50", "dark:bg-gray-700", "border-blue-300", "dark:border-gray-500");
-        
-        if (textSpan) {
-          textSpan.classList.add("text-blue-700", "dark:text-white", "font-semibold");
-        }
+        // Los estilos activos del soporte se manejan con CSS usando .support-link.active
+        // No necesitamos JavaScript adicional aquí
       }
     }
   });
@@ -519,12 +550,26 @@ const hideModal = () => {
   });
 
   /* ---------- cambio de idioma ---------- */
-  // Función para actualizar el flag del idioma actual
+  // Función para actualizar el flag y texto del idioma actual
   function updateCurrentLangFlag() {
     const currentLang = localStorage.getItem('lang') || '{lang}';
     const flagElement = document.getElementById('currentLangFlag');
+    const textElement = document.getElementById('currentLangText');
+    const chevronElement = document.querySelector('#currentLangBtn i[data-lucide="chevron-up"]');
+    
     if (flagElement) {
       flagElement.textContent = currentLang === 'es' ? '🇨🇱' : '🇺🇸';
+    }
+    if (textElement) {
+      textElement.textContent = currentLang === 'es' ? 'ES' : 'EN';
+    }
+    
+    // Animar chevron cuando cambia
+    if (chevronElement) {
+      chevronElement.style.transform = 'rotate(180deg)';
+      setTimeout(() => {
+        chevronElement.style.transform = 'rotate(0deg)';
+      }, 200);
     }
   }
 

@@ -181,6 +181,18 @@ export async function initOrdersScript() {
 export async function openEditOrderModal(orderId, currentName) {
   // Implementar lógica del modal de edición aquí
   console.log('Abriendo modal de edición para orden:', orderId, currentName);
-  // Por ahora solo muestra una notificación
-  showNotification('Función de edición en desarrollo', 'info');
+  
+  try {
+    // Por ahora solo muestra una notificación
+    showNotification('Función de edición en desarrollo', 'info');
+    console.log('Notificación mostrada correctamente');
+    
+    // También mostrar una notificación de éxito después de 1 segundo
+    setTimeout(() => {
+      showNotification('Orden cargada correctamente', 'success');
+      console.log('Segunda notificación mostrada');
+    }, 1000);
+  } catch (error) {
+    console.error('Error al mostrar notificación:', error);
+  }
 } 

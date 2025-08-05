@@ -53,46 +53,50 @@ const avatarUrl = user.avatar
     id="user-toggle"
     type="button"
     data-dropdown-toggle="user-dropdown"
-    class="flex text-sm rounded-full transition hover:ring-2 hover:ring-[#F6B234] hover:scale-105 focus:outline-none"
+    class="flex items-center gap-2 px-2 py-2 rounded-lg transition hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none group"
   >
     <span class="sr-only">{t.usermenu.open_menu}</span>
     <img
       id="userAvatar"
-      class="w-8 h-8 rounded-full border-2 border-gray-200 dark:border-gray-600"
+      class="w-8 h-8 rounded-full border border-gray-300 dark:border-gray-600"
       src={avatarUrl}
       alt="user photo"
     />
+    <svg class="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+    </svg>
   </button>
 
   <!-- Dropdown -->
   <div
     id="user-dropdown"
-    class="absolute right-0 top-full mt-3 z-50 hidden w-64 max-w-sm bg-white border border-gray-200 rounded-2xl shadow-2xl dark:bg-gray-800 dark:border-gray-700 ring-1 ring-slate-100 dark:ring-white/10"
+    class="absolute right-0 top-full mt-2 z-50 hidden w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg transition-all duration-200"
   >
-    <!-- Encabezado -->
-    <div class="px-6 pt-5 pb-4 border-b border-gray-100 dark:border-gray-700">
-      <p class="text-sm font-semibold text-gray-700 dark:text-white">
-        <span id="userFullName">{user.full_name}</span>
-        <span id="userRole" class="ml-1 text-xs font-normal text-gray-500 dark:text-gray-400">
-          ({user.role})
-        </span>
+    <!-- Header con info del usuario -->
+    <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+      <p id="userFullName" class="text-sm font-medium text-gray-900 dark:text-white">
+        {user.full_name}
       </p>
-      <p id="userEmail" class="text-sm text-gray-500 truncate dark:text-[#F6B234]">
+      <p id="userEmail" class="text-sm text-gray-500 dark:text-gray-400 truncate">
         {user.email}
       </p>
+      <span id="userRole" class="inline-block mt-1 px-2 py-0.5 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded">
+        {user.role}
+      </span>
     </div>
 
-    <!-- Opciones -->
-    <ul class="py-2">
-      <li>
-        <button
-          id="logoutButton"
-          class="w-full text-left px-6 py-3 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-gray-700 dark:hover:text-white transition"
-        >
-          {t.usermenu.sign_out}
-        </button>
-      </li>
-    </ul>
+    <!-- Botón de logout -->
+    <div class="py-1">
+      <button
+        id="logoutButton"
+        class="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors duration-150 flex items-center gap-2"
+      >
+        <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+        </svg>
+        <span>{t.usermenu.sign_out}</span>
+      </button>
+    </div>
   </div>
 </div>
 
@@ -147,24 +151,33 @@ const avatarUrl = user.avatar
       const data = await res.json();
       const u = Array.isArray(data) ? data[0] ?? {} : data;
 
-      nameEl.textContent  = u.full_name ?? 'User';
+      const fullName = u.full_name ?? 'User';
       const roleNameClient =
         u.role ??
-        (u.role_id === 1 ? 'admin'
-         : u.role_id === 2 ? 'client'
-         : 'guest');
-      roleEl.textContent = `(${roleNameClient})`;
-      emailEl.textContent = u.email ?? '';
+        (u.role_id === 1 ? 'Admin'
+         : u.role_id === 2 ? 'Client'
+         : 'Guest');
+      const email = u.email ?? '';
 
+      // Actualizar elementos del dropdown
+      nameEl.textContent = fullName;
+      roleEl.textContent = roleNameClient;
+      emailEl.textContent = email;
+
+      // Actualizar avatar
       if (u.avatar) {
-        avatarEl.src = u.avatar.startsWith('http')
+        const avatarUrl = u.avatar.startsWith('http')
           ? u.avatar
           : `${FILE_SERVER}/${u.avatar}`;
+        avatarEl.src = avatarUrl;
       } else if (u.full_name) {
-        avatarEl.src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(u.full_name)}&backgroundColor=4b5563&fontColor=ffffff`;
+        const fallbackUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(u.full_name)}&backgroundColor=4b5563&fontColor=ffffff`;
+        avatarEl.src = fallbackUrl;
       }
     } catch (err) {
       console.error('Client-side user fetch failed:', err);
     }
   });
+
+
 </script>

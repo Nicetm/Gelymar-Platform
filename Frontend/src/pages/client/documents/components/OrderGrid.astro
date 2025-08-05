@@ -1,0 +1,34 @@
+---
+export interface Order {
+  id: number;
+  orderNumber: string;
+  clientName: string;
+  status: string;
+  documents: number;
+  lastUpdated: string;
+  priority: string;
+}
+import OrderCard from './OrderCard.astro';
+
+interface Props {
+  orders: Order[];
+}
+
+const { orders } = Astro.props as Props;
+---
+
+<div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+  <header class="mb-4">
+    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Select Order</h3>
+    <p  class="text-sm text-gray-600 dark:text-gray-400">
+      Choose an order to view its documents
+    </p>
+  </header>
+
+  <div id="orders-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    {orders.map(order => (
+      <OrderCard order={order} />
+    ))}
+  </div>
+</div>
+

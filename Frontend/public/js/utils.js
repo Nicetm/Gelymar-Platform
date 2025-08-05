@@ -10,17 +10,70 @@ const querySelector = (selector) => document.querySelector(selector);
 const qsa = (selector) => document.querySelectorAll(selector);
 
 // ===== SISTEMA DE NOTIFICACIONES =====
+let notificationQueue = [];
+let isProcessingQueue = false;
+let activeNotifications = new Set();
+
 const showNotification = (message, type = 'info', duration = 4000) => {
-    const notification = document.createElement('div');
-    notification.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg transition-all duration-300 transform translate-x-full flex items-center gap-3`;
+    // Crear un ID único para esta notificación
+    const notificationId = `${message}-${type}-${Date.now()}`;
     
-    const colors = {
-        success: 'bg-green-500 text-white',
-        error: 'bg-red-500 text-white',
-        warning: 'bg-red-500 text-white',
-        info: 'bg-blue-500 text-white'
+    // Verificar si ya existe una notificación idéntica
+    const existingNotification = Array.from(activeNotifications).find(id => {
+        const [existingMessage, existingType] = id.split('-').slice(0, -1);
+        return existingMessage === message && existingType === type;
+    });
+    
+    if (existingNotification) {
+        console.log('Notificación duplicada ignorada:', message);
+        return;
+    }
+    
+    // Verificar límite máximo de notificaciones (máximo 3)
+    if (activeNotifications.size >= 3) {
+        console.log('Límite de notificaciones alcanzado, ignorando:', message);
+        return;
+    }
+    
+    // Agregar a la cola
+    notificationQueue.push({ message, type, duration, id: notificationId });
+    
+    // Procesar cola si no está procesando
+    if (!isProcessingQueue) {
+        processNotificationQueue();
+    }
+};
+
+const processNotificationQueue = async () => {
+    if (notificationQueue.length === 0) {
+        isProcessingQueue = false;
+        return;
+    }
+    
+    isProcessingQueue = true;
+    const { message, type, duration, id } = notificationQueue.shift();
+    
+    // Agregar a notificaciones activas
+    activeNotifications.add(id);
+    
+    const notification = document.createElement('div');
+    
+    // Configurar colores según el tipo
+    const colorMap = {
+        success: { bg: '#10b981', text: '#ffffff' },
+        error: { bg: '#ef4444', text: '#ffffff' },
+        warning: { bg: '#f59e0b', text: '#ffffff' },
+        info: { bg: '#3b82f6', text: '#ffffff' },
+        danger: { bg: '#dc2626', text: '#ffffff' },
+        primary: { bg: '#2563eb', text: '#ffffff' },
+        secondary: { bg: '#6b7280', text: '#ffffff' },
+        dark: { bg: '#1f2937', text: '#ffffff' },
+        light: { bg: '#f3f4f6', text: '#1f2937' }
     };
     
+    const colors = colorMap[type] || colorMap.info;
+    
+    // Configurar iconos
     const icons = {
         success: `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
@@ -33,28 +86,125 @@ const showNotification = (message, type = 'info', duration = 4000) => {
         </svg>`,
         info: `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>`,
+        danger: `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+        </svg>`,
+        primary: `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>`,
+        secondary: `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>`,
+        dark: `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>`,
+        light: `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>`
     };
     
-    notification.className += ` ${colors[type] || colors.info}`;
+    // Calcular posición basada en notificaciones existentes
+    const existingNotifications = document.querySelectorAll('[data-notification]');
+    const topOffset = 4 + (existingNotifications.length * 4); // 4rem + 4rem por cada notificación
+    
+    // Aplicar estilos inline para garantizar visibilidad
+    notification.style.cssText = `
+        position: fixed !important;
+        top: ${topOffset}rem !important;
+        right: 1rem !important;
+        z-index: 99999999 !important;
+        padding: 1rem 1.5rem !important;
+        border-radius: 0.5rem !important;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+        transition: all 0.3s ease !important;
+        transform: translateX(100%) !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 0.75rem !important;
+        min-width: 300px !important;
+        max-width: 500px !important;
+        word-wrap: break-word !important;
+        font-size: 14px !important;
+        font-weight: 500 !important;
+        background-color: ${colors.bg} !important;
+        color: ${colors.text} !important;
+        margin-bottom: 0.5rem !important;
+    `;
+    
+    notification.setAttribute('data-notification', 'true');
     notification.innerHTML = `${icons[type] || icons.info}<span>${message}</span>`;
     
     document.body.appendChild(notification);
     
     // Animar entrada
     setTimeout(() => {
-        notification.classList.remove('translate-x-full');
+        notification.style.transform = 'translateX(0)';
     }, 100);
     
     // Auto-remover
     setTimeout(() => {
-        notification.classList.add('translate-x-full');
+        notification.style.transform = 'translateX(100%)';
         setTimeout(() => {
             if (notification.parentNode) {
                 notification.parentNode.removeChild(notification);
+                // Remover de notificaciones activas
+                activeNotifications.delete(id);
+                // Reposicionar notificaciones restantes
+                repositionNotifications();
             }
         }, 300);
     }, duration);
+    
+    // Procesar siguiente notificación después de un pequeño delay
+    setTimeout(() => {
+        processNotificationQueue();
+    }, 200);
+};
+
+// Funciones helper para diferentes tipos de notificaciones
+const showSuccessNotification = (message, duration = 4000) => {
+    showNotification(message, 'success', duration);
+};
+
+const showErrorNotification = (message, duration = 4000) => {
+    showNotification(message, 'error', duration);
+};
+
+const showWarningNotification = (message, duration = 4000) => {
+    showNotification(message, 'warning', duration);
+};
+
+const showInfoNotification = (message, duration = 4000) => {
+    showNotification(message, 'info', duration);
+};
+
+const showDangerNotification = (message, duration = 4000) => {
+    showNotification(message, 'danger', duration);
+};
+
+const showPrimaryNotification = (message, duration = 4000) => {
+    showNotification(message, 'primary', duration);
+};
+
+const showSecondaryNotification = (message, duration = 4000) => {
+    showNotification(message, 'secondary', duration);
+};
+
+const showDarkNotification = (message, duration = 4000) => {
+    showNotification(message, 'dark', duration);
+};
+
+const showLightNotification = (message, duration = 4000) => {
+    showNotification(message, 'light', duration);
+};
+
+const repositionNotifications = () => {
+    const notifications = document.querySelectorAll('[data-notification]');
+    notifications.forEach((notification, index) => {
+        const topOffset = 4 + (index * 4);
+        notification.style.top = `${topOffset}rem`;
+    });
 };
 
 // ===== SISTEMA DE SPINNER =====
@@ -392,6 +542,15 @@ export {
     querySelector,
     qsa,
     showNotification,
+    showSuccessNotification,
+    showErrorNotification,
+    showWarningNotification,
+    showInfoNotification,
+    showDangerNotification,
+    showPrimaryNotification,
+    showSecondaryNotification,
+    showDarkNotification,
+    showLightNotification,
     showSpinner,
     hideSpinner,
     checkToken,

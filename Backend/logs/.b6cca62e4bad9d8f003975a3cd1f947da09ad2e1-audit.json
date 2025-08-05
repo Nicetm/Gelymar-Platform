@@ -6,24 +6,9 @@
     "auditLog": "/Users/ressc/Desktop/Proyectos/SoftkeyProyects/gelymar-management-platform/Backend/logs/.b6cca62e4bad9d8f003975a3cd1f947da09ad2e1-audit.json",
     "files": [
         {
-            "date": 1752013395830,
-            "name": "/Users/ressc/Desktop/Proyectos/SoftkeyProyects/gelymar-management-platform/Backend/logs/app-2025-07-08.log",
-            "hash": "4c71b5701f300e18304a1d38078efecf440e5d347a4c3decd41ac77e27e0b3d3"
-        },
-        {
-            "date": 1752079797382,
-            "name": "/Users/ressc/Desktop/Proyectos/SoftkeyProyects/gelymar-management-platform/Backend/logs/app-2025-07-09.log",
-            "hash": "a798d4a4f1cf9ee560920ae45f983c9866c823b09c11cb73de834e146e4bd519"
-        },
-        {
-            "date": 1752854488833,
-            "name": "/Users/ressc/Desktop/Proyectos/SoftkeyProyects/gelymar-management-platform/Backend/logs/app-2025-07-18.log",
-            "hash": "7f194e99ccf89c4fe7508d9d99d1d7c4ac0841269fda5c0ea62df45fe11a30bc"
-        },
-        {
-            "date": 1752947320673,
-            "name": "/Users/ressc/Desktop/Proyectos/SoftkeyProyects/gelymar-management-platform/Backend/logs/app-2025-07-19.log",
-            "hash": "b28160055e14f6480b43c09e9b3d5e40f076a89c72adbc196bff06509f39c936"
+            "date": 1754325501741,
+            "name": "/Users/ressc/Desktop/Proyectos/SoftkeyProyects/gelymar-management-platform/Backend/logs/app-2025-08-04.log",
+            "hash": "912de81f59f481baa53bf5e80b5f389124f798670606e0976a9ddae3765cf01b"
         }
     ],
     "hashType": "sha256"
