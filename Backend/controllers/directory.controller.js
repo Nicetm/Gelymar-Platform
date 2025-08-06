@@ -4,6 +4,7 @@ const path = require('path');
 const customerService = require('../services/customer.service');
 const folderService = require('../services/folder.service');
 const logger = require('@utils/logger');
+const { cleanDirectoryName } = require('../utils/directoryUtils');
 const FILE_SERVER_ROOT = process.env.FILE_SERVER_ROOT;
 
 /**
@@ -64,7 +65,9 @@ exports.createDirectory = async (req, res) => {
       });
     }
 
-    const fullPhysicalPath = path.join(FILE_SERVER_ROOT, folderPath);
+    // Limpiar nombres de directorios para evitar problemas con caracteres especiales
+    const cleanFolderPath = cleanDirectoryName(folderPath);
+    const fullPhysicalPath = path.join(FILE_SERVER_ROOT, cleanFolderPath);
     fs.mkdirSync(fullPhysicalPath, { recursive: true });
 
     const folder = await folderService.createFolder({ customer_id, name, path: folderPath });

@@ -8,7 +8,7 @@ const File = require('../models/file');
  */
 const insertFile = async ({
   customer_id,
-  folder_id,
+  order_id,
   name,
   path,
   eta = null,
@@ -30,12 +30,12 @@ const insertFile = async ({
 
   const [result] = await pool.query(
     `INSERT INTO files (
-      folder_id, name, path, 
+      order_id, name, path, 
       created_at, updated_at, eta, etd, was_sent, 
       document_type, file_type, status_id
     ) VALUES (?, ?, ?, NOW(), NOW(), ?, ?, ?, ?, ?, ?)`,
     [
-      folder_id, name, path,
+      order_id, name, path,
       eta, etd, was_sent, document_type, file_type, status_id
     ]
   );
@@ -100,8 +100,8 @@ const getFiles = async (customerId, folderId) => {
         o.name AS folder_name
      FROM files f
      LEFT JOIN order_status os ON f.status_id = os.id
-     JOIN orders o ON f.folder_id = o.id
-     WHERE f.folder_id = ?
+     JOIN orders o ON f.order_id = o.id
+     WHERE f.order_id = ?
      ORDER BY f.created_at DESC`,
     [folderId]
   );
@@ -117,16 +117,16 @@ const getFileCountByCustomer = async (customerId) => {
   const pool = await poolPromise;
 
   const [rows] = await pool.query(`
-    SELECT f.folder_id, COUNT(*) AS fileCount
+    SELECT f.order_id, COUNT(*) AS fileCount
     FROM files f
-    INNER JOIN orders o ON f.folder_id = o.id
+    INNER JOIN orders o ON f.order_id = o.id
     WHERE o.customer_id = ?
-    GROUP BY f.folder_id
+    GROUP BY f.order_id
   `, [customerId]);
 
   const countMap = {};
   rows.forEach(row => {
-    countMap[row.folder_id] = row.fileCount;
+    countMap[row.order_id] = row.fileCount;
   });
 
   return countMap;
@@ -142,7 +142,7 @@ const getFileById = async(id) => {
       GROUP_CONCAT(cc.email SEPARATOR ',') AS contact_emails,
       fd.name AS folder_name 
     FROM files f
-    JOIN orders fd ON f.folder_id = fd.id
+    JOIN orders fd ON f.order_id = fd.id
     JOIN customers c ON fd.customer_id = c.id
     LEFT JOIN customer_contacts cc ON c.id = cc.customer_id
     WHERE f.id = ?
@@ -177,12 +177,12 @@ const duplicateFile = async (fileId) => {
   // Insertar el nuevo registro duplicado
   const [result] = await pool.query(`
     INSERT INTO files (
-      folder_id, name, path, 
+      order_id, name, path, 
       created_at, updated_at, eta, etd, was_sent, 
       document_type, file_type, status_id
     ) VALUES (?, ?, ?, NOW(), NOW(), ?, ?, ?, ?, ?, ?)`,
     [
-      file.folder_id, file.name, file.path,
+      file.order_id, file.name, file.path,
       file.eta, file.etd, true, file.document_type, file.file_type, 4
     ]
   );
@@ -216,17 +216,17 @@ const getAllOrdersGroupedByRut = async () => {
 };
 
 /**
- * Obtiene el siguiente folder_id disponible
- * @returns {Promise<number>} El siguiente folder_id
+ * Obtiene el siguiente order_id disponible
+ * @returns {Promise<number>} El siguiente order_id
  */
 const getNextFolderId = async () => {
   const pool = await poolPromise;
   
-  // Obtener el máximo folder_id actual
-  const [rows] = await pool.query('SELECT MAX(folder_id) as max_folder_id FROM files');
-  const maxFolderId = rows[0].max_folder_id || 4800; // Si no hay registros, empezar en 4800
+  // Obtener el máximo order_id actual
+  const [rows] = await pool.query('SELECT MAX(order_id) as max_order_id FROM files');
+  const maxOrderId = rows[0].max_order_id || 4800; // Si no hay registros, empezar en 4800
   
-  return maxFolderId + 1;
+  return maxOrderId + 1;
 };
 
 /**
@@ -240,13 +240,13 @@ const getAllFiles = async () => {
 };
 
 /**
- * Obtiene archivos por folder_id
- * @param {number} folderId - ID del folder
+ * Obtiene archivos por order_id
+ * @param {number} orderId - ID del order
  * @returns {Promise<Array>}
  */
-const getFilesByFolderId = async (folderId) => {
+const getFilesByFolderId = async (orderId) => {
   const pool = await poolPromise;
-  const [rows] = await pool.query('SELECT * FROM files WHERE folder_id = ?', [folderId]);
+  const [rows] = await pool.query('SELECT * FROM files WHERE order_id = ?', [orderId]);
   return rows;
 };
 

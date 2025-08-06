@@ -3,6 +3,7 @@ const { getAllOrdersGroupedByRut, getNextFolderId } = require('./file.service');
 const { getCustomerByRut } = require('./customer.service');
 const fs = require('fs').promises;
 const path = require('path');
+const { cleanDirectoryName } = require('../utils/directoryUtils');
 require('dotenv').config();
 
 async function generateDefaultFiles() {
@@ -46,28 +47,25 @@ async function generateDefaultFiles() {
             continue;
           }
           
-          // Obtener el siguiente folder_id
-          const folderId = await getNextFolderId();
-          
           // Crear los tres documentos por defecto
           const defaultDocuments = [
             {
               name: 'Recepcion de orden',
-              folder_id: folderId,
+              order_id: order.id, // Usar el ID real de la orden
               pc: order.pc,
               oc: order.oc,
               path: directoryPath
             },
             {
               name: 'Aviso de Embarque',
-              folder_id: folderId,
+              order_id: order.id, // Usar el ID real de la orden
               pc: order.pc,
               oc: order.oc,
               path: directoryPath
             },
             {
               name: 'Aviso de Recepcion de orden',
-              folder_id: folderId,
+              order_id: order.id, // Usar el ID real de la orden
               pc: order.pc,
               oc: order.oc,
               path: directoryPath
@@ -80,7 +78,7 @@ async function generateDefaultFiles() {
             totalFilesCreated++;
           }
           
-          console.log(`Creados 3 documentos para orden ${order.id} (PC: ${order.pc}, OC: ${order.oc}) con folder_id: ${folderId} en directorio: ${directoryPath}`);
+          console.log(`Creados 3 documentos para orden ${order.id} (PC: ${order.pc}, OC: ${order.oc}) con order_id: ${order.id} en directorio: ${directoryPath}`);
           totalOrdersProcessed++;
           
         } catch (error) {
@@ -103,8 +101,7 @@ async function checkExistingFiles(orderId) {
   const pool = await poolPromise;
   const [rows] = await pool.query(`
     SELECT f.* FROM files f 
-    JOIN orders o ON f.pc = o.pc AND f.oc = o.oc 
-    WHERE o.id = ? AND f.name IN ('Recepcion de orden', 'Aviso de Embarque', 'Aviso de Recepcion de orden')
+    WHERE f.order_id = ? AND f.name IN ('Recepcion de orden', 'Aviso de Embarque', 'Aviso de Recepcion de orden')
   `, [orderId]);
   return rows;
 }
@@ -114,14 +111,14 @@ async function insertDefaultFile(fileData) {
   
   const query = `
     INSERT INTO files (
-      folder_id, pc, oc, name, path, eta, etd, was_sent, 
+      order_id, pc, oc, name, path, eta, etd, was_sent, 
       document_type, file_type, status_id, is_visible_to_client, 
       created_at, updated_at
     ) VALUES (?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, 'PDF', 1, 0, NOW(), NOW())
   `;
 
   const params = [
-    fileData.folder_id,
+    fileData.order_id, // Usar el order_id real
     fileData.pc,
     fileData.oc,
     fileData.name,
@@ -153,14 +150,10 @@ async function createClientDirectory(customerName, pc) {
     }
 
     // Limpiar nombre del cliente para usar como nombre de directorio
-    const cleanCustomerName = customerName
-      .replace(/[<>:"/\\|?*]/g, '_') // Reemplazar caracteres inválidos para Windows
-      .replace(/\.+$/, '') // Remover puntos al final
-      .replace(/^\.+/, '') // Remover puntos al inicio
-      .trim();
+    const cleanCustomerName = cleanDirectoryName(customerName);
 
     // Crear ruta del directorio: /CLIENTE_NOMBRE/Numero PC
-    const directoryPath = path.join(fileServerRoot, customerName.trim(), pc);
+    const directoryPath = path.join(fileServerRoot, cleanCustomerName, pc);
     
     console.log(`Intentando crear directorio: "${directoryPath}"`);
     

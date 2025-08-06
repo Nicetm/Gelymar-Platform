@@ -73,7 +73,7 @@ export interface Folders {
   customer_id: number;
   name: string;
   path: string;
-  pc: number;
+  pc: string;
   oc: string;
   factura: number;
   fec_factura: string;

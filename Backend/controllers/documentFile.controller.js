@@ -8,6 +8,7 @@ const fileService = require('../services/file.service');
 const emailService = require('../services/email.service');
 const PDFDocument = require('pdfkit');
 const logger = require('../utils/logger');
+const { cleanDirectoryName } = require('../utils/directoryUtils');
 
 const UPLOADS_ROOT = path.join(__dirname, '../uploads');
 
@@ -20,7 +21,11 @@ const storage = multer.diskStorage({
     const { client_name, subfolder } = req.body;
     if (!client_name || !subfolder) return cb(new Error('Faltan parámetros'), null);
 
-    const dirPath = path.join(process.env.FILE_SERVER_ROOT, client_name, subfolder);
+    // Limpiar nombres de directorios para evitar problemas con caracteres especiales
+    const cleanClientName = cleanDirectoryName(client_name);
+    const cleanSubfolder = cleanDirectoryName(subfolder);
+    
+    const dirPath = path.join(process.env.FILE_SERVER_ROOT, cleanClientName, cleanSubfolder);
     fs.mkdirSync(dirPath, { recursive: true });
     cb(null, dirPath);
   },
@@ -147,7 +152,10 @@ exports.generateFile = async (req, res) => {
     }
 
     const FILE_SERVER_ROOT = process.env.FILE_SERVER_ROOT;
-    const customerFolder = path.join(FILE_SERVER_ROOT, file.customer_name, file.folder_name);
+    // Limpiar nombres de directorios para evitar problemas con caracteres especiales
+    const cleanCustomerName = cleanDirectoryName(file.customer_name);
+    const cleanFolderName = cleanDirectoryName(file.folder_name);
+    const customerFolder = path.join(FILE_SERVER_ROOT, cleanCustomerName, cleanFolderName);
     
     if (!fs.existsSync(customerFolder)) {
       fs.mkdirSync(customerFolder, { recursive: true });
