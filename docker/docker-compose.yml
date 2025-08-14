@@ -1,0 +1,100 @@
+name: gelymar-platform
+
+services:
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: gelymar-platform-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root123456
+      MYSQL_DATABASE: gelymar_db
+      MYSQL_USER: gelymar_user
+      MYSQL_PASSWORD: gelymar123456
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql/init:/docker-entrypoint-initdb.d
+    networks:
+      - gelymar-platform-network
+    command: --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  # Apache Web Server
+  apache:
+    image: httpd:2.4
+    container_name: gelymar-platform-apache
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./apache/conf/httpd.conf:/usr/local/apache2/conf/httpd.conf
+      - ./apache/conf/extra:/usr/local/apache2/conf/extra
+      - ./apache/htdocs:/usr/local/apache2/htdocs
+      - ./apache/logs:/usr/local/apache2/logs
+      - ../Backend/uploads:/usr/local/apache2/htdocs/uploads
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - gelymar-platform-network
+    environment:
+      - APACHE_DOCUMENT_ROOT=/usr/local/apache2/htdocs
+
+  # PHP-FPM (si necesitas PHP)
+  php:
+    image: php:8.2-fpm
+    container_name: gelymar-platform-php
+    restart: unless-stopped
+    volumes:
+      - ../Backend:/var/www/html
+      - ./php/php.ini:/usr/local/etc/php/php.ini
+    networks:
+      - gelymar-platform-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  # phpMyAdmin - Gestión web de MySQL
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: gelymar-platform-phpmyadmin
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      PMA_USER: root
+      PMA_PASSWORD: root123456
+      MYSQL_ROOT_PASSWORD: root123456
+      UPLOAD_LIMIT: 100M
+      MAX_EXECUTION_TIME: 300
+      MEMORY_LIMIT: 512M
+      POST_MAX_SIZE: 100M
+      UPLOAD_MAX_FILESIZE: 100M
+      MAX_INPUT_VARS: 10000
+    volumes:
+      - ./phpmyadmin/config.user.inc.php:/etc/phpmyadmin/config.user.inc.php
+      - ./phpmyadmin/php.ini:/usr/local/etc/php/php.ini
+    networks:
+      - gelymar-platform-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+volumes:
+  mysql_data:
+    driver: local
+
+networks:
+  gelymar-platform-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16 

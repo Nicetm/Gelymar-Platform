@@ -18,15 +18,20 @@ function mountIfNeeded() {
   const platform = os.platform();
   if (platform === 'win32') {
     const filePath = `Z:\\${FILE_NAME}`;
-    if (!fs.existsSync(filePath)) {
-      try {
-        execSync(`net use Z: \\\\${SERVER}\\${SHARE_PATH} /user:${USER} ${PASSWORD} /persistent:no`, { stdio: 'ignore' });
-      } catch (err) {
-        console.error('Error montando red en Windows:', err.message);
-        return null;
+    
+    // Solo verificar si existe, no intentar montar
+    try {
+      if (fs.existsSync(filePath)) {
+        console.log('Unidad Z: ya está montada y accesible');
+        return filePath;
+      } else {
+        console.log('Archivo no encontrado en Z:, pero la unidad puede estar montada');
+        return filePath;
       }
+    } catch (err) {
+      console.log('Error accediendo a Z:, pero continuando...');
+      return filePath;
     }
-    return filePath;
   } else {
     const mountPoint = '/mnt/red';
     const filePath = path.join(mountPoint, FILE_NAME);
@@ -140,6 +145,15 @@ async function fetchOrderLineFilesFromNetwork() {
 
         if (procesados <= 3) {
           console.log(`Item encontrado: Código=${itemCode}, ID=${item.id}`);
+        }
+
+        // Debug: mostrar valores de campos problemáticos
+        if (procesados <= 5) {
+          console.log(`Registro ${procesados} - Valores de campos:`);
+          console.log(`  Etiqueta: "${record.Etiqueta}"`);
+          console.log(`  Kto_Etiqueta5: "${record.Kto_Etiqueta5}"`);
+          console.log(`  OC: "${record.OC}"`);
+          console.log(`  Nro: "${record.Nro}"`);
         }
 
         const orderLineData = {

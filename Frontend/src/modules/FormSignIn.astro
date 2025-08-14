@@ -10,10 +10,10 @@ const apiBase = import.meta.env.PUBLIC_API_BASE_URL;
   </p>
 
   <form id="loginForm" class="space-y-6">
-    <!-- Email -->
+    <!-- Username -->
     <div>
-      <label for="email" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Email</label>
-      <input type="email" id="email" name="username" required class="input" placeholder="user@company.com" autocomplete="username"/>
+      <label for="username" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Username</label>
+      <input type="text" id="username" name="username" required class="input" placeholder="Enter your username" autocomplete="username"/>
     </div>
 
     <!-- Password -->
@@ -76,7 +76,7 @@ const apiBase = import.meta.env.PUBLIC_API_BASE_URL;
   document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
 
-    const email = e.target.email.value.trim();
+    const username = e.target.username.value.trim();
     const password = e.target.password.value.trim();
     const otp = e.target.otp?.value?.trim();
     const msg = document.getElementById('loginMessage');
@@ -88,7 +88,7 @@ const apiBase = import.meta.env.PUBLIC_API_BASE_URL;
       const res = await fetch(`${apiBase}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, otp })
+        body: JSON.stringify({ username, password, otp })
       });
 
       const data = await res.json();
@@ -98,12 +98,12 @@ const apiBase = import.meta.env.PUBLIC_API_BASE_URL;
           otpShown = true;
           document.getElementById('otpContainer').classList.remove('hidden');
 
-          const statusRes = await fetch(`${apiBase}/auth/2fa/status?email=${encodeURIComponent(email)}`);
+          const statusRes = await fetch(`${apiBase}/auth/2fa/status?username=${encodeURIComponent(username)}`);
           const { twoFAEnabled } = await statusRes.json();
 
           if (!twoFAEnabled) {
             document.getElementById('qrContainer').classList.remove('hidden');
-            const qrRes = await fetch(`${apiBase}/auth/2fa/setup?email=${encodeURIComponent(email)}`);
+            const qrRes = await fetch(`${apiBase}/auth/2fa/setup?username=${encodeURIComponent(username)}`);
             const { qr } = await qrRes.json();
             document.getElementById('qrImage').src = qr;
           }

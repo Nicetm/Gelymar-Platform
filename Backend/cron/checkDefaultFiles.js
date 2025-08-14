@@ -12,17 +12,30 @@ const emitReady = () => {
 };
 
 // Ejecutar inmediatamente al iniciar
-generateDefaultFiles().then(() => {
-  console.log('Procesamiento inicial de documentos por defecto completado');
-  emitReady();
-}).catch((error) => {
-  console.error('Error en procesamiento inicial de documentos por defecto:', error);
-  emitReady();
-});
+// Función para ejecutar con manejo de errores
+async function executeWithErrorHandling() {
+  try {
+    await generateDefaultFiles();
+    console.log('Procesamiento inicial de documentos por defecto completado');
+  } catch (error) {
+    console.error('Error en procesamiento inicial de documentos por defecto:', error.message);
+    console.log('Continuando con el siguiente proceso...');
+  } finally {
+    emitReady();
+  }
+}
+
+// Ejecutar inicialmente
+executeWithErrorHandling();
 
 // Ejecutar a las 6:05 AM diariamente
 cron.schedule('5 6 * * *', async () => {
   console.log('Ejecutando generación de documentos por defecto programada...');
-  await generateDefaultFiles();
-  console.log(`[${new Date().toISOString()}] Documentos por defecto generados.`);
+  try {
+    await generateDefaultFiles();
+    console.log(`[${new Date().toISOString()}] Documentos por defecto generados.`);
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] Error en generación de documentos por defecto:`, error.message);
+    console.log('Continuando con el siguiente proceso...');
+  }
 }); 

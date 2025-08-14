@@ -17,15 +17,20 @@ function mountIfNeeded() {
   const platform = os.platform();
   if (platform === 'win32') {
     const filePath = `Z:\\${FILE_NAME}`;
-    if (!fs.existsSync(filePath)) {
-      try {
-        execSync(`net use Z: \\\\${SERVER}\\${SHARE_PATH} /user:${USER} ${PASSWORD} /persistent:no`, { stdio: 'ignore' });
-      } catch (err) {
-        console.error('Error montando red en Windows:', err.message);
-        return null;
+    
+    // Solo verificar si existe, no intentar montar
+    try {
+      if (fs.existsSync(filePath)) {
+        console.log('Unidad Z: ya está montada y accesible');
+        return filePath;
+      } else {
+        console.log('Archivo no encontrado en Z:, pero la unidad puede estar montada');
+        return filePath;
       }
+    } catch (err) {
+      console.log('Error accediendo a Z:, pero continuando...');
+      return filePath;
     }
-    return filePath;
   } else {
     const mountPoint = '/mnt/red';
     const filePath = path.join(mountPoint, FILE_NAME);
@@ -152,7 +157,7 @@ async function fetchOrderFilesFromNetwork() {
           pc: record.Nro || '', // Nro del txt
           oc: record.OC || '',
           factura: record.Factura || '',
-          fec_factura: record.Fecha_factura || null,
+          fec_factura: record.Fecha_factura && record.Fecha_factura !== '0' ? record.Fecha_factura : new Date().toISOString().split('T')[0],
           name: record.OC || '', // Usar OC como nombre
           path: '' // Campo path vacío por defecto
         };

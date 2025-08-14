@@ -19,6 +19,16 @@
             "date": 1754368808841,
             "name": "E:\\Softkey\\Gelymar\\Proyecto\\gelymar-management-platform\\Backend\\logs\\app-2025-08-05.log",
             "hash": "ac8d8373839cb682b1605746e7e5aa58806131c72f580167f12bdb37d3b5461a"
+        },
+        {
+            "date": 1755125183652,
+            "name": "E:\\Softkey\\Gelymar\\Proyecto\\gelymar-management-platform\\Backend\\logs\\app-2025-08-13.log",
+            "hash": "9b7ebb848c1b0f7b13cb61ed5bdf75b2e774b1754d56bc38b90fe314d806fe50"
+        },
+        {
+            "date": 1755144015451,
+            "name": "E:\\Softkey\\Gelymar\\Proyecto\\gelymar-management-platform\\Backend\\logs\\app-2025-08-14.log",
+            "hash": "e0b9e92206e534ac357c810eef80229c006d39f628587341f02b0fa40fab7915"
         }
     ],
     "hashType": "sha256"

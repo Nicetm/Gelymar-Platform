@@ -99,11 +99,19 @@ async function generateDefaultFiles() {
 
 async function checkExistingFiles(orderId) {
   const pool = await poolPromise;
-  const [rows] = await pool.query(`
-    SELECT f.* FROM files f 
-    WHERE f.order_id = ? AND f.name IN ('Recepcion de orden', 'Aviso de Embarque', 'Aviso de Recepcion de orden')
-  `, [orderId]);
-  return rows;
+  
+  // Primero verificar si la tabla files existe
+  try {
+    const [rows] = await pool.query(`
+      SELECT f.* FROM files f 
+      WHERE f.order_id = ? AND f.name IN ('Recepcion de orden', 'Aviso de Embarque', 'Aviso de Recepcion de orden')
+    `, [orderId]);
+    return rows;
+  } catch (error) {
+    console.error(`Error verificando archivos existentes para orden ${orderId}:`, error.message);
+    // Si hay error, retornar array vacío para que continúe el proceso
+    return [];
+  }
 }
 
 async function insertDefaultFile(fileData) {
