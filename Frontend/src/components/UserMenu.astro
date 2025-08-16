@@ -6,7 +6,7 @@ const t: any = {
   usermenu: await loadTranslations(lang, 'usermenu'),
 };
 
-const apiBase   = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;       
+const apiBase = import.meta.env.PUBLIC_API_URL;       
 const fileServer = import.meta.env.PUBLIC_FILE_SERVER_URL; 
 
 // Intenta varios nombres de cookie por compatibilidad
@@ -43,7 +43,6 @@ if (!user) {
 
 const avatarUrl = user.avatar
   ? (user.avatar.startsWith('http') ? user.avatar : `${fileServer}/${user.avatar}`)
-  // Fallback: avatar con iniciales (modo claro)
   : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.full_name)}&backgroundColor=4b5563&fontColor=ffffff`;
 ---
 

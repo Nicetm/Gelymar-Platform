@@ -14,6 +14,7 @@ const getOrdersByFilters = async (filters = {}) => {
       o.id,
       o.rut,
       o.name AS oc,
+      o.pc,
       o.path,
       o.created_at,
       o.updated_at,
@@ -64,7 +65,7 @@ const getOrdersByFilters = async (filters = {}) => {
     params.push(filters.estado);
   }
 
-  query += ` GROUP BY o.id, o.rut, o.name, o.path, o.created_at, o.updated_at, c.name, c.uuid`;
+  query += ` GROUP BY o.id, o.pc, o.rut, o.name, o.path, o.created_at, o.updated_at, c.name, c.uuid`;
 
   const [rows] = await pool.query(query, params);
 
@@ -72,7 +73,8 @@ const getOrdersByFilters = async (filters = {}) => {
     const order = new Order({
       id: r.id,
       rut: r.rut,
-      name: r.oc,
+      pc: r.pc,
+      oc: r.oc,
       path: r.path,
       created_at: r.created_at,
       updated_at: r.updated_at,

@@ -2,7 +2,10 @@
 import { loadTranslations, getServerLang } from '../lib/i18n.js';
 import type { Orders } from '../types/entities.js';
 
+// Para el código del servidor (SSR), usar SERVER_API_URL
+// Para el código del cliente, usar PUBLIC_API_URL
 const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
+const clientApiBase = import.meta.env.PUBLIC_API_URL;
 const lang = getServerLang(Astro.cookies);
 
 const t: any = {
@@ -106,7 +109,7 @@ const orders: Orders[] = await fetch(`${apiBase}/api/orders`, {
 		</button>
 	
 		<!-- Botón Buscar -->
-		<button id="buscarBtn" data-api-base={apiBase} class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+		<button id="buscarBtn" data-api-base={clientApiBase} class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
 			<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 				<path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M10 18a8 8 0 100-16 8 8 0 000 16z"/>
 			</svg>
@@ -129,13 +132,13 @@ const orders: Orders[] = await fetch(`${apiBase}/api/orders`, {
 			<tbody id="resultadosTabla" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-sm min-h-[600px] text-gray-900 dark:text-gray-200 transition-all duration-300 ease-out motion-safe:animate-fade-slide">
 				{Array.isArray(orders) && orders.map(order => (
 					<tr data-id={order.id} class="transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-800 hover:shadow-[0_1px_3px_rgba(0,0,0,0.12)]">
-						<td class="px-6 py-4 text-sm editable-filename group cursor-pointer" data-id={order.id}>{order.oc}</td>
+						<td class="px-6 py-4 text-sm editable-filename group cursor-pointer" data-id={order.id}>{order.pc}</td>
 						<td class="px-4 py-3 break-all text-blue-600 dark:text-blue-400">{order.customer_name}</td>
 						<td class="px-6 py-4 items-center gap-3">{new Date(order.created_at).toLocaleString("es-CL")}</td>
 						<td class="px-6 py-4 items-center gap-3">{new Date(order.updated_at).toLocaleString("es-CL")}</td>
 						<td class="px-6 py-4 items-center gap-3">
 							<div class="flex justify-center items-center gap-3 text-gray-900 dark:text-white">
-								<a href={`/admin/clients/documents/view/${order.customer_uuid}?f=${order.id}&pc=${order.oc}&c=${order.customer_name}`} class="go-to-order-btn" title="Ir a la orden">
+								<a href={`/admin/clients/documents/view/${order.customer_uuid}?f=${order.id}&pc=${order.pc}&c=${order.customer_name}`} class="go-to-order-btn" title="Ir a la orden">
 									<svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 										<path stroke-linecap="round" stroke-linejoin="round" d="M14 3h7m0 0v7m0-7L10 14m-4 0h.01M5 14a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1h5a1 1 0 0 0 1-1v-.01" />
 									</svg>

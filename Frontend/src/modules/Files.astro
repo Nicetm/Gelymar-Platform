@@ -2,13 +2,8 @@
 import { loadTranslations, getServerLang } from '../lib/i18n.js';
 import type { Files } from '../types/entities.js';
 
-const apiBase = import.meta.env.PUBLIC_API_URL;
+const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
 const fileServer = import.meta.env.PUBLIC_FILE_SERVER_URL;
-
-// Debug: Mostrar valores de las variables de entorno
-console.log('DEBUG - PUBLIC_API_URL:', import.meta.env.PUBLIC_API_URL);
-console.log('DEBUG - SERVER_API_URL:', import.meta.env.SERVER_API_URL);
-console.log('DEBUG - apiBase final:', apiBase);
 const lang = getServerLang(Astro.cookies);
 
 const url = new URL(Astro.url.href);

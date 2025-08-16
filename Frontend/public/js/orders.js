@@ -45,15 +45,13 @@ export async function initOrdersScript() {
 
     tablaBody.innerHTML = pageData.map(order => `
       <tr data-id="${order.id}" class="transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-800 hover:shadow-[0_1px_3px_rgba(0,0,0,0.12)]">
-        <td class="px-6 py-4 items-center gap-3">${order.name || '-'}</td>
+        <td class="px-6 py-4 items-center gap-3">${order.pc || '-'}</td>
         <td class="px-4 py-3 break-all text-blue-600 dark:text-blue-400">${order.customer_name || '-'}</td>
         <td class="px-6 py-4 items-center gap-3">${formatDate(order.created_at)}</td>
         <td class="px-6 py-4 items-center gap-3">${formatDate(order.updated_at)}</td>
-        <td class="px-6 py-4 items-center gap-3">${order.date_etd || '-'}</td>
-        <td class="px-6 py-4 items-center gap-3">${order.date_eta || '-'}</td>
         <td class="px-6 py-4">
           <div class="flex justify-center items-center gap-3 text-gray-900 dark:text-white">
-            <a href="/admin/clients/documents/view/${order.customer_uuid}?f=${order.id}&pc=${order.name}&c=${order.customer_name}" class="go-to-order-btn" title="Ir a la orden">
+            <a href="/admin/clients/documents/view/${order.customer_uuid}?f=${order.id}&pc=${order.pc}&c=${order.customer_name}" class="go-to-order-btn" title="Ir a la orden">
               <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M14 3h7m0 0v7m0-7L10 14m-4 0h.01M5 14a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1h5a1 1 0 0 0 1-1v-.01" />
               </svg>

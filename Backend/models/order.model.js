@@ -1,19 +1,21 @@
 // models/order.model.js
 class Order {
   constructor({
-    id = null,
-    rut = null,
-    oc = null,
-    path = '',
-    created_at = null,
-    updated_at = null,
-    customer_name = null,
-    customer_uuid = null,
+    id,
+    rut,
+    oc,
+    pc,
+    path,
+    created_at,
+    updated_at,
+    customer_name,
+    customer_uuid,
     files_count = 0
   }) {
     this.id = id;
     this.rut = rut;
     this.oc = oc;
+    this.pc = pc;
     this.path = path;
     this.created_at = created_at;
     this.updated_at = updated_at;

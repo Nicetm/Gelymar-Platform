@@ -17,7 +17,8 @@ export interface EndpointsToOperations {
 export interface Orders {
   id: number;
   rut: string;
-  oc: string;  // o.name AS oc en la query
+  oc: string;
+  pc: string;
   path: string;
   created_at: string;
   updated_at: string;

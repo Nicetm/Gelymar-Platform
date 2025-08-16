@@ -18,7 +18,7 @@ exports.getAllOrders = async (req, res) => {
     }
 
     const data = await orderService.getOrdersByFilters(filters);
-
+    console.log(data);
     res.json(data);
   } catch (err) {
     console.error('[getAllOrders] Error:', err.message);
