@@ -21,6 +21,8 @@ async function getAllUsers() {
 // Buscar por email o username con JOIN a roles
 async function findUserByEmailOrUsername(emailOrUsername) {
   const pool = await poolPromise;
+  console.log('🔍 Buscando usuario:', emailOrUsername);
+  
   const [rows] = await pool.query(
     `
     SELECT u.id, u.email, u.password,
@@ -31,8 +33,10 @@ async function findUserByEmailOrUsername(emailOrUsername) {
     WHERE u.email = ?
     LIMIT 1
     `,
-    [emailOrUsername, emailOrUsername]
+    [emailOrUsername]
   );
+  
+  console.log('🔍 Resultado de búsqueda:', rows[0] ? { id: rows[0].id, email: rows[0].email, role: rows[0].role } : 'No encontrado');
   return rows[0];
 }
 

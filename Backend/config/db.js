@@ -3,6 +3,13 @@ require('dotenv').config();
 const logger = require('../utils/logger');
 const mysql = require('mysql2/promise');
 
+// Debug: Mostrar configuración de BD
+console.log('🔍 Configuración de BD:');
+console.log('Host:', process.env.DB_HOST);
+console.log('User:', process.env.DB_USER);
+console.log('Password:', process.env.DB_PASS ? '***' : 'NO DEFINIDA');
+console.log('Database:', process.env.DB_NAME);
+
 const dbConfig = {
   host: process.env.DB_HOST,
   user: process.env.DB_USER,

@@ -1,0 +1,12 @@
+---
+export const prerender = false;
+
+import LayoutSidebar from '../../../../app/LayoutSidebarAdmin.astro'
+---
+
+<LayoutSidebar>
+    <div class="p-4">
+        <h1>Vista de Mensaje</h1>
+        <p>ID: {Astro.params.id}</p>
+    </div>
+</LayoutSidebar>

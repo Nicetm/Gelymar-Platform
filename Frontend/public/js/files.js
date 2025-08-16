@@ -148,11 +148,22 @@ export function initFilesScript() {
   }
 
   async function refreshFiles() {
-    const res = await fetch(`${apiBase}/api/files/${uuid}?f=${folderId}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    try {
+      console.log('DEBUG - refreshFiles - apiBase:', apiBase);
+      console.log('DEBUG - refreshFiles - uuid:', uuid);
+      console.log('DEBUG - refreshFiles - folderId:', folderId);
+      
+      const res = await fetch(`${apiBase}/api/files/${uuid}?f=${folderId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
 
-    const files = await res.json();
+      if (!res.ok) {
+        console.error('DEBUG - refreshFiles - Error response:', res.status, res.statusText);
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+
+      const files = await res.json();
+      console.log('DEBUG - refreshFiles - Files received:', files);
 
     if (tableBody) {
       tableBody.innerHTML = files.map(file => {
@@ -195,7 +206,7 @@ export function initFilesScript() {
 
         if ([2, 3, 4].includes(file.status_id)) {
           actions += `
-            <a href="${fileServer}/uploads/${file.path}" target="_blank" class="hover:text-blue-500 transition" title="Ver documento">
+            <a href="${fileServer}/${file.path}" target="_blank" class="hover:text-blue-500 transition" title="Ver documento">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
                 <polyline points="14 2 14 8 20 8"/>
@@ -237,6 +248,10 @@ export function initFilesScript() {
                   data-file-id="${file.id}"
                   ${file.is_visible_to_client === 1 ? 'checked' : ''} />
                 <div
+    } catch (error) {
+      console.error('DEBUG - refreshFiles - Error:', error);
+      showNotification('Error al cargar archivos', 'error');
+    }
                   class="w-9 h-5 bg-gray-200 rounded-full transition-colors
                     peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary-500
                     peer-checked:bg-primary-600 dark:bg-gray-700 dark:peer-checked:bg-primary-500"></div>
@@ -255,6 +270,10 @@ export function initFilesScript() {
       currentPage = 1;
       renderTable();
     }
+  } catch (error) {
+    console.error('DEBUG - refreshFiles - Error:', error);
+    showNotification('Error al cargar archivos', 'error');
+  }
   }
 
   async function sendDocument(fileId, orderNumber, customMessage, action) {

@@ -1,6 +1,6 @@
 ---
 // import { asset } from '../lib/data.js';
-const apiBase = import.meta.env.PUBLIC_API_BASE_URL;
+const apiBase = import.meta.env.PUBLIC_API_URL;
 ---
 
 <div class="w-full max-w-md mx-auto mt-10 space-y-6 animate-fade-in">
@@ -85,7 +85,7 @@ const apiBase = import.meta.env.PUBLIC_API_BASE_URL;
     console.log(apiBase)
 
     try {
-      const res = await fetch(`${apiBase}/auth/login`, {
+      const res = await fetch(`${apiBase}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password, otp })
@@ -98,12 +98,12 @@ const apiBase = import.meta.env.PUBLIC_API_BASE_URL;
           otpShown = true;
           document.getElementById('otpContainer').classList.remove('hidden');
 
-          const statusRes = await fetch(`${apiBase}/auth/2fa/status?username=${encodeURIComponent(username)}`);
+          const statusRes = await fetch(`${apiBase}/api/auth/2fa/status?username=${encodeURIComponent(username)}`);
           const { twoFAEnabled } = await statusRes.json();
 
           if (!twoFAEnabled) {
             document.getElementById('qrContainer').classList.remove('hidden');
-            const qrRes = await fetch(`${apiBase}/auth/2fa/setup?username=${encodeURIComponent(username)}`);
+            const qrRes = await fetch(`${apiBase}/api/auth/2fa/setup?username=${encodeURIComponent(username)}`);
             const { qr } = await qrRes.json();
             document.getElementById('qrImage').src = qr;
           }
@@ -127,15 +127,19 @@ const apiBase = import.meta.env.PUBLIC_API_BASE_URL;
       localStorage.setItem('token', data.token);
 
       // ✅ Consultar /me para obtener el rol seguro
-      const meRes = await fetch(`${apiBase}/auth/me`, {
+      console.log('🔍 Llamando a /me con token:', data.token.substring(0, 20) + '...');
+      
+      const meRes = await fetch(`${apiBase}/api/auth/me`, {
         headers: {
           Authorization: `Bearer ${data.token}`
         }
       });
 
-			console.log(data.token)
+      console.log('🔍 Respuesta de /me:', meRes.status, meRes.statusText);
 
       if (!meRes.ok) {
+        const errorText = await meRes.text();
+        console.log('🔍 Error en /me:', errorText);
         msg.textContent = 'Error validando usuario';
         msg.classList.remove('hidden');
         msg.classList.add('text-red-500');
@@ -143,11 +147,14 @@ const apiBase = import.meta.env.PUBLIC_API_BASE_URL;
       }
 
       const user = await meRes.json();
+      console.log('🔍 Usuario obtenido:', user);
 
       // ✅ Redirigir según rol real
       if (user.role === 'admin') {
+        console.log('🔍 Redirigiendo a admin');
         window.location.href = '/admin/';
       } else {
+        console.log('🔍 Redirigiendo a client');
         window.location.href = '/client/';
       }
 

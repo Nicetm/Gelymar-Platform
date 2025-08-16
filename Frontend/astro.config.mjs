@@ -2,10 +2,11 @@ import { defineConfig, envField } from 'astro/config';
 import sitemap from '@astrojs/sitemap';
 import react from '@astrojs/react';
 import tailwind from '@astrojs/tailwind';
+import node from '@astrojs/node';
 import fs from 'fs';
 import path from 'path';
 
-import netlify from '@astrojs/netlify';
+
 
 const DEV_PORT = 2121;
 
@@ -37,7 +38,9 @@ export default defineConfig({
   },
 
   output: 'server',
-  adapter: netlify(),
+  adapter: node({
+    mode: 'standalone'
+  }),
 
   integrations: [
     sitemap(),

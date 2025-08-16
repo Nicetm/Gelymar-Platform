@@ -16,16 +16,14 @@ export interface EndpointsToOperations {
 // --- ORDERS ---
 export interface Orders {
   id: number;
-  customer_id: number;
-  name: string;
+  rut: string;
+  oc: string;  // o.name AS oc en la query
   path: string;
   created_at: string;
   updated_at: string;
-  date_etd: string | null;
-  date_eta: string | null;
-  customer_name?: string;
-  customer_uuid?: string;
-  files_count?: number;
+  customer_name: string;
+  customer_uuid: string;
+  files_count: number;
 }
 
 // --- USERS ---

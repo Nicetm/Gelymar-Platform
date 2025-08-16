@@ -4,6 +4,11 @@ import type { Files } from '../types/entities.js';
 
 const apiBase = import.meta.env.PUBLIC_API_URL;
 const fileServer = import.meta.env.PUBLIC_FILE_SERVER_URL;
+
+// Debug: Mostrar valores de las variables de entorno
+console.log('DEBUG - PUBLIC_API_URL:', import.meta.env.PUBLIC_API_URL);
+console.log('DEBUG - SERVER_API_URL:', import.meta.env.SERVER_API_URL);
+console.log('DEBUG - apiBase final:', apiBase);
 const lang = getServerLang(Astro.cookies);
 
 const url = new URL(Astro.url.href);
@@ -26,6 +31,10 @@ const files: Files[] = await fetch(`${apiBase}/api/files/${id}?f=${folderId}`, {
 ---
 
 <section id="filesSection" data-api-base={apiBase} data-file-server={fileServer} data-uuid={id} data-lang={lang} class="px-4 pt-24 pb-6 sm:px-6 lg:px-8">
+  <!-- Debug: Mostrar apiBase en el HTML -->
+  <script>
+    console.log('DEBUG - apiBase en HTML:', '{apiBase}');
+  </script>
   <!-- Encabezado y breadcrumb -->
   <header class="flex flex-col gap-4 border-b border-gray-200 dark:border-gray-700 pb-4">
     <nav class="text-sm text-gray-500 dark:text-gray-400" aria-label="Breadcrumb">
@@ -164,7 +173,7 @@ const files: Files[] = await fetch(`${apiBase}/api/files/${id}?f=${folderId}`, {
 								)}
 
 								{(file.status_id === 2 || file.status_id === 3 || file.status_id === 4) && (
-									<a href={`${fileServer}/uploads/${file.path}`} target="_blank" class="hover:text-blue-500 transition" title="Ver documento">
+									<a href={`${fileServer}/${file.path}`} target="_blank" class="hover:text-blue-500 transition" title="Ver documento">
 										<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 											<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
 											<polyline points="14 2 14 8 20 8"/>

@@ -62,7 +62,8 @@ exports.login = async (req, res) => {
       cardCode: user.cardCode || null
     });
 
-    logger.info(`Login exitoso para usuario ${email}`);
+    logger.info(`Login exitoso para usuario ${user.email || user.username || 'undefined'}`);
+    logger.info(`Usuario encontrado:`, { id: user.id, email: user.email, username: user.username, role: user.role });
     res.json({ token });
 
   } catch (err) {

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gelymar Platform - Terminal Real</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #1e1e1e;
+            color: #ffffff;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .header {
+            background: #2d2d2d;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #444;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 1.2rem;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+        
+        .btn:hover {
+            background: #005a9e;
+        }
+        
+        .btn-danger {
+            background: #d73a49;
+        }
+        
+        .btn-danger:hover {
+            background: #b31d28;
+        }
+        
+        .terminal-container {
+            height: calc(100vh - 60px);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .terminal-frame {
+            flex: 1;
+            border: none;
+            background: #000;
+        }
+        
+        .info-panel {
+            background: #2d2d2d;
+            padding: 15px;
+            border-top: 1px solid #444;
+        }
+        
+        .info-panel h3 {
+            margin: 0 0 10px 0;
+            color: #00ff00;
+        }
+        
+        .info-panel p {
+            margin: 5px 0;
+            font-size: 0.9rem;
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        
+        .status.connected {
+            background: #28a745;
+            color: white;
+        }
+        
+        .status.disconnected {
+            background: #dc3545;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🐚 Terminal Real - Gelymar Platform</h1>
+        <div class="header-actions">
+            <span class="status" id="connectionStatus">Desconectado</span>
+            <button class="btn" onclick="reconnect()">🔄 Reconectar</button>
+            <a href="http://localhost:8082" class="btn">← Volver al Dashboard</a>
+            <button class="btn btn-danger" onclick="disconnect()">❌ Desconectar</button>
+        </div>
+    </div>
+    
+    <div class="terminal-container">
+        <iframe 
+            id="terminalFrame" 
+            class="terminal-frame" 
+            src="http://localhost:7681"
+            onload="onTerminalLoad()"
+            onerror="onTerminalError()">
+        </iframe>
+        
+        <div class="info-panel">
+            <h3>📋 Información de la Terminal</h3>
+            <p><strong>Servicio:</strong> ttyd (Terminal to Web)</p>
+            <p><strong>Puerto:</strong> 7681</p>
+            <p><strong>Credenciales:</strong> admin / gelymar2024</p>
+            <p><strong>Funcionalidad:</strong> Terminal real con acceso directo a todos los contenedores</p>
+            <p><strong>Comandos disponibles:</strong> Todos los comandos de Linux/Docker</p>
+        </div>
+    </div>
+
+    <script>
+        let isConnected = false;
+        
+        function onTerminalLoad() {
+            isConnected = true;
+            updateConnectionStatus();
+        }
+        
+        function onTerminalError() {
+            isConnected = false;
+            updateConnectionStatus();
+        }
+        
+        function updateConnectionStatus() {
+            const status = document.getElementById('connectionStatus');
+            if (isConnected) {
+                status.textContent = 'Conectado';
+                status.className = 'status connected';
+            } else {
+                status.textContent = 'Desconectado';
+                status.className = 'status disconnected';
+            }
+        }
+        
+        function reconnect() {
+            const frame = document.getElementById('terminalFrame');
+            frame.src = frame.src;
+        }
+        
+        function disconnect() {
+            const frame = document.getElementById('terminalFrame');
+            frame.src = 'about:blank';
+            isConnected = false;
+            updateConnectionStatus();
+        }
+        
+        // Verificar conexión cada 5 segundos
+        setInterval(() => {
+            const frame = document.getElementById('terminalFrame');
+            try {
+                // Intentar acceder al contenido del frame
+                const frameContent = frame.contentWindow.location.href;
+                if (!isConnected) {
+                    isConnected = true;
+                    updateConnectionStatus();
+                }
+            } catch (e) {
+                if (isConnected) {
+                    isConnected = false;
+                    updateConnectionStatus();
+                }
+            }
+        }, 5000);
+    </script>
+</body>
+</html> 

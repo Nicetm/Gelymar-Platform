@@ -12,6 +12,14 @@ const { authorizeRoles } = require('./middleware/role.middleware');
 const authFromCookie = require('./middleware/authFromCookie');
 
 dotenv.config();
+
+// Debug: Mostrar variables de entorno de base de datos
+console.log('🔍 Variables de entorno de BD:');
+console.log('DB_HOST:', process.env.DB_HOST);
+console.log('DB_USER:', process.env.DB_USER);
+console.log('DB_PASS:', process.env.DB_PASS ? '***' : 'NO DEFINIDA');
+console.log('DB_NAME:', process.env.DB_NAME);
+
 const app = express();
 
 // Rutas API

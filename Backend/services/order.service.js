@@ -12,19 +12,17 @@ const getOrdersByFilters = async (filters = {}) => {
   let query = `
     SELECT 
       o.id,
-      o.customer_id,
-      o.name,
+      o.rut,
+      o.name AS oc,
       o.path,
       o.created_at,
       o.updated_at,
-      o.date_etd,
-      o.date_eta,
       c.name AS customer_name,
       c.uuid AS customer_uuid,
       COUNT(f.id) AS files_count
     FROM orders o
-    JOIN customers c ON o.customer_id = c.id
-    LEFT JOIN files f ON f.folder_id = o.id
+    JOIN customers c ON o.rut = c.rut
+    LEFT JOIN files f ON f.pc = o.pc
     WHERE 1 = 1
   `;
 
@@ -36,7 +34,7 @@ const getOrdersByFilters = async (filters = {}) => {
   }
 
   if (filters.customerName) {
-    query += ` AND c.name LIKE ?`;
+    query += ` AND c.customer_name LIKE ?`;
     params.push(`%${filters.customerName.trim()}%`);
   }
 
@@ -66,25 +64,22 @@ const getOrdersByFilters = async (filters = {}) => {
     params.push(filters.estado);
   }
 
-  query += ` GROUP BY o.id`;
+  query += ` GROUP BY o.id, o.rut, o.name, o.path, o.created_at, o.updated_at, c.name, c.uuid`;
 
   const [rows] = await pool.query(query, params);
 
   return rows.map(r => {
     const order = new Order({
       id: r.id,
-      customer_id: r.customer_id,
-      name: r.name,
+      rut: r.rut,
+      name: r.oc,
       path: r.path,
       created_at: r.created_at,
       updated_at: r.updated_at,
-      date_etd: r.date_etd,
-      date_eta: r.date_eta
+      customer_name: r.customer_name,
+      customer_uuid: r.customer_uuid,
+      files_count: r.files_count
     });
-
-    order.customer_name = r.customer_name;
-    order.customer_uuid = r.customer_uuid;
-    order.files_count = r.files_count;
 
     return order;
   });

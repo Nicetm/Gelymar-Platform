@@ -2,7 +2,7 @@
 import { loadTranslations, getServerLang } from '../lib/i18n.js';
 import type { Customers } from '../types/entities.js';
 
-const apiBase = import.meta.env.PUBLIC_API_URL;
+const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
 const lang = getServerLang(Astro.cookies);
 
 const t: any = {

@@ -31,6 +31,7 @@ router.post('/login', authController.login);
 router.get('/2fa/setup', authController.setup2FA);
 router.get('/2fa/status', authController.check2FAStatus);
 router.get('/me', authMiddleware, (req, res) => {
+    console.log('🔍 /me endpoint: Usuario solicitado:', req.user);
     res.json({
         id: req.user.id,
         email: req.user.email,

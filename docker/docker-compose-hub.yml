@@ -1,0 +1,202 @@
+name: gelymar-platform
+
+services:
+  # Capa Base de Datos
+  mysql:
+    image: nicetm/gelymar-platform:mysql
+    container_name: gelymar-platform-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root123456
+      MYSQL_DATABASE: gelymar
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql/init:/docker-entrypoint-initdb.d
+    networks:
+      - gelymar-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  # Capa File Server
+  fileserver:
+    image: nicetm/gelymar-platform:fileserver
+    container_name: gelymar-platform-fileserver
+    restart: unless-stopped
+    ports:
+      - "8080:80"      # HTTP
+      - "21:21"        # FTP
+      - "30000-30009:30000-30009"  # FTP pasivo
+    volumes:
+      - fileserver_data:/var/www/html
+    networks:
+      - gelymar-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  # Capa Backend
+  backend:
+    image: nicetm/gelymar-platform:backend
+    container_name: gelymar-platform-backend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASS=root123456
+      - DB_NAME=gelymar
+      - DB_SERVER=mysql
+      - JWT_SECRET=gelymar_jwt_secret_key_2024
+      - FRONTEND_BASE_URL=http://localhost:2121
+      - FILE_SERVER_URL=http://fileserver:80
+      - FILE_SERVER_ROOT=/var/www/html
+      - SMTP_HOST=smtp.resend.com
+      - SMTP_PORT=587
+      - SMTP_USER=resend
+      - SMTP_PASS=
+      - RESEND_KEY=re_fA1mA4H1_GJrLoZvz3Up3L8W7TwpcreAg
+    volumes:
+      - backend_logs:/app/logs
+      - fileserver_data:/var/www/html
+    networks:
+      - gelymar-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+      fileserver:
+        condition: service_started
+
+  # Capa Frontend
+  frontend:
+    image: nicetm/gelymar-platform:frontend
+    container_name: gelymar-platform-frontend
+    restart: unless-stopped
+    ports:
+      - "2121:2121"
+    environment:
+      - PUBLIC_API_URL=http://localhost:3000
+      - PUBLIC_FILE_SERVER_URL=http://localhost:8080
+      - PUBLIC_API_BASE_URL=http://localhost:3000/api
+      - PUBLIC_FRONTEND_BASE_URL=http://localhost:2121
+      - PUBLIC_LANG=en
+      - SITE=http://localhost:2121
+      - BASE_URL=/
+      - REMOTE_ASSETS_BASE_URL=/assets
+    networks:
+      - gelymar-network
+    depends_on:
+      backend:
+        condition: service_started
+
+  # Capa Cron Jobs
+  cron:
+    image: nicetm/gelymar-platform:cron
+    container_name: gelymar-platform-cron
+    restart: unless-stopped
+    volumes:
+      - fileserver_data:/var/www/html:rw
+      - cron_logs:/app/logs
+      - cron_pm2:/app/.pm2
+    ports:
+      - "9615:9615"
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASS=root123456
+      - DB_NAME=gelymar
+      - DB_SERVER=mysql
+      - JWT_SECRET=gelymar_jwt_secret_key_2024
+      - FRONTEND_BASE_URL=http://localhost:2121
+      - FILE_SERVER_URL=http://fileserver:80
+      - FILE_SERVER_ROOT=/var/www/html
+      - SMTP_HOST=smtp.resend.com
+      - SMTP_PORT=587
+      - SMTP_USER=resend
+      - SMTP_PASS=
+      - RESEND_KEY=re_fA1mA4H1_GJrLoZvz3Up3L8W7TwpcreAg
+    networks:
+      - gelymar-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+      backend:
+        condition: service_started
+      fileserver:
+        condition: service_started
+
+  # Capa Monitoring Dashboard
+  monitoring:
+    image: nicetm/gelymar-platform:monitoring
+    container_name: gelymar-platform-monitoring
+    restart: unless-stopped
+    ports:
+      - "8082:80"
+    networks:
+      - gelymar-network
+    depends_on:
+      - mysql
+      - backend
+      - frontend
+      - fileserver
+      - cron
+
+  # Capa Terminal Web
+  terminal:
+    image: nicetm/gelymar-platform:terminal
+    container_name: gelymar-platform-terminal
+    restart: unless-stopped
+    ports:
+      - "7681:7681"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - gelymar-network
+    depends_on:
+      - mysql
+      - backend
+      - frontend
+      - fileserver
+      - cron
+      - monitoring
+
+  # Capa phpMyAdmin
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: gelymar-platform-phpmyadmin
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+    environment:
+      - PMA_HOST=mysql
+      - PMA_PORT=3306
+      - PMA_USER=root
+      - PMA_PASSWORD=root123456
+    networks:
+      - gelymar-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+volumes:
+  mysql_data:
+  fileserver_data:
+  backend_logs:
+  cron_logs:
+  cron_pm2:
+
+networks:
+  gelymar-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16 

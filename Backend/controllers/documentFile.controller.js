@@ -10,8 +10,6 @@ const PDFDocument = require('pdfkit');
 const logger = require('../utils/logger');
 const { cleanDirectoryName } = require('../utils/directoryUtils');
 
-const UPLOADS_ROOT = path.join(__dirname, '../uploads');
-
 /**
  * Configuración de almacenamiento para Multer
  * Define el destino físico de los archivos en base al cliente y subcarpeta
@@ -25,7 +23,7 @@ const storage = multer.diskStorage({
     const cleanClientName = cleanDirectoryName(client_name);
     const cleanSubfolder = cleanDirectoryName(subfolder);
     
-    const dirPath = path.join(process.env.FILE_SERVER_ROOT, cleanClientName, cleanSubfolder);
+    const dirPath = path.join(process.env.FILE_SERVER_ROOT || '/var/www/html', 'uploads', cleanClientName, cleanSubfolder);
     fs.mkdirSync(dirPath, { recursive: true });
     cb(null, dirPath);
   },
@@ -151,11 +149,11 @@ exports.generateFile = async (req, res) => {
       return res.status(404).json({ message: 'Archivo no encontrado' });
     }
 
-    const FILE_SERVER_ROOT = process.env.FILE_SERVER_ROOT;
+    const FILE_SERVER_ROOT = process.env.FILE_SERVER_ROOT || '/var/www/html';
     // Limpiar nombres de directorios para evitar problemas con caracteres especiales
     const cleanCustomerName = cleanDirectoryName(file.customer_name);
-    const cleanFolderName = cleanDirectoryName(file.folder_name);
-    const customerFolder = path.join(FILE_SERVER_ROOT, cleanCustomerName, cleanFolderName);
+    const cleanFolderName = cleanDirectoryName(file.pc);
+    const customerFolder = path.join(FILE_SERVER_ROOT, 'uploads', cleanCustomerName, cleanFolderName);
     
     if (!fs.existsSync(customerFolder)) {
       fs.mkdirSync(customerFolder, { recursive: true });
@@ -250,7 +248,7 @@ exports.deleteFileById = async (req, res) => {
     }
     
     if (typeof file.path === 'string' && file.path.trim()) {
-      const fullPath = path.join(UPLOADS_ROOT, file.path);
+      const fullPath = path.join(process.env.FILE_SERVER_ROOT || '/var/www/html', file.path);
       if (fs.existsSync(fullPath)) {
         fs.unlinkSync(fullPath);
         logger.info(`Archivo físico eliminado: ${fullPath}`);

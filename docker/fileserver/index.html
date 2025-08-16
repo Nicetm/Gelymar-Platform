@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gelymar Platform - File Server</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f7fa;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 2rem;
+        }
+        .header p {
+            margin: 0.5rem 0 0 0;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 2rem;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .info-card {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        .info-card h3 {
+            margin: 0 0 1rem 0;
+            color: #333;
+        }
+        .info-card p {
+            margin: 0.5rem 0;
+            color: #666;
+        }
+        .upload-section {
+            background: #e8f5e8;
+            padding: 1.5rem;
+            border-radius: 8px;
+            border: 2px dashed #28a745;
+            text-align: center;
+        }
+        .upload-section h3 {
+            color: #28a745;
+            margin: 0 0 1rem 0;
+        }
+        .directory-links {
+            margin-top: 2rem;
+        }
+        .directory-links h3 {
+            color: #333;
+            margin-bottom: 1rem;
+        }
+        .directory-links a {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 0.5rem 1rem;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 0.25rem;
+            transition: background 0.3s;
+        }
+        .directory-links a:hover {
+            background: #5a6fd8;
+        }
+        .status {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        .status.online {
+            background: #d4edda;
+            color: #155724;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📁 Gelymar Platform - File Server</h1>
+            <p>Servidor de archivos para la plataforma Gelymar</p>
+        </div>
+        
+        <div class="content">
+            <div class="info-grid">
+                <div class="info-card">
+                    <h3>🌐 Acceso HTTP</h3>
+                    <p><strong>URL:</strong> http://localhost:8080</p>
+                    <p><strong>Puerto:</strong> 8080</p>
+                    <p><strong>Estado:</strong> <span class="status online">En línea</span></p>
+                </div>
+                
+                <div class="info-card">
+                    <h3>📤 Acceso FTP</h3>
+                    <p><strong>Host:</strong> localhost</p>
+                    <p><strong>Puerto:</strong> 21</p>
+                    <p><strong>Usuario:</strong> ftpuser</p>
+                    <p><strong>Contraseña:</strong> gelymar123</p>
+                </div>
+                
+                <div class="info-card">
+                    <h3>📂 Directorio Raíz</h3>
+                    <p><strong>Ruta:</strong> /var/www/html</p>
+                    <p><strong>Uploads:</strong> /var/www/html/uploads</p>
+                    <p><strong>Permisos:</strong> Lectura/Escritura</p>
+                </div>
+            </div>
+            
+            <div class="upload-section">
+                <h3>📤 Subir Archivos</h3>
+                <p>Puedes subir archivos usando FTP o copiándolos directamente al directorio de uploads.</p>
+                <p><strong>Directorio de uploads:</strong> /var/www/html/uploads</p>
+            </div>
+            
+            <div class="directory-links">
+                <h3>🔗 Enlaces Directos</h3>
+                <a href="/uploads/">📁 Ver Directorio Uploads</a>
+                <a href="ftp://localhost:21">📤 Conectar FTP</a>
+                <a href="http://localhost:8082">📊 Dashboard</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 

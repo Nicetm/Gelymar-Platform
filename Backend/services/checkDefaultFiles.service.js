@@ -150,7 +150,7 @@ async function insertDefaultFile(fileData) {
  */
 async function createClientDirectory(customerName, pc) {
   try {
-    const fileServerRoot = process.env.FILE_SERVER_ROOT;
+    const fileServerRoot = process.env.FILE_SERVER_ROOT || '/var/www/html';
     
     if (!fileServerRoot) {
       console.error('FILE_SERVER_ROOT no está configurado en .env');
@@ -160,8 +160,8 @@ async function createClientDirectory(customerName, pc) {
     // Limpiar nombre del cliente para usar como nombre de directorio
     const cleanCustomerName = cleanDirectoryName(customerName);
 
-    // Crear ruta del directorio: /CLIENTE_NOMBRE/Numero PC
-    const directoryPath = path.join(fileServerRoot, cleanCustomerName, pc);
+    // Crear ruta del directorio: /uploads/CLIENTE_NOMBRE/Numero PC
+    const directoryPath = path.join(fileServerRoot, 'uploads', cleanCustomerName, pc);
     
     console.log(`Intentando crear directorio: "${directoryPath}"`);
     
