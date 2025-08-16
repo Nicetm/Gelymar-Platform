@@ -57,8 +57,17 @@ module.exports = {
         autorestart: true,
         wait_ready: true,
         listen_timeout: 10000,
+        kill_timeout: 5000
+      },
+      {
+        name: 'gelymar-client-access-checker',
+        script: './cron/checkClientAccess.js',
+        watch: false,
+        autorestart: true,
+        wait_ready: true,
+        listen_timeout: 10000,
         kill_timeout: 5000,
-        dependencies: ['gelymar-defaultfiles-generator']
+        dependencies: ['gelymar-etd-checker']
       }
     ]
   };

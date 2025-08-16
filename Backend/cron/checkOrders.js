@@ -21,8 +21,16 @@ async function executeWithErrorHandling() {
   }
 }
 
-// Ejecutar inicialmente
-executeWithErrorHandling();
+// Verificar si se debe ejecutar inmediatamente
+const shouldExecuteNow = process.argv.includes('--execute-now');
+
+if (shouldExecuteNow) {
+  console.log('🚀 Ejecutando tarea de órdenes inmediatamente...');
+  executeWithErrorHandling();
+} else {
+  console.log('⏰ Proceso de órdenes iniciado. Esperando programación (6:00 AM)...');
+  emitReady();
+}
 
 cron.schedule('0 6 * * *', async () => {
   console.log(`[${new Date().toISOString()}] Iniciando procesamiento de archivos de órdenes...`);

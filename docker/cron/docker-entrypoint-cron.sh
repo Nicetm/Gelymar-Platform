@@ -22,11 +22,18 @@ mkdir -p /app/.pm2
 echo "Verificando directorio de uploads..."
 mkdir -p /var/www/html/uploads
 
-# Mantener contenedor corriendo
-echo "Contenedor de cron iniciado..."
-echo "Para ejecutar PM2 manualmente, ejecuta: pm2 start ecosystem.config.js"
+# Iniciar PM2 con ecosystem.config.js (sin parámetros)
+echo "Iniciando PM2 con ecosystem.config.js..."
+pm2 start ecosystem.config.js
+
+# Mostrar estado inicial
+echo "Estado inicial de PM2:"
+pm2 status
+
+echo "Contenedor de cron iniciado con PM2..."
 echo "Para ver logs: pm2 logs"
 echo "Para ver estado: pm2 status"
+echo "Para reiniciar: pm2 restart all"
 
-# Mantener el contenedor corriendo
-tail -f /dev/null 
+# Mantener el contenedor corriendo y mostrar logs de PM2
+pm2 logs 

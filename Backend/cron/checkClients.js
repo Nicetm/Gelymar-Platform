@@ -21,10 +21,18 @@ async function executeWithErrorHandling() {
   }
 }
 
-// Ejecutar inicialmente
-executeWithErrorHandling();
+// Verificar si se debe ejecutar inmediatamente
+const shouldExecuteNow = process.argv.includes('--execute-now');
 
-cron.schedule('0 6 * * *', async () => {
+if (shouldExecuteNow) {
+  console.log('🚀 Ejecutando tarea de clientes inmediatamente...');
+  executeWithErrorHandling();
+} else {
+  console.log('⏰ Proceso de clientes iniciado. Esperando programación (5:00 AM)...');
+  emitReady();
+}
+
+cron.schedule('0 5 * * *', async () => {
   console.log(`[${new Date().toISOString()}] Iniciando procesamiento de archivos de clientes...`);
   try {
     await fetchClientFilesFromNetwork();

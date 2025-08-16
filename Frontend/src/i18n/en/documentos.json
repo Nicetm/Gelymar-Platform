@@ -30,7 +30,7 @@
 	"message": "Message",
 	"is_visible_to_customer": "Public",
 	"orderPlaceholder": "1234",
-	"clientPlaceholder": "Client name",
+	"clientPlaceholder": "Customer name",
 	"fechaIngresoPlaceholder": "mm / dd / yyyy",
 	"fechaETDPlaceholder": "mm / dd / yyyy",
 	"fechaETAPlaceholder": "mm / dd / yyyy",
@@ -44,6 +44,6 @@
 	"fechaETD": "ETD date",
 	"fechaETA": "ETA date",
 	"estado": "Status",
-	"cliente": "Client"
+	"cliente": "Customer"
 	
 }

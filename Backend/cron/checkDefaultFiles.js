@@ -25,11 +25,19 @@ async function executeWithErrorHandling() {
   }
 }
 
-// Ejecutar inicialmente
-executeWithErrorHandling();
+// Verificar si se debe ejecutar inmediatamente
+const shouldExecuteNow = process.argv.includes('--execute-now');
 
-// Ejecutar a las 6:05 AM diariamente
-cron.schedule('5 6 * * *', async () => {
+if (shouldExecuteNow) {
+  console.log('🚀 Ejecutando tarea de documentos por defecto inmediatamente...');
+  executeWithErrorHandling();
+} else {
+  console.log('⏰ Proceso de documentos por defecto iniciado. Esperando programación (6:45 AM)...');
+  emitReady();
+}
+
+// Ejecutar a las 6:45 AM diariamente
+cron.schedule('45 6 * * *', async () => {
   console.log('Ejecutando generación de documentos por defecto programada...');
   try {
     await generateDefaultFiles();

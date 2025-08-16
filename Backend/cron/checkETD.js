@@ -21,10 +21,18 @@ async function executeWithErrorHandling() {
   }
 }
 
-// Ejecutar inicialmente
-executeWithErrorHandling();
+// Verificar si se debe ejecutar inmediatamente
+const shouldExecuteNow = process.argv.includes('--execute-now');
 
-cron.schedule('*/5 * * * *', async () => {
+if (shouldExecuteNow) {
+  console.log('🚀 Ejecutando tarea de ETD inmediatamente...');
+  executeWithErrorHandling();
+} else {
+  console.log('⏰ Proceso de ETD iniciado. Esperando programación (7:00 AM)...');
+  emitReady();
+}
+
+cron.schedule('0 7 * * *', async () => {
   console.log(`[${new Date().toISOString()}] Iniciando verificación de ETD...`);
   try {
     await checkOrdersWithETD();
