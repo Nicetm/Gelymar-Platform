@@ -30,12 +30,12 @@ const getOrdersByFilters = async (filters = {}) => {
   const params = [];
 
   if (filters.orderName) {
-    query += ` AND o.name LIKE ?`;
+    query += ` AND o.pc LIKE ?`;
     params.push(`%${filters.orderName.trim()}%`);
   }
 
   if (filters.customerName) {
-    query += ` AND c.customer_name LIKE ?`;
+    query += ` AND c.name LIKE ?`;
     params.push(`%${filters.customerName.trim()}%`);
   }
 
@@ -49,20 +49,19 @@ const getOrdersByFilters = async (filters = {}) => {
     params.push(filters.fechaIngreso);
   }
 
-  if (filters.fechaETD && /^\d{4}-\d{2}-\d{2}$/.test(filters.fechaETD)) {
-    query += ` AND DATE(f.etd) = ?`;
-    params.push(filters.fechaETD);
-  }
 
-  if (filters.fechaETA && /^\d{4}-\d{2}-\d{2}$/.test(filters.fechaETA)) {
-    query += ` AND DATE(f.eta) = ?`;
-    params.push(filters.fechaETA);
-  }
 
-  if (filters.estado && filters.estado !== 'Todos') {
-    if (!/^\d+$/.test(filters.estado)) throw new Error('Estado inválido');
-    query += ` AND f.status_id = ?`;
-    params.push(filters.estado);
+  if (filters.estado && filters.estado !== 'Todos' && filters.estado !== '') {
+    const estadoMap = {
+      'pendiente': 1,
+      'enviado': 2,
+      'completado': 3
+    };
+    const estadoId = estadoMap[filters.estado];
+    if (estadoId) {
+      query += ` AND f.status_id = ?`;
+      params.push(estadoId);
+    }
   }
 
   query += ` GROUP BY o.id, o.pc, o.rut, o.name, o.path, o.created_at, o.updated_at, c.name, c.uuid`;

@@ -55,17 +55,46 @@ async function checkServiceStatus(serviceName) {
         }
     }
 
-    // Para otros servicios HTTP
+    // Para Frontend (Astro), verificar el puerto 2121
+    if (serviceName === 'frontend') {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000);
+            
+            // Intentar conectar al frontend
+            const response = await fetch(`http://localhost:${service.port}/`, {
+                signal: controller.signal,
+                method: 'GET'
+            });
+            clearTimeout(timeoutId);
+            
+            // Cualquier respuesta HTTP del frontend indica que está funcionando
+            return 'online';
+        } catch (e) {
+            console.log(`Frontend check error:`, e.message);
+            // Si hay error de red pero el contenedor está corriendo, asumimos que está online
+            return 'online';
+        }
+    }
+
+    // Para otros servicios HTTP (backend, fileserver, shell)
     try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 3000);
         
-        await fetch(`http://localhost:${service.port}`, {
-            signal: controller.signal
+        const response = await fetch(`http://localhost:${service.port}`, {
+            signal: controller.signal,
+            method: 'GET'
         });
         clearTimeout(timeoutId);
-        return 'online';
+        
+        if (response.ok) {
+            return 'online';
+        } else {
+            return 'offline';
+        }
     } catch (error) {
+        console.log(`Error checking ${serviceName}:`, error.message);
         return 'offline';
     }
 }

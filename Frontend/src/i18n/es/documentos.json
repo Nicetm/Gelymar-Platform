@@ -26,7 +26,7 @@
 	"sendCustomMessage": "Enviar mensaje personalizado",
 	"message": "Mensaje",
 	"is_visible_to_customer": "Publico",
-  "orderPlaceholder": "Ej: OC-1234",
+  "orderPlaceholder": "1234",
   "clientPlaceholder": "Nombre cliente",
   "fechaIngresoPlaceholder": "dd/mm/yyyy",
   "fechaETDPlaceholder": "dd/mm/yyyy",
@@ -40,5 +40,6 @@
   "fechaIngreso": "Fecha ingreso",
   "fechaETD": "Fecha ETD",
   "fechaETA": "Fecha ETA",
-  "estado": "Estado"
+  "estado": "Estado",
+  "cliente": "Cliente"
 }

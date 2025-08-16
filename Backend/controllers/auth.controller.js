@@ -21,13 +21,13 @@ exports.login = async (req, res) => {
     const user = await userService.findUserByEmailOrUsername(email || username);
     if (!user) {
       logger.warn(`Usuario no encontrado: ${email || username}`);
-      return res.status(401).json({ message: 'Usuario no encontrado', user: user });
+      return res.status(401).json({ message: 'Usuario o clave incorrecta' });
     }
 
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
       logger.warn(`Contraseña incorrecta para usuario: ${email || username}`);
-      return res.status(401).json({ message: 'Contraseña incorrecta' });
+      return res.status(401).json({ message: 'Usuario o clave incorrecta' });
     }
 
     if (user.twoFAEnabled) {
@@ -50,7 +50,7 @@ exports.login = async (req, res) => {
 
       if (!verified) {
         logger.warn(`Código 2FA inválido para usuario ${email}`);
-        return res.status(401).json({ message: 'Código 2FA inválido o no enviado' });
+        return res.status(401).json({ message: 'Código de autenticación inválido' });
       }
     }
 

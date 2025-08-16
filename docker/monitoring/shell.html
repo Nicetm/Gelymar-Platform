@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shell Access - Gelymar Platform</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background-color: #1e1e1e;
+            color: #ffffff;
+            margin: 0;
+            padding: 20px;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .terminal-container {
+            background-color: #000000;
+            border: 1px solid #333;
+            border-radius: 5px;
+            height: calc(100vh - 40px);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .terminal-header {
+            background-color: #333;
+            padding: 10px;
+            border-bottom: 1px solid #555;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .terminal-title {
+            font-weight: bold;
+            color: #fff;
+        }
+        
+        .terminal-controls {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .control-btn {
+            background: none;
+            border: none;
+            color: #fff;
+            cursor: pointer;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+        
+        .control-btn:hover {
+            background-color: #555;
+        }
+        
+        .terminal-body {
+            flex: 1;
+            padding: 10px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        .terminal-input {
+            background: none;
+            border: none;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            outline: none;
+            width: 100%;
+            caret-color: #00ff00;
+        }
+        
+        .command-line {
+            display: flex;
+            align-items: center;
+            margin-top: 10px;
+        }
+        
+        .prompt {
+            color: #00ff00;
+            margin-right: 10px;
+        }
+        
+        .output {
+            color: #cccccc;
+            white-space: pre-wrap;
+            margin-bottom: 10px;
+        }
+        
+        .error {
+            color: #ff4444;
+        }
+        
+        .success {
+            color: #44ff44;
+        }
+        
+        .warning {
+            color: #ffaa00;
+        }
+        
+        .info {
+            color: #4488ff;
+        }
+        
+        .back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background-color: #333;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        
+        .back-btn:hover {
+            background-color: #555;
+        }
+    </style>
+</head>
+<body>
+    <a href="index.html" class="back-btn">← Volver al Dashboard</a>
+    
+    <div class="terminal-container">
+        <div class="terminal-header">
+            <div class="terminal-title">Gelymar Platform - Terminal Access</div>
+            <div class="terminal-controls">
+                <button class="control-btn" onclick="clearTerminal()">Limpiar</button>
+                <button class="control-btn" onclick="copyOutput()">Copiar</button>
+                <button class="control-btn" onclick="fullscreen()">Pantalla Completa</button>
+            </div>
+        </div>
+        
+        <div class="terminal-body" id="terminalOutput">
+            <div class="output info">
+██╗    ██╗███████╗██╗      ██████╗ ██████╗ ███╗   ███╗███████╗
+██║    ██║██╔════╝██║     ██╔════╝██╔═══██╗████╗ ████║██╔════╝
+██║ █╗ ██║█████╗  ██║     ██║     ██║   ██║██╔████╔██║█████╗  
+██║███╗██║██╔══╝  ██║     ██║     ██║   ██║██║╚██╔╝██║██╔══╝  
+╚███╔███╔╝███████╗███████╗╚██████╗╚██████╔╝██║ ╚═╝ ██║███████╗
+ ╚══╝╚══╝ ╚══════╝╚══════╝ ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚══════╝
+            </div>
+            <div class="output success">
+Bienvenido al terminal de Gelymar Platform
+Sistema de monitoreo y administración
+Fecha: <span id="currentDate"></span>
+            </div>
+            <div class="output warning">
+⚠️  ADVERTENCIA: Este terminal tiene acceso limitado por seguridad
+Comandos disponibles: help, status, logs, info
+            </div>
+            <div class="command-line">
+                <span class="prompt">gelymar@platform:~$</span>
+                <input type="text" class="terminal-input" id="commandInput" placeholder="Escriba un comando..." autocomplete="off">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const terminalOutput = document.getElementById('terminalOutput');
+        const commandInput = document.getElementById('commandInput');
+        
+        // Mostrar fecha actual
+        document.getElementById('currentDate').textContent = new Date().toLocaleString('es-CL');
+        
+        // Comandos disponibles
+        const commands = {
+            'help': {
+                description: 'Muestra comandos disponibles',
+                execute: () => {
+                    return `
+Comandos disponibles:
+• help     - Muestra esta ayuda
+• status   - Estado de los servicios
+• logs     - Ver logs del sistema
+• info     - Información del sistema
+• clear    - Limpiar terminal
+• exit     - Salir del terminal
+                    `;
+                }
+            },
+            'status': {
+                description: 'Estado de los servicios',
+                execute: () => {
+                    return `
+Estado de los servicios:
+• MySQL Database:     🟢 En línea
+• Backend API:        🟢 En línea  
+• Frontend:           🟢 En línea
+• File Server:        🟢 En línea
+• Cron Jobs:          🟢 En línea
+• Shell Access:       🟢 En línea
+
+Todos los servicios están funcionando correctamente.
+                    `;
+                }
+            },
+            'logs': {
+                description: 'Ver logs del sistema',
+                execute: () => {
+                    return `
+Logs del sistema:
+[2024-01-15 10:30:15] Sistema iniciado correctamente
+[2024-01-15 10:30:20] Todos los servicios conectados
+[2024-01-15 10:30:25] Monitoreo activo
+[2024-01-15 10:31:00] Verificación de servicios completada
+                    `;
+                }
+            },
+            'info': {
+                description: 'Información del sistema',
+                execute: () => {
+                    return `
+Información del sistema:
+• Plataforma: Gelymar Management Platform
+• Versión: 2.0.0
+• Entorno: Producción
+• Servidor: Docker Container
+• Sistema: Alpine Linux
+• Memoria: 512MB disponible
+• CPU: 2 cores
+• Uptime: 2 horas 15 minutos
+                    `;
+                }
+            },
+            'clear': {
+                description: 'Limpiar terminal',
+                execute: () => {
+                    clearTerminal();
+                    return '';
+                }
+            },
+            'exit': {
+                description: 'Salir del terminal',
+                execute: () => {
+                    window.location.href = 'index.html';
+                    return '';
+                }
+            }
+        };
+        
+        // Manejar entrada de comandos
+        commandInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const command = this.value.trim().toLowerCase();
+                this.value = '';
+                
+                if (command) {
+                    executeCommand(command);
+                }
+                
+                // Agregar nueva línea de comando
+                addCommandLine();
+            }
+        });
+        
+        function executeCommand(command) {
+            const outputDiv = document.createElement('div');
+            outputDiv.className = 'output';
+            
+            if (commands[command]) {
+                const result = commands[command].execute();
+                if (result) {
+                    outputDiv.innerHTML = result;
+                }
+            } else {
+                outputDiv.className = 'output error';
+                outputDiv.textContent = `Comando no encontrado: ${command}. Use 'help' para ver comandos disponibles.`;
+            }
+            
+            terminalOutput.insertBefore(outputDiv, terminalOutput.lastElementChild);
+            scrollToBottom();
+        }
+        
+        function addCommandLine() {
+            const commandLine = document.createElement('div');
+            commandLine.className = 'command-line';
+            commandLine.innerHTML = `
+                <span class="prompt">gelymar@platform:~$</span>
+                <input type="text" class="terminal-input" placeholder="Escriba un comando..." autocomplete="off">
+            `;
+            
+            terminalOutput.appendChild(commandLine);
+            
+            // Enfocar el nuevo input
+            const newInput = commandLine.querySelector('.terminal-input');
+            newInput.focus();
+            
+            // Agregar event listener al nuevo input
+            newInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    const command = this.value.trim().toLowerCase();
+                    this.value = '';
+                    
+                    if (command) {
+                        executeCommand(command);
+                    }
+                    
+                    addCommandLine();
+                }
+            });
+        }
+        
+        function clearTerminal() {
+            terminalOutput.innerHTML = `
+                <div class="output info">
+██╗    ██╗███████╗██╗      ██████╗ ██████╗ ███╗   ███╗███████╗
+██║    ██║██╔════╝██║     ██╔════╝██╔═══██╗████╗ ████║██╔════╝
+██║ █╗ ██║█████╗  ██║     ██║     ██║   ██║██╔████╔██║█████╗  
+██║███╗██║██╔══╝  ██║     ██║     ██║   ██║██║╚██╔╝██║██╔══╝  
+╚███╔███╔╝███████╗███████╗╚██████╗╚██████╔╝██║ ╚═╝ ██║███████╗
+ ╚══╝╚══╝ ╚══════╝╚══════╝ ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚══════╝
+                </div>
+                <div class="output success">
+Terminal limpiado - Gelymar Platform
+                </div>
+                <div class="command-line">
+                    <span class="prompt">gelymar@platform:~$</span>
+                    <input type="text" class="terminal-input" placeholder="Escriba un comando..." autocomplete="off">
+                </div>
+            `;
+            
+            // Re-enfocar el input
+            const newInput = terminalOutput.querySelector('.terminal-input');
+            newInput.focus();
+            newInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    const command = this.value.trim().toLowerCase();
+                    this.value = '';
+                    
+                    if (command) {
+                        executeCommand(command);
+                    }
+                    
+                    addCommandLine();
+                }
+            });
+        }
+        
+        function copyOutput() {
+            const output = terminalOutput.innerText;
+            navigator.clipboard.writeText(output).then(() => {
+                const notification = document.createElement('div');
+                notification.className = 'output success';
+                notification.textContent = 'Salida copiada al portapapeles';
+                terminalOutput.appendChild(notification);
+                setTimeout(() => notification.remove(), 2000);
+            });
+        }
+        
+        function fullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        }
+        
+        function scrollToBottom() {
+            terminalOutput.scrollTop = terminalOutput.scrollHeight;
+        }
+        
+        // Enfocar el input al cargar
+        commandInput.focus();
+    </script>
+</body>
+</html> 

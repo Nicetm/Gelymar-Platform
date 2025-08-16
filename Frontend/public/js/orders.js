@@ -18,10 +18,73 @@ export async function initOrdersScript() {
   const prevPageBtn = qs('prevPageBtn');
   const nextPageBtn = qs('nextPageBtn');
   const head = document.getElementById('ordersHead');
+  
+  // Elementos del combobox de clientes
+  const clienteInput = qs('cliente');
+  const clienteDropdown = qs('clienteDropdown');
+  const clienteDropdownIcon = qs('clienteDropdownIcon');
+  
+  // Elementos de los botones de limpiar
+  const clearOrdenBtn = qs('clearOrdenBtn');
+  const clearClienteBtn = qs('clearClienteBtn');
+  
+
+  // Función para mostrar/ocultar botones de limpiar
+  function toggleClearButton(inputElement, clearButton) {
+    if (!inputElement || !clearButton) return;
+    
+    const hasValue = inputElement.value.trim().length > 0;
+    clearButton.classList.toggle('hidden', !hasValue);
+  }
+
+  // Función para limpiar campo
+  function clearField(inputElement, clearButton) {
+    if (!inputElement) return;
+    
+    isClearingField = true; // Activar flag
+    
+    inputElement.value = '';
+    inputElement.focus();
+    toggleClearButton(inputElement, clearButton);
+    
+    // Si es el campo cliente, también cerrar dropdown y recargar lista
+    if (inputElement.id === 'cliente' && clienteDropdown) {
+      // Recargar la lista de clientes y mostrar inmediatamente
+      if (allCustomers.length === 0) {
+        loadCustomers().then(() => {
+          // Después de cargar, mostrar todas las opciones
+          filterCustomers('');
+          clienteDropdown.classList.remove('hidden');
+          if (clienteDropdownIcon) {
+            clienteDropdownIcon.style.transform = 'rotate(180deg)';
+          }
+          // Desactivar flag después de un delay
+          setTimeout(() => {
+            isClearingField = false;
+          }, 100);
+        });
+      } else {
+        // Si ya hay clientes, mostrar todas las opciones inmediatamente
+        filterCustomers('');
+        clienteDropdown.classList.remove('hidden');
+        if (clienteDropdownIcon) {
+          clienteDropdownIcon.style.transform = 'rotate(180deg)';
+        }
+        // Desactivar flag después de un delay
+        setTimeout(() => {
+          isClearingField = false;
+        }, 100);
+      }
+    } else {
+      isClearingField = false;
+    }
+  }
 
   let itemsPerPage = parseInt(itemsPerPageSelect.value, 10);
   let currentPage = 1;
   let currentData = [];
+  let allCustomers = []; // Lista de todos los clientes
+  let isClearingField = false; // Flag para evitar cierre automático durante limpieza
 
   function updatePagination() {
     const totalPages = Math.max(1, Math.ceil(currentData.length / itemsPerPage));
@@ -46,6 +109,7 @@ export async function initOrdersScript() {
     tablaBody.innerHTML = pageData.map(order => `
       <tr data-id="${order.id}" class="transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-800 hover:shadow-[0_1px_3px_rgba(0,0,0,0.12)]">
         <td class="px-6 py-4 items-center gap-3">${order.pc || '-'}</td>
+        <td class="px-6 py-4 items-center gap-3">${order.oc || '-'}</td>
         <td class="px-4 py-3 break-all text-blue-600 dark:text-blue-400">${order.customer_name || '-'}</td>
         <td class="px-6 py-4 items-center gap-3">${formatDate(order.created_at)}</td>
         <td class="px-6 py-4 items-center gap-3">${formatDate(order.updated_at)}</td>
@@ -82,13 +146,78 @@ export async function initOrdersScript() {
     tablaBody.innerHTML = skeletonRow.repeat(count);
   }
 
+  // Función para cargar todos los clientes
+  async function loadCustomers() {
+    try {
+      const token = localStorage.getItem('token');
+      const apiBase = buscarBtn?.dataset.apiBase;
+      
+      const response = await fetch(`${apiBase}/api/customers`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+      
+      const customers = await response.json();
+      allCustomers = Array.isArray(customers) ? customers : [];
+      return allCustomers;
+    } catch (error) {
+      console.error('Error cargando clientes:', error);
+      allCustomers = [];
+      return [];
+    }
+  }
+
+  // Función para filtrar y mostrar clientes
+  function filterCustomers(searchTerm) {
+    if (!clienteDropdown) return;
+    
+    const filtered = allCustomers.filter(customer => 
+      customer.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    clienteDropdown.innerHTML = filtered.map(customer => `
+      <div class="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer customer-option" 
+           data-value="${customer.name}">
+        ${customer.name}
+      </div>
+    `).join('');
+
+    // Mostrar dropdown si hay resultados o si el término de búsqueda está vacío
+    if (filtered.length > 0 || searchTerm === '') {
+      clienteDropdown.classList.remove('hidden');
+    } else {
+      clienteDropdown.classList.add('hidden');
+    }
+  }
+
+  // Función para mostrar/ocultar dropdown
+  function toggleCustomerDropdown() {
+    if (!clienteDropdown) return;
+    
+    const isHidden = clienteDropdown.classList.contains('hidden');
+    
+    if (isHidden) {
+      filterCustomers(clienteInput.value);
+      clienteDropdown.classList.remove('hidden');
+    } else {
+      clienteDropdown.classList.add('hidden');
+    }
+    
+    // Rotar icono
+    if (clienteDropdownIcon) {
+      clienteDropdownIcon.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+    }
+  }
+
   async function performSearch() {
     const cliente = qs('cliente')?.value.trim() ?? '';
     const orden = qs('orden')?.value.trim() ?? '';
     const estado = qs('estado')?.value ?? '';
     const fechaIngreso = qs('fechaIngreso')?.value ?? '';
-    const fechaETD = qs('fechaETD')?.value ?? '';
-    const fechaETA = qs('fechaETA')?.value ?? '';
 
     const apiBase = buscarBtn?.dataset.apiBase;
     const token = localStorage.getItem('token');
@@ -97,9 +226,7 @@ export async function initOrdersScript() {
       orderName: orden,
       customerName: cliente,
       estado: estado !== 'Todos' && estado !== '' ? estado : undefined,
-      fechaIngreso: fechaIngreso || undefined,
-      fechaETD: fechaETD || undefined,
-      fechaETA: fechaETA || undefined 
+      fechaIngreso: fechaIngreso || undefined
     };
     Object.keys(filtros).forEach(key => {
       if (filtros[key] === undefined || filtros[key] === '') {
@@ -134,8 +261,6 @@ export async function initOrdersScript() {
     qs('orden').value = '';
     qs('estado').value = '';
     qs('fechaIngreso').value = '';
-    qs('fechaETD').value = '';
-    qs('fechaETA').value = '';
     performSearch(); // Recargar todos los registros
   }
 
@@ -165,11 +290,131 @@ export async function initOrdersScript() {
 
   limpiarBtn.addEventListener('click', clearFilters);
 
+  // Event listeners para el combobox de clientes
+  if (clienteInput) {
+    // Cargar clientes al hacer focus
+    clienteInput.addEventListener('focus', () => {
+      // Recargar clientes si no hay o si se acaban de limpiar
+      if (allCustomers.length === 0) {
+        loadCustomers();
+      }
+      toggleCustomerDropdown();
+    });
+
+    // Filtrar al escribir
+    clienteInput.addEventListener('input', (e) => {
+      filterCustomers(e.target.value);
+      if (clienteDropdownIcon) {
+        clienteDropdownIcon.style.transform = 'rotate(180deg)';
+      }
+    });
+
+    // Cerrar dropdown al perder focus
+    clienteInput.addEventListener('blur', () => {
+      setTimeout(() => {
+        // Solo cerrar si no se hizo click en el dropdown o en el icono
+        if (clienteDropdown && !clienteDropdown.contains(document.activeElement) && !clienteDropdownIcon.contains(document.activeElement)) {
+          clienteDropdown.classList.add('hidden');
+        }
+        if (clienteDropdownIcon) {
+          clienteDropdownIcon.style.transform = 'rotate(0deg)';
+        }
+      }, 200);
+    });
+  }
+
+  // Click en el icono del dropdown
+  if (clienteDropdownIcon) {
+    clienteDropdownIcon.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // Cargar clientes si es necesario
+      if (allCustomers.length === 0) {
+        loadCustomers();
+      }
+      
+      // Toggle del dropdown
+      const isHidden = clienteDropdown.classList.contains('hidden');
+      if (isHidden) {
+        filterCustomers(clienteInput.value);
+        clienteDropdown.classList.remove('hidden');
+        clienteDropdownIcon.style.transform = 'rotate(180deg)';
+      } else {
+        clienteDropdown.classList.add('hidden');
+        clienteDropdownIcon.style.transform = 'rotate(0deg)';
+      }
+    });
+  }
+
+  // Click en las opciones del dropdown
+  if (clienteDropdown) {
+    clienteDropdown.addEventListener('click', (e) => {
+      const option = e.target.closest('.customer-option');
+      if (option) {
+        const value = option.dataset.value;
+        clienteInput.value = value;
+        clienteDropdown.classList.add('hidden');
+        if (clienteDropdownIcon) {
+          clienteDropdownIcon.style.transform = 'rotate(0deg)';
+        }
+        // Mostrar botón de limpiar después de seleccionar
+        toggleClearButton(clienteInput, clearClienteBtn);
+      }
+    });
+  }
+
+  // Event listeners para botones de limpiar
+  if (clearOrdenBtn) {
+    clearOrdenBtn.addEventListener('click', () => {
+      clearField(qs('orden'), clearOrdenBtn);
+    });
+  }
+
+  if (clearClienteBtn) {
+    clearClienteBtn.addEventListener('click', () => {
+      clearField(clienteInput, clearClienteBtn);
+    });
+  }
+
+  // Event listeners para mostrar/ocultar botones de limpiar al escribir
+  if (qs('orden')) {
+    qs('orden').addEventListener('input', () => {
+      toggleClearButton(qs('orden'), clearOrdenBtn);
+    });
+  }
+
+  if (clienteInput) {
+    clienteInput.addEventListener('input', () => {
+      toggleClearButton(clienteInput, clearClienteBtn);
+    });
+  }
+
+  // Event listener global para cerrar dropdown al hacer click fuera
+  document.addEventListener('click', (e) => {
+    // No cerrar si estamos en proceso de limpiar el campo
+    if (isClearingField) return;
+    
+    const isClickInside = clienteInput?.contains(e.target) || 
+                         clienteDropdown?.contains(e.target) || 
+                         clienteDropdownIcon?.contains(e.target);
+    
+    if (!isClickInside && clienteDropdown && !clienteDropdown.classList.contains('hidden')) {
+      clienteDropdown.classList.add('hidden');
+      if (clienteDropdownIcon) {
+        clienteDropdownIcon.style.transform = 'rotate(0deg)';
+      }
+    }
+  });
+
   // Sombra en scroll
   if (head) setupScrollShadow(window, head);
 
   // Inicializar paginador
   renderPage();
+
+  // Cargar clientes al inicializar
+  loadCustomers();
 
   // Llamar a la búsqueda inicial al cargar la página
   performSearch();
@@ -178,17 +423,14 @@ export async function initOrdersScript() {
 // Función para abrir modal de edición (exportada para uso global)
 export async function openEditOrderModal(orderId, currentName) {
   // Implementar lógica del modal de edición aquí
-  console.log('Abriendo modal de edición para orden:', orderId, currentName);
-  
+
   try {
     // Por ahora solo muestra una notificación
     showNotification('Función de edición en desarrollo', 'info');
-    console.log('Notificación mostrada correctamente');
     
     // También mostrar una notificación de éxito después de 1 segundo
     setTimeout(() => {
       showNotification('Orden cargada correctamente', 'success');
-      console.log('Segunda notificación mostrada');
     }, 1000);
   } catch (error) {
     console.error('Error al mostrar notificación:', error);

@@ -29,7 +29,7 @@
 	"sendCustomMessage": "Send custom message",
 	"message": "Message",
 	"is_visible_to_customer": "Public",
-	"orderPlaceholder": "e.g. OC-1234",
+	"orderPlaceholder": "1234",
 	"clientPlaceholder": "Client name",
 	"fechaIngresoPlaceholder": "mm / dd / yyyy",
 	"fechaETDPlaceholder": "mm / dd / yyyy",
@@ -43,5 +43,7 @@
 	"fechaIngreso": "Entry date",
 	"fechaETD": "ETD date",
 	"fechaETA": "ETA date",
-	"estado": "Status"
+	"estado": "Status",
+	"cliente": "Client"
+	
 }
