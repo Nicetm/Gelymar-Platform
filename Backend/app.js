@@ -12,14 +12,6 @@ const { authorizeRoles } = require('./middleware/role.middleware');
 const authFromCookie = require('./middleware/authFromCookie');
 
 dotenv.config();
-
-// Debug: Mostrar variables de entorno de base de datos
-console.log('🔍 Variables de entorno de BD:');
-console.log('DB_HOST:', process.env.DB_HOST);
-console.log('DB_USER:', process.env.DB_USER);
-console.log('DB_PASS:', process.env.DB_PASS ? '***' : 'NO DEFINIDA');
-console.log('DB_NAME:', process.env.DB_NAME);
-
 const app = express();
 
 // Rutas API
@@ -58,10 +50,10 @@ app.use('/api/auth', authRoutes);
 // Rutas protegidas (requieren token + rol adecuado)
 app.use('/api/customers', authMiddleware, authorizeRoles(['admin']), customerRoutes);
 app.use('/api/users', authMiddleware, authorizeRoles(['admin']), userRoutes);
-app.use('/api/orders', authMiddleware, orderRoutes);
-app.use('/api/items', authMiddleware, itemRoutes);
-app.use('/api/directories', authMiddleware, documentDirectoryRoutes);
-app.use('/api/files', authMiddleware, documentFileRoutes);
+app.use('/api/orders', authMiddleware, authorizeRoles(['admin', 'client']), orderRoutes);
+app.use('/api/items', authMiddleware, authorizeRoles(['admin']), itemRoutes);
+app.use('/api/directories', authMiddleware, authorizeRoles(['admin']), documentDirectoryRoutes);
+app.use('/api/files', authMiddleware, authorizeRoles(['admin']), documentFileRoutes);
 
 // Sirve archivos estáticos desde la carpeta 'uploads'
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -92,5 +84,5 @@ app.get('/', (req, res) => {
 // Iniciar servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`✅ Servidor corriendo en: ${process.env.FRONTEND_BASE_URL || 'http://localhost:' + PORT}`);
+  console.log(`Servidor corriendo en: ${process.env.FRONTEND_BASE_URL || 'http://localhost:' + PORT}`);
 });

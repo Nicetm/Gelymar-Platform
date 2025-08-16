@@ -16,9 +16,10 @@ module.exports = async (req, res, next) => {
     
     const pool = await poolPromise;
     const [rows] = await pool.query(
-      `SELECT u.id, u.email, r.name AS role, u.twoFAEnabled, u.twoFASecret
+      `SELECT u.id, u.email, r.name AS role, u.twoFAEnabled, u.twoFASecret, c.uuid
        FROM users u
        LEFT JOIN roles r ON u.role_id = r.id
+       LEFT JOIN customers c ON u.email = c.rut
        WHERE u.id = ?`,
       [decoded.id]
     );
@@ -26,7 +27,7 @@ module.exports = async (req, res, next) => {
     if (!user) {
       return res.status(401).json({ message: 'Usuario no encontrado' });
     }
-  
+
     req.user = user;
     return next();
 

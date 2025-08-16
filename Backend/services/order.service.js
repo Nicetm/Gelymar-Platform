@@ -87,6 +87,123 @@ const getOrdersByFilters = async (filters = {}) => {
 };
 
 /**
+ * Obtiene órdenes formateadas para el dashboard del cliente
+ * @param {string} customerUUID - UUID del cliente
+ * @returns {Promise<Array>} Array de órdenes formateadas
+ */
+const getClientDashboardOrders = async (customerUUID) => {
+  const pool = await poolPromise;
+  
+  const query = `
+    SELECT 
+      o.id,
+      o.name AS orderNumber,
+      c.name AS clientName,
+      o.created_at,
+      o.updated_at,
+      COUNT(f.id) AS documents,
+      CASE 
+        WHEN COUNT(f.id) = 0 THEN 'Pending'
+        WHEN COUNT(f.id) < 5 THEN 'In Progress'
+        ELSE 'Completed'
+      END AS status,
+      CASE 
+        WHEN o.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 'high'
+        WHEN o.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 'medium'
+        ELSE 'low'
+      END AS priority
+    FROM orders o
+    JOIN customers c ON o.customer_id = c.id
+    LEFT JOIN files f ON f.order_id = o.id
+    WHERE c.uuid = ?
+    GROUP BY o.id, o.name, c.name, o.created_at, o.updated_at
+    ORDER BY o.updated_at DESC
+    LIMIT 6
+  `;
+  
+  const [rows] = await pool.query(query, [customerUUID]);
+
+  return rows.map(row => ({
+    id: row.id,
+    orderNumber: row.orderNumber,
+    clientName: row.clientName,
+    status: row.status,
+    documents: row.documents,
+    lastUpdated: row.updated_at,
+    priority: row.priority
+  }));
+};
+
+/**
+ * Obtiene documentos de una orden específica del cliente
+ * @param {number} orderId - ID de la orden
+ * @param {string} customerUUID - UUID del cliente
+ * @returns {Promise<Array|null>} Array de documentos o null si no autorizado
+ */
+const getClientOrderDocuments = async (orderId, customerUUID) => {
+  try {
+    const pool = await poolPromise;
+
+    // Primero verificar que la orden pertenece al cliente
+    const orderQuery = `
+      SELECT o.id, o.name AS orderNumber, c.name AS clientName
+      FROM orders o
+      JOIN customers c ON o.customer_id = c.id
+      WHERE o.id = ? AND c.uuid = ?
+    `;
+
+    const [orderRows] = await pool.query(orderQuery, [orderId, customerUUID]);
+
+    if (orderRows.length === 0) {
+      return null; // Orden no encontrada o no autorizada
+    }
+
+  const order = orderRows[0];
+
+  // Obtener documentos de la orden
+  const documentsQuery = `
+    SELECT 
+      f.id,
+      f.name AS filename,
+      f.path AS filepath,
+      f.file_type AS filetype,
+      f.created_at,
+      f.updated_at,
+      s.name AS status
+    FROM files f
+    LEFT JOIN order_status s ON f.status_id = s.id
+    WHERE f.order_id = ?
+    ORDER BY f.created_at DESC
+  `;
+
+  const [documentRows] = await pool.query(documentsQuery, [order.id]);
+
+  const result = {
+    order: {
+      id: order.id,
+      orderNumber: order.orderNumber,
+      clientName: order.clientName
+    },
+    documents: documentRows.map(doc => ({
+      id: doc.id,
+      filename: doc.filename,
+      filepath: doc.filepath,
+      filetype: doc.filetype,
+      filesize: 0, // No hay campo filesize en la tabla
+      status: doc.status || 'Unread',
+      statusColor: 'gray', // Color por defecto ya que no hay campo color en order_status
+      created: doc.created_at,
+      updated: doc.updated_at
+    }))
+  };
+
+  return result;
+  } catch (error) {
+    throw error; // Re-lanzar el error para que el controlador lo maneje
+  }
+};
+
+/**
  * Inserta una nueva orden en la base de datos
  * @param {object} data - Datos de la orden
  * @returns {Promise<void>}
@@ -152,6 +269,8 @@ const getOrderIdByPc = async (pc) => {
 
 module.exports = {
   getOrdersByFilters,
+  getClientDashboardOrders,
+  getClientOrderDocuments,
   insertOrder,
   getAllExistingOrders,
   getOrderIdByPc

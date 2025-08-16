@@ -38,20 +38,106 @@ const statusColors = {
 /**
  * Inicializa la aplicación
  */
-function init() {
-  console.log('🚀 Document Center initialized');
-  console.log('📋 Orders:', window.orders);
-  console.log('📄 Documents by order:', window.docsByOrder);
+async function init() {
+
+  try {
+    // Mostrar loading state
+    showLoadingState();
+
+    // Cargar órdenes desde la API si no están disponibles
+    if (!window.orders || window.orders.length === 0) {
+      await loadOrdersFromAPI();
+    }
+    
+    
+    // Ocultar loading y mostrar contenido
+    hideLoadingState();
+    
+    // Renderizar órdenes
+    renderOrders();
+    
+    // Configurar event listeners
+    setupEventListeners();
+    
+    // Seleccionar automáticamente la primera orden si existe
+    if (window.orders && window.orders.length > 0) {
+      selectOrder(window.orders[0].id);
+    }
+  } catch (error) {
+    hideLoadingState();
+    showErrorState('Error cargando órdenes. Por favor, recarga la página.');
+  }
+}
+
+/**
+ * Muestra el estado de loading
+ */
+function showLoadingState() {
+  const loadingState = document.getElementById('loading-state');
+  const ordersSection = document.getElementById('orders-section');
   
-  // Renderizar órdenes
-  renderOrders();
+  if (loadingState) loadingState.classList.remove('hidden');
+  if (ordersSection) ordersSection.classList.add('hidden');
+}
+
+/**
+ * Oculta el estado de loading
+ */
+function hideLoadingState() {
+  const loadingState = document.getElementById('loading-state');
+  const ordersSection = document.getElementById('orders-section');
   
-  // Configurar event listeners
-  setupEventListeners();
-  
-  // Seleccionar automáticamente la primera orden si existe
-  if (window.orders && window.orders.length > 0) {
-    selectOrder(window.orders[0].id);
+  if (loadingState) loadingState.classList.add('hidden');
+  if (ordersSection) ordersSection.classList.remove('hidden');
+}
+
+/**
+ * Muestra estado de error
+ */
+function showErrorState(message) {
+  const loadingState = document.getElementById('loading-state');
+  if (loadingState) {
+    loadingState.innerHTML = `
+      <div class="inline-flex items-center justify-center w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full mb-4">
+        <svg class="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      </div>
+      <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Error</h3>
+      <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">${message}</p>
+      <button onclick="location.reload()" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+        Recargar página
+      </button>
+    `;
+  }
+}
+
+/**
+ * Carga órdenes desde la API
+ */
+async function loadOrdersFromAPI() {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('No hay token de autenticación');
+    }
+
+    const response = await fetch(`${window.apiBase}/api/orders/client/dashboard`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    window.orders = await response.json();
+    console.log('✅ Órdenes cargadas desde API:', window.orders.length);
+  } catch (error) {
+    console.error('❌ Error cargando órdenes desde API:', error);
+    throw error;
   }
 }
 
@@ -111,18 +197,31 @@ function renderOrders() {
 /**
  * Selecciona una orden y muestra sus documentos
  */
-function selectOrder(orderId) {
+async function selectOrder(orderId) {
   console.log('📋 Selecting order:', orderId);
   
   currentOrderId = orderId;
-  documents = window.docsByOrder[orderId] || [];
+  
+  // Mostrar loading en la sección de documentos
+  showDocumentsLoading();
+  
+  try {
+    // Cargar documentos desde la API
+    await loadOrderDocumentsFromAPI(orderId);
+  } catch (error) {
+    console.error('❌ Error cargando documentos:', error);
+    // Fallback a datos estáticos si hay error
+    documents = window.docsByOrder[orderId] || [];
+  }
+  
   filteredDocuments = [...documents];
   currentPage = 1;
   
   console.log('📄 Documents for order', orderId, ':', documents);
   console.log('📄 Filtered documents:', filteredDocuments);
   
-  // Actualizar UI (las secciones ya están visibles por defecto)
+  // Ocultar loading y actualizar UI
+  hideDocumentsLoading();
   renderDocuments(filteredDocuments, currentPage);
   updatePagination();
   updateStatistics();
@@ -142,6 +241,75 @@ function selectOrder(orderId) {
   const order = window.orders.find(o => o.id === orderId);
   if (order) {
     showNotification(`Selected order: ${order.orderNumber} - ${order.clientName}`);
+  }
+}
+
+/**
+ * Muestra loading en la sección de documentos
+ */
+function showDocumentsLoading() {
+  const documentsContainer = document.getElementById('documents-container');
+  if (documentsContainer) {
+    documentsContainer.innerHTML = `
+      <div class="text-center py-12">
+        <div class="inline-flex items-center justify-center w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-full mb-3">
+          <svg class="w-4 h-4 text-blue-600 dark:text-blue-400 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+        </div>
+        <p class="text-sm text-gray-600 dark:text-gray-400">Cargando documentos...</p>
+      </div>
+    `;
+  }
+}
+
+/**
+ * Oculta loading en la sección de documentos
+ */
+function hideDocumentsLoading() {
+  // El loading se oculta automáticamente cuando se renderizan los documentos
+}
+
+/**
+ * Carga documentos de una orden desde la API
+ */
+async function loadOrderDocumentsFromAPI(orderId) {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('No hay token de autenticación');
+    }
+
+    const response = await fetch(`${window.apiBase}/api/orders/client/${orderId}/documents`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    
+    // Convertir documentos al formato esperado por el frontend
+    documents = data.documents.map(doc => ({
+      id: doc.id,
+      name: doc.filename,
+      type: doc.filetype?.toLowerCase() || 'pdf',
+      size: doc.filesize || 0,
+      status: doc.status || 'Unread',
+      statusColor: doc.statusColor || 'gray',
+      created: doc.created,
+      updated: doc.updated,
+      url: doc.filepath || '#'
+    }));
+    
+    console.log('✅ Documentos cargados desde API:', documents.length);
+  } catch (error) {
+    console.error('❌ Error cargando documentos desde API:', error);
+    throw error;
   }
 }
 
@@ -1389,7 +1557,7 @@ function setupModalEventListeners() {
 // =============================================================================
 
 // Esperar a que el DOM esté listo
-document.addEventListener('DOMContentLoaded', () => {
-  init();
+document.addEventListener('DOMContentLoaded', async () => {
+  await init();
   setupModalEventListeners();
 });

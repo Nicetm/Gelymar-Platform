@@ -13,7 +13,7 @@ exports.getAllOrders = async (req, res) => {
     const filters = {};
 
     // Si es cliente, se filtra automáticamente por UUID
-    if (req.user.role === 'cliente') {
+    if (req.user.role === 'client') {
       filters.customerUUID = req.user.uuid; // o req.user.customer_uuid
     }
 
@@ -35,7 +35,7 @@ exports.searchOrders = async (req, res) => {
     const filters = req.body || {};
 
     // Si es cliente, forzamos el filtro por su UUID
-    if (req.user.role === 'cliente') {
+    if (req.user.role === 'client') {
       filters.customerUUID = req.user.uuid;
     }
 
@@ -56,7 +56,7 @@ exports.getOrderById = (req, res) => {
   const order = orders.find(o => o.DocEntry == req.params.id);
   if (!order) return res.status(404).json({ message: 'Orden no encontrada' });
 
-  if (req.user.role === 'cliente' && req.user.cardCode !== order.CardCode) {
+  if (req.user.role === 'client' && req.user.cardCode !== order.CardCode) {
     return res.status(403).json({ message: 'No autorizado para ver esta orden' });
   }
 
@@ -71,7 +71,7 @@ exports.getOrderDetails = (req, res) => {
   const order = orders.find(o => o.DocEntry == req.params.id);
   if (!order) return res.status(404).json({ message: 'Orden no encontrada' });
 
-  if (req.user.role === 'cliente' && req.user.cardCode !== order.CardCode) {
+  if (req.user.role === 'client' && req.user.cardCode !== order.CardCode) {
     return res.status(403).json({ message: 'No autorizado para ver el detalle de esta orden' });
   }
 
@@ -92,5 +92,63 @@ exports.searchOrders = async (req, res) => {
   } catch (err) {
     console.error('[searchOrders] Error:', err.message);
     res.status(500).json({ message: 'Error interno al buscar órdenes' });
+  }
+};
+
+/**
+ * GET /api/orders/client/dashboard
+ * Devuelve órdenes formateadas específicamente para el dashboard del cliente
+ * Solo accesible por clientes, automáticamente filtra por su UUID
+ */
+exports.getClientDashboardOrders = async (req, res) => {
+  try {
+    // Solo clientes pueden acceder a este endpoint
+    if (req.user.role !== 'client') {
+      return res.status(403).json({ 
+        message: 'Acceso no autorizado',
+        userRole: req.user.role,
+        expectedRole: 'client'
+      });
+    }
+
+    // Obtener órdenes del cliente autenticado
+    const orders = await orderService.getClientDashboardOrders(req.user.uuid);
+
+    res.json(orders);
+  } catch (err) {
+    console.error('[getClientDashboardOrders] Error:', err.message);
+    res.status(500).json({ message: 'Error al obtener órdenes del dashboard' });
+  }
+};
+
+/**
+ * GET /api/orders/client/:orderId/documents
+ * Devuelve documentos de una orden específica del cliente
+ * Solo accesible por clientes, verifica que la orden pertenezca al cliente
+ */
+exports.getClientOrderDocuments = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    // Solo clientes pueden acceder a este endpoint
+    if (req.user.role !== 'client') {
+      return res.status(403).json({ 
+        message: 'Acceso no autorizado',
+        userRole: req.user.role,
+        expectedRole: 'client'
+      });
+    }
+
+    // Obtener documentos de la orden del cliente
+    const documents = await orderService.getClientOrderDocuments(orderId, req.user.uuid);
+
+    if (!documents) {
+      return res.status(404).json({ message: 'Orden no encontrada o no autorizada' });
+    }
+
+    res.json(documents);
+  } catch (err) {
+    console.error('[getClientOrderDocuments] Error:', err.message);
+    res.status(500).json({ message: 'Error al obtener documentos de la orden' });
   }
 };

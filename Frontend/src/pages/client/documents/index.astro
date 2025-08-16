@@ -6,15 +6,44 @@ import DocumentStats     from './components/DocumentStats.astro';
 import DocumentsSection  from './components/DocumentsSection.astro';
 import EmailModal        from './components/EmailModal.astro';
 
-/* ▸ Datos dummy: cámbialos por un fetch real cuando conectes tu API */
-const orders      = (await import('./data/sample-orders.js')).default;
-const docsByOrder = (await import('./data/sample-documents.js')).default;
+// Configuración de API
+const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
+
+// Obtener token del usuario autenticado
+let orders = [];
+let docsByOrder = {};
+
+try {
+  // Obtener órdenes del cliente desde la API
+  // En SSR no podemos usar localStorage, así que intentamos sin token
+  // El backend debería manejar la autenticación por cookies
+  const response = await fetch(`${apiBase}/api/orders/client/dashboard`, {
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    credentials: 'include' // Incluir cookies para autenticación
+  });
+
+  if (response.ok) {
+    orders = await response.json();
+    console.log('✅ Órdenes obtenidas de la API (SSR):', orders.length);
+  } else {
+    console.error('❌ Error obteniendo órdenes (SSR):', response.status);
+    // No usar datos de ejemplo, dejar array vacío para que el cliente los cargue
+    orders = [];
+  }
+} catch (error) {
+  console.error('❌ Error de conexión (SSR):', error instanceof Error ? error.message : 'Error desconocido');
+  // No usar datos de ejemplo, dejar array vacío para que el cliente los cargue
+  orders = [];
+}
 ---
 
 <!-- Exponemos los datos para el script -->
-<script define:vars={{ orders, docsByOrder }}>
+<script define:vars={{ orders, docsByOrder, apiBase }}>
   window.orders = orders;
   window.docsByOrder = docsByOrder;
+  window.apiBase = apiBase;
 </script>
 
 <LayoutSidebarClient title="Documents - Client Panel">
@@ -39,8 +68,21 @@ const docsByOrder = (await import('./data/sample-documents.js')).default;
     <!-- Contenido principal con padding -->
     <div class="px-6 py-8 space-y-8">
       
+      <!-- Loading state -->
+      <div id="loading-state" class="text-center py-12">
+        <div class="inline-flex items-center justify-center w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full mb-4">
+          <svg class="w-6 h-6 text-blue-600 dark:text-blue-400 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+        </div>
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Cargando órdenes...</h3>
+        <p class="text-sm text-gray-600 dark:text-gray-400">Obteniendo información de la base de datos</p>
+      </div>
+      
       <!-- Selector de órdenes -->
-      <OrdersGrid {orders} />
+      <div id="orders-section" class="hidden">
+        <OrdersGrid {orders} />
+      </div>
 
       <!-- Estadísticas + lista de documentos (inicialmente ocultas) -->
       <DocumentStats />
