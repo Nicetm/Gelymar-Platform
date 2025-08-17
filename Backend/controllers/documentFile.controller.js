@@ -3,7 +3,14 @@ const path = require('path');
 const multer = require('multer');
 const { insertFile, getFiles, RenameFile, deleteFileById } = require('../services/file.service');
 const { poolPromise } = require('../config/db');
-const { generateRO, generateInvoice, generateBL } = require('../pdf-generator/generator');
+const { 
+  generateRO, 
+  generateInvoice, 
+  generateBL,
+  generateRecepcionOrden,
+  generateAvisoEmbarque,
+  generateAvisoRecepcionOrden
+} = require('../pdf-generator/generator');
 const fileService = require('../services/file.service');
 const emailService = require('../services/email.service');
 const PDFDocument = require('pdfkit');
@@ -11,23 +18,142 @@ const logger = require('../utils/logger');
 const { cleanDirectoryName } = require('../utils/directoryUtils');
 
 /**
+ * Mapea el nombre del documento al generador correspondiente
+ * @param {string} documentName - Nombre del documento
+ * @returns {Function} Función generadora correspondiente
+ */
+function getDocumentGenerator(documentName) {
+  const generators = {
+    'Recepcion de orden': generateRecepcionOrden,
+    'Aviso de Embarque': generateAvisoEmbarque,
+    'Aviso de Recepcion de orden': generateAvisoRecepcionOrden
+  };
+  
+  return generators[documentName] || generateRO; // Fallback a RO si no encuentra
+}
+
+/**
+ * Obtiene datos reales de la BD para generar el PDF
+ * @param {Object} file - Datos del archivo
+ * @returns {Object} Datos formateados para el template
+ */
+async function getPDFData(file) {
+  const pool = await poolPromise;
+  
+  // Obtener datos de la orden
+  const [[order]] = await pool.query(`
+    SELECT o.*, c.name as customer_name, c.email as customer_email
+    FROM orders o
+    JOIN customers c ON o.customer_id = c.id
+    WHERE o.id = ?
+  `, [file.order_id]);
+
+  // Obtener items de la orden (usando order_items que relaciona items con órdenes)
+  const [orderItems] = await pool.query(`
+    SELECT oi.*, i.item_name, i.item_code, i.unidad_medida
+    FROM order_items oi
+    JOIN items i ON oi.item_id = i.id
+    WHERE oi.order_id = ?
+  `, [file.order_id]);
+
+  // Fechas actuales
+  const currentDate = new Date();
+  const receptionDate = currentDate.toLocaleDateString('es-CL');
+  const shipmentDate = new Date(currentDate.getTime() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('es-CL'); // +7 días
+  const estimatedDeparture = new Date(currentDate.getTime() + 10 * 24 * 60 * 60 * 1000).toLocaleDateString('es-CL'); // +10 días
+  const estimatedArrival = new Date(currentDate.getTime() + 25 * 24 * 60 * 60 * 1000).toLocaleDateString('es-CL'); // +25 días
+  const estimatedDelivery = new Date(currentDate.getTime() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString('es-CL'); // +30 días
+
+  // Datos base para todos los templates
+  const baseData = {
+    title: file.name,
+    subtitle: `Documento generado para ${order?.customer_name || file.customer_name}`,
+    customerName: order?.customer_name || file.customer_name,
+    orderNumber: order?.name || file.pc || 'N/A',
+    responsiblePerson: 'Sistema Gelymar',
+    receptionDate,
+    shipmentDate,
+    estimatedDeparture,
+    estimatedArrival,
+    estimatedDelivery,
+    items: orderItems.map(item => ({
+      product: item.item_name || 'Producto',
+      quantity: item.kg_solicitados || 1,
+      price: item.unit_price || 0
+    }))
+  };
+
+  // Datos específicos según el tipo de documento
+  const specificData = {
+    'Recepcion de orden': {
+      ...baseData,
+      processingStatus: 'En Proceso',
+      serviceType: 'Logística Integral',
+      origin: 'Chile',
+      destination: 'Internacional',
+      priority: 'Normal'
+    },
+    'Aviso de Embarque': {
+      ...baseData,
+      portOfShipment: 'Puerto de Valparaíso',
+      vesselName: 'M/V Gelymar Express',
+      containerNumber: `GEL-${Math.floor(Math.random() * 900000) + 100000}`,
+      portOfDestination: 'Puerto de Destino',
+      cargoType: 'Mercancía General',
+      totalWeight: orderItems.reduce((sum, item) => sum + (item.kg_solicitados || 0), 0),
+      totalVolume: orderItems.reduce((sum, item) => sum + (item.volumen || 0), 0),
+      specialInstructions: 'Manejar con cuidado. Mercancía frágil.'
+    },
+    'Aviso de Recepcion de orden': {
+      ...baseData,
+      processingStatus: 'Recibido y Validado',
+      serviceType: 'Servicio Logístico Completo',
+      origin: 'Chile',
+      destination: 'Internacional',
+      priority: 'Normal',
+      cargoType: 'Mercancía General',
+      estimatedWeight: orderItems.reduce((sum, item) => sum + (item.kg_solicitados || 0), 0),
+      estimatedVolume: orderItems.reduce((sum, item) => sum + (item.volumen || 0), 0),
+      packageCount: orderItems.length,
+      dimensions: 'Variable según producto'
+    }
+  };
+
+  return specificData[file.name] || baseData;
+}
+
+/**
  * Configuración de almacenamiento para Multer
  * Define el destino físico de los archivos en base al cliente y subcarpeta
  */
 const storage = multer.diskStorage({
-  destination: async function (req, file, cb) {
+  destination: function (req, file, cb) {
     const { client_name, subfolder } = req.body;
-    if (!client_name || !subfolder) return cb(new Error('Faltan parámetros'), null);
+    logger.info(`DEBUG - Multer destination: client_name=${client_name}, subfolder=${subfolder}`);
+    
+    if (!client_name || !subfolder) {
+      logger.error('DEBUG - Faltan parámetros en multer destination');
+      return cb(new Error('Faltan parámetros'), null);
+    }
 
     // Limpiar nombres de directorios para evitar problemas con caracteres especiales
     const cleanClientName = cleanDirectoryName(client_name);
     const cleanSubfolder = cleanDirectoryName(subfolder);
     
     const dirPath = path.join(process.env.FILE_SERVER_ROOT || '/var/www/html', 'uploads', cleanClientName, cleanSubfolder);
-    fs.mkdirSync(dirPath, { recursive: true });
-    cb(null, dirPath);
+    logger.info(`DEBUG - Multer dirPath: ${dirPath}`);
+    
+    try {
+      fs.mkdirSync(dirPath, { recursive: true });
+      logger.info(`DEBUG - Directorio creado exitosamente: ${dirPath}`);
+      cb(null, dirPath);
+    } catch (error) {
+      logger.error(`DEBUG - Error creando directorio: ${error.message}`);
+      cb(error, null);
+    }
   },
   filename: function (req, file, cb) {
+    logger.info(`DEBUG - Multer filename: ${file.originalname}`);
     cb(null, file.originalname);
   }
 });
@@ -60,6 +186,11 @@ exports.handleUpload = async (req, res) => {
     } = req.body;
     const file = req.file;
 
+    logger.info(`DEBUG - handleUpload recibido:`, {
+      customer_id, folder_id, client_name, subfolder, name, is_visible_to_customer,
+      file: file ? { originalname: file.originalname, path: file.path, size: file.size } : null
+    });
+
     if (!file || !customer_id || !folder_id || !client_name || !subfolder) {
       logger.warn('Faltan parámetros obligatorios en handleUpload');
       return res.status(400).json({ message: 'Faltan parámetros obligatorios' });
@@ -74,11 +205,15 @@ exports.handleUpload = async (req, res) => {
       return res.status(404).json({ message: 'Orden no encontrada' });
     }
 
-    const filePath = path.join(client_name, subfolder, file.originalname);
+    // Limpiar nombres de directorios para la ruta en la BD
+    const cleanClientName = cleanDirectoryName(client_name);
+    const cleanSubfolder = cleanDirectoryName(subfolder);
+
+    const filePath = path.join('uploads', cleanClientName, cleanSubfolder, file.originalname);
 
     const fileData = {
       customer_id,
-      order_id: folder_id, // Cambiar folder_id por order_id
+      order_id: folder_id,
       pc: order.pc,
       oc: order.oc,
       name: name,
@@ -173,18 +308,14 @@ exports.generateFile = async (req, res) => {
     const fileName = `${file.name}.pdf`;
     const filePath = path.join(customerFolder, fileName);
 
-    await generateRO(filePath, {
-      title: 'Reception Order Advice',
-      subtitle: 'Este es el ROA generado',
-      customerName: file.customer_name,
-      orderNumber: file.order_number,
-      items: [ 
-        { product: 'Producto A', quantity: 10, price: 1000 },
-        { product: 'Producto B', quantity: 5, price: 500 }
-      ],
-      signName: 'Juan Pérez',
-      signRole: 'Logistics Manager'
-    });
+    // Obtener el generador correspondiente según el nombre del documento
+    const generator = getDocumentGenerator(file.name);
+    
+    // Obtener datos reales de la BD
+    const pdfData = await getPDFData(file);
+    
+    // Generar el PDF con el generador y datos correspondientes
+    await generator(filePath, pdfData);
 
     const updateData = {
       id: file.id,

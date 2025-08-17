@@ -34,14 +34,13 @@ export async function initFoldersScript() {
   const pageIndicator = qs('pageIndicator');
   const section = qs('folderSection');
   const uuID = section?.dataset?.uuid;
-  const addFolderBtn = qs('addFolderBtn');
-  const addIcon = qs('addIcon');
-  const spinnerIcon = qs('spinnerIcon');
+
   const allRows = Array.from(tableBody?.querySelectorAll('tr') || []);
 
   let currentPage = 1;
   let itemsPerPage = parseInt(itemsPerPageSelect?.value || '10', 10);
   let filteredRows = [...allRows];
+  let currentSort = { column: null, direction: 'asc' };
 
   const params = new URLSearchParams(window.location.search);
   const clientName = params.get('c');
@@ -63,6 +62,81 @@ export async function initFoldersScript() {
     }
   }
 
+  /**
+   * Función para obtener el valor de una celda para ordenamiento
+   */
+  function getCellValue(row, columnIndex) {
+    const cell = row.cells[columnIndex];
+    if (!cell) return '';
+    
+    let value = cell.textContent.trim();
+    
+    // Para la columna de archivos, convertir a número
+    if (columnIndex === 3) { // fileCount
+      return parseInt(value, 10) || 0;
+    }
+    
+    // Para la columna de fecha, convertir a timestamp
+    if (columnIndex === 2) { // created_at
+      return new Date(value).getTime();
+    }
+    
+    return value.toLowerCase();
+  }
+
+  /**
+   * Función para ordenar las filas
+   */
+  function sortRows(column, direction) {
+    const columnMap = {
+      'pc': 0,
+      'oc': 1,
+      'created_at': 2,
+      'fileCount': 3
+    };
+    
+    const columnIndex = columnMap[column];
+    if (columnIndex === undefined) return;
+    
+    filteredRows.sort((a, b) => {
+      const valueA = getCellValue(a, columnIndex);
+      const valueB = getCellValue(b, columnIndex);
+      
+      if (direction === 'asc') {
+        return valueA > valueB ? 1 : valueA < valueB ? -1 : 0;
+      } else {
+        return valueA < valueB ? 1 : valueA > valueB ? -1 : 0;
+      }
+    });
+  }
+
+  /**
+   * Función para actualizar los iconos de ordenamiento
+   */
+  function updateSortIcons(activeColumn, direction) {
+    // Resetear todos los iconos
+    document.querySelectorAll('.sort-icon').forEach(icon => {
+      icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />';
+      icon.classList.remove('text-blue-600');
+    });
+    
+    // Actualizar el icono activo
+    if (activeColumn) {
+      const activeHeader = document.querySelector(`[data-sort="${activeColumn}"]`);
+      if (activeHeader) {
+        const icon = activeHeader.querySelector('.sort-icon');
+        if (icon) {
+          icon.classList.add('text-blue-600');
+          if (direction === 'asc') {
+            icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" />';
+          } else {
+            icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />';
+          }
+        }
+      }
+    }
+  }
+
   // Inicializar la tabla
   async function refreshFolders() {
     const res = await fetch(`${apiBase}/api/directories/${uuID}`, {
@@ -75,29 +149,18 @@ export async function initFoldersScript() {
     if (tableBody) {
       tableBody.innerHTML = folders.map(folder => `
         <tr data-id="${folder.id}" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-sm min-h-[600px]">
-          <td class="px-6 py-4 items-center gap-3">${folder.name}</td>
-          <td class="px-4 py-3 break-all text-blue-600 dark:text-blue-400">${folder.path}</td>
-          <td class="px-6 py-4 items-center gap-3">${formatDate(folder.created_at)}</td>
+          <td class="px-6 py-4 items-center gap-3">${folder.pc}</td>
+          <td class="px-6 py-4 items-center gap-3">${folder.oc}</td>
+          <td class="px-6 py-4 items-center gap-3">${new Date(folder.created_at).toLocaleString("es-CL")}</td>
           <td class="px-6 py-4 items-center text-center gap-3">${folder.fileCount}</td>
           <td class="w-[25%] px-6 py-4 text-sm">
             <div class="flex justify-center items-center gap-3 text-gray-900 dark:text-white">
-              <a href="/admin/clients/documents/view/${folder.customer_uuid}?f=${folder.id}&pc=${folder.name}&c=${clientName}" title="Ver documentos en ${folder.name}" class="hover:text-blue-500 transition">
+              <a href="/admin/clients/documents/view/${folder.customer_uuid}?f=${folder.id}&pc=${folder.pc}&c=${clientName}" title="Ver documentos de PC ${folder.pc}" class="hover:text-blue-500 transition">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
               </a>
-              <a href="#" title="Ver Lista de archivos de ${folder.name}" class="hover:text-indigo-500 transition">
+              <a href="#" title="Ver Lista de items de PC ${folder.pc}" class="hover:text-indigo-500 transition">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
-                </svg>
-              </a>
-              <a href="#" title="Editar ${folder.name}" class="hover:text-green-500 transition">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.586-6.586a2 2 0 112.828 2.828L11.828 13.83a2 2 0 01-.586.414L9 15l.756-2.243a2 2 0 01.414-.586z" />
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 20H5" />
-                </svg>
-              </a>
-              <a href="#" title="Eliminar ${folder.name}" class="hover:text-red-500 transition">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12M10 11v6M14 11v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
                 </svg>
               </a>
             </div>
@@ -116,6 +179,12 @@ export async function initFoldersScript() {
   searchInput?.addEventListener('input', () => {
     const query = searchInput.value.toLowerCase();
     filteredRows = allRows.filter(row => row.textContent.toLowerCase().includes(query));
+    
+    // Aplicar ordenamiento actual si existe
+    if (currentSort.column) {
+      sortRows(currentSort.column, currentSort.direction);
+    }
+    
     currentPage = 1;
     renderTable();
   });
@@ -141,104 +210,183 @@ export async function initFoldersScript() {
     }
   });
 
-  addFolderBtn?.addEventListener('click', () => {
-    if (addIcon) addIcon.classList.add('hidden');
-    if (spinnerIcon) spinnerIcon.classList.remove('hidden');
+
+
+  /**
+   * Event listeners para ordenamiento de columnas
+   */
+  document.addEventListener('click', (e) => {
+    const header = e.target.closest('th[data-sort]');
+    if (!header) return;
     
-    setTimeout(() => {
-      const uploadModal = qs('addFolderModal');
-      if (spinnerIcon) spinnerIcon.classList.add('hidden');
-      if (addIcon) addIcon.classList.remove('hidden');
-      
-      if (uploadModal) {
-        uploadModal.dataset.clientName = clientName;
-        showModal('#addFolderModal');
-      }
-    }, 500);
+    e.preventDefault();
+    const column = header.dataset.sort;
+    
+    // Cambiar dirección si es la misma columna
+    if (currentSort.column === column) {
+      currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+    } else {
+      currentSort.column = column;
+      currentSort.direction = 'asc';
+    }
+    
+    // Ordenar las filas
+    sortRows(currentSort.column, currentSort.direction);
+    
+    // Actualizar iconos
+    updateSortIcons(currentSort.column, currentSort.direction);
+    
+    // Re-renderizar tabla
+    currentPage = 1;
+    renderTable();
   });
 
-  // Configurar cierre del modal manualmente
-  const cancelUploadBtn = qs('cancelUploadBtn');
-  const closeModalBtn = qs('closeModalBtn');
-  
-  if (cancelUploadBtn) {
-    cancelUploadBtn.addEventListener('click', () => {
-      hideModal('#addFolderModal');
-      const uploadFolderName = qs('uploadFolderName');
-      if (uploadFolderName) uploadFolderName.value = '';
-    });
+  /**
+   * Funcionalidad del modal de items
+   */
+  const itemsModal = document.getElementById('itemsModal');
+  const closeItemsModalBtn = document.getElementById('closeItemsModalBtn');
+
+  /**
+   * Función para obtener las iniciales del nombre
+   */
+  function getInitials(name) {
+    if (!name) return 'IT';
+    return name
+      .split(' ')
+      .map(word => word.charAt(0))
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
   }
-  
-  if (closeModalBtn) {
-    closeModalBtn.addEventListener('click', () => {
-      hideModal('#addFolderModal');
-      const uploadFolderName = qs('uploadFolderName');
-      if (uploadFolderName) uploadFolderName.value = '';
-    });
+
+  /**
+   * Función para formatear moneda
+   */
+  function formatCurrency(amount) {
+    return new Intl.NumberFormat('es-CL', {
+      style: 'currency',
+      currency: 'CLP'
+    }).format(amount);
   }
 
-  const confirmUploadBtn = qs('confirmUploadBtn');
-  if (confirmUploadBtn) {
-    confirmUploadBtn.addEventListener('click', async () => {
-      const folderName = qs('uploadFolderName')?.value?.trim();
-      const folderMessage = qs('folderMessage');
-      
-      if (folderMessage) {
-        folderMessage.textContent = '';
-        folderMessage.classList.add('hidden');
-      }
-
-      if (!folderName) {
-        showNotification(messages.folders?.folderNameRequired || "El campo N° SAP es obligatorio", "warning");
-        return;
-      }
-
-      try {
-        const response = await fetch(`${apiBase}/api/customers/uuid/${uuID}`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`${messages.folders?.getCustomerError || 'Error al obtener cliente'}: ${response.status} - ${errorText}`);
+  /**
+   * Función para cargar items de una orden
+   */
+  async function loadOrderItems(orderId, oc, clientName) {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${apiBase}/api/orders/${orderId}/items`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
         }
+      });
 
-        const customer = await response.json();
-        const customerId = customer.id;
+      if (!response.ok) {
+        throw new Error('Error al cargar los items de la orden');
+      }
 
-        const res = await fetch(`${apiBase}/api/directories/create`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          },
-          body: JSON.stringify({ 
-            customer_id: customerId, 
-            name: folderName,
-            path: `${clientName}/${folderName}`
-          })
-        });
+      const items = await response.json();
+      
+      // Actualizar header del modal
+      document.getElementById('itemsInitials').textContent = getInitials(clientName);
+      document.getElementById('itemsOrderTitle').textContent = `${window.translations?.carpetas?.order || 'Orden'}: ${oc}`;
+      document.getElementById('itemsOrderSubtitle').textContent = window.translations?.carpetas?.itemsList || 'Lista de Items';
+      
+      // Renderizar tabla de items
+      const tableBody = document.getElementById('itemsTableBody');
+      if (tableBody) {
+        tableBody.innerHTML = items.map(item => `
+          <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+            <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">${item.item_code || 'N/A'}</td>
+            <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">${item.item_name || 'N/A'}</td>
+            <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">${item.unidad_medida || 'N/A'}</td>
+            <td class="px-6 py-4 text-sm text-center text-gray-900 dark:text-gray-100">${item.kg_solicitados || 0}</td>
+            <td class="px-6 py-4 text-sm text-center text-gray-900 dark:text-gray-100">${formatCurrency(item.unit_price || 0)}</td>
+            <td class="px-6 py-4 text-sm text-center font-semibold text-gray-900 dark:text-gray-100">${formatCurrency((item.kg_solicitados || 0) * (item.unit_price || 0))}</td>
+          </tr>
+        `).join('');
+      }
 
-        const result = await res.json();
-        if (!res.ok) throw new Error(result.message);
+      // Calcular y mostrar totales
+      const totalItems = items.length;
+      
+      // Debug: mostrar los items y sus cantidades
+      console.log('Items recibidos:', items);
+      
+      const totalQuantity = items.reduce((sum, item) => {
+        const quantity = parseFloat(item.kg_solicitados) || 0;
+        console.log(`Item ${item.item_name}: kg_solicitados = ${item.kg_solicitados}, parsed = ${quantity}`);
+        return sum + quantity;
+      }, 0);
+      
+      const totalValue = items.reduce((sum, item) => {
+        const quantity = parseFloat(item.kg_solicitados) || 0;
+        const price = parseFloat(item.unit_price) || 0;
+        const itemTotal = quantity * price;
+        console.log(`Item ${item.item_name}: quantity=${quantity}, price=${price}, total=${itemTotal}`);
+        return sum + itemTotal;
+      }, 0);
 
-        await refreshFolders();
-        hideModal('#addFolderModal');
-        
-        const uploadFolderName = qs('uploadFolderName');
-        if (uploadFolderName) uploadFolderName.value = '';
+      console.log('Totales calculados:', { totalItems, totalQuantity, totalValue });
 
-        showNotification(messages.folders?.folderCreatedSuccess || "Carpeta creada correctamente", "success");
+      document.getElementById('totalItems').textContent = totalItems;
+      document.getElementById('totalQuantity').textContent = totalQuantity.toLocaleString('es-CL');
+      document.getElementById('totalValue').textContent = formatCurrency(totalValue);
 
-      } catch (err) {
-        showNotification(err.message || (messages.folders?.folderCreatedError || 'Error al crear carpeta'), "error");
+      // Mostrar el modal
+      itemsModal.classList.remove('hidden');
+      itemsModal.classList.add('flex');
+
+    } catch (error) {
+      console.error('Error loading order items:', error);
+      showNotification('Error al cargar los items de la orden', 'error');
+    }
+  }
+
+  /**
+   * Función para cerrar el modal de items
+   */
+  function closeItemsModal() {
+    itemsModal.classList.add('hidden');
+    itemsModal.classList.remove('flex');
+  }
+
+  /**
+   * Event listeners para el modal de items
+   */
+  if (closeItemsModalBtn) {
+    closeItemsModalBtn.addEventListener('click', closeItemsModal);
+  }
+
+  // Cerrar modal al hacer clic fuera
+  if (itemsModal) {
+    itemsModal.addEventListener('click', (e) => {
+      if (e.target === itemsModal) {
+        closeItemsModal();
       }
     });
   }
+
+  /**
+   * Event listener para los botones "Ver Lista de items"
+   */
+  document.addEventListener('click', (e) => {
+    const viewItemsBtn = e.target.closest('a[title*="List"], a[title*="items"]');
+    if (viewItemsBtn) {
+      e.preventDefault();
+      
+      const row = viewItemsBtn.closest('tr');
+      if (row) {
+        const orderId = row.dataset.id;
+        const pc = row.cells[0]?.textContent?.trim() || ''; // PC
+        const oc = row.cells[1]?.textContent?.trim() || ''; // OC
+        const clientNameFromURL = clientName || 'Cliente'; // Nombre del cliente desde la URL
+        
+        loadOrderItems(orderId, oc, clientNameFromURL);
+      }
+    }
+  });
 
   renderTable();
 } 

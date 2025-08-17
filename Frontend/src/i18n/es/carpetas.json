@@ -2,7 +2,6 @@
   "title": "Ordenes del Cliente",
 	"orders": "Ordenes de Compra",
   "search": "Buscar...",
-  "addFolder": "Agregar Orden",
   "name": "N° PC",
   "pc": "N° PC",
   "oc": "Orden Compra",
@@ -13,9 +12,6 @@
   "perPage": "Ordenes por página",
   "noResults": "No se encontraron ordenes.",
   "error": "Error al cargar las ordenes.",
-  "createTitle": "Crear Orden",
-  "createLabel": "Nombre de la orden",
-  "createButton": "Guardar",
   "editTitle": "Editar Orden",
   "editLabel": "Nombre de la orden",
   "editButton": "Actualizar",
@@ -47,5 +43,17 @@
 		"dateAsc": "Fecha Ascendente",
 		"dateDesc": "Fecha Descendente"
 	},
-	"filterByCustomer": "Filtrar por Cliente"
+	"filterByCustomer": "Filtrar por Cliente",
+	"itemsList": "Lista de Items",
+	"itemCode": "Código",
+	"itemName": "Nombre del Item",
+	"unitMeasure": "Unidad de Medida",
+	"requestedQuantity": "Cantidad Solicitada",
+	"unitPrice": "Precio Unitario",
+	"total": "Total",
+	"totalItems": "Total Items",
+	"totalQuantity": "Cantidad Total",
+	"totalValue": "Valor Total",
+	"order": "Orden",
+	"viewItemsList": "Ver Lista de items de PC"
 }

@@ -47,4 +47,45 @@ router.post('/contacts', authMiddleware, authorizeRoles(['admin']), customerCont
 
 router.get('/:uuid/contacts', authMiddleware, authorizeRoles(['admin']), customerController.getCustomerContacts);
 
+/**
+ * @swagger
+ * /api/customers/{uuid}:
+ *   patch:
+ *     summary: Update a customer by UUID
+ *     tags: [Customers]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: uuid
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *               name:
+ *                 type: string
+ *               phone:
+ *                 type: string
+ *               country:
+ *                 type: string
+ *               city:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Customer updated successfully
+ *       404:
+ *         description: Customer not found
+ *       500:
+ *         description: Server error
+ */
+router.patch('/:uuid', authMiddleware, authorizeRoles(['admin']), customerController.updateCustomer);
+
 module.exports = router;

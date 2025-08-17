@@ -35,53 +35,6 @@ exports.getClientDirectories = async (req, res) => {
   }
 };
 
-/**
- * @route POST /api/directories/create-client
- * @desc Crea una carpeta para un cliente
- * @access Protegido (requiere JWT)
- */
-exports.createDirectory = async (req, res) => {
-  const { customer_id, name, path: folderPath } = req.body;
-
-  if (!customer_id || !name || !folderPath) {
-    logger.warn('Faltan datos requeridos en createDirectory');
-    return res.status(400).json({ message: 'Faltan datos requeridos' });
-  }
-
-  try {
-    const existsForCustomer = await folderService.existsCustomerFolder(customer_id, name);
-    if (existsForCustomer) {
-      logger.warn(`Orden "${name}" ya existe para el cliente ${customer_id}`);
-      return res.status(400).json({
-        message: `La orden "${name}" ya existe para este cliente.`,
-      });
-    }
-
-    const existsGlobal = await folderService.existsGlobalPCFolder(name);
-    if (existsGlobal) {
-      logger.warn(`Orden global duplicada "${name}"`);
-      return res.status(400).json({
-        message: `El número de orden "${name}" ya existe para otro cliente. Los números de orden deben ser únicos.`,
-      });
-    }
-
-    // Limpiar nombres de directorios para evitar problemas con caracteres especiales
-    const cleanFolderPath = cleanDirectoryName(folderPath);
-    const fullPhysicalPath = path.join(FILE_SERVER_ROOT, cleanFolderPath);
-    fs.mkdirSync(fullPhysicalPath, { recursive: true });
-
-    const folder = await folderService.createFolder({ customer_id, name, path: folderPath });
-
-    logger.info(`Carpeta creada: cliente ID ${customer_id}, orden ${name}`);
-    res.status(201).json({ message: 'Carpeta creada', folder });
-
-  } catch (error) {
-    logger.error(`Error al crear carpeta: ${error.message}`);
-    if (!res.headersSent) {
-      res.status(500).json({ message: 'Error al crear carpeta' });
-    }
-  }
-};
 
 /**
  * @route POST /api/directories/create-sub

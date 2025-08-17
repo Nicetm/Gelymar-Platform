@@ -41,12 +41,21 @@
 	"deleteSuccess": "Cliente eliminado correctamente",
 	"deleteError": "Error al eliminar el cliente",
 	"updateSuccess": "Cliente actualizado correctamente",
-	"updateError": "Error al actualizar el cliente",
 	"createSuccess": "Cliente creado correctamente",
 	"createError": "Error al crear el cliente",
 	"existingContacts": "Contactos existentes",
 	"addNewContact": "Agregar nuevo contacto",
 	"position": "Cargo/Puesto",
   "pageIndicator": "Página",
-  "pageIndicatorSeparator": "de"
+  "pageIndicatorSeparator": "de",
+  "onlyWithOrders": "Solo clientes con órdenes",
+  "exportToExcel": "Exportar a Excel",
+  "viewOrders": "Ver Órdenes",
+  "updateCustomer": "Actualizar",
+  "emailRequired": "Email requerido",
+  "emailEmpty": "El campo email no puede estar vacío.",
+  "customerUpdated": "Cliente actualizado",
+  "customerUpdatedSuccess": "El cliente se ha actualizado correctamente en la base de datos.",
+  "updateError": "No se pudo actualizar el cliente. Inténtalo de nuevo.",
+  "manageContacts": "Gestionar Contactos"
 }

@@ -41,12 +41,21 @@
 	"deleteSuccess": "Customer deleted successfully",
 	"deleteError": "Error deleting customer",
 	"updateSuccess": "Customer updated successfully",
-	"updateError": "Error updating customer",
 	"createSuccess": "Customer created successfully",
 	"createError": "Error creating customer",
 	"existingContacts": "Existing contacts",
 	"addNewContact": "Add new contact",
 	"position": "Position/Title",
   "pageIndicator": "Page",
-  "pageIndicatorSeparator": "of"
+  "pageIndicatorSeparator": "of",
+  "onlyWithOrders": "Only customers with orders",
+  "exportToExcel": "Export to Excel",
+  "viewOrders": "View Orders",
+  "updateCustomer": "Update",
+  "emailRequired": "Email required",
+  "emailEmpty": "The email field cannot be empty.",
+  "customerUpdated": "Customer updated",
+  "customerUpdatedSuccess": "The customer has been updated successfully in the database.",
+  "updateError": "Could not update the customer. Please try again.",
+  "manageContacts": "Manage Contacts"
 }

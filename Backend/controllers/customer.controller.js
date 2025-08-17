@@ -99,3 +99,30 @@ exports.getCustomerContacts = async (req, res) => {
     res.status(500).json({ message: 'Error al obtener contactos' });
   }
 };
+
+/**
+ * @route PATCH /api/customers/:uuid
+ * @desc Actualiza un cliente por UUID
+ * @access Protegido (requiere JWT)
+ */
+exports.updateCustomer = async (req, res) => {
+  const { uuid } = req.params;
+  const updateData = req.body;
+  
+  logger.info(`Petición recibida: actualizar cliente con UUID ${uuid}`, updateData);
+
+  try {
+    const updatedCustomer = await customerService.updateCustomerByUUID(uuid, updateData);
+    
+    if (!updatedCustomer) {
+      logger.warn(`Cliente no encontrado con UUID ${uuid}`);
+      return res.status(404).json({ message: 'Cliente no encontrado' });
+    }
+
+    logger.info(`Cliente actualizado exitosamente: UUID ${uuid}`);
+    res.json(updatedCustomer);
+  } catch (error) {
+    logger.error(`Error al actualizar cliente: ${error.message}`);
+    res.status(500).json({ message: 'Error al actualizar cliente' });
+  }
+};

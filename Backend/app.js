@@ -22,6 +22,7 @@ const orderRoutes = require('./routes/order.routes');
 const itemRoutes = require('./routes/item.routes');
 const documentDirectoryRoutes = require('./routes/documentDirectory.routes');
 const documentFileRoutes = require('./routes/documentFile.routes');
+const documentTypeRoutes = require('./routes/documentType.routes');
 
 // Middlewares globales
 app.use(cors());
@@ -54,6 +55,7 @@ app.use('/api/orders', authMiddleware, authorizeRoles(['admin', 'client']), orde
 app.use('/api/items', authMiddleware, authorizeRoles(['admin']), itemRoutes);
 app.use('/api/directories', authMiddleware, authorizeRoles(['admin']), documentDirectoryRoutes);
 app.use('/api/files', authMiddleware, authorizeRoles(['admin']), documentFileRoutes);
+app.use('/api/document-types', authMiddleware, authorizeRoles(['admin']), documentTypeRoutes);
 
 // Sirve archivos estáticos desde la carpeta 'uploads'
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

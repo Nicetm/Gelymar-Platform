@@ -430,5 +430,10 @@ module.exports = {
   generateRO: (filePath, data) => generatePDF(filePath, 'ro', data),
   generateAVRO: (filePath, data) => generatePDF(filePath, 'avro', data),
   generateInvoice: (filePath, data) => generatePDF(filePath, 'invoice', data),
-  generateBL: (filePath, data) => generatePDF(filePath, 'bl', data)
+  generateBL: (filePath, data) => generatePDF(filePath, 'bl', data),
+  
+  // Nuevos generadores específicos por tipo de documento
+  generateRecepcionOrden: (filePath, data) => generatePDF(filePath, 'recepcion-orden', data),
+  generateAvisoEmbarque: (filePath, data) => generatePDF(filePath, 'aviso-embarque', data),
+  generateAvisoRecepcionOrden: (filePath, data) => generatePDF(filePath, 'aviso-recepcion-orden', data)
 };

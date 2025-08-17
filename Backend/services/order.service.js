@@ -267,11 +267,81 @@ const getOrderIdByPc = async (pc) => {
   return rows.length > 0 ? rows[0].id : null;
 };
 
+/**
+ * Obtiene los items de una orden específica
+ * @param {number} orderId - ID de la orden
+ * @param {object} user - Usuario autenticado
+ * @returns {Promise<Array|null>} Array de items o null si no autorizado
+ */
+const getOrderItems = async (orderId, user) => {
+  try {
+    const pool = await poolPromise;
+    
+    // Verificar que la orden existe y el usuario tiene acceso
+    let orderQuery = `
+      SELECT o.id, o.pc, o.oc, c.uuid as customer_uuid
+      FROM orders o
+      JOIN customers c ON o.customer_id = c.id
+      WHERE o.id = ?
+    `;
+    
+    const [orderRows] = await pool.query(orderQuery, [orderId]);
+    
+    if (orderRows.length === 0) {
+      return null; // Orden no encontrada
+    }
+    
+    const order = orderRows[0];
+    
+    // Si es cliente, verificar que la orden pertenece a él
+    if (user.role === 'client' && user.uuid !== order.customer_uuid) {
+      return null; // No autorizado
+    }
+    
+    // Obtener los items de la orden
+    const itemsQuery = `
+      SELECT 
+        oi.id,
+        oi.order_id,
+        oi.item_id,
+        oi.kg_solicitados,
+        oi.unit_price,
+        oi.volumen,
+        i.item_code,
+        i.item_name,
+        i.unidad_medida
+      FROM order_items oi
+      JOIN items i ON oi.item_id = i.id
+      WHERE oi.order_id = ?
+      ORDER BY oi.id
+    `;
+    
+    const [itemRows] = await pool.query(itemsQuery, [orderId]);
+    
+    return itemRows.map(item => ({
+      id: item.id,
+      order_id: item.order_id,
+      item_id: item.item_id,
+      item_code: item.item_code,
+      item_name: item.item_name,
+      unidad_medida: item.unidad_medida,
+      kg_solicitados: item.kg_solicitados,
+      unit_price: item.unit_price,
+      volumen: item.volumen
+    }));
+    
+  } catch (error) {
+    console.error('Error getting order items:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   getOrdersByFilters,
   getClientDashboardOrders,
   getClientOrderDocuments,
   insertOrder,
   getAllExistingOrders,
-  getOrderIdByPc
+  getOrderIdByPc,
+  getOrderItems
 };

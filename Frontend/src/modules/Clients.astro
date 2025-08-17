@@ -41,16 +41,37 @@ const customers: Customers[] = await fetch(`${apiBase}/api/customers`, {
       <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{t.clientes.allCustomers}</h1>
     </div>
 
-    <!-- Búsqueda y botón agregar cliente -->
+    <!-- Búsqueda, filtros y botón agregar cliente -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4">
-      <div class="relative w-full sm:max-w-xs">
-        <label for="searchInput" class="sr-only">{t.clientes.search}</label>
-        <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-          <svg class="w-5 h-5 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M10 18a8 8 0 100-16 8 8 0 000 16z"/>
-          </svg>
+      <div class="flex flex-col sm:flex-row gap-3 items-center">
+        <div class="relative w-full sm:max-w-xs">
+          <label for="searchInput" class="sr-only">{t.clientes.search}</label>
+          <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+            <svg class="w-5 h-5 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M10 18a8 8 0 100-16 8 8 0 000 16z"/>
+            </svg>
+          </div>
+          <input id="searchInput" type="text" placeholder={t.clientes.search} class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500" />
         </div>
-        <input id="searchInput" type="text" placeholder={t.clientes.search} class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500" />
+
+        <!-- Checkbox para filtrar clientes con órdenes -->
+        <div class="flex items-center gap-2">
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="filterWithOrders" class="sr-only peer" />
+            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                         <span class="ml-3 text-sm font-medium text-gray-900 dark:text-gray-300 whitespace-nowrap">{t.clientes.onlyWithOrders}</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Botón exportar a Excel -->
+      <div class="flex items-center gap-2">
+        <button id="exportExcelBtn" class="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          {t.clientes.exportToExcel}
+        </button>
       </div>
 
     </div>
@@ -61,13 +82,62 @@ const customers: Customers[] = await fetch(`${apiBase}/api/customers`, {
     <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 table-fixed bg-white dark:bg-gray-900">
       <thead class="bg-gray-100 dark:bg-gray-800 sticky top-0 z-10">
         <tr>
-          <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800">{t.clientes.name}</th>
-          <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800">{t.clientes.rut}</th>
-          <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800">{t.clientes.email}</th>
-          <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800">{t.clientes.phone}</th>
-          <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800">{t.clientes.country}</th>
-          <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800">{t.clientes.city}</th>
-          <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800">{t.clientes.directory}</th>
+          <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="name">
+            <div class="flex items-center justify-between">
+              <span>{t.clientes.name}</span>
+              <svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+              </svg>
+            </div>
+          </th>
+          <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="rut">
+            <div class="flex items-center justify-between">
+              <span>{t.clientes.rut}</span>
+              <svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+              </svg>
+            </div>
+          </th>
+          <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="email">
+            <div class="flex items-center justify-between">
+              <span>{t.clientes.email}</span>
+              <svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+              </svg>
+            </div>
+          </th>
+          <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="phone">
+            <div class="flex items-center justify-between">
+              <span>{t.clientes.phone}</span>
+              <svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+              </svg>
+            </div>
+          </th>
+          <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="country">
+            <div class="flex items-center justify-between">
+              <span>{t.clientes.country}</span>
+              <svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+              </svg>
+            </div>
+          </th>
+          <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="city">
+            <div class="flex items-center justify-between">
+              <span>{t.clientes.city}</span>
+              <svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+              </svg>
+            </div>
+          </th>
+          <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="order_count">
+            <div class="flex items-center justify-between">
+              <span>{t.clientes.directory}</span>
+              <svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+              </svg>
+            </div>
+          </th>
           <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800">{t.clientes.actions}</th>
         </tr>
       </thead>
@@ -87,10 +157,10 @@ const customers: Customers[] = await fetch(`${apiBase}/api/customers`, {
 						<a href={`/admin/clients/folders/view/${customer.uuid}?c=${customer.name}`} title="Orders" class="hover:text-yellow-500 transition">
 							<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h18v4H3z"/><path d="M3 7h18v13H3z"/><path d="M16 3v4"/></svg>
 						</a>
-						<a href="#" data-uuid={`${customer.uuid}`} title="View more details" class="hover:text-blue-500 transition">
+						<a href="#" data-uuid={`${customer.uuid}`} title={t.comond.view} class="hover:text-blue-500 transition">
 							<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 20.5C6.753 20.5 2.5 16.247 2.5 11S6.753 1.5 12 1.5 21.5 5.753 21.5 11 17.247 20.5 12 20.5z"/></svg>
 						</a>
-						<a href="#" data-uuid={`${customer.uuid}`} data-name={`${customer.name}`} title="Manage contacts" class="hover:text-indigo-500 transition manage-contacts-btn">
+						<a href="#" data-uuid={`${customer.uuid}`} data-name={`${customer.name}`} title={t.clientes.manageContacts} class="hover:text-indigo-500 transition manage-contacts-btn">
 							<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
 						</a>
 					</div>
@@ -130,6 +200,89 @@ const customers: Customers[] = await fetch(`${apiBase}/api/customers`, {
   </div>
 </section>
 
+<!-- Modal de Perfil del Cliente -->
+<div id="profileModal" class="fixed inset-0 bg-black bg-opacity-50 dark:bg-black/80 hidden justify-center items-center z-50">
+  <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 w-full max-w-2xl mx-4 relative max-h-[90vh] overflow-y-auto shadow-2xl">
+    <!-- Botón de cerrar -->
+    <button id="closeProfileModalBtn" class="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition dark:text-gray-300 dark:hover:text-red-400">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+    
+    <!-- Header con logo y nombre -->
+    <div class="flex items-center gap-4 mb-6">
+      <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+        <span id="profileInitials">CL</span>
+      </div>
+      <div>
+        <h2 id="profileClientName" class="text-xl font-bold text-gray-900 dark:text-gray-100"></h2>
+        <p id="profileClientRut" class="text-sm text-gray-600 dark:text-gray-400"></p>
+      </div>
+    </div>
+
+    <!-- Información del cliente -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+      <!-- Columna izquierda -->
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">País</label>
+          <p id="profileCountry" class="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-md"></p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ciudad</label>
+          <p id="profileCity" class="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-md"></p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Teléfono</label>
+          <p id="profilePhone" class="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-md"></p>
+        </div>
+      </div>
+
+      <!-- Columna derecha -->
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+          <div class="flex items-center gap-2">
+            <input type="email" id="profileEmail" class="flex-1 text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            <button id="saveEmailBtn" class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition hidden">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">N° Órdenes</label>
+          <p id="profileOrderCount" class="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-md font-semibold"></p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Estado</label>
+          <span id="profileStatus" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+            Activo
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Acciones -->
+    <div class="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+      <button id="viewOrdersBtn" class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md font-medium transition flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M3 3h18v4H3z"/><path d="M3 7h18v13H3z"/><path d="M16 3v4"/>
+        </svg>
+        {t.clientes.viewOrders}
+      </button>
+      <button id="updateCustomerBtn" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium transition flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+        </svg>
+        {t.clientes.updateCustomer}
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal de Contactos -->
 <div id="contactsModal" class="fixed inset-0 bg-black bg-opacity-50 dark:bg-black/80 hidden justify-center items-center z-50">
   <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 w-full max-w-2xl mx-4 relative max-h-[90vh] overflow-y-auto shadow-2xl">
@@ -140,36 +293,48 @@ const customers: Customers[] = await fetch(`${apiBase}/api/customers`, {
       </svg>
     </button>
     
-    <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-      <span id="clientNameTitle"></span> - {t.clientes.contacts}
-    </h2>
-	<!-- Formulario para agregar nuevos contactos -->
-    <div id="contactsFormContainer" class="border-b border-gray-200 dark:border-gray-700 pb-4">
-		<!-- Aquí van las filas de nuevos contactos -->
-	</div>
+    <!-- Header con logo y nombre -->
+    <div class="flex items-center gap-4 mb-6">
+      <div class="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+        <span id="contactsInitials">CL</span>
+      </div>
+      <div>
+        <h2 id="contactsClientName" class="text-xl font-bold text-gray-900 dark:text-gray-100"></h2>
+        <p class="text-sm text-gray-600 dark:text-gray-400">{t.clientes.contacts}</p>
+      </div>
+    </div>
+
+    <!-- Formulario para agregar nuevos contactos -->
+    <div id="contactsFormContainer" class="border-b border-gray-200 dark:border-gray-700 pb-4 mb-6">
+      <!-- Aquí van las filas de nuevos contactos -->
+    </div>
 
     <!-- Tabla de contactos existentes -->
-    <div id="existingContactsTable" class="mb-6 mt-4">
+    <div id="existingContactsTable" class="mb-6">
       <!-- Aquí se inyectará la tabla por JS -->
     </div>
 
-    <div class="flex justify-between items-center mt-4">
+    <!-- Acciones -->
+    <div class="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700">
       <!-- Botón + contacto a la izquierda -->
       <button id="addContactRowBtn" type="button"
-        class="flex items-center gap-1 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 font-medium transition bg-transparent border-none shadow-none p-0">
+        class="flex items-center gap-2 text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium transition">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
         </svg>
-        contacto
+        Agregar contacto
       </button>
       <!-- Botones a la derecha -->
-      <div class="flex gap-2">
+      <div class="flex gap-3">
         <button id="cancelAddContactBtn"
-          class="px-4 py-2 bg-gray-300 dark:bg-gray-800 text-gray-700 dark:text-gray-100 rounded-md hover:bg-gray-400 dark:hover:bg-gray-700 transition">
+          class="px-4 py-2 bg-gray-300 dark:bg-gray-800 text-gray-700 dark:text-gray-100 rounded-md hover:bg-gray-400 dark:hover:bg-gray-700 transition font-medium">
           {t.comond.cancel}
         </button>
         <button id="addContactBtn"
-          class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium transition dark:bg-blue-700 dark:hover:bg-blue-800">
+          class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md font-medium transition flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
           {t.comond.add}
         </button>
       </div>
@@ -177,18 +342,13 @@ const customers: Customers[] = await fetch(`${apiBase}/api/customers`, {
   </div>
 </div>
 
-<script type="module" define:vars={{ apiBase, lang }}>
+<script type="module" define:vars={{ apiBase, lang, t }}>
   import { initClientsScript } from '/js/clients.js';
   
   // Hacer las variables disponibles globalmente
   window.apiBase = apiBase;
   window.lang = lang;
-  // Inyectar traducciones para el JS del paginador con interpolación real
-  window.translations = window.translations || {};
-  window.translations.clientes = {
-    pageIndicator: "${t.clientes.pageIndicator}",
-    pageIndicatorSeparator: "${t.clientes.pageIndicatorSeparator}"
-  };
+  window.translations = t;
 
   // Inicializar el script cuando el DOM esté completamente cargado
   if (document.readyState === 'loading') {

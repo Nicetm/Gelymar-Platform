@@ -152,3 +152,26 @@ exports.getClientOrderDocuments = async (req, res) => {
     res.status(500).json({ message: 'Error al obtener documentos de la orden' });
   }
 };
+
+/**
+ * GET /api/orders/:orderId/items
+ * Devuelve los items de una orden específica
+ * Accesible por admin y clientes (clientes solo pueden ver sus propias órdenes)
+ */
+exports.getOrderItems = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    // Obtener items de la orden
+    const items = await orderService.getOrderItems(orderId, req.user);
+
+    if (!items) {
+      return res.status(404).json({ message: 'Orden no encontrada o no autorizada' });
+    }
+
+    res.json(items);
+  } catch (err) {
+    console.error('[getOrderItems] Error:', err.message);
+    res.status(500).json({ message: 'Error al obtener items de la orden' });
+  }
+};

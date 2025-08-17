@@ -31,36 +31,6 @@ router.get('/:customerUuid', authMiddleware, authorizeRoles(['admin']), controll
 
 /**
  * @swagger
- * /api/directories/create:
- *   post:
- *     summary: Crear carpeta principal del cliente
- *     tags: [Directorios]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - clientName
- *             properties:
- *               clientName:
- *                 type: string
- *                 example: Cliente Nuevo SPA
- *     responses:
- *       201:
- *         description: Carpeta creada
- *       400:
- *         description: Nombre requerido
- *       409:
- *         description: Ya existe
- */
-router.post('/create', authMiddleware, authorizeRoles(['admin']), controller.createDirectory);
-
-/**
- * @swagger
  * /api/directories/create/sub:
  *   post:
  *     summary: Crear subcarpeta dentro del directorio de cliente

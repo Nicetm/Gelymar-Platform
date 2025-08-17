@@ -2,7 +2,6 @@
   	"title": "Client Orders",
 	"orders": "Orders",
 	"search": "Search...",
-	"addFolder": "Add Order",
 	"name": "N° PC",
 	"pc": "N° PC",
 	"oc": "Order",
@@ -13,9 +12,6 @@
 	"perPage": "Orders Per page",
 	"noResults": "No orders found.",
 	"error": "Error loading orders.",
-	"createTitle": "Create Order",
-	"createLabel": "Order name",
-	"createButton": "Save",
 	"editTitle": "Edit Folder",
 	"editLabel": "Folder name",
 	"editButton": "Update",
@@ -47,5 +43,17 @@
 		"dateAsc": "Date Ascending",
 		"dateDesc": "Date Descending"
 	},
-	"filterByCustomer": "Filter by Customer"
+	"filterByCustomer": "Filter by Customer",
+	"itemsList": "Items List",
+	"itemCode": "Code",
+	"itemName": "Item Name",
+	"unitMeasure": "Unit of Measure",
+	"requestedQuantity": "Requested Quantity",
+	"unitPrice": "Unit Price",
+	"total": "Total",
+	"totalItems": "Total Items",
+	"totalQuantity": "Total Quantity",
+	"totalValue": "Total Value",
+	"order": "Order",
+	"viewItemsList": "View Items List of PC"
 }

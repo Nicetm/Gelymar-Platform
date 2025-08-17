@@ -143,6 +143,52 @@ async function getContactsByCustomerUUID(uuid) {
   return contacts;
 }
 
+/**
+ * Actualiza un cliente por su UUID
+ * @param {string} uuid - UUID del cliente
+ * @param {Object} updateData - Datos a actualizar
+ * @returns {Customer|null} Cliente actualizado o null si no encontrado
+ */
+async function updateCustomerByUUID(uuid, updateData) {
+  const pool = await poolPromise;
+  
+  // Verificar que el cliente existe
+  const [existingCustomer] = await pool.query('SELECT * FROM customers WHERE uuid = ?', [uuid]);
+  if (existingCustomer.length === 0) {
+    return null;
+  }
+
+  // Construir la query de actualización dinámicamente
+  const allowedFields = ['name', 'email', 'phone', 'country', 'city', 'address', 'address_alt', 'contact_name', 'contact_secondary', 'fax'];
+  const fieldsToUpdate = [];
+  const values = [];
+
+  for (const [key, value] of Object.entries(updateData)) {
+    if (allowedFields.includes(key) && value !== undefined) {
+      fieldsToUpdate.push(`${key} = ?`);
+      values.push(value);
+    }
+  }
+
+  if (fieldsToUpdate.length === 0) {
+    throw new Error('No hay campos válidos para actualizar');
+  }
+
+  // Agregar el UUID al final para la condición WHERE
+  values.push(uuid);
+
+  const query = `
+    UPDATE customers 
+    SET ${fieldsToUpdate.join(', ')}, updated_at = NOW()
+    WHERE uuid = ?
+  `;
+
+  await pool.query(query, values);
+
+  // Retornar el cliente actualizado
+  return await getCustomerByUUID(uuid);
+}
+
 module.exports = {
   getAllCustomerRuts,
   insertCustomer,
@@ -151,5 +197,6 @@ module.exports = {
   getCustomerByUUID,
   getCustomerByRut,
   createCustomerContacts,
-  getContactsByCustomerUUID
+  getContactsByCustomerUUID,
+  updateCustomerByUUID
 };

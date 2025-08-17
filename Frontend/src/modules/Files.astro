@@ -23,6 +23,11 @@ const token = Astro.cookies.get('token')?.value;
 const files: Files[] = await fetch(`${apiBase}/api/files/${id}?f=${folderId}`, {
   headers: { Authorization: `Bearer ${token}` }
 }).then(res => res.json());
+
+// Obtener tipos de documentos desde la API
+const documentTypes = await fetch(`${apiBase}/api/document-types`, {
+  headers: { Authorization: `Bearer ${token}` }
+}).then(res => res.json()).catch(() => []);
 ---
 
 <section id="filesSection" data-api-base={apiBase} data-file-server={fileServer} data-uuid={id} data-lang={lang} class="px-4 pt-24 pb-6 sm:px-6 lg:px-8">
@@ -266,9 +271,9 @@ const files: Files[] = await fetch(`${apiBase}/api/files/${id}?f=${folderId}`, {
 				  <select id="uploadFileName"
 				          class="appearance-none pr-10 pl-3 py-2 block w-full border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
 				    <option value="" disabled selected>— {t.documentos.selectDocumentName} —</option>
-				    <option value="Recepcion de orden">Recepción de orden</option>
-				    <option value="Aviso de Embarque">Aviso de Embarque</option>
-				    <option value="Aviso de Recepcion de orden">Aviso de Recepción de orden</option>
+				    {documentTypes.map((docType: any) => (
+				      <option value={docType.name}>{docType.name}</option>
+				    ))}
 				  </select>
 				  <!-- Flecha personalizada -->
 				  <svg class="w-4 h-4 text-gray-500 dark:text-gray-400 pointer-events-none absolute right-3 top-1/2 -translate-y-1/2"
@@ -328,13 +333,14 @@ const files: Files[] = await fetch(`${apiBase}/api/files/${id}?f=${folderId}`, {
 	</div>
 </section>
 
-<script type="module" define:vars={{ apiBase, fileServer, lang }}>
+<script type="module" define:vars={{ apiBase, fileServer, lang, documentTypes }}>
   import { initFilesScript } from '/js/files.js';
   
   // Hacer las variables disponibles globalmente
   window.apiBase = apiBase;
   window.fileServer = fileServer;
   window.lang = lang;
+  window.documentTypes = documentTypes;
 
   // Inicializar el script cuando el DOM esté completamente cargado
   if (document.readyState === 'loading') {

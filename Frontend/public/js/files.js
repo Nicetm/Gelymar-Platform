@@ -229,8 +229,13 @@ export function initFilesScript() {
 
         return `
           <tr data-id="${file.id}" class="transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-800 hover:shadow-[0_1px_3px_rgba(0,0,0,0.12)]">
-            <td class="px-6 py-4 text-sm editable-filename" data-id="${file.id}">
-              <span class="filename-text block w-full">${file.name}</span>
+            <td class="px-6 py-4 text-sm editable-filename group cursor-pointer" data-id="${file.id}" title="Doble clic para editar">
+              <div class="inline-flex items-center gap-1">
+                <span class="filename-text block truncate">${file.name}</span>
+                <svg class="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5 M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+              </div>
             </td>
             <td class="px-4 py-3">
               <div class="flex items-center">
@@ -238,15 +243,15 @@ export function initFilesScript() {
                 ${file.status_name || '-'}
               </div>
             </td>
-            <td class="px-6 py-4">${formatDate(file.created_at)}</td>
-            <td class="px-6 py-4">${formatDate(file.updated_at)}</td>
+            <td class="px-6 py-4 items-center gap-3">${new Date(file.created_at).toLocaleString("es-CL")}</td>
+            <td class="px-6 py-4 items-center gap-3">${new Date(file.updated_at).toLocaleString("es-CL")}</td>
             <td data-v="${file.is_visible_to_client}" class="px-6 py-4 text-center">
               <label class="relative inline-flex items-center cursor-pointer">
                 <input
                   type="checkbox"
                   class="sr-only peer visibility-toggle"
                   data-file-id="${file.id}"
-                  ${file.is_visible_to_client === 1 ? 'checked' : ''} />
+                  ${file.is_visible_to_client ? 'checked' : ''} />
                 <div
     } catch (error) {
       console.error('DEBUG - refreshFiles - Error:', error);
@@ -260,7 +265,7 @@ export function initFilesScript() {
                     peer-checked:translate-x-4"></div>
               </label>
             </td>
-            <td class="px-6 py-4">${actions}</td>
+            <td class="px-6 py-4 items-center gap-3">${actions}</td>
           </tr>`;
       }).join('');
 
@@ -299,6 +304,8 @@ export function initFilesScript() {
         const message = action === 'send' ? 'Documento enviado correctamente' : 'Documento reenviado correctamente';
         showNotification(message, 'success');
         await refreshFiles();
+        attachGenerateEvents();
+        attachSendResendEvents();
       } catch (err) {
         console.error(err);
         showNotification('Error al enviar el documento', 'error');
@@ -368,6 +375,7 @@ export function initFilesScript() {
             hideGlobalSpinner();
             await refreshFiles();
             attachGenerateEvents();
+            attachSendResendEvents();
           }
         }
       });
@@ -386,126 +394,7 @@ export function initFilesScript() {
     });
   }
 
-  uploadFileBtn?.addEventListener('click', () => {
-    if (addIcon) addIcon.classList.add('hidden');
-    if (spinnerIcon) spinnerIcon.classList.remove('hidden');
 
-    setTimeout(() => {
-      const titleElement = qs('titleFile');
-      const clientName = titleElement?.textContent?.replace('Documentos ', '').trim() || '';
-      const orderNumber = pc;
-
-      if (spinnerIcon) spinnerIcon.classList.add('hidden');
-      if (addIcon) addIcon.classList.remove('hidden');
-
-      if (uploadModal) {
-        uploadModal.dataset.clientName = clientName;
-        uploadModal.dataset.orderNumber = orderNumber;
-      }
-
-      const uploadFileName = qs('uploadFileName');
-      const uploadFileType = qs('uploadFileType');
-      const uploadFileInput = qs('uploadFileInput');
-
-      if (uploadFileName) uploadFileName.value = '';
-      if (uploadFileType) uploadFileType.value = 'PDF';
-      if (uploadFileInput) uploadFileInput.value = '';
-      
-      showUploadModal();
-    }, 500);
-  });
-
-  ['cancelUploadBtn', 'closeModalBtn'].forEach(id => {
-    const element = qs(id);
-    if (element) {
-      element.addEventListener('click', () => {
-        hideUploadModal();
-
-        if (spinnerIcon) spinnerIcon.classList.add('hidden');
-        if (addIcon) addIcon.classList.remove('hidden');
-
-        const uploadFileName = qs('uploadFileName');
-        const uploadFileType = qs('uploadFileType');
-        const uploadFileInput = qs('uploadFileInput');
-        const dropZoneText = qs('dropZoneText');
-
-        if (uploadFileName) uploadFileName.value = '';
-        if (uploadFileType) uploadFileType.value = 'PDF';
-        if (uploadFileInput) uploadFileInput.value = '';
-        if (dropZoneText) dropZoneText.textContent = 'Arrastra el archivo aquí o haz click para seleccionar';
-      });
-    }
-  });
-
-  const confirmUploadBtn = qs('confirmUploadBtn');
-  if (confirmUploadBtn) {
-    confirmUploadBtn.addEventListener('click', async () => {
-      const fileName = qs('uploadFileName')?.value?.trim();
-      const fileType = qs('uploadFileType')?.value;
-      const pcName = qs('uploadModal')?.dataset?.folderName;
-      const idFolder = qs('uploadModal')?.dataset?.folderId;
-      const isVisibleToCustomer = qs('isVisibleToClient')?.value;
-      const fileObject = qs('uploadFileInput')?.files?.[0];
-
-      if (!fileName || !fileType || !fileObject) {
-        showNotification('Debe completar todos los campos y seleccionar un archivo', 'error');
-        return;
-      }
-
-      showGlobalSpinner();
-
-      try {
-        const response = await fetch(`${apiBase}/api/customers/uuid/${uuid}`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          }
-        });
-
-        if (!response.ok) throw new Error(`Error al obtener cliente: ${response.status}`);
-
-        const { name: clientName } = await response.json();
-
-        const formData = new FormData();
-        formData.append('customer_id', uuid);
-        formData.append('folder_id', idFolder);
-        formData.append('client_name', clientName);
-        formData.append('subfolder', pcName);
-        formData.append('name', fileName);
-        formData.append('file', fileObject);
-        formData.append('is_visible_to_customer', isVisibleToCustomer);
-
-        const res = await fetch(`${apiBase}/api/files/upload`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-          body: formData
-        });
-
-        if (!res.ok) throw new Error('Error al subir archivo');
-
-        showNotification('Archivo subido correctamente', 'success');
-
-        hideModal('#uploadModal');
-
-        const uploadFileName = qs('uploadFileName');
-        const uploadFileType = qs('uploadFileType');
-        const uploadFileInput = qs('uploadFileInput');
-        const dropZoneText = qs('dropZoneText');
-
-        if (uploadFileName) uploadFileName.value = '';
-        if (uploadFileType) uploadFileType.value = 'PDF';
-        if (uploadFileInput) uploadFileInput.value = '';
-        if (dropZoneText) dropZoneText.textContent = 'Arrastra el archivo aquí o haz click para seleccionar';
-
-        await refreshFiles();
-      } catch (err) {
-        showNotification(err.message || 'Error al subir archivo', 'error');
-      } finally {
-        hideGlobalSpinner();
-      }
-    });
-  }
 
   document.addEventListener('click', async (e) => {
     const btn = e.target.closest('.delete-btn');
@@ -592,6 +481,8 @@ export function initFilesScript() {
       if (res.ok) {
         showNotification('Archivo actualizado correctamente', 'success');
         await refreshFiles(); // recarga tabla
+        attachGenerateEvents();
+        attachSendResendEvents();
       } else {
         showNotification(data.message || 'Error al actualizar archivo', 'error');
       }
@@ -662,6 +553,151 @@ export function initFilesScript() {
     }
   });
 
+
+
+  // Event listener para el botón de subir archivo
+  uploadFileBtn?.addEventListener('click', () => {
+    if (addIcon) addIcon.classList.add('hidden');
+    if (spinnerIcon) spinnerIcon.classList.remove('hidden');
+
+    setTimeout(() => {
+      const titleElement = qs('titleFile');
+      const clientName = titleElement?.textContent?.replace('Documentos ', '').trim() || '';
+      const orderNumber = pc;
+
+      if (spinnerIcon) spinnerIcon.classList.add('hidden');
+      if (addIcon) addIcon.classList.remove('hidden');
+
+      if (uploadModal) {
+        uploadModal.dataset.clientName = clientName;
+        uploadModal.dataset.orderNumber = orderNumber;
+        uploadModal.dataset.folderName = pc;
+        uploadModal.dataset.folderId = folderId;
+      }
+
+      const uploadFileName = qs('uploadFileName');
+      const uploadFileType = qs('uploadFileType');
+      const uploadFileInput = qs('uploadFileInput');
+
+      if (uploadFileName) uploadFileName.value = '';
+      if (uploadFileType) uploadFileType.value = 'PDF';
+      if (uploadFileInput) uploadFileInput.value = '';
+      
+      showUploadModal();
+    }, 500);
+  });
+
+  // Event listeners para cerrar el modal
+  ['cancelUploadBtn', 'closeModalBtn'].forEach(id => {
+    const element = qs(id);
+    if (element) {
+      element.addEventListener('click', () => {
+        hideUploadModal();
+
+        if (spinnerIcon) spinnerIcon.classList.add('hidden');
+        if (addIcon) addIcon.classList.remove('hidden');
+
+        const uploadFileName = qs('uploadFileName');
+        const uploadFileType = qs('uploadFileType');
+        const uploadFileInput = qs('uploadFileInput');
+        const dropZoneText = qs('dropZoneText');
+
+        if (uploadFileName) uploadFileName.value = '';
+        if (uploadFileType) uploadFileType.value = 'PDF';
+        if (uploadFileInput) uploadFileInput.value = '';
+        if (dropZoneText) dropZoneText.textContent = 'Arrastra el archivo aquí o haz click para seleccionar';
+      });
+    }
+  });
+
+  // Event listener para confirmar la subida
+  const confirmUploadBtn = qs('confirmUploadBtn');
+  if (confirmUploadBtn) {
+    confirmUploadBtn.addEventListener('click', async () => {
+      const fileName = qs('uploadFileName')?.value?.trim();
+      const fileType = qs('uploadFileType')?.value;
+      const pcName = qs('uploadModal')?.dataset?.folderName;
+      const idFolder = qs('uploadModal')?.dataset?.folderId;
+      const isVisibleToCustomer = qs('isVisibleToClient')?.value;
+      const fileObject = qs('uploadFileInput')?.files?.[0];
+
+      console.log('DEBUG - Valores del modal:', {
+        fileName, fileType, pcName, idFolder, isVisibleToCustomer,
+        fileObject: fileObject ? { name: fileObject.name, size: fileObject.size } : null
+      });
+
+      if (!fileName || !fileType || !fileObject) {
+        showNotification('Debe completar todos los campos y seleccionar un archivo', 'error');
+        return;
+      }
+
+      showGlobalSpinner();
+
+      try {
+        const response = await fetch(`${apiBase}/api/customers/uuid/${uuid}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) throw new Error(`Error al obtener cliente: ${response.status}`);
+
+        const { name: clientName } = await response.json();
+
+        const formData = new FormData();
+        formData.append('customer_id', uuid);
+        formData.append('folder_id', idFolder);
+        formData.append('client_name', clientName);
+        formData.append('subfolder', pcName);
+        formData.append('name', fileName);
+        formData.append('file', fileObject);
+        formData.append('is_visible_to_customer', isVisibleToCustomer);
+
+        console.log('DEBUG - FormData creado:', {
+          customer_id: uuid,
+          folder_id: idFolder,
+          client_name: clientName,
+          subfolder: pcName,
+          name: fileName,
+          is_visible_to_customer: isVisibleToCustomer
+        });
+
+        const res = await fetch(`${apiBase}/api/files/upload`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData
+        });
+
+        if (!res.ok) throw new Error('Error al subir archivo');
+
+        showNotification('Archivo subido correctamente', 'success');
+
+        hideUploadModal();
+
+        const uploadFileName = qs('uploadFileName');
+        const uploadFileType = qs('uploadFileType');
+        const uploadFileInput = qs('uploadFileInput');
+        const dropZoneText = qs('dropZoneText');
+
+        if (uploadFileName) uploadFileName.value = '';
+        if (uploadFileType) uploadFileType.value = 'PDF';
+        if (uploadFileInput) uploadFileInput.value = '';
+        if (dropZoneText) dropZoneText.textContent = 'Arrastra el archivo aquí o haz click para seleccionar';
+
+        await refreshFiles();
+        attachGenerateEvents();
+        attachSendResendEvents();
+      } catch (err) {
+        showNotification(err.message || 'Error al subir archivo', 'error');
+      } finally {
+        hideGlobalSpinner();
+      }
+    });
+  }
+
+  // Event listeners para drag & drop
   const dropZone = qs('dropZone');
   const fileInput = qs('uploadFileInput');
   const dropZoneText = qs('dropZoneText');
