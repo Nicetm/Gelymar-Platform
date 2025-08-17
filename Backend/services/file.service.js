@@ -9,6 +9,8 @@ const File = require('../models/file');
 const insertFile = async ({
   customer_id,
   order_id,
+  pc,
+  oc,
   name,
   path,
   eta = null,
@@ -30,12 +32,12 @@ const insertFile = async ({
 
   const [result] = await pool.query(
     `INSERT INTO files (
-      order_id, name, path, 
+      order_id, pc, oc, name, path, 
       created_at, updated_at, eta, etd, was_sent, 
       document_type, file_type, status_id
-    ) VALUES (?, ?, ?, NOW(), NOW(), ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, NOW(), NOW(), ?, ?, ?, ?, ?, ?)`,
     [
-      order_id, name, path,
+      order_id, pc, oc, name, path,
       eta, etd, was_sent, document_type, file_type, status_id
     ]
   );

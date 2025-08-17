@@ -65,11 +65,22 @@ exports.handleUpload = async (req, res) => {
       return res.status(400).json({ message: 'Faltan parámetros obligatorios' });
     }
 
+    // Obtener los datos de la orden para pc y oc
+    const pool = await poolPromise;
+    const [[order]] = await pool.query('SELECT pc, oc FROM orders WHERE id = ?', [folder_id]);
+    
+    if (!order) {
+      logger.warn(`Orden no encontrada ID: ${folder_id}`);
+      return res.status(404).json({ message: 'Orden no encontrada' });
+    }
+
     const filePath = path.join(client_name, subfolder, file.originalname);
 
     const fileData = {
       customer_id,
-      folder_id,
+      order_id: folder_id, // Cambiar folder_id por order_id
+      pc: order.pc,
+      oc: order.oc,
       name: name,
       path: filePath,
       status_id: 2,

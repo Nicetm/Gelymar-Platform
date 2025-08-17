@@ -24,7 +24,7 @@ try {
   // En SSR (Node), 'credentials' no es soportado por los tipos de fetch, y las cookies httpOnly
   // no se envían automáticamente. Solo usamos el header Authorization si tenemos token.
   if (token) {
-    const data = await fetch(`${apiBase}/api/users`, {
+    const data = await fetch(`${apiBase}/api/auth/me`, {
       headers: { Authorization: `Bearer ${token}` }
     }).then(r => (r.ok ? r.json() : null));
     user = Array.isArray(data) ? data[0] ?? null : data;
@@ -479,7 +479,7 @@ async function loadAdminData () {
 
   // 2. Llama a la API.  Si no hay token, igualmente probamos con credenciales de cookie httpOnly
   try {
-    const res = await fetch(`${API_BASE}/api/users`, {
+    const res = await fetch(`${API_BASE}/api/auth/me`, {
       headers     : clientToken ? { Authorization: `Bearer ${clientToken}` } : undefined,
       credentials : "include"
     });

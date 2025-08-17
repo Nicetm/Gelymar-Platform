@@ -10,31 +10,28 @@ import EmailModal        from './components/EmailModal.astro';
 const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
 
 // Obtener token del usuario autenticado
+const token = Astro.cookies.get('token')?.value;
 let orders = [];
 let docsByOrder = {};
 
 try {
   // Obtener órdenes del cliente desde la API
-  // En SSR no podemos usar localStorage, así que intentamos sin token
-  // El backend debería manejar la autenticación por cookies
+  // En SSR enviamos el token en el header Authorization
   const response = await fetch(`${apiBase}/api/orders/client/dashboard`, {
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    credentials: 'include' // Incluir cookies para autenticación
+    headers: { 
+      'Content-Type': 'application/json',
+      ...(token && { Authorization: `Bearer ${token}` })
+    }
   });
 
   if (response.ok) {
     orders = await response.json();
-    console.log('✅ Órdenes obtenidas de la API (SSR):', orders.length);
   } else {
-    console.error('❌ Error obteniendo órdenes (SSR):', response.status);
     // No usar datos de ejemplo, dejar array vacío para que el cliente los cargue
     orders = [];
   }
 } catch (error) {
-  console.error('❌ Error de conexión (SSR):', error instanceof Error ? error.message : 'Error desconocido');
-  // No usar datos de ejemplo, dejar array vacío para que el cliente los cargue
+   // No usar datos de ejemplo, dejar array vacío para que el cliente los cargue
   orders = [];
 }
 ---
