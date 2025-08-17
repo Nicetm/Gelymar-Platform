@@ -288,6 +288,118 @@ docker-compose pull
 docker-compose up -d --force-recreate
 ```
 
+## 🚀 Guía de Despliegue y Actualización
+
+### Instalación Inicial
+
+Para instalar la plataforma completa en un nuevo servidor:
+
+```bash
+# 1. Crear directorio del proyecto
+mkdir gelymar-platform
+cd gelymar-platform
+
+# 2. Descargar el archivo docker-compose-hub.yml
+# (Copiar el archivo docker-compose-hub.yml de este repositorio)
+
+# 3. Descargar todas las imágenes de Docker Hub
+docker-compose -f docker-compose-hub.yml pull
+
+# 4. Iniciar todo el stack
+docker-compose -f docker-compose-hub.yml up -d
+
+# 5. Verificar que todo esté corriendo
+docker-compose -f docker-compose-hub.yml ps
+```
+
+### URLs de Acceso
+
+- **Frontend:** http://localhost:2121
+- **Backend API:** http://localhost:3000
+- **phpMyAdmin:** http://localhost:8081
+- **File Server:** http://localhost:8080
+- **Monitoring:** http://localhost:8082
+- **Terminal:** http://localhost:7681
+
+### Actualización de Contenedores
+
+Cuando el desarrollador principal hace cambios y los sube a Docker Hub:
+
+#### Para el desarrollador principal (subir cambios):
+
+```bash
+# 1. Hacer cambios en el código
+# 2. Recrear el contenedor con los cambios
+cd docker
+docker-compose up -d --build NOMBRE_DEL_SERVICIO
+
+# Ejemplos:
+docker-compose up -d --build backend
+docker-compose up -d --build frontend
+docker-compose up -d --build cron
+
+# 3. Crear la nueva imagen
+docker commit gelymar-platform-backend nicetm/gelymar-platform:backend
+docker commit gelymar-platform-frontend nicetm/gelymar-platform:frontend
+docker commit gelymar-platform-cron nicetm/gelymar-platform:cron
+
+# 4. Subir a Docker Hub
+docker push nicetm/gelymar-platform:backend
+docker push nicetm/gelymar-platform:frontend
+docker push nicetm/gelymar-platform:cron
+```
+
+#### Para otros desarrolladores (descargar cambios):
+
+```bash
+# 1. Ir al directorio del proyecto
+cd gelymar-platform
+
+# 2. Descargar todas las imágenes actualizadas
+docker-compose -f docker-compose-hub.yml pull
+
+# 3. Reiniciar todo con las nuevas versiones
+docker-compose -f docker-compose-hub.yml up -d
+
+# 4. Verificar que todo esté corriendo
+docker-compose -f docker-compose-hub.yml ps
+```
+
+#### Actualizar solo un servicio específico:
+
+```bash
+# Solo actualizar el backend
+docker pull nicetm/gelymar-platform:backend
+docker-compose -f docker-compose-hub.yml up -d backend
+
+# Solo actualizar el frontend
+docker pull nicetm/gelymar-platform:frontend
+docker-compose -f docker-compose-hub.yml up -d frontend
+```
+
+### Flujo de Desarrollo
+
+1. **Desarrollador principal hace cambios**
+2. **Recrea contenedores:** `docker-compose up -d --build servicio`
+3. **Crea nuevas imágenes:** `docker commit contenedor nicetm/gelymar-platform:tag`
+4. **Sube a Docker Hub:** `docker push nicetm/gelymar-platform:tag`
+5. **Otros desarrolladores descargan:** `docker-compose pull`
+6. **Reinician servicios:** `docker-compose up -d`
+
+### Repositorio Docker Hub
+
+Todas las imágenes están disponibles en: `nicetm/gelymar-platform`
+
+**Tags disponibles:**
+- `nicetm/gelymar-platform:terminal`
+- `nicetm/gelymar-platform:monitoring`
+- `nicetm/gelymar-platform:cron`
+- `nicetm/gelymar-platform:frontend`
+- `nicetm/gelymar-platform:backend`
+- `nicetm/gelymar-platform:fileserver`
+- `nicetm/gelymar-platform:phpmyadmin`
+- `nicetm/gelymar-platform:mysql`
+
 ## 📦 Exportar/Importar
 
 ### Exportar stack completo:
