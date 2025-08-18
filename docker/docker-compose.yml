@@ -62,11 +62,10 @@ services:
       - FRONTEND_BASE_URL=http://localhost:2121
       - FILE_SERVER_URL=http://fileserver:80
       - FILE_SERVER_ROOT=/var/www/html
-      - SMTP_HOST=smtp.resend.com
+      - SMTP_HOST=smtp.office365.com
       - SMTP_PORT=587
-      - SMTP_USER=resend
-      - SMTP_PASS=
-      - RESEND_KEY=re_fA1mA4H1_GJrLoZvz3Up3L8W7TwpcreAg
+      - SMTP_USER=logistics@gelymar.com
+      - SMTP_PASS=T$718649482733av
     volumes:
       - backend_logs:/app/logs
       - fileserver_data:/var/www/html

@@ -52,6 +52,7 @@ export default defineConfig({
     schema: {
       PUBLIC_API_URL: envField.string({ context: 'client', access: 'public' }),
       PUBLIC_FILE_SERVER_URL: envField.string({ context: 'client', access: 'public' }),
+      SERVER_API_URL: envField.string({ context: 'server', access: 'public' }),
     }
   }
 });

@@ -6,16 +6,6 @@
     "auditLog": "E:\\Softkey\\Gelymar\\Proyecto\\gelymar-management-platform\\Backend\\logs\\.567f7efabd9435aa37bed630208dceace7153469-audit.json",
     "files": [
         {
-            "date": 1754242974846,
-            "name": "E:\\Softkey\\Gelymar\\Proyecto\\gelymar-management-platform\\Backend\\logs\\app-2025-08-03.log",
-            "hash": "1b3829af51dff609f8121da4a46f2a3b74dd78b07e9dbccf2dbbcbbab6bed9c2"
-        },
-        {
-            "date": 1754323881876,
-            "name": "E:\\Softkey\\Gelymar\\Proyecto\\gelymar-management-platform\\Backend\\logs\\app-2025-08-04.log",
-            "hash": "1d6a8d25d08527f1096b880ff888ab845d00cd7974de52c7f8af58202e5be62c"
-        },
-        {
             "date": 1754368808841,
             "name": "E:\\Softkey\\Gelymar\\Proyecto\\gelymar-management-platform\\Backend\\logs\\app-2025-08-05.log",
             "hash": "ac8d8373839cb682b1605746e7e5aa58806131c72f580167f12bdb37d3b5461a"
@@ -44,6 +34,11 @@
             "date": 1755443732075,
             "name": "E:\\Softkey\\Gelymar\\Proyecto\\gelymar-management-platform\\Backend\\logs\\app-2025-08-17.log",
             "hash": "717143ff88a5423300617ebfb1a7bb01967d2f7edb5d77d53bf41ef2856b0fb8"
+        },
+        {
+            "date": 1755546642880,
+            "name": "E:\\Softkey\\Gelymar\\Proyecto\\gelymar-management-platform\\Backend\\logs\\app-2025-08-18.log",
+            "hash": "983075bb4aca4b40c601f52000666f017633450185fcb78403b34cf324d6865c"
         }
     ],
     "hashType": "sha256"

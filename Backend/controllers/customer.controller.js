@@ -50,6 +50,7 @@ exports.getCustomerById = async (req, res) => {
  * @access Protegido (requiere JWT)
  */
 exports.getCustomerByUUID = async (req, res) => {
+  console.log(req.params);
   const { uuid } = req.params;
   logger.info(`Petición recibida: obtener cliente por UUID ${uuid}`);
 

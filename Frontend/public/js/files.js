@@ -61,6 +61,7 @@ export function initFilesScript() {
   const apiBase = window.apiBase || section?.dataset.apiBase;
   const fileServer = section?.dataset.fileServer;
   const lang = window.lang || section?.dataset.lang;
+  const orderOc = window.orderOc || section?.dataset.orderOc;
 
   console.log( "apiBase Files.js", apiBase);
 
@@ -183,7 +184,7 @@ export function initFilesScript() {
 
         if (file.status_id === 2) {
           actions += `
-            <a href="#" class="send-btn" data-file-id="${file.id}" data-file-name="${file.name}" data-order="${pc}" title="Enviar documento">
+            <a href="#" class="send-btn" data-file-id="${file.id}" data-file-name="${file.name}" data-order="${file.oc}" title="Enviar documento">
               <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8" />
                 <path stroke-linecap="round" stroke-linejoin="round" d="M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -193,7 +194,7 @@ export function initFilesScript() {
 
         if ([3, 4].includes(file.status_id)) {
           actions += `
-            <a href="#" class="resend-btn" data-file-id="${file.id}" data-file-name="${file.name}" data-order="${pc}" title="Reenviar documento">
+            <a href="#" class="resend-btn" data-file-id="${file.id}" data-file-name="${file.name}" data-order="${file.oc}" title="Reenviar documento">
               <svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H7a4 4 0 010-8h1" />
               </svg>
@@ -709,7 +710,7 @@ export function initFilesScript() {
       }
 
       showGlobalSpinner();
-
+      console.log(`${apiBase}/api/customers/uuid/${uuid}`);
       try {
         const response = await fetch(`${apiBase}/api/customers/uuid/${uuid}`, {
           method: 'GET',

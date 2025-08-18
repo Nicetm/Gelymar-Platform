@@ -25,7 +25,7 @@ const insertFile = async ({
   const [rows] = await pool.query('SELECT id FROM customers WHERE uuid = ?', [customer_id]);
 
   if (rows.length === 0) {
-    return res.status(400).json({ message: 'Cliente no encontrado' });
+    throw new Error('Cliente no encontrado');
   }
   
   const realCustomerId = rows[0].id;

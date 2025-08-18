@@ -350,9 +350,6 @@ exports.sendFile = async (req, res) => {
       return res.status(404).json({ message: 'Archivo no encontrado' });
     }
 
-    // Cambiar destinatario para pruebas
-    file.customer_email = 'sallende@softkey.cl';
-
     // Mostrar información del archivo en consola para depuración
     console.log('Archivo a enviar:', file);
 
