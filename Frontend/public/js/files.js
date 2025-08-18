@@ -433,62 +433,20 @@ export function initFilesScript() {
     }
   });
 
-  async function openEditFileModal(fileId, currentName, currentVisible) {
-    const { value: formValues } = await Swal.fire({
-      title: 'Editar archivo',
-      html: `
-      <label for="swal-filename" class="swal2-input-label">Nuevo nombre del archivo</label>
-      <input id="swal-filename" type="text" class="swal2-input w-full" style="margin: 1em 0 3px" placeholder="Ej: Aviso de Embarque V2" value="${currentName}" />
-
-      <label for="swal-visible" class="swal2-input-label"">¿Visible para el cliente?</label>
-      <select id="swal-visible" class="swal2-input w-full mt-4">
-        <option value="1" ${currentVisible ? 'selected' : ''}>Sí</option>
-        <option value="0" ${!currentVisible ? 'selected' : ''}>No</option>
-      </select>
-    `,
-      focusConfirm: false,
-      showCancelButton: true,
-      confirmButtonText: 'Guardar',
-      cancelButtonText: 'Cancelar',
-      preConfirm: () => {
-        const name = document.getElementById('swal-filename')?.value?.trim();
-        const visible = document.getElementById('swal-visible')?.value;
-
-        if (!name) {
-          Swal.showValidationMessage('El nombre no puede estar vacío');
-        }
-        return { name, visible };
-      }
-    });
-
-    if (!formValues) return;
-
-    try {
-      const res = await fetch(`${apiBase}/api/files/rename/${fileId}/`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          name: formValues.name,
-          visible: formValues.visible === '1'
-        })
-      });
-
-      const data = await res.json();
-
-      if (res.ok) {
-        showNotification('Archivo actualizado correctamente', 'success');
-        await refreshFiles(); // recarga tabla
-        attachGenerateEvents();
-        attachSendResendEvents();
-      } else {
-        showNotification(data.message || 'Error al actualizar archivo', 'error');
-      }
-    } catch (err) {
-      showNotification('Error de red al actualizar archivo', 'error');
-    }
+  function openEditFileModal(fileId, currentName, currentVisible) {
+    const modal = document.getElementById('editFileModal');
+    const nameInput = document.getElementById('editFileName');
+    const visibleSelect = document.getElementById('editFileVisible');
+    
+    // Llenar el modal con los datos actuales
+    nameInput.value = currentName;
+    visibleSelect.value = currentVisible ? '1' : '0';
+    
+    // Mostrar el modal
+    modal.classList.remove('hidden');
+    
+    // Enfocar el input
+    nameInput.focus();
   }
 
   document.addEventListener('click', async (e) => {
@@ -496,6 +454,12 @@ export function initFilesScript() {
     if (!btn) return;
 
     e.preventDefault();
+    
+    // Remover clase clicked de otros botones
+    document.querySelectorAll('.edit-btn').forEach(b => b.classList.remove('clicked'));
+    // Agregar clase clicked al botón actual
+    btn.classList.add('clicked');
+    
     const fileId = btn.dataset.fileId;
 
     const row = btn.closest('tr');
@@ -503,31 +467,146 @@ export function initFilesScript() {
     const currentName = span?.textContent?.trim() || '';
     const visibleCell = row?.querySelector('[data-v]');
     const currentVisible = visibleCell?.dataset?.v === '1';
-    console.log('currentVisible', currentVisible);
 
-    await openEditFileModal(fileId, currentName, currentVisible);
+    openEditFileModal(fileId, currentName, currentVisible);
   });
 
   document.addEventListener('dblclick', async (e) => {
     const span = e.target.closest('.filename-text');
     if (!span) return;
 
+    // Remover clase clicked de otros spans
+    document.querySelectorAll('.filename-text').forEach(s => s.classList.remove('clicked'));
+    // Agregar clase clicked al span actual
+    span.classList.add('clicked');
+
     const cell = span.closest('.editable-filename');
     const fileId = cell?.dataset?.id;
     const currentName = span.textContent.trim();
 
-    const { value: newName } = await Swal.fire({
-      title: 'Renombrar archivo',
-      input: 'text',
-      inputLabel: 'Nuevo nombre del archivo',
-      inputValue: currentName,
-      showCancelButton: true,
-      confirmButtonText: 'Guardar',
-      cancelButtonText: 'Cancelar',
-      inputValidator: value => !value.trim() && 'El nombre no puede estar vacío'
-    });
+    openRenameFileModal(fileId, currentName, span);
+  });
 
-    if (newName && newName.trim() !== currentName) {
+  function openRenameFileModal(fileId, currentName, spanElement) {
+    const modal = document.getElementById('renameFileModal');
+    const nameInput = document.getElementById('renameFileName');
+    
+    // Llenar el modal con el nombre actual
+    nameInput.value = currentName;
+    
+    // Mostrar el modal
+    modal.classList.remove('hidden');
+    
+    // Enfocar el input
+    nameInput.focus();
+  }
+
+  // Event listeners para el modal de editar archivo
+  ['closeEditModalBtn', 'cancelEditBtn'].forEach(id => {
+    const element = qs(id);
+    if (element) {
+      element.addEventListener('click', () => {
+        const modal = document.getElementById('editFileModal');
+        modal.classList.add('hidden');
+      });
+    }
+  });
+
+  // Event listener para confirmar edición
+  const confirmEditBtn = qs('confirmEditBtn');
+  if (confirmEditBtn) {
+    confirmEditBtn.addEventListener('click', async () => {
+      const nameInput = document.getElementById('editFileName');
+      const visibleSelect = document.getElementById('editFileVisible');
+      const modal = document.getElementById('editFileModal');
+      
+      const name = nameInput.value.trim();
+      const visible = visibleSelect.value;
+      
+      if (!name) {
+        showNotification('El nombre no puede estar vacío', 'error');
+        return;
+      }
+      
+      // Obtener el fileId del botón que abrió el modal
+      const editBtn = document.querySelector('.edit-btn.clicked');
+      const fileId = editBtn?.dataset?.fileId;
+      
+      if (!fileId) {
+        showNotification('Error: No se pudo identificar el archivo', 'error');
+        return;
+      }
+      
+      try {
+        const res = await fetch(`${apiBase}/api/files/rename/${fileId}/`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            name: name,
+            visible: visible === '1'
+          })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          showNotification('Archivo actualizado correctamente', 'success');
+          modal.classList.add('hidden');
+          await refreshFiles();
+          attachGenerateEvents();
+          attachSendResendEvents();
+        } else {
+          showNotification(data.message || 'Error al actualizar archivo', 'error');
+        }
+      } catch (err) {
+        showNotification('Error de red al actualizar archivo', 'error');
+      }
+    });
+  }
+
+  // Event listeners para el modal de renombrar archivo
+  ['closeRenameModalBtn', 'cancelRenameBtn'].forEach(id => {
+    const element = qs(id);
+    if (element) {
+      element.addEventListener('click', () => {
+        const modal = document.getElementById('renameFileModal');
+        modal.classList.add('hidden');
+      });
+    }
+  });
+
+  // Event listener para confirmar renombrar
+  const confirmRenameBtn = qs('confirmRenameBtn');
+  if (confirmRenameBtn) {
+    confirmRenameBtn.addEventListener('click', async () => {
+      const nameInput = document.getElementById('renameFileName');
+      const modal = document.getElementById('renameFileModal');
+      
+      const newName = nameInput.value.trim();
+      
+      if (!newName) {
+        showNotification('El nombre no puede estar vacío', 'error');
+        return;
+      }
+      
+      // Obtener el fileId y span del botón que abrió el modal
+      const spanElement = document.querySelector('.filename-text.clicked');
+      const cell = spanElement?.closest('.editable-filename');
+      const fileId = cell?.dataset?.id;
+      
+      if (!fileId || !spanElement) {
+        showNotification('Error: No se pudo identificar el archivo', 'error');
+        return;
+      }
+      
+      if (newName === spanElement.textContent.trim()) {
+        modal.classList.add('hidden');
+        return;
+      }
+      
       try {
         const res = await fetch(`${apiBase}/api/files/rename/${fileId}`, {
           method: 'PUT',
@@ -535,24 +614,24 @@ export function initFilesScript() {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`
           },
-          body: JSON.stringify({ name: newName.trim() })
+          body: JSON.stringify({ name: newName })
         });
 
         const data = await res.json();
 
         if (res.ok) {
-          span.textContent = newName.trim();
+          spanElement.textContent = newName;
           showNotification('Nombre actualizado correctamente', 'success');
-          renderTable(); // <- vuelve a paginar
+          renderTable();
+          modal.classList.add('hidden');
         } else {
           showNotification(data.message || 'Error al cambiar el nombre', 'error');
         }
       } catch (err) {
         showNotification('Error al renombrar archivo', 'error');
       }
-    }
-  });
-
+    });
+  }
 
 
   // Event listener para el botón de subir archivo

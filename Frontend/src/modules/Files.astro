@@ -327,6 +327,62 @@ const documentTypes = await fetch(`${apiBase}/api/document-types`, {
 		</div>
 	</div>
 
+	<!-- Modal de Editar Archivo -->
+	<div id="editFileModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden flex justify-center items-center">
+		<div class="bg-white dark:bg-gray-800 p-6 rounded-xl max-w-md w-full mx-4 shadow-xl">
+			<div class="flex items-center justify-between mb-4">
+				<h2 class="text-lg font-semibold text-gray-900 dark:text-white">{t.documentos.editFile}</h2>
+				<button id="closeEditModalBtn" class="text-gray-400 hover:text-red-500 transition">
+					<svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+					</svg>
+				</button>
+			</div>
+			
+			<div class="mb-4">
+				<label for="editFileName" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t.documentos.newFileName}</label>
+				<input type="text" id="editFileName" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ej: Aviso de Embarque V2">
+			</div>
+			
+			<div class="mb-6">
+				<label for="editFileVisible" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t.documentos.visibleToClient}</label>
+				<select id="editFileVisible" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+					<option value="1">{t.documentos.yes}</option>
+					<option value="0">{t.documentos.no}</option>
+				</select>
+			</div>
+			
+			<div class="flex justify-end gap-2">
+				<button id="cancelEditBtn" class="px-4 py-2 rounded-md bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-500 dark:text-white transition-colors">{t.documentos.cancel}</button>
+				<button id="confirmEditBtn" class="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors">{t.documentos.save}</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- Modal de Renombrar Archivo -->
+	<div id="renameFileModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden flex justify-center items-center">
+		<div class="bg-white dark:bg-gray-800 p-6 rounded-xl max-w-md w-full mx-4 shadow-xl">
+			<div class="flex items-center justify-between mb-4">
+				<h2 class="text-lg font-semibold text-gray-900 dark:text-white">{t.documentos.renameFile}</h2>
+				<button id="closeRenameModalBtn" class="text-gray-400 hover:text-red-500 transition">
+					<svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+					</svg>
+				</button>
+			</div>
+			
+			<div class="mb-6">
+				<label for="renameFileName" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t.documentos.newFileName}</label>
+				<input type="text" id="renameFileName" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+			</div>
+			
+			<div class="flex justify-end gap-2">
+				<button id="cancelRenameBtn" class="px-4 py-2 rounded-md bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-500 dark:text-white transition-colors">{t.documentos.cancel}</button>
+				<button id="confirmRenameBtn" class="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors">{t.documentos.save}</button>
+			</div>
+		</div>
+	</div>
+
 	<div id="notification" class="hidden fixed top-5 right-5 px-6 py-4 rounded-lg shadow-lg z-50 text-black text-base font-semibold transition-all duration-300 ease-in-out"></div>
 	<div id="globalSpinner" class="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50 invisible">
 		<div class="w-16 h-16 border-4 border-white border-t-transparent border-solid rounded-full animate-spin"></div>

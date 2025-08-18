@@ -4,43 +4,32 @@ const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL
 ---
 <script is:inline define:vars={{ apiBase }}>
   document.addEventListener('DOMContentLoaded', async () => {
-    console.log('🔍 AuthGuard: Iniciando validación');
     const token = localStorage.getItem('token');
-    console.log('🔍 AuthGuard: Token encontrado:', token ? 'Sí' : 'No');
-
-    // TEMPORALMENTE DESHABILITADO PARA DEBUG
-    console.log('🔍 AuthGuard: DESHABILITADO TEMPORALMENTE');
-    return;
 
     if (!token) {
-      console.log('🔍 AuthGuard: No hay token, redirigiendo a login');
       window.location.href = '/authentication/sign-in';
       return;
     }
 
     try {
-      console.log('🔍 AuthGuard: Llamando a /api/auth/me');
-      const res = await fetch(`${apiBase}/api/auth/me`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-
-      console.log('🔍 AuthGuard: Respuesta de /me:', res.status, res.statusText);
-
-      if (!res.ok) {
-        console.log('🔍 AuthGuard: Token inválido, limpiando y redirigiendo');
-        // Si el token es inválido, lo limpiamos
+      // Verificar token localmente
+      const [, payloadBase64] = token.split('.');
+      if (!payloadBase64) {
         localStorage.removeItem('token');
         window.location.href = '/authentication/sign-in';
         return;
       }
 
-      const user = await res.json();
-      console.log('🔍 AuthGuard: Usuario válido:', user);
+      const payload = JSON.parse(atob(payloadBase64));
+
+      // Solo verificar que tenga los campos básicos
+      if (!payload.email || !payload.id) {
+        localStorage.removeItem('token');
+        window.location.href = '/authentication/sign-in';
+        return;
+      }
 
     } catch (err) {
-      console.error('🔍 AuthGuard: Error validando sesión:', err);
       localStorage.removeItem('token');
       window.location.href = '/authentication/sign-in';
     }

@@ -35,6 +35,15 @@ module.exports = async (req, res, next) => {
     // Permitir token expirado SOLO para /refresh
     if (req.path === '/refresh' && err.name === 'TokenExpiredError') {
       const decoded = jwt.decode(token);
+      if (!decoded) {
+        return res.status(403).json({ message: 'Token inválido' });
+      }
+      
+      // Verificar que el token decodificado tenga el email
+      if (!decoded.email) {
+        return res.status(403).json({ message: 'Token inválido - sin email' });
+      }
+      
       req.user = decoded;
       return next();
     }

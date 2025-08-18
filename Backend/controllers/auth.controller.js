@@ -78,21 +78,16 @@ exports.login = async (req, res) => {
  * @access Privado (requiere token JWT válido en Authorization header)
  */
 exports.refreshToken = async (req, res) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader) {
-    logger.warn('Token requerido en refresh');
-    return res.status(401).json({ message: 'Token requerido' });
-  }
-
-  const token = authHeader.split(' ')[1];
-
-  jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
-    if (err) {
-      logger.warn('Token inválido o expirado en refresh');
-      return res.status(403).json({ message: 'Token inválido o expirado' });
+  try {
+    // El middleware ya validó el token (incluso si está expirado)
+    const decoded = req.user;
+    
+    if (!decoded || !decoded.email) {
+      return res.status(400).json({ message: 'Token inválido - sin email' });
     }
-
+    
     const user = await userService.findUserByEmailOrUsername(decoded.email);
+    
     if (!user) {
       logger.warn(`Usuario no encontrado en refresh: ${decoded.email}`);
       return res.status(404).json({ message: 'Usuario no encontrado' });
@@ -108,7 +103,10 @@ exports.refreshToken = async (req, res) => {
 
     logger.info(`Token refrescado para ${decoded.email}`);
     res.status(200).json({ token: newToken });
-  });
+  } catch (error) {
+    logger.error(`Error en refreshToken: ${error.message}`);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
 };
 
 /**

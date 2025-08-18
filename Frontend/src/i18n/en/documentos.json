@@ -44,6 +44,14 @@
 	"fechaETD": "ETD date",
 	"fechaETA": "ETA date",
 	"estado": "Status",
-	"cliente": "Customer"
+	"cliente": "Customer",
+	"editFile": "Edit file",
+	"renameFile": "Rename file",
+	"newFileName": "New file name",
+	"visibleToClient": "Visible to client?",
+	"yes": "Yes",
+	"no": "No",
+	"save": "Save",
+	"cancel": "Cancel"
 	
 }
