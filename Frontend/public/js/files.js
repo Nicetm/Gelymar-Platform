@@ -84,12 +84,6 @@ export function initFilesScript() {
     return;
   }
 
-  if (pc) {
-    const decoded = decodeURIComponent(pc);
-    const title = qs('titleFile');
-    if (title) title.textContent += ` ${decoded}`;
-  }
-
   function renderTable() {
     const start = (currentPage - 1) * itemsPerPage;
     const pageData = filteredRows.slice(start, start + itemsPerPage);

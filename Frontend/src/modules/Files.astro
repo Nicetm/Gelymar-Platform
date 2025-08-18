@@ -28,6 +28,10 @@ const files: Files[] = await fetch(`${apiBase}/api/files/${id}?f=${folderId}`, {
 const documentTypes = await fetch(`${apiBase}/api/document-types`, {
   headers: { Authorization: `Bearer ${token}` }
 }).then(res => res.json()).catch(() => []);
+
+// Obtener OC y PC de la base de datos (del primer archivo)
+const orderPc = files.length > 0 ? files[0]?.pc : '';
+const orderOc = files.length > 0 ? files[0]?.oc : '';
 ---
 
 <section id="filesSection" data-api-base={apiBase} data-file-server={fileServer} data-uuid={id} data-lang={lang} class="px-4 pt-24 pb-6 sm:px-6 lg:px-8">
@@ -55,8 +59,14 @@ const documentTypes = await fetch(`${apiBase}/api/document-types`, {
 
     <!-- Título -->
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <h1 id="titleFile" class="text-3xl font-bold text-gray-900 dark:text-white">{decodedClientName} - Order {t.documentos.title}</h1>
-		</div>
+      <div class="flex flex-col gap-1">
+        <h1 id="titleFile" class="text-3xl font-bold text-gray-900 dark:text-white">{decodedClientName} - Order {t.documentos.title}</h1>
+        <div class="flex flex-col gap-1 text-sm text-gray-600 dark:text-gray-400">
+          {orderPc && <span class="font-bold">{t.documentos.pcNumber}: {orderPc}</span>}
+          {orderOc && <span class="font-bold">{t.documentos.ocNumber}: {orderOc}</span>}
+        </div>
+      </div>
+	</div>
 
     <!-- Búsqueda y botón agregar archivo -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4">

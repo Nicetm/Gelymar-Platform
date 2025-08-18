@@ -99,7 +99,9 @@ const getFiles = async (customerId, folderId) => {
         f.*, 
         os.id AS status_id, 
         os.name AS status_name,
-        o.name AS folder_name
+        o.name AS folder_name,
+        o.pc,
+        o.oc
      FROM files f
      LEFT JOIN order_status os ON f.status_id = os.id
      JOIN orders o ON f.order_id = o.id

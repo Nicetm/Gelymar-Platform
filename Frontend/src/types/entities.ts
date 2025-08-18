@@ -99,6 +99,8 @@ export interface Files {
   created_at: string;
   updated_at: string;
 	is_visible_to_client: boolean;
+  pc?: string;
+  oc?: string;
 }
 
 // --- ORDER STATUS ---

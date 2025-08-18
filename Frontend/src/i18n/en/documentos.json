@@ -52,6 +52,8 @@
 	"yes": "Yes",
 	"no": "No",
 	"save": "Save",
-	"cancel": "Cancel"
+	"cancel": "Cancel",
+	"pcNumber": "N° PC",
+	"ocNumber": "N° OC"
 	
 }

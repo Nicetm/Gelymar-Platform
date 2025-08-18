@@ -18,6 +18,8 @@ class File {
       this.status_name = row.status_name;
       this.folder_name = row.folder_name;
       this.is_visible_to_client = row.is_visible_to_client;
+      this.pc = row.pc;
+      this.oc = row.oc;
     }
   }
   
