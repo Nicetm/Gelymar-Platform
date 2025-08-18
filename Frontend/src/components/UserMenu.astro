@@ -23,10 +23,10 @@ try {
   // En SSR (Node), 'credentials' no es soportado por los tipos de fetch, y las cookies httpOnly
   // no se envían automáticamente. Solo usamos el header Authorization si tenemos token.
   if (token) {
-    const data = await fetch(`${apiBase}/api/auth/me`, {
+    const data = await fetch(`${apiBase}/api/users/profile`, {
       headers: { Authorization: `Bearer ${token}` }
     }).then(r => (r.ok ? r.json() : null));
-    user = Array.isArray(data) ? data[0] ?? null : data;
+    user = data;
     if (user && !user.role && user.role_id !== undefined) {
       user.role = user.role_id === 1 ? 'admin'
                 : user.role_id === 2 ? 'client'
@@ -41,8 +41,8 @@ if (!user) {
   user = { full_name: 'User', email: 'user@example.com', role: 'guest', avatar: '' };
 }
 
-const avatarUrl = user.avatar
-  ? (user.avatar.startsWith('http') ? user.avatar : `${fileServer}/${user.avatar}`)
+const avatarUrl = user.avatar_path
+  ? `${fileServer}/${user.avatar_path}`
   : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.full_name)}&backgroundColor=4b5563&fontColor=ffffff`;
 ---
 
@@ -142,13 +142,12 @@ const avatarUrl = user.avatar
     if (!clientToken) return;
 
     try {
-      const res = await fetch(`${API_BASE}/api/auth/me`, {
+      const res = await fetch(`${API_BASE}/api/users/profile`, {
         headers: clientToken ? { Authorization: `Bearer ${clientToken}` } : undefined
       });
       if (!res.ok) return;
 
-      const data = await res.json();
-      const u = Array.isArray(data) ? data[0] ?? {} : data;
+      const u = await res.json();
 
       const fullName = u.full_name ?? 'User';
       const roleNameClient =
@@ -164,10 +163,8 @@ const avatarUrl = user.avatar
       emailEl.textContent = email;
 
       // Actualizar avatar
-      if (u.avatar) {
-        const avatarUrl = u.avatar.startsWith('http')
-          ? u.avatar
-          : `${FILE_SERVER}/${u.avatar}`;
+      if (u.avatar_path) {
+        const avatarUrl = `${FILE_SERVER}/${u.avatar_path}`;
         avatarEl.src = avatarUrl;
       } else if (u.full_name) {
         const fallbackUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(u.full_name)}&backgroundColor=4b5563&fontColor=ffffff`;

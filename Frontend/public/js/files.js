@@ -62,6 +62,8 @@ export function initFilesScript() {
   const fileServer = section?.dataset.fileServer;
   const lang = window.lang || section?.dataset.lang;
 
+  console.log( "apiBase Files.js", apiBase);
+
   let currentPage = 1;
   let itemsPerPage = parseInt(itemsPerPageSelect?.value || '10', 10);
   const allRows = Array.from(tableBody?.querySelectorAll('tr') || []);
@@ -237,6 +239,8 @@ export function initFilesScript() {
                 ${file.status_name || '-'}
               </div>
             </td>
+            <td class="px-6 py-4 items-center gap-3">${file.etd ? new Date(file.etd).toLocaleDateString("es-CL") : '-'}</td>
+            <td class="px-6 py-4 items-center gap-3">${file.eta ? new Date(file.eta).toLocaleDateString("es-CL") : '-'}</td>
             <td class="px-6 py-4 items-center gap-3">${new Date(file.created_at).toLocaleString("es-CL")}</td>
             <td class="px-6 py-4 items-center gap-3">${new Date(file.updated_at).toLocaleString("es-CL")}</td>
             <td data-v="${file.is_visible_to_client}" class="px-6 py-4 text-center">

@@ -27,6 +27,7 @@ async function findUserByEmailOrUsername(emailOrUsername) {
     `
     SELECT u.id, u.email, u.password,
            u.twoFASecret, u.twoFAEnabled, u.change_pw,
+           u.full_name, u.phone, u.country, u.city,
            r.name AS role
     FROM users u
     LEFT JOIN roles r ON u.role_id = r.id
@@ -38,6 +39,42 @@ async function findUserByEmailOrUsername(emailOrUsername) {
   
   console.log('🔍 Resultado de búsqueda:', rows[0] ? { id: rows[0].id, email: rows[0].email, role: rows[0].role } : 'No encontrado');
   return rows[0];
+}
+
+// Obtener perfil completo del usuario con avatar
+async function getUserProfile(userId) {
+  const pool = await poolPromise;
+  
+  const [rows] = await pool.query(
+    `
+    SELECT u.id, u.email, u.full_name, u.phone, u.country, u.city,
+           u.created_at, u.updated_at, u.change_pw,
+           r.name AS role,
+           ua.file_path AS avatar_path, ua.mime_type AS avatar_mime_type
+    FROM users u
+    LEFT JOIN roles r ON u.role_id = r.id
+    LEFT JOIN user_avatar ua ON u.id = ua.user_id AND ua.is_active = 1
+    WHERE u.id = ?
+    LIMIT 1
+    `,
+    [userId]
+  );
+  
+  return rows[0];
+}
+
+// Actualizar perfil del usuario
+async function updateUserProfile(userId, profileData) {
+  const pool = await poolPromise;
+  
+  const [result] = await pool.query(
+    `UPDATE users 
+     SET full_name = ?, phone = ?, country = ?, city = ?, updated_at = NOW()
+     WHERE id = ?`,
+    [profileData.full_name, profileData.phone, profileData.country, profileData.city, userId]
+  );
+  
+  return result.affectedRows > 0;
 }
 
 // Crear nuevo usuario
@@ -62,6 +99,8 @@ async function updateUser2FASecret(userId, secret) {
 module.exports = {
   getAllUsers,
   findUserByEmailOrUsername,
+  getUserProfile,
+  updateUserProfile,
   createUser,
   updateUser2FASecret,
 };

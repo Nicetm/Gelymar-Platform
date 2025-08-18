@@ -50,7 +50,7 @@ app.use('/api/auth', authRoutes);
 
 // Rutas protegidas (requieren token + rol adecuado)
 app.use('/api/customers', authMiddleware, authorizeRoles(['admin']), customerRoutes);
-app.use('/api/users', authMiddleware, authorizeRoles(['admin']), userRoutes);
+app.use('/api/users', authMiddleware, authorizeRoles(['admin', 'client']), userRoutes);
 app.use('/api/orders', authMiddleware, authorizeRoles(['admin', 'client']), orderRoutes);
 app.use('/api/items', authMiddleware, authorizeRoles(['admin']), itemRoutes);
 app.use('/api/directories', authMiddleware, authorizeRoles(['admin']), documentDirectoryRoutes);

@@ -2,6 +2,7 @@
 import { loadTranslations, getServerLang } from '../lib/i18n.js';
 
 const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
+const clientApiBase = import.meta.env.PUBLIC_API_URL; // Para JavaScript del cliente
 const fileServer = import.meta.env.PUBLIC_FILE_SERVER_URL;
 const lang       = getServerLang(Astro.cookies);   // idioma dinámico
 
@@ -152,6 +153,8 @@ let avatarDarkSrc  = user.avatar
   id="sidebar"
   class="fixed top-0 left-0 z-20 flex-col flex-shrink-0 hidden w-56 h-full pt-20 font-normal lg:flex transition-width bg-white border-r border-gray-200 dark:bg-gray-800 dark:border-gray-700 -px-2"
   aria-label="Sidebar"
+  data-api-base={apiBase}
+  data-file-server={fileServer}
 >
   <!-- Scrollable content -->
   <div
@@ -458,14 +461,20 @@ let avatarDarkSrc  = user.avatar
 ></div>
 
 <!-- SCRIPTS -->
-<script is:inline type="module">
+<script type="module" define:vars={{ apiBase, clientApiBase, fileServer, t, token, lang }}>
+  // Hacer las variables disponibles globalmente
+  window.apiBase = clientApiBase; // Usar clientApiBase para JavaScript del cliente
+  window.fileServer = fileServer;
+  window.lang = lang;
 /* ---------- helpers que usan las traducciones ---------- */
 /* ---------- consts de entorno ---------- */
-const API_BASE    = "{import.meta.env.PUBLIC_API_URL}";
-const FILE_SERVER = "{import.meta.env.PUBLIC_FILE_SERVER_URL}";
+  const API_BASE = window.apiBase || apiBase;
+  const FILE_SERVER = window.fileServer || fileServer;
 
-async function loadAdminData () {
-  // 1. Intenta recuperar un token desde localStorage o cookies accesibles
+  console.log( "apiBase SideBarAdmin.astro", apiBase);
+
+// Función para obtener el token del cliente
+function getClientToken() {
   let clientToken =
     localStorage.getItem("token")        ||
     localStorage.getItem("accessToken")  ||
@@ -476,17 +485,19 @@ async function loadAdminData () {
     const match = document.cookie.match(/(?:^|; )(?:token|accessToken|jwt)=([^;]+)/);
     clientToken = match ? decodeURIComponent(match[1]) : null;
   }
+  
+  return clientToken;
+}
 
-  // 2. Llama a la API.  Si no hay token, igualmente probamos con credenciales de cookie httpOnly
+async function loadAdminData () {
+  // 2. Llama a la API para obtener perfil completo
   try {
-    const res = await fetch(`${API_BASE}/api/auth/me`, {
-      headers     : clientToken ? { Authorization: `Bearer ${clientToken}` } : undefined,
-      credentials : "include"
+    const res = await fetch(`${API_BASE}/api/users/profile`, {
+      headers: { Authorization: `Bearer ${token}` }
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-    const data = await res.json();
-    const u = Array.isArray(data) ? (data[0] ?? {}) : data;
+    const u = await res.json();
 
     // 3. Actualiza campos del formulario
     if (u.full_name)  document.getElementById("adminNameInput").value  = u.full_name;
@@ -494,8 +505,8 @@ async function loadAdminData () {
     if (u.phone)      document.getElementById("adminPhoneInput").value = u.phone;
 
     // 4. Actualiza avatar con URL absoluta al file‑server o fallback de iniciales
-    if (u.avatar) {
-      const avatarUrl = u.avatar.startsWith("http") ? u.avatar : `${FILE_SERVER}/${u.avatar}`;
+    if (u.avatar_path) {
+      const avatarUrl = `${FILE_SERVER}/${u.avatar_path}`;
       document.getElementById("adminAvatarLight").src = avatarUrl;
       document.getElementById("adminAvatarDark").src  = avatarUrl;
     } else if (u.full_name) {
@@ -521,8 +532,10 @@ function validateForm () {
   return true;
 }
 
-/* ---------- script principal: corre cuando el DOM está listo ---------- */
-document.addEventListener("DOMContentLoaded", () => {
+  /* ---------- script principal: corre cuando el DOM está listo ---------- */
+  document.addEventListener("DOMContentLoaded", async () => {
+    // Cargar datos del admin al inicio
+    await loadAdminData();
 
   /* ---------- lógica de íconos y submenu ---------- */
   const path            = window.location.pathname;
@@ -589,6 +602,23 @@ const hideModal = () => {
   avatarInput?.addEventListener("change", () => {
     const file = avatarInput.files?.[0];
     if (!file) return;
+    
+    // Validar tipo de archivo
+    const allowedTypes = ['image/png', 'image/jpg', 'image/jpeg'];
+    if (!allowedTypes.includes(file.type)) {
+      alert('Solo se permiten archivos PNG, JPG o JPEG');
+      avatarInput.value = '';
+      return;
+    }
+    
+    // Validar tamaño (5MB)
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      alert('El archivo no puede ser mayor a 5MB');
+      avatarInput.value = '';
+      return;
+    }
+    
     const url = URL.createObjectURL(file);
     avatarLight.src = url;
     avatarDark.src  = url;
@@ -605,17 +635,58 @@ const hideModal = () => {
     e.preventDefault();
     if (!validateForm()) return;
 
-    const formData = new FormData(form);
-    if (avatarInput?.files?.[0]) formData.set("avatar", avatarInput.files[0]);
-
     try {
-      console.log("▶️ Payload a enviar", [...formData.entries()]);
-      await new Promise(r => setTimeout(r, 800)); // simulación de API
+      // 1. Subir avatar si se seleccionó uno
+      let avatarPath = null;
+      if (avatarInput?.files?.[0]) {
+        const avatarFormData = new FormData();
+        avatarFormData.append('avatar', avatarInput.files[0]);
+
+        const avatarRes = await fetch(`${API_BASE}/api/users/avatar`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: avatarFormData
+        });
+        
+        if (!avatarRes.ok) {
+          const error = await avatarRes.json();
+          throw new Error(error.message || 'Error al subir avatar');
+        }
+        
+        const avatarData = await avatarRes.json();
+        avatarPath = avatarData.avatar_path;
+      }
+
+      // 2. Actualizar perfil
+      const profileData = {
+        full_name: document.getElementById("adminNameInput").value.trim(),
+        phone: document.getElementById("adminPhoneInput").value.trim(),
+        country: 'Chile', // Por defecto
+        city: 'Puerto Montt' // Por defecto
+      };
+
+      const profileRes = await fetch(`${API_BASE}/api/users/profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(profileData)
+      });
+
+      if (!profileRes.ok) {
+        const error = await profileRes.json();
+        throw new Error(error.message || 'Error al actualizar perfil');
+      }
+
       alert(t.admin_settings.data_updated_successfully);
       hideModal();
+      
+      // Recargar datos del perfil
+      await loadAdminData();
     } catch (err) {
       console.error(err);
-      alert(t.admin_settings.error_saving_changes);
+      alert(err.message || t.admin_settings.error_saving_changes);
     }
   });
 
