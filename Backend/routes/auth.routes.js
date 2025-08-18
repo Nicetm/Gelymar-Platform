@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/auth.controller');
 const authMiddleware = require('../middleware/auth.middleware');
+const userService = require('../services/user.service');
 
 /**
  * @swagger
@@ -30,15 +31,22 @@ const authMiddleware = require('../middleware/auth.middleware');
 router.post('/login', authController.login);
 router.get('/2fa/setup', authController.setup2FA);
 router.get('/2fa/status', authController.check2FAStatus);
-router.get('/me', authMiddleware, (req, res) => {
-    res.json({
-        id: req.user.id,
-        email: req.user.email,
-        role: req.user.role
-    });
+router.get('/me', authMiddleware, async (req, res) => {
+    try {
+        const user = await userService.findUserByEmailOrUsername(req.user.email);
+        res.json({
+            id: req.user.id,
+            email: req.user.email,
+            role: req.user.role,
+            change_pw: user.change_pw
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Error interno' });
+    }
 });
 
 router.post('/refresh', authMiddleware, authController.refreshToken);
+router.post('/change-password', authMiddleware, authController.changePassword);
 router.post('/recover', authController.recoverPassword);
 router.post('/reset-password', authController.resetPassword);
 

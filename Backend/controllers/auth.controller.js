@@ -258,6 +258,43 @@ exports.resetPassword = async (req, res) => {
 };
 
 /**
+ * @route POST /api/auth/change-password
+ * @desc Cambia la contraseña del usuario autenticado
+ * @access Privado (requiere JWT)
+ */
+exports.changePassword = async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  const userId = req.user.id;
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ message: 'Faltan datos requeridos' });
+  }
+
+  try {
+    const user = await userService.findUserByEmailOrUsername(req.user.email);
+    if (!user) {
+      return res.status(404).json({ message: 'Usuario no encontrado' });
+    }
+
+    const validPassword = await bcrypt.compare(currentPassword, user.password);
+    if (!validPassword) {
+      return res.status(401).json({ message: 'Contraseña actual incorrecta' });
+    }
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+    const pool = await require('../config/db').poolPromise;
+    await pool.query('UPDATE users SET password = ?, change_pw = 1 WHERE id = ?', [hashed, userId]);
+
+    logger.info(`Contraseña cambiada para usuario ${user.email}`);
+    res.json({ message: 'Contraseña actualizada correctamente' });
+
+  } catch (err) {
+    logger.error(`Error en changePassword: ${err.message}`);
+    res.status(500).json({ message: 'Error interno' });
+  }
+};
+
+/**
  * @route POST /api/auth/logout
  * @desc Cierra la sesión del usuario (solo limpia la cookie si se usa)
  * @access Público (o protegido si se quiere)

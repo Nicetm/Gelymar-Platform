@@ -26,7 +26,7 @@ async function findUserByEmailOrUsername(emailOrUsername) {
   const [rows] = await pool.query(
     `
     SELECT u.id, u.email, u.password,
-           u.twoFASecret, u.twoFAEnabled,
+           u.twoFASecret, u.twoFAEnabled, u.change_pw,
            r.name AS role
     FROM users u
     LEFT JOIN roles r ON u.role_id = r.id

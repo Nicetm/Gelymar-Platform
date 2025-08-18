@@ -49,6 +49,8 @@ const apiBase = import.meta.env.PUBLIC_API_URL;
   </form>
 </div>
 
+</div>
+
 <style is:global>
   .input {
     @apply bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-[#00538C] focus:border-[#00538C];
@@ -149,6 +151,14 @@ const apiBase = import.meta.env.PUBLIC_API_URL;
       const user = await meRes.json();
       console.log('🔍 Usuario obtenido:', user);
 
+      // ✅ Verificar si debe cambiar password
+      if (user.change_pw === 0) {
+        console.log('🔍 Usuario debe cambiar password');
+        localStorage.setItem('userRole', user.role);
+        window.location.href = '/authentication/change-password';
+        return;
+      }
+
       // ✅ Redirigir según rol real
       if (user.role === 'admin') {
         console.log('🔍 Redirigiendo a admin');
@@ -164,5 +174,7 @@ const apiBase = import.meta.env.PUBLIC_API_URL;
       msg.classList.add('text-red-500');
     }
   });
+
+
 </script>
 

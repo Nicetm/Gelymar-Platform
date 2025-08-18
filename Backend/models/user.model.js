@@ -11,7 +11,8 @@ class User {
     password,
     role_id = 2,
     twoFASecret = null,
-    twoFAEnabled = false
+    twoFAEnabled = false,
+    change_pw = 1
   }) {
     this.id = id;
     this.email = email;
@@ -23,6 +24,7 @@ class User {
     this.role_id = role_id;
     this.twoFASecret = twoFASecret;
     this.twoFAEnabled = twoFAEnabled;
+    this.change_pw = change_pw;
   }
 }
 
