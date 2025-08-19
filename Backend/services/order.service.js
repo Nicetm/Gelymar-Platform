@@ -336,6 +336,117 @@ const getOrderItems = async (orderId, user) => {
   }
 };
 
+/**
+ * Obtiene una orden por RUT y OC
+ * @param {string} rut - RUT del cliente
+ * @param {string} oc - OC de la orden
+ * @returns {Promise<object|null>} Orden encontrada o null
+ */
+const getOrderByRutAndOc = async (rut, oc) => {
+  try {
+    const pool = await poolPromise;
+    
+    const query = `
+      SELECT o.id, o.rut, o.oc, o.factura, o.fec_factura, o.updated_at
+      FROM orders o
+      WHERE o.rut = ? AND o.oc = ?
+    `;
+    
+    const [rows] = await pool.query(query, [rut, oc]);
+    
+    return rows.length > 0 ? rows[0] : null;
+    
+  } catch (error) {
+    console.error('Error getting order by RUT and OC:', error);
+    throw error;
+  }
+};
+
+/**
+ * Actualiza el campo factura de una orden
+ * @param {number} orderId - ID de la orden
+ * @param {string} factura - Nuevo número de factura
+ * @returns {Promise<void>}
+ */
+const updateOrderFactura = async (orderId, factura) => {
+  try {
+    const pool = await poolPromise;
+    
+    const query = `
+      UPDATE orders 
+      SET factura = ?, updated_at = NOW()
+      WHERE id = ?
+    `;
+    
+    const [result] = await pool.query(query, [factura, orderId]);
+    
+    if (result.affectedRows === 0) {
+      throw new Error(`No se pudo actualizar la orden con ID ${orderId}`);
+    }
+    
+    console.log(`Orden ${orderId} actualizada con factura: ${factura}`);
+    
+  } catch (error) {
+    console.error('Error updating order factura:', error);
+    throw error;
+  }
+};
+
+/**
+ * Obtiene una orden por ID
+ * @param {number} orderId - ID de la orden
+ * @returns {Promise<object|null>} Orden encontrada o null
+ */
+const getOrderById = async (orderId) => {
+  try {
+    const pool = await poolPromise;
+    
+    const query = `
+      SELECT o.id, o.rut, o.oc, o.factura, o.fec_factura, o.updated_at
+      FROM orders o
+      WHERE o.id = ?
+    `;
+    
+    const [rows] = await pool.query(query, [orderId]);
+    
+    return rows.length > 0 ? rows[0] : null;
+    
+  } catch (error) {
+    console.error('Error getting order by ID:', error);
+    throw error;
+  }
+};
+
+/**
+ * Actualiza el campo fecha_factura de una orden
+ * @param {number} orderId - ID de la orden
+ * @param {string} fechaFactura - Nueva fecha de factura
+ * @returns {Promise<void>}
+ */
+const updateOrderFechaFactura = async (orderId, fechaFactura) => {
+  try {
+    const pool = await poolPromise;
+    
+    const query = `
+      UPDATE orders 
+      SET fec_factura = ?, updated_at = NOW()
+      WHERE id = ?
+    `;
+    
+    const [result] = await pool.query(query, [fechaFactura, orderId]);
+    
+    if (result.affectedRows === 0) {
+      throw new Error(`No se pudo actualizar la orden con ID ${orderId}`);
+    }
+    
+    console.log(`Orden ${orderId} actualizada con fecha de factura: ${fechaFactura}`);
+    
+  } catch (error) {
+    console.error('Error updating order fecha_factura:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   getOrdersByFilters,
   getClientDashboardOrders,
@@ -343,5 +454,9 @@ module.exports = {
   insertOrder,
   getAllExistingOrders,
   getOrderIdByPc,
-  getOrderItems
+  getOrderItems,
+  getOrderByRutAndOc,
+  getOrderById,
+  updateOrderFactura,
+  updateOrderFechaFactura
 };

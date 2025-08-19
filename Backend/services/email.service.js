@@ -5,14 +5,6 @@ const os = require('os');
 
 require('dotenv').config(); // Esto debe estar al inicio de tu app principal (app.js), si no lo tienes ya
 
-// Debug: Verificar variables de entorno
-console.log('DEBUG SMTP Config:', {
-  host: process.env.SMTP_HOST,
-  port: process.env.SMTP_PORT,
-  user: process.env.SMTP_USER,
-  pass: process.env.SMTP_PASS ? '***SET***' : '***NOT SET***'
-});
-
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: process.env.SMTP_PORT,

@@ -28,6 +28,7 @@
 	"fileDeleted": "File deleted successfully",
 	"sendCustomMessage": "Send custom message",
 	"message": "Message",
+	"messageTooltip": "Message that will be printed on the sent document as additional information",
 	"is_visible_to_customer": "Public",
 	"orderPlaceholder": "1234",
 	"clientPlaceholder": "Customer name",

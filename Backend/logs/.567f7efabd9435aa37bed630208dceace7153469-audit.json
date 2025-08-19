@@ -39,6 +39,11 @@
             "date": 1755546642880,
             "name": "E:\\Softkey\\Gelymar\\Proyecto\\gelymar-management-platform\\Backend\\logs\\app-2025-08-18.log",
             "hash": "983075bb4aca4b40c601f52000666f017633450185fcb78403b34cf324d6865c"
+        },
+        {
+            "date": 1755576042104,
+            "name": "E:\\Softkey\\Gelymar\\Proyecto\\gelymar-management-platform\\Backend\\logs\\app-2025-08-19.log",
+            "hash": "715b16e03d94a8d14148fce27565ec1efa96f5f1f4c11e0ecc4ae1e8a2823c2a"
         }
     ],
     "hashType": "sha256"

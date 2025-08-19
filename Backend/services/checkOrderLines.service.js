@@ -147,15 +147,6 @@ async function fetchOrderLineFilesFromNetwork() {
           console.log(`Item encontrado: Código=${itemCode}, ID=${item.id}`);
         }
 
-        // Debug: mostrar valores de campos problemáticos
-        if (procesados <= 5) {
-          console.log(`Registro ${procesados} - Valores de campos:`);
-          console.log(`  Etiqueta: "${record.Etiqueta}"`);
-          console.log(`  Kto_Etiqueta5: "${record.Kto_Etiqueta5}"`);
-          console.log(`  OC: "${record.OC}"`);
-          console.log(`  Nro: "${record.Nro}"`);
-        }
-
         const orderLineData = {
           order_id: orderId,
           pc: pc,

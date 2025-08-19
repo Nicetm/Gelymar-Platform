@@ -25,6 +25,7 @@
 	"documentDescriptionTooltip": "Proporciona una breve descripción del documento para referencia futura",
 	"sendCustomMessage": "Enviar mensaje personalizado",
 	"message": "Mensaje",
+	"messageTooltip": "Mensaje que irá impreso en el documento enviado como información adicional",
 	"is_visible_to_customer": "Publico",
   "orderPlaceholder": "1234",
   "clientPlaceholder": "Nombre cliente",

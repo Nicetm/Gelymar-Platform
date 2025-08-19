@@ -170,6 +170,7 @@ const updateFile = async(data) => {
 }
 
 const duplicateFile = async (fileId) => {
+
   const pool = await poolPromise;
 
   console.log('Duplicando archivo con ID:', fileId);
@@ -183,13 +184,13 @@ const duplicateFile = async (fileId) => {
   // Insertar el nuevo registro duplicado
   const [result] = await pool.query(`
     INSERT INTO files (
-      order_id, name, path, 
+      order_id, pc, oc, name, path, 
       created_at, updated_at, eta, etd, was_sent, 
-      document_type, file_type, status_id
-    ) VALUES (?, ?, ?, NOW(), NOW(), ?, ?, ?, ?, ?, ?)`,
+      document_type, file_type, status_id, is_visible_to_client
+    ) VALUES (?, ?, ?, ?, ?, NOW(), NOW(), ?, ?, ?, ?, ?, ?, ?)`,
     [
-      file.order_id, file.name, file.path,
-      file.eta, file.etd, true, file.document_type, file.file_type, 4
+      file.order_id, file.pc, file.oc, file.name, file.path,
+      file.eta, file.etd, true, file.document_type, file.file_type, 4, file.is_visible_to_client
     ]
   );
 

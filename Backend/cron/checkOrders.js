@@ -9,10 +9,16 @@ const emitReady = () => {
 };
 
 // Función para ejecutar con manejo de errores
-async function executeWithErrorHandling() {
+async function executeWithErrorHandling(updateMode = false) {
   try {
-    await fetchOrderFilesFromNetwork();
-    console.log('Procesamiento inicial de órdenes completado');
+    await fetchOrderFilesFromNetwork(updateMode);
+    if (updateMode === 'factura') {
+      console.log('Actualización de facturas completada');
+    } else if (updateMode === 'fecha_factura') {
+      console.log('Actualización de fechas de factura completada');
+    } else {
+      console.log('Procesamiento inicial de órdenes completado');
+    }
   } catch (error) {
     console.error('Error en procesamiento inicial de órdenes:', error.message);
     console.log('Continuando con el siguiente proceso...');
@@ -21,12 +27,22 @@ async function executeWithErrorHandling() {
   }
 }
 
-// Verificar si se debe ejecutar inmediatamente
-const shouldExecuteNow = process.argv.includes('--execute-now');
+// Verificar parámetros de ejecución desde variables de entorno
+const shouldExecuteNow = process.env.EXECUTE_NOW === 'true';
+const shouldUpdateFactura = process.env.UPDATE_MODE === 'factura';
+const shouldUpdateFechaFactura = process.env.UPDATE_MODE === 'fecha_factura';
 
 if (shouldExecuteNow) {
-  console.log('🚀 Ejecutando tarea de órdenes inmediatamente...');
-  executeWithErrorHandling();
+  if (shouldUpdateFactura) {
+    console.log('🚀 Ejecutando tarea de órdenes con actualización de facturas...');
+    executeWithErrorHandling('factura'); // modo actualización de facturas
+  } else if (shouldUpdateFechaFactura) {
+    console.log('🚀 Ejecutando tarea de órdenes con actualización de fechas de factura...');
+    executeWithErrorHandling('fecha_factura'); // modo actualización de fechas
+  } else {
+    console.log('🚀 Ejecutando tarea de órdenes inmediatamente...');
+    executeWithErrorHandling(false); // modo normal
+  }
 } else {
   console.log('⏰ Proceso de órdenes iniciado. Esperando programación (6:00 AM)...');
   emitReady();

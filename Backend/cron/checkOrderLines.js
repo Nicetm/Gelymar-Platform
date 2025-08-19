@@ -9,10 +9,14 @@ const emitReady = () => {
 };
 
 // Función para ejecutar con manejo de errores
-async function executeWithErrorHandling() {
+async function executeWithErrorHandling(updateMode = false) {
   try {
-    await fetchOrderLineFilesFromNetwork();
-    console.log('Procesamiento inicial de líneas de orden completado');
+    await fetchOrderLineFilesFromNetwork(updateMode);
+    if (updateMode === 'factura') {
+      console.log('Actualización de facturas en líneas de orden completada');
+    } else {
+      console.log('Procesamiento inicial de líneas de orden completado');
+    }
   } catch (error) {
     console.error('Error en procesamiento inicial de líneas de orden:', error.message);
     console.log('Continuando con el siguiente proceso...');
@@ -21,12 +25,18 @@ async function executeWithErrorHandling() {
   }
 }
 
-// Verificar si se debe ejecutar inmediatamente
-const shouldExecuteNow = process.argv.includes('--execute-now');
+// Verificar parámetros de ejecución desde variables de entorno
+const shouldExecuteNow = process.env.EXECUTE_NOW === 'true' || true; // Forzar ejecución
+const shouldUpdateFactura = process.env.UPDATE_MODE === 'factura' || true; // Forzar actualización de facturas
 
 if (shouldExecuteNow) {
-  console.log('🚀 Ejecutando tarea de líneas de orden inmediatamente...');
-  executeWithErrorHandling();
+  if (shouldUpdateFactura) {
+    console.log('🚀 Ejecutando tarea de líneas de orden con actualización de facturas...');
+    executeWithErrorHandling('factura'); // modo actualización de facturas
+  } else {
+    console.log('🚀 Ejecutando tarea de líneas de orden inmediatamente...');
+    executeWithErrorHandling(false); // modo normal
+  }
 } else {
   console.log('⏰ Proceso de líneas de orden iniciado. Esperando programación (6:30 AM)...');
   emitReady();

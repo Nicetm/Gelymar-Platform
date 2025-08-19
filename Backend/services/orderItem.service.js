@@ -74,8 +74,66 @@ const getAllOrderLines = async () => {
   return rows;
 };
 
+/**
+ * Obtiene una línea de orden por PC
+ * @param {string} pc - Número de PC
+ * @returns {Promise<object|null>} Línea de orden encontrada o null
+ */
+const getOrderLineByPc = async (pc) => {
+  try {
+    const pool = await poolPromise;
+    
+    const query = `
+      SELECT oi.id, oi.order_id, oi.pc, oi.linea, oi.factura
+      FROM order_items oi
+      WHERE oi.pc = ?
+      LIMIT 1
+    `;
+    
+    const [rows] = await pool.query(query, [pc]);
+    
+    return rows.length > 0 ? rows[0] : null;
+    
+  } catch (error) {
+    console.error('Error getting order line by PC:', error);
+    throw error;
+  }
+};
+
+/**
+ * Actualiza el campo factura de una línea de orden
+ * @param {number} orderLineId - ID de la línea de orden
+ * @param {string} factura - Nueva factura
+ * @returns {Promise<void>}
+ */
+const updateOrderLineFactura = async (orderLineId, factura) => {
+  try {
+    const pool = await poolPromise;
+    
+    const query = `
+      UPDATE order_items 
+      SET factura = ?, updated_at = NOW()
+      WHERE id = ?
+    `;
+    
+    const [result] = await pool.query(query, [factura, orderLineId]);
+    
+    if (result.affectedRows === 0) {
+      throw new Error(`No se pudo actualizar la línea de orden con ID ${orderLineId}`);
+    }
+    
+    console.log(`Línea de orden ${orderLineId} actualizada con factura: ${factura}`);
+    
+  } catch (error) {
+    console.error('Error updating order line factura:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   insertOrderLine,
   getAllExistingOrderLines,
-  getAllOrderLines
+  getAllOrderLines,
+  getOrderLineByPc,
+  updateOrderLineFactura
 }; 

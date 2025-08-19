@@ -52,12 +52,26 @@ async function fetchOrderFilesFromNetwork() {
   const inputPath = mountIfNeeded();
   console.log('Ruta del archivo montado:', inputPath);
 
-  if (!inputPath || !fs.existsSync(inputPath)) {
+  if (!inputPath) {
+    console.error('No se pudo obtener la ruta del archivo');
+    return;
+  }
+
+  console.log('Verificando si existe el archivo:', inputPath);
+  if (!fs.existsSync(inputPath)) {
     console.error('Archivo no disponible o no montado:', inputPath);
+    console.log('Intentando listar directorio Z:\\');
+    try {
+      const files = fs.readdirSync('Z:\\');
+      console.log('Archivos en Z:\\:', files);
+    } catch (err) {
+      console.log('No se puede acceder a Z:\\:', err.message);
+    }
     return;
   }
 
   try {
+    console.log('Intentando leer archivo desde:', inputPath);
     const content = fs.readFileSync(inputPath, 'latin1');
     console.log('Contenido leído (primeras líneas):');
     console.log(content.split('\n').slice(0, 3).join('\n'));

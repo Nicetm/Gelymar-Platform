@@ -12,24 +12,16 @@ import {
   isValidEmail
 } from './utils.js';
 
-// Función para cargar traducciones
-async function loadTranslations(lang, section) {
-  try {
-    const module = await import(`/src/i18n/${lang}/${section}.json`);
-    return module.default || {};
-  } catch (err) {
-    console.warn('Fallo carga traducción:', err);
-    return {};
-  }
-}
+
 
 export async function initClientsScript() {
-  // Obtener apiBase desde las variables de entorno
+  // Obtener apiBase - usar localhost para JavaScript del cliente
   const apiBase = import.meta.env?.PUBLIC_API_URL || 'http://localhost:3000';
   
-  // Cargar traducciones
-  const currentLang = localStorage.getItem('lang') || 'en';
-  const messages = await loadTranslations(currentLang, 'messages');
+  // Usar traducciones ya cargadas por Astro
+  const translations = window.translations || {};
+  const messages = translations.messages || {};
+  const clientes = translations.clientes || {};
   
   // Verificar que todos los elementos necesarios existan
   const searchInput = qs('searchInput');
@@ -710,14 +702,14 @@ export async function initClientsScript() {
       const contactId = btn.dataset.contactId;
       
       const confirmed = await confirmAction(
-        messages.clients.deleteContactConfirm,
-        messages.clients.deleteContactMessage
+        '¿Estás seguro?',
+        '¿Deseas eliminar este contacto?'
       );
       
       if (confirmed) {
         try {
           const token = localStorage.getItem('token');
-          const response = await fetch(`${apiBase}/api/customer-contacts/${contactId}`, {
+          const response = await fetch(`${apiBase}/api/customer/contacts/${contactId}`, {
             method: 'DELETE',
             headers: {
               'Authorization': `Bearer ${token}`
@@ -725,12 +717,12 @@ export async function initClientsScript() {
           });
           if (response.ok) {
             await loadContacts(currentClientUuid);
-            showNotification(messages.clients.deleteContactSuccess, 'success');
+            showNotification('Contacto eliminado correctamente', 'success');
           } else {
-            showNotification(messages.clients.deleteContactError, 'error');
+            showNotification('Error al eliminar contacto', 'error');
           }
         } catch (error) {
-          showNotification(messages.clients.deleteContactError, 'error');
+          showNotification('Error al eliminar contacto', 'error');
         }
       }
     }
