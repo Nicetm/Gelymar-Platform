@@ -1,5 +1,8 @@
-const { fetchClientFilesFromNetwork } = require('../services/checkClients.service');
+const axios = require('axios');
 const cron = require('node-cron');
+
+// Configuración de la API del backend
+const BACKEND_API_URL = process.env.BACKEND_API_URL || 'http://localhost:3000';
 
 // Función para emitir señal de ready
 const emitReady = () => {
@@ -11,10 +14,11 @@ const emitReady = () => {
 // Función para ejecutar con manejo de errores
 async function executeWithErrorHandling() {
   try {
-    await fetchClientFilesFromNetwork();
-    console.log('Procesamiento inicial de clientes completado');
+    console.log('Llamando al endpoint de procesamiento de clientes...');
+    const response = await axios.post(`${BACKEND_API_URL}/api/cron/check-clients`);
+    console.log('Procesamiento inicial de clientes completado:', response.data.message);
   } catch (error) {
-    console.error('Error en procesamiento inicial de clientes:', error.message);
+    console.error('Error en procesamiento inicial de clientes:', error.response?.data?.error || error.message);
     console.log('Continuando con el siguiente proceso...');
   } finally {
     emitReady();
@@ -36,10 +40,10 @@ if (arg === 'execute-now') {
 cron.schedule('0 5 * * *', async () => {
   console.log(`[${new Date().toISOString()}] Iniciando procesamiento de archivos de clientes...`);
   try {
-    await fetchClientFilesFromNetwork();
-    console.log(`[${new Date().toISOString()}] Archivos de clientes procesados.`);
+    const response = await axios.post(`${BACKEND_API_URL}/api/cron/check-clients`);
+    console.log(`[${new Date().toISOString()}] Archivos de clientes procesados:`, response.data.message);
   } catch (error) {
-    console.error(`[${new Date().toISOString()}] Error en procesamiento de clientes:`, error.message);
+    console.error(`[${new Date().toISOString()}] Error en procesamiento de clientes:`, error.response?.data?.error || error.message);
     console.log('Continuando con el siguiente proceso...');
   }
 });

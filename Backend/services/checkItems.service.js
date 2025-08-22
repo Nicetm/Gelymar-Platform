@@ -12,22 +12,37 @@ const FILE_NAME = 'PRODUCTOS_SOFTKEY.txt';
 const USER = 'softkey';
 const PASSWORD = 'sK06.2025#';
 
+let isMounted = false;
+
 function mountIfNeeded() {
   const platform = os.platform();
   if (platform === 'win32') {
     const filePath = `Z:\\${FILE_NAME}`;
     
-    // Solo verificar si existe, no intentar montar
+    // Verificar si la unidad Z: ya está montada y el archivo existe
+    if (fs.existsSync(filePath)) {
+      console.log('Unidad Z: ya está montada y accesible');
+      return filePath;
+    }
+    
+    // Si el archivo no existe, intentar montar la red compartida
+    console.log('Unidad Z: no está montada o archivo no encontrado, intentando montar...');
     try {
+      const mountCmd = `net use Z: \\\\${SERVER}\\${SHARE_PATH} /user:${USER} ${PASSWORD}`;
+      execSync(mountCmd, { stdio: 'pipe' });
+      isMounted = true;
+      console.log('Red compartida montada correctamente en Windows');
+      
+      // Verificar si ahora existe el archivo
       if (fs.existsSync(filePath)) {
-        console.log('Unidad Z: ya está montada y accesible');
+        console.log('Archivo encontrado después del montaje');
         return filePath;
       } else {
-        console.log('Archivo no encontrado en Z:, pero la unidad puede estar montada');
+        console.log('Archivo no encontrado después del montaje');
         return filePath;
       }
-    } catch (err) {
-      console.log('Error accediendo a Z:, pero continuando...');
+    } catch (mountErr) {
+      console.error('Error montando red en Windows:', mountErr.message);
       return filePath;
     }
   } else {
@@ -38,12 +53,46 @@ function mountIfNeeded() {
         execSync(`mkdir -p ${mountPoint}`);
         const mountCmd = `mount -t cifs //${SERVER}/${SHARE_PATH} ${mountPoint} -o username=${USER},password='${PASSWORD}',iocharset=utf8,vers=1.0`;
         execSync(mountCmd);
+        isMounted = true;
+        console.log('Red compartida montada correctamente');
       } catch (err) {
         console.error('Error montando red en Linux:', err.message);
         return null;
       }
+    } else {
+      console.log('Red compartida ya está montada');
     }
     return filePath;
+  }
+}
+
+function unmountIfNeeded() {
+  const platform = os.platform();
+  if (platform === 'win32') {
+    if (isMounted) {
+      try {
+        execSync('net use Z: /delete', { stdio: 'pipe' });
+        console.log('Red compartida desmontada correctamente en Windows');
+        isMounted = false;
+      } catch (err) {
+        console.error('Error desmontando red en Windows:', err.message);
+      }
+    } else {
+      console.log('Red compartida no estaba montada por este proceso en Windows');
+    }
+  } else {
+    if (isMounted) {
+      try {
+        const mountPoint = '/mnt/red';
+        execSync(`umount ${mountPoint}`);
+        console.log('Red compartida desmontada correctamente');
+        isMounted = false;
+      } catch (err) {
+        console.error('Error desmontando red en Linux:', err.message);
+      }
+    } else {
+      console.log('Red compartida no estaba montada por este proceso');
+    }
   }
 }
 
@@ -53,6 +102,7 @@ async function fetchItemFilesFromNetwork() {
 
   if (!inputPath || !fs.existsSync(inputPath)) {
     console.error('Archivo no disponible o no montado:', inputPath);
+    unmountIfNeeded();
     return;
   }
 
@@ -99,64 +149,43 @@ async function fetchItemFilesFromNetwork() {
       try {
         procesados++;
         
-        // Debug: mostrar los primeros 3 registros
-        if (procesados <= 3) {
-          console.log(`Registro ${procesados}:`, JSON.stringify(record, null, 2));
-        }
-        
-        // Extraer código del item
-        const itemCode = record.Item?.trim();
-        if (!itemCode) {
-          console.log(`Registro ${procesados} omitido: sin código de item`);
-          continue;
-        }
-
-        // Verificar si el item ya existe
-        if (existingItemCodes.includes(itemCode)) {
-          if (procesados <= 10) { // Solo mostrar los primeros 10 omitidos
-            console.log(`Item ya existe: ${itemCode}`);
-          }
+        const codigo = record.Item?.trim();
+        if (!codigo) {
+          console.log('Registro omitido sin código:', record);
           omitidos++;
           continue;
         }
 
-        // Extraer campos del registro
-        const itemData = {
-          item_code: itemCode,
-          item_name: record.Descripcion_1?.trim() || '',
-          item_name_extra: record.Descripcion_2?.trim() || '',
-          unidad_medida: record.Unidad_medida?.trim() || ''
-        };
-
-        if (procesados <= 3) {
-          console.log(`Datos de item a insertar:`, JSON.stringify(itemData, null, 2));
-          console.log(`Campo Unidad_medida del archivo: "${record.Unidad_medida}"`);
-          console.log(`Campo unidad_medida procesado: "${itemData.unidad_medida}"`);
+        if (existingItemCodes.includes(codigo)) {
+          console.log(`Item ya existe: ${codigo}`);
+          omitidos++;
+          continue;
         }
 
-        // Insertar el item
-        await insertItem(itemData);
-        
-        if (procesados <= 10) { // Solo mostrar los primeros 10 éxitos
-          console.log(`Item insertado: ${itemData.item_code} - ${itemData.item_name}`);
-        }
+        await insertItem({
+          item_code: codigo,
+          item_name: record.Descripcion_1?.trim(),
+          item_name_extra: record.Descripcion_2?.trim(),
+          unidad_medida: record.Unidad_medida?.trim()
+        });
+
+        console.log(`Item insertado: ${codigo}`);
         insertados++;
-        
-      } catch (err) {
-        console.error(`Error procesando registro ${procesados}:`, err.message);
+      } catch (error) {
+        console.error(`Error procesando item ${record.Item}:`, error.message);
         errores++;
       }
     }
 
-    console.log(`Proceso completado:`);
-    console.log(`- Registros procesados: ${procesados}`);
-    console.log(`- Items insertados: ${insertados}`);
-    console.log(`- Items omitidos (ya existían): ${omitidos}`);
-    console.log(`- Errores: ${errores}`);
-    
-  } catch (err) {
-    console.error('Error al procesar archivo:', err.message);
+    console.log(`Procesamiento completado. Procesados: ${procesados}, Insertados: ${insertados}, Omitidos: ${omitidos}, Errores: ${errores}`);
+  } catch (error) {
+    console.error('Error procesando archivo de items:', error);
+  } finally {
+    // Siempre desmontar al finalizar
+    unmountIfNeeded();
   }
 }
 
-module.exports = { fetchItemFilesFromNetwork }; 
+module.exports = {
+  fetchItemFilesFromNetwork
+}; 

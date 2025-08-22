@@ -14,22 +14,37 @@ const FILE_NAME = 'FAC_LIN_SOFTKEY.txt';
 const USER = 'softkey';
 const PASSWORD = 'sK06.2025#';
 
+let isMounted = false;
+
 function mountIfNeeded() {
   const platform = os.platform();
   if (platform === 'win32') {
     const filePath = `Z:\\${FILE_NAME}`;
     
-    // Solo verificar si existe, no intentar montar
+    // Verificar si la unidad Z: ya está montada y el archivo existe
+    if (fs.existsSync(filePath)) {
+      console.log('Unidad Z: ya está montada y accesible');
+      return filePath;
+    }
+    
+    // Si el archivo no existe, intentar montar la red compartida
+    console.log('Unidad Z: no está montada o archivo no encontrado, intentando montar...');
     try {
+      const mountCmd = `net use Z: \\\\${SERVER}\\${SHARE_PATH} /user:${USER} ${PASSWORD}`;
+      execSync(mountCmd, { stdio: 'pipe' });
+      isMounted = true;
+      console.log('Red compartida montada correctamente en Windows');
+      
+      // Verificar si ahora existe el archivo
       if (fs.existsSync(filePath)) {
-        console.log('Unidad Z: ya está montada y accesible');
+        console.log('Archivo encontrado después del montaje');
         return filePath;
       } else {
-        console.log('Archivo no encontrado en Z:, pero la unidad puede estar montada');
+        console.log('Archivo no encontrado después del montaje');
         return filePath;
       }
-    } catch (err) {
-      console.log('Error accediendo a Z:, pero continuando...');
+    } catch (mountErr) {
+      console.error('Error montando red en Windows:', mountErr.message);
       return filePath;
     }
   } else {
@@ -40,12 +55,46 @@ function mountIfNeeded() {
         execSync(`mkdir -p ${mountPoint}`);
         const mountCmd = `mount -t cifs //${SERVER}/${SHARE_PATH} ${mountPoint} -o username=${USER},password='${PASSWORD}',iocharset=utf8,vers=1.0`;
         execSync(mountCmd);
+        isMounted = true;
+        console.log('Red compartida montada correctamente');
       } catch (err) {
         console.error('Error montando red en Linux:', err.message);
         return null;
       }
+    } else {
+      console.log('Red compartida ya está montada');
     }
     return filePath;
+  }
+}
+
+function unmountIfNeeded() {
+  const platform = os.platform();
+  if (platform === 'win32') {
+    if (isMounted) {
+      try {
+        execSync('net use Z: /delete', { stdio: 'pipe' });
+        console.log('Red compartida desmontada correctamente en Windows');
+        isMounted = false;
+      } catch (err) {
+        console.error('Error desmontando red en Windows:', err.message);
+      }
+    } else {
+      console.log('Red compartida no estaba montada por este proceso en Windows');
+    }
+  } else {
+    if (isMounted) {
+      try {
+        const mountPoint = '/mnt/red';
+        execSync(`umount ${mountPoint}`);
+        console.log('Red compartida desmontada correctamente');
+        isMounted = false;
+      } catch (err) {
+        console.error('Error desmontando red en Linux:', err.message);
+      }
+    } else {
+      console.log('Red compartida no estaba montada por este proceso');
+    }
   }
 }
 
@@ -55,6 +104,7 @@ async function fetchOrderLineFilesFromNetwork() {
 
   if (!inputPath || !fs.existsSync(inputPath)) {
     console.error('Archivo no disponible o no montado:', inputPath);
+    unmountIfNeeded();
     return;
   }
 
@@ -101,108 +151,95 @@ async function fetchOrderLineFilesFromNetwork() {
       try {
         procesados++;
         
-        // Debug: mostrar los primeros 3 registros
-        if (procesados <= 3) {
-          console.log(`Registro ${procesados}:`, JSON.stringify(record, null, 2));
-        }
+        // Extraer campos del archivo según el mapeo correcto
+        const pc = record.Nro?.trim();
+        const linea = record.Linea?.trim();
+        const itemCode = record.Item?.trim();
+        const factura = record.Factura?.trim();
+        const localizacion = record.Localizacion?.trim();
+        const kgSolicitados = record.Cant_ordenada?.trim();
+        const precioUnitario = record.Precio_Unit_US?.trim();
+        const comentario = record.Comentario?.trim();
+        const mercado = record.Mercado?.trim();
+        const embalaje = record.Embalaje?.trim();
+        const volumen = record.Volumen?.trim();
+        const etiqueta = record.Etiqueta?.trim();
+        const ktoEtiqueta5 = record.Kto_Etiqueta5?.trim();
         
-        // Extraer campos del registro
-        const pc = record.Nro?.trim() || '';
         if (!pc) {
-          console.log(`Registro ${procesados} omitido: sin PC`);
-          continue;
-        }
-
-        // Buscar el order_id por PC
-        const orderId = await getOrderIdByPc(pc);
-        if (!orderId) {
-          if (procesados <= 10) { // Solo mostrar los primeros 10 errores
-            console.log(`Orden no encontrada para PC: ${pc}`);
-          }
-          errores++;
-          continue;
-        }
-
-        if (procesados <= 3) {
-          console.log(`Orden encontrada: PC=${pc}, Order ID=${orderId}`);
-        }
-
-        // Buscar el item_id por código
-        const itemCode = record.Item?.trim() || '';
-        if (!itemCode) {
-          console.log(`Registro ${procesados} omitido: sin código de item`);
-          continue;
-        }
-
-        const item = await getItemByCode(itemCode);
-        if (!item) {
-          if (procesados <= 10) { // Solo mostrar los primeros 10 errores
-            console.log(`Item no encontrado para código: ${itemCode}`);
-          }
-          errores++;
-          continue;
-        }
-
-        if (procesados <= 3) {
-          console.log(`Item encontrado: Código=${itemCode}, ID=${item.id}`);
-        }
-
-        const orderLineData = {
-          order_id: orderId,
-          pc: pc,
-          linea: record.Linea?.trim() || '',
-          factura: record.Factura?.trim() || '',
-          localizacion: record.Localizacion?.trim() || '',
-          item_id: item.id, // Usar el ID numérico del item
-          descripcion: record.Descripcion?.trim() || '',
-          kg_solicitados: record.Cant_ordenada?.trim() || '',
-          kg_despachados: record.Cant_enviada?.trim() || '',
-          unit_price: record.Precio_Unit_US?.trim() || '',
-          observacion: record.Comentario?.trim() || '',
-          mercado: record.Mercado?.trim() || '',
-          embalaje: record.Embalaje?.trim() || '',
-          volumen: record.Volumen?.trim() || '',
-          etiqueta: record.Etiqueta?.trim() || '',
-          kto_etiqueta5: record.Kto_Etiqueta5?.trim() || ''
-        };
-
-        // Verificar si la línea de orden ya existe (por PC, línea y factura)
-        const orderLineKey = `${orderLineData.pc}-${orderLineData.linea}-${orderLineData.factura}`;
-        if (existingOrderLines.includes(orderLineKey)) {
-          if (procesados <= 10) { // Solo mostrar los primeros 10 omitidos
-            console.log(`Línea de orden ya existe: PC=${orderLineData.pc}, Línea=${orderLineData.linea}, Factura=${orderLineData.factura}`);
-          }
+          console.log('Registro omitido sin PC (Nro):', record);
           omitidos++;
           continue;
         }
 
-        if (procesados <= 3) {
-          console.log(`Datos de línea de orden a insertar:`, JSON.stringify(orderLineData, null, 2));
+        if (!itemCode) {
+          console.log('Registro omitido sin código de item:', record);
+          omitidos++;
+          continue;
+        }
+
+        // Verificar si la línea de orden ya existe
+        const lineKey = `${pc}-${linea}-${factura}`;
+        if (existingOrderLines.includes(lineKey)) {
+          console.log(`Línea de orden ya existe: ${lineKey}`);
+          omitidos++;
+          continue;
+        }
+
+        // Buscar la orden en la base de datos
+        const orderId = await getOrderIdByPc(pc);
+        if (!orderId) {
+          console.log(`Orden no encontrada para PC: ${pc}`);
+          console.log(`Verificando si existe en la tabla orders...`);
+          omitidos++;
+          continue;
+        }
+
+        console.log(`Orden encontrada: PC=${pc}, Order ID=${orderId}`);
+
+        // Buscar el item en la base de datos
+        const item = await getItemByCode(itemCode);
+        if (!item) {
+          console.log(`Item no encontrado: ${itemCode}`);
+          omitidos++;
+          continue;
         }
 
         // Insertar la línea de orden
-        await insertOrderLine(orderLineData);
-        
-        if (procesados <= 10) { // Solo mostrar los primeros 10 éxitos
-          console.log(`Línea de orden insertada: PC=${orderLineData.pc}, Línea=${orderLineData.linea}, Item=${orderLineData.item_id}`);
-        }
+        await insertOrderLine({
+          order_id: orderId,
+          item_id: item.id,
+          pc: pc,
+          linea: linea ? parseInt(linea) : null,
+          factura: factura,
+          localizacion: localizacion,
+          kg_solicitados: kgSolicitados ? parseFloat(kgSolicitados.replace(',', '.')) : null,
+          unit_price: precioUnitario ? parseFloat(precioUnitario.replace(',', '.')) : null,
+          observacion: comentario,
+          mercado: mercado,
+          embalaje: embalaje,
+          volumen: volumen ? parseFloat(volumen.replace(',', '.')) : null,
+          etiqueta: etiqueta,
+          kto_etiqueta5: ktoEtiqueta5
+        });
+
+        console.log(`Línea de orden insertada: ${lineKey}`);
         insertados++;
-        
-      } catch (err) {
-        console.error(`Error procesando registro ${procesados}:`, err.message);
+      } catch (error) {
+        console.error(`Error procesando línea de orden ${record.Nro}:`, error.message);
         errores++;
       }
     }
 
-    console.log(`Proceso completado:`);
-    console.log(`- Registros procesados: ${procesados}`);
-    console.log(`- Líneas de orden insertadas: ${insertados}`);
-    console.log(`- Líneas de orden omitidas (ya existían): ${omitidos}`);
-    console.log(`- Errores: ${errores}`);
-    
-  } catch (err) {
-    console.error('Error al procesar archivo:', err.message);
+    console.log(`Procesamiento completado. Procesados: ${procesados}, Insertados: ${insertados}, Omitidos: ${omitidos}, Errores: ${errores}`);
+  } catch (error) {
+    console.error('Error procesando archivo de líneas de orden:', error);
+  } finally {
+    // Siempre desmontar al finalizar
+    unmountIfNeeded();
   }
 }
 
-module.exports = { fetchOrderLineFilesFromNetwork }; 
+module.exports = {
+  fetchOrderLineFilesFromNetwork
+}; 

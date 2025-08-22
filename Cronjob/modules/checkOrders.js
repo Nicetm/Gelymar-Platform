@@ -1,5 +1,8 @@
-const { fetchOrderFilesFromNetwork } = require('../services/checkOrders.service');
+const axios = require('axios');
 const cron = require('node-cron');
+
+// Configuración de la API del backend
+const BACKEND_API_URL = process.env.BACKEND_API_URL || 'http://localhost:3000';
 
 // Función para emitir señal de ready
 const emitReady = () => {
@@ -11,10 +14,11 @@ const emitReady = () => {
 // Función para ejecutar con manejo de errores
 async function executeWithErrorHandling() {
   try {
-    await fetchOrderFilesFromNetwork();
-    console.log('Procesamiento inicial de órdenes completado');
+    console.log('Llamando al endpoint de procesamiento de órdenes...');
+    const response = await axios.post(`${BACKEND_API_URL}/api/cron/check-orders`);
+    console.log('Procesamiento inicial de órdenes completado:', response.data.message);
   } catch (error) {
-    console.error('Error en procesamiento inicial de órdenes:', error.message);
+    console.error('Error en procesamiento inicial de órdenes:', error.response?.data?.error || error.message);
     console.log('Continuando con el siguiente proceso...');
   } finally {
     emitReady();

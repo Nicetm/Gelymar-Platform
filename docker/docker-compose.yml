@@ -132,6 +132,7 @@ services:
       - fileserver_data:/var/www/html:rw
       - cron_logs:/app/logs
       - cron_pm2:/app/.pm2
+      - /mnt/red:/mnt/red:ro  # Montar la red compartida desde el host
     networks:
       - gelymar-network
     depends_on:
@@ -143,6 +144,9 @@ services:
         condition: service_started
     ports:
       - "9615:9615"  # PM2 web interface
+    privileged: true  # Dar privilegios para montar redes
+    cap_add:
+      - SYS_ADMIN  # Capacidad para montar sistemas de archivos
 
   # phpMyAdmin
   phpmyadmin:

@@ -1,5 +1,8 @@
-const { checkClientAccess } = require('../services/checkClientAccess.service');
+const axios = require('axios');
 const cron = require('node-cron');
+
+// Configuración de la API del backend
+const BACKEND_API_URL = process.env.BACKEND_API_URL || 'http://localhost:3000';
 
 // Función para emitir señal de ready
 const emitReady = () => {
@@ -11,10 +14,11 @@ const emitReady = () => {
 // Función para ejecutar con manejo de errores
 async function executeWithErrorHandling() {
   try {
-    await checkClientAccess();
-    console.log('Verificación de acceso de clientes completada');
+    console.log('Llamando al endpoint de verificación de acceso de clientes...');
+    const response = await axios.post(`${BACKEND_API_URL}/api/cron/check-client-access`);
+    console.log('Verificación de acceso de clientes completada:', response.data.message);
   } catch (error) {
-    console.error('Error en verificación de acceso de clientes:', error.message);
+    console.error('Error en verificación de acceso de clientes:', error.response?.data?.error || error.message);
     console.log('Continuando con el siguiente proceso...');
   } finally {
     emitReady();

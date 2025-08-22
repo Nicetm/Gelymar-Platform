@@ -13,22 +13,37 @@ const FILE_NAME = 'FAC_HDR_SOFTKEY.txt';
 const USER = 'softkey';
 const PASSWORD = 'sK06.2025#';
 
+let isMounted = false;
+
 function mountIfNeeded() {
   const platform = os.platform();
   if (platform === 'win32') {
     const filePath = `Z:\\${FILE_NAME}`;
     
-    // Solo verificar si existe, no intentar montar
+    // Verificar si la unidad Z: ya está montada y el archivo existe
+    if (fs.existsSync(filePath)) {
+      console.log('Unidad Z: ya está montada y accesible');
+      return filePath;
+    }
+    
+    // Si el archivo no existe, intentar montar la red compartida
+    console.log('Unidad Z: no está montada o archivo no encontrado, intentando montar...');
     try {
+      const mountCmd = `net use Z: \\\\${SERVER}\\${SHARE_PATH} /user:${USER} ${PASSWORD}`;
+      execSync(mountCmd, { stdio: 'pipe' });
+      isMounted = true;
+      console.log('Red compartida montada correctamente en Windows');
+      
+      // Verificar si ahora existe el archivo
       if (fs.existsSync(filePath)) {
-        console.log('Unidad Z: ya está montada y accesible');
+        console.log('Archivo encontrado después del montaje');
         return filePath;
       } else {
-        console.log('Archivo no encontrado en Z:, pero la unidad puede estar montada');
+        console.log('Archivo no encontrado después del montaje');
         return filePath;
       }
-    } catch (err) {
-      console.log('Error accediendo a Z:, pero continuando...');
+    } catch (mountErr) {
+      console.error('Error montando red en Windows:', mountErr.message);
       return filePath;
     }
   } else {
@@ -39,12 +54,46 @@ function mountIfNeeded() {
         execSync(`mkdir -p ${mountPoint}`);
         const mountCmd = `mount -t cifs //${SERVER}/${SHARE_PATH} ${mountPoint} -o username=${USER},password='${PASSWORD}',iocharset=utf8,vers=1.0`;
         execSync(mountCmd);
+        isMounted = true;
+        console.log('Red compartida montada correctamente');
       } catch (err) {
         console.error('Error montando red en Linux:', err.message);
         return null;
       }
+    } else {
+      console.log('Red compartida ya está montada');
     }
     return filePath;
+  }
+}
+
+function unmountIfNeeded() {
+  const platform = os.platform();
+  if (platform === 'win32') {
+    if (isMounted) {
+      try {
+        execSync('net use Z: /delete', { stdio: 'pipe' });
+        console.log('Red compartida desmontada correctamente en Windows');
+        isMounted = false;
+      } catch (err) {
+        console.error('Error desmontando red en Windows:', err.message);
+      }
+    } else {
+      console.log('Red compartida no estaba montada por este proceso en Windows');
+    }
+  } else {
+    if (isMounted) {
+      try {
+        const mountPoint = '/mnt/red';
+        execSync(`umount ${mountPoint}`);
+        console.log('Red compartida desmontada correctamente');
+        isMounted = false;
+      } catch (err) {
+        console.error('Error desmontando red en Linux:', err.message);
+      }
+    } else {
+      console.log('Red compartida no estaba montada por este proceso');
+    }
   }
 }
 
@@ -54,6 +103,7 @@ async function fetchOrderFilesFromNetwork() {
 
   if (!inputPath) {
     console.error('No se pudo obtener la ruta del archivo');
+    unmountIfNeeded();
     return;
   }
 
@@ -67,6 +117,7 @@ async function fetchOrderFilesFromNetwork() {
     } catch (err) {
       console.log('No se puede acceder a Z:\\:', err.message);
     }
+    unmountIfNeeded();
     return;
   }
 
@@ -101,15 +152,7 @@ async function fetchOrderFilesFromNetwork() {
         key.toLowerCase().includes('cliente') ||
         key.toLowerCase().includes('customer')
       );
-      
-      if (rutFields.length > 0) {
-        console.log('Campos que podrían contener RUT:', rutFields);
-        rutFields.forEach(field => {
-          console.log(`   ${field}: "${firstRecord[field]}"`);
-        });
-      } else {
-        console.log('No se encontraron campos que contengan RUT');
-      }
+      console.log('Campos que podrían contener RUT:', rutFields);
     }
 
     // Guardar CSV en disco para verificación
@@ -131,88 +174,97 @@ async function fetchOrderFilesFromNetwork() {
       try {
         procesados++;
         
-        // Debug: mostrar los primeros 3 registros
-        if (procesados <= 3) {
-          console.log(`Registro ${procesados}:`, JSON.stringify(record, null, 2));
-        }
+        // Buscar el campo que contiene el RUT del cliente
+        let customerRut = null;
+        const possibleRutFields = ['Rut', 'Cliente', 'Customer', 'RUT', 'CLIENTE'];
         
-        // Extraer RUT sin la C final
-        let rut = record.Rut?.trim();
-        if (!rut) {
-          console.log(`Registro ${procesados} omitido: sin RUT`);
-          continue;
-        }
-        
-        // Remover la C final si existe
-        const rutOriginal = rut;
-        rut = rut.replace(/C$/, '');
-        
-        if (procesados <= 3) {
-          console.log(`RUT original: "${rutOriginal}" -> RUT procesado: "${rut}"`);
-        }
-        
-        // Buscar el cliente por RUT
-        console.log(`Buscando cliente con RUT: "${rut}" (registro ${procesados})`);
-        const customer = await getCustomerByRut(rut);
-        if (!customer) {
-          if (procesados <= 10) { // Solo mostrar los primeros 10 errores
-            console.log(`Cliente no encontrado para RUT: "${rut}" (registro ${procesados})`);
+        for (const field of possibleRutFields) {
+          if (record[field]) {
+            customerRut = record[field].trim();
+            break;
           }
-          errores++;
-          continue;
         }
-
-        console.log(`Cliente encontrado: ID=${customer.id}, Nombre=${customer.name}, RUT=${customer.rut}`);
-
-        // Extraer campos del registro
-        const orderData = {
-          customer_id: customer.id,
-          rut: rut,
-          pc: record.Nro || '', // Nro del txt
-          oc: record.OC || '',
-          factura: record.Factura || '',
-          fec_factura: record.Fecha_factura && record.Fecha_factura !== '0' ? record.Fecha_factura : new Date().toISOString().split('T')[0],
-          name: record.OC || '', // Usar OC como nombre
-          path: '' // Campo path vacío por defecto
-        };
-
-        // Verificar si la orden ya existe (por PC y OC)
-        const orderKey = `${orderData.pc}-${orderData.oc}`;
-        if (existingOrders.includes(orderKey)) {
-          if (procesados <= 10) { // Solo mostrar los primeros 10 omitidos
-            console.log(`Orden ya existe: PC=${orderData.pc}, OC=${orderData.oc}`);
-          }
+        
+        if (!customerRut) {
+          console.log('Registro omitido sin RUT de cliente:', record);
           omitidos++;
           continue;
         }
 
-        if (procesados <= 3) {
-          console.log(`Datos de orden a insertar:`, JSON.stringify(orderData, null, 2));
+        // Remover la C final si existe
+        const rutOriginal = customerRut;
+        customerRut = customerRut.replace(/C$/, '');
+        
+        console.log(`RUT original: "${rutOriginal}" -> RUT procesado: "${customerRut}"`);
+
+        // Buscar el campo que contiene el número de orden
+        let orderNumber = null;
+        const possibleOrderFields = ['Orden', 'Order', 'Numero', 'Number', 'PC', 'Pedido', 'Nro'];
+        
+        for (const field of possibleOrderFields) {
+          if (record[field]) {
+            orderNumber = record[field].trim();
+            break;
+          }
+        }
+        
+        if (!orderNumber) {
+          console.log('Registro omitido sin número de orden:', record);
+          omitidos++;
+          continue;
         }
 
-        // Insertar la orden
-        await insertOrder(orderData);
-        
-        if (procesados <= 10) { // Solo mostrar los primeros 10 éxitos
-          console.log(`Orden insertada para cliente ${rut}: PC=${orderData.pc}, OC=${orderData.oc}`);
+        // Verificar si la orden ya existe
+        const orderKey = `${customerRut}-${orderNumber}`;
+        if (existingOrders.includes(orderKey)) {
+          console.log(`Orden ya existe: ${orderKey}`);
+          omitidos++;
+          continue;
         }
+
+        // Buscar el cliente en la base de datos
+        const customer = await getCustomerByRut(customerRut);
+        if (!customer) {
+          console.log(`Cliente no encontrado: ${customerRut}`);
+          omitidos++;
+          continue;
+        }
+
+        // Extraer campos del archivo
+        const factura = record.Factura?.trim() || '';
+        const fecFactura = record.Fecha_factura?.trim() || '';
+        const oc = record.OC?.trim() || '';
+
+        // Insertar la orden
+        await insertOrder({
+          customer_id: customer.id,
+          rut: customerRut,
+          pc: orderNumber,
+          oc: oc,
+          factura: factura,
+          fec_factura: fecFactura && fecFactura !== '0' ? fecFactura : null,
+          name: oc || orderNumber, // Usar OC como nombre o el número de orden
+          path: '' // Campo path vacío por defecto
+        });
+
+        console.log(`Orden insertada: ${orderKey}`);
         insertados++;
-        
-      } catch (err) {
-        console.error(`Error procesando registro ${procesados}:`, err.message);
+      } catch (error) {
+        console.error(`Error procesando orden ${record.Orden || record.Order}:`, error.message);
         errores++;
       }
     }
 
-    console.log(`Proceso completado:`);
-    console.log(`- Registros procesados: ${procesados}`);
-    console.log(`- Órdenes insertadas: ${insertados}`);
-    console.log(`- Órdenes omitidas (ya existían): ${omitidos}`);
-    console.log(`- Errores: ${errores}`);
-    
-  } catch (err) {
-    console.error('Error al procesar archivo:', err.message);
+    console.log(`Procesamiento completado. Procesados: ${procesados}, Insertados: ${insertados}, Omitidos: ${omitidos}, Errores: ${errores}`);
+  } catch (error) {
+    console.error('Error procesando archivo de órdenes:', error);
+  } finally {
+    // Siempre desmontar al finalizar
+    unmountIfNeeded();
   }
 }
 
+module.exports = {
+  fetchOrderFilesFromNetwork
+}; 
 module.exports = { fetchOrderFilesFromNetwork }; 

@@ -1,6 +1,39 @@
 ---
 import LayoutStacked from '../app/LayoutStacked.astro';
 import ErrorNotFound from '../modules/ErrorNotFound.astro';
+
+
+// Validar rol del usuario y redirigir según corresponda
+const token = Astro.cookies.get('token')?.value;
+
+if (token) {
+  try {
+    const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
+    const response = await fetch(`${apiBase}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    if (response.ok) {
+      const user = await response.json();
+      const userRole = user.role || (user.role_id === 1 ? 'admin' : 'client');
+      
+      console.log(`🔍 Usuario autenticado en 404: ${user.email} con rol ${userRole}`);
+      
+      // Redirigir según el rol del usuario
+      if (userRole === 'admin') {
+        console.log('🔄 Redirigiendo admin a /admin desde 404');
+        return Astro.redirect('/admin');
+      } else if (userRole === 'client') {
+        console.log('🔄 Redirigiendo client a /client desde 404');
+        return Astro.redirect('/client');
+      }
+    }
+  } catch (error) {
+    console.error('Error validando rol en 404:', error);
+  }
+}
+
+// Si no hay token o hay error, mostrar página 404 normal
 ---
 
 <LayoutStacked>

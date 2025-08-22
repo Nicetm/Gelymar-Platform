@@ -5,12 +5,17 @@ import OrdersGrid        from './components/OrderGrid.astro';
 import DocumentStats     from './components/DocumentStats.astro';
 import DocumentsSection  from './components/DocumentsSection.astro';
 import EmailModal        from './components/EmailModal.astro';
+import AuthGuard         from '../../../components/AuthGuard.astro';
+
+// Validación de rol en el servidor
+import { validateRole } from '../../../lib/auth.js';
+const redirect = await validateRole(Astro, 'client');
+if (redirect) return redirect;
 
 // Configuración de API
 const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
-
-// Obtener token del usuario autenticado
 const token = Astro.cookies.get('token')?.value;
+
 let orders = [];
 let docsByOrder = {};
 
@@ -40,10 +45,14 @@ try {
 <script define:vars={{ orders, docsByOrder, apiBase }}>
   window.orders = orders;
   window.docsByOrder = docsByOrder;
-  window.apiBase = apiBase;
+  // Usar URL pública para el cliente, no la interna de Docker
+  window.apiBase = 'http://localhost:3000';
 </script>
 
 <LayoutSidebarClient title="Documents - Client Panel">
+  <!-- 🔐 Protección de ruta (sólo clientes) -->
+  <AuthGuard role="client" />
+  
   <div class="min-h-screen pt-5">
 
     <!-- Header -->

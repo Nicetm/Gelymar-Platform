@@ -1,8 +1,9 @@
 ---
 // src/components/AuthGuard.astro
 const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
+const { role } = Astro.props;
 ---
-<script is:inline define:vars={{ apiBase }}>
+<script is:inline define:vars={{ apiBase, requiredRole: role }}>
   document.addEventListener('DOMContentLoaded', async () => {
     const token = localStorage.getItem('token');
 
@@ -27,6 +28,13 @@ const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL
         localStorage.removeItem('token');
         window.location.href = '/authentication/sign-in';
         return;
+      }
+
+      // 🔐 VALIDACIÓN BÁSICA DE ROL (opcional, el backend ya protege)
+      if (requiredRole) {
+        // Por ahora, confiamos en que el backend protege las rutas
+        // La validación completa se hace en el servidor
+        console.log(`AuthGuard: Validación de rol ${requiredRole} delegada al backend`);
       }
 
     } catch (err) {

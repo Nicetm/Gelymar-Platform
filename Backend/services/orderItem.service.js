@@ -6,6 +6,8 @@ const { poolPromise } = require('../config/db');
  * @returns {Promise<void>}
  */
 const insertOrderLine = async (data) => {
+
+  console.log('Inserting order line:', data);
   try {
     const pool = await poolPromise;
     
@@ -38,8 +40,8 @@ const insertOrderLine = async (data) => {
     ];
 
     console.log(`Ejecutando INSERT en MySQL (order_items):`);
-    console.log(`   Query: ${query}`);
-    console.log(`   Params: [${params.map(p => `"${p}"`).join(', ')}]`);
+    //console.log(`   Query: ${query}`);
+    //console.log(`   Params: [${params.map(p => `"${p}"`).join(', ')}]`);
 
     const [result] = await pool.query(query, params);
     

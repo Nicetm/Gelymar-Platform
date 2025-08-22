@@ -6,12 +6,12 @@ RUN npm install -g pm2 && \
 
 WORKDIR /app
 
-# Copiar package.json e instalar dependencias
-COPY Backend/package*.json ./
+# Copiar package.json del Cronjob e instalar dependencias
+COPY Cronjob/package*.json ./
 RUN npm ci --only=production
 
-# Copiar todo el código del backend
-COPY Backend/ ./
+# Copiar todo el código del Cronjob
+COPY Cronjob/ ./
 
 # Crear directorios necesarios
 RUN mkdir -p logs

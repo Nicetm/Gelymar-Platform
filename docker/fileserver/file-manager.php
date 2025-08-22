@@ -1,64 +1,3 @@
-#!/bin/bash
-set -e
-
-echo "Iniciando File Server..."
-
-# Crear usuario FTP (si no existe)
-if ! id "ftpuser" &>/dev/null; then
-    useradd -m -s /bin/bash ftpuser
-    echo "ftpuser:gelymar123" | chpasswd
-    echo "Usuario ftpuser creado"
-else
-    echo "Usuario ftpuser ya existe"
-fi
-echo "ftpuser" > /etc/vsftpd.userlist
-
-# Crear directorios necesarios
-mkdir -p /var/www/html/uploads
-chown -R www-data:www-data /var/www/html
-chmod -R 755 /var/www/html
-chmod -R 777 /var/www/html/uploads
-
-# Asegurar que el index.php esté en uploads
-if [ ! -f /var/www/html/uploads/index.php ]; then
-    echo "Creando index.php en uploads..."
-    cat > /var/www/html/uploads/index.php << 'EOF'
-<?php
-// Redirigir al file manager
-header('Location: /file-manager.php');
-exit;
-?>
-EOF
-fi
-
-# Asegurar que el index.html esté en uploads
-if [ ! -f /var/www/html/uploads/index.html ]; then
-    echo "Creando index.html en uploads..."
-    cat > /var/www/html/uploads/index.html << 'EOF'
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Gelymar Uploads</title>
-    <meta http-equiv="refresh" content="0; url=/file-manager.php">
-</head>
-<body>
-    <p>Redirigiendo al File Manager...</p>
-    <script>window.location.href = '/file-manager.php';</script>
-</body>
-</html>
-EOF
-fi
-
-# Crear file-manager.php (siempre regenerar para aplicar mejoras)
-if [ -f /var/www/html/file-manager.php ]; then
-    echo "Regenerando file-manager.php con mejoras..."
-    rm /var/www/html/file-manager.php
-fi
-
-if [ ! -f /var/www/html/file-manager.php ]; then
-    echo "Creando file-manager.php..."
-    cat > /var/www/html/file-manager.php << 'EOF'
 <?php
 session_start();
 
@@ -152,7 +91,6 @@ if (is_dir($currentPath)) {
             $fullPath = $currentPath . '/' . $file;
             $items[] = [
                 'name' => $file,
-                'display_name' => str_replace('_', ' ', strtolower($file)),
                 'path' => $fullPath,
                 'is_dir' => is_dir($fullPath),
                 'size' => is_file($fullPath) ? filesize($fullPath) : 0,
@@ -169,23 +107,8 @@ usort($items, function($a, $b) {
     if (!$a['is_dir'] && $b['is_dir']) return 1;
     return strcasecmp($a['name'], $b['name']);
 });
-
-// Filtrado por búsqueda
-$search = isset($_GET['search']) ? trim($_GET['search']) : '';
-if ($search) {
-    $items = array_filter($items, function($item) use ($search) {
-        return stripos($item['display_name'], $search) !== false;
-    });
-}
-
-// Paginación
-$itemsPerPage = 20;
-$currentPage = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
-$totalItems = count($items);
-$totalPages = ceil($totalItems / $itemsPerPage);
-$offset = ($currentPage - 1) * $itemsPerPage;
-$items = array_slice($items, $offset, $itemsPerPage);
 ?>
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -194,13 +117,19 @@ $items = array_slice($items, $offset, $itemsPerPage);
     <title>Gelymar File Manager</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 20px;
         }
+        
         .container {
             max-width: 1400px;
             margin: 0 auto;
@@ -209,6 +138,7 @@ $items = array_slice($items, $offset, $itemsPerPage);
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
             overflow: hidden;
         }
+        
         .header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -217,18 +147,28 @@ $items = array_slice($items, $offset, $itemsPerPage);
             justify-content: space-between;
             align-items: center;
         }
-        .header h1 { font-size: 1.8rem; margin: 0; }
+        
+        .header h1 {
+            font-size: 1.8rem;
+            margin: 0;
+        }
+        
         .breadcrumb {
             background: #f8f9fa;
             padding: 1rem 2rem;
             border-bottom: 1px solid #e9ecef;
         }
+        
         .breadcrumb a {
             color: #667eea;
             text-decoration: none;
             margin-right: 0.5rem;
         }
-        .breadcrumb a:hover { text-decoration: underline; }
+        
+        .breadcrumb a:hover {
+            text-decoration: underline;
+        }
+        
         .toolbar {
             background: #f8f9fa;
             padding: 1rem 2rem;
@@ -238,6 +178,7 @@ $items = array_slice($items, $offset, $itemsPerPage);
             align-items: center;
             flex-wrap: wrap;
         }
+        
         .btn {
             padding: 0.5rem 1rem;
             border: none;
@@ -250,15 +191,47 @@ $items = array_slice($items, $offset, $itemsPerPage);
             font-size: 0.9rem;
             transition: all 0.3s;
         }
-        .btn-primary { background: #667eea; color: white; }
-        .btn-primary:hover { background: #5a6fd8; }
-        .btn-success { background: #28a745; color: white; }
-        .btn-success:hover { background: #218838; }
-        .btn-danger { background: #dc3545; color: white; }
-        .btn-danger:hover { background: #c82333; }
-        .btn-secondary { background: #6c757d; color: white; }
-        .btn-secondary:hover { background: #5a6268; }
-        .file-list { padding: 2rem; }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5a6fd8;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #218838;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        
+        .file-list {
+            padding: 2rem;
+        }
+        
         .file-item {
             display: flex;
             align-items: center;
@@ -269,28 +242,39 @@ $items = array_slice($items, $offset, $itemsPerPage);
             transition: all 0.3s;
             background: white;
         }
+        
         .file-item:hover {
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             transform: translateY(-1px);
         }
+        
         .file-icon {
             font-size: 1.5rem;
             margin-right: 1rem;
             width: 40px;
             text-align: center;
         }
-        .file-info { flex: 1; }
+        
+        .file-info {
+            flex: 1;
+        }
+        
         .file-name {
             font-weight: 600;
             color: #333;
             margin-bottom: 0.25rem;
-            font-size: 0.9rem;
         }
+        
         .file-meta {
             font-size: 0.8rem;
             color: #666;
         }
-        .file-actions { display: flex; gap: 0.5rem; }
+        
+        .file-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
         .modal {
             display: none;
             position: fixed;
@@ -301,6 +285,7 @@ $items = array_slice($items, $offset, $itemsPerPage);
             height: 100%;
             background-color: rgba(0, 0, 0, 0.5);
         }
+        
         .modal-content {
             background-color: white;
             margin: 10% auto;
@@ -309,108 +294,65 @@ $items = array_slice($items, $offset, $itemsPerPage);
             width: 90%;
             max-width: 500px;
         }
+        
         .modal-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 1rem;
         }
+        
         .close {
             font-size: 1.5rem;
             cursor: pointer;
             color: #666;
         }
+        
         .form-group {
             margin-bottom: 1rem;
         }
+        
         .form-group label {
             display: block;
             margin-bottom: 0.5rem;
             font-weight: 600;
         }
+        
         .form-group input {
             width: 100%;
             padding: 0.5rem;
             border: 1px solid #ddd;
             border-radius: 5px;
         }
+        
         .alert {
             padding: 1rem;
             border-radius: 5px;
             margin-bottom: 1rem;
         }
+        
         .alert-success {
             background: #d4edda;
             color: #155724;
             border: 1px solid #c3e6cb;
         }
+        
         .alert-danger {
             background: #f8d7da;
             color: #721c24;
             border: 1px solid #f5c6cb;
         }
+        
         .empty-state {
             text-align: center;
             padding: 3rem;
             color: #666;
         }
+        
         .empty-state i {
             font-size: 3rem;
             margin-bottom: 1rem;
             color: #ddd;
-        }
-        .search-container {
-            background: #f8f9fa;
-            padding: 1rem 2rem;
-            border-bottom: 1px solid #e9ecef;
-        }
-        .search-input {
-            width: 100%;
-            max-width: 400px;
-            padding: 0.75rem;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 1rem;
-        }
-        .search-input:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
-        }
-        .pagination {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 2rem;
-            background: #f8f9fa;
-            border-top: 1px solid #e9ecef;
-        }
-        .pagination button {
-            padding: 0.5rem 1rem;
-            border: 1px solid #ddd;
-            background: white;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        .pagination button:hover {
-            background: #667eea;
-            color: white;
-            border-color: #667eea;
-        }
-        .pagination button.active {
-            background: #667eea;
-            color: white;
-            border-color: #667eea;
-        }
-        .pagination button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        .pagination-info {
-            margin: 0 1rem;
-            color: #666;
         }
     </style>
 </head>
@@ -453,22 +395,6 @@ $items = array_slice($items, $offset, $itemsPerPage);
             <?php unset($_SESSION['error']); ?>
         <?php endif; ?>
         
-        <div class="search-container">
-            <form method="GET" style="display: flex; gap: 1rem; align-items: center;">
-                <input type="hidden" name="path" value="<?= htmlspecialchars($currentPath) ?>">
-                <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" 
-                       placeholder="Buscar archivos y carpetas..." class="search-input">
-                <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-search"></i> Buscar
-                </button>
-                <?php if ($search): ?>
-                    <a href="?path=<?= urlencode($currentPath) ?>" class="btn btn-secondary">
-                        <i class="fas fa-times"></i> Limpiar
-                    </a>
-                <?php endif; ?>
-            </form>
-        </div>
-        
         <div class="toolbar">
             <button class="btn btn-primary" onclick="openUploadModal()">
                 <i class="fas fa-upload"></i> Subir Archivo
@@ -498,14 +424,16 @@ $items = array_slice($items, $offset, $itemsPerPage);
                             <?php if ($item['is_dir']): ?>
                                 <div class="file-name">
                                     <a href="?path=<?= urlencode($item['path']) ?>" style="color: inherit; text-decoration: none;">
-                                        <?= htmlspecialchars($item['display_name']) ?>
+                                        <?= htmlspecialchars($item['name']) ?>
                                     </a>
                                 </div>
                             <?php else: ?>
-                                <div class="file-name"><?= htmlspecialchars($item['display_name']) ?></div>
+                                <div class="file-name"><?= htmlspecialchars($item['name']) ?></div>
                             <?php endif; ?>
                             <div class="file-meta">
-                                <?php if (!$item['is_dir']): ?>
+                                <?php if ($item['is_dir']): ?>
+                                    Directorio
+                                <?php else: ?>
                                     <?= formatFileSize($item['size']) ?> • 
                                     <?= date('d/m/Y H:i', $item['modified']) ?>
                                 <?php endif; ?>
@@ -526,33 +454,6 @@ $items = array_slice($items, $offset, $itemsPerPage);
                 <?php endforeach; ?>
             <?php endif; ?>
         </div>
-        
-        <?php if ($totalPages > 1): ?>
-            <div class="pagination">
-                <?php if ($currentPage > 1): ?>
-                    <a href="?path=<?= urlencode($currentPath) ?>&search=<?= urlencode($search) ?>&page=1" class="btn btn-secondary">
-                        <i class="fas fa-angle-double-left"></i>
-                    </a>
-                    <a href="?path=<?= urlencode($currentPath) ?>&search=<?= urlencode($search) ?>&page=<?= $currentPage - 1 ?>" class="btn btn-secondary">
-                        <i class="fas fa-angle-left"></i>
-                    </a>
-                <?php endif; ?>
-                
-                <span class="pagination-info">
-                    Página <?= $currentPage ?> de <?= $totalPages ?> 
-                    (<?= $totalItems ?> elementos)
-                </span>
-                
-                <?php if ($currentPage < $totalPages): ?>
-                    <a href="?path=<?= urlencode($currentPath) ?>&search=<?= urlencode($search) ?>&page=<?= $currentPage + 1 ?>" class="btn btn-secondary">
-                        <i class="fas fa-angle-right"></i>
-                    </a>
-                    <a href="?path=<?= urlencode($currentPath) ?>&search=<?= urlencode($search) ?>&page=<?= $totalPages ?>" class="btn btn-secondary">
-                        <i class="fas fa-angle-double-right"></i>
-                    </a>
-                <?php endif; ?>
-            </div>
-        <?php endif; ?>
     </div>
     
     <!-- Modal para subir archivo -->
@@ -631,16 +532,4 @@ $items = array_slice($items, $offset, $itemsPerPage);
         }
     </script>
 </body>
-</html>
-EOF
-fi
-
-echo "Directorios configurados"
-
-# Iniciar vsftpd en background
-echo "Iniciando vsftpd..."
-vsftpd /etc/vsftpd/vsftpd.conf &
-
-# Iniciar Apache
-echo "Iniciando Apache..."
-apache2-foreground 
+</html> 

@@ -1,5 +1,8 @@
-const { fetchClientFilesFromNetwork } = require('../services/checkClients.service');
+const axios = require('axios');
 const cron = require('node-cron');
+
+// Configuración de la API del backend
+const BACKEND_API_URL = process.env.BACKEND_API_URL || 'http://localhost:3000';
 
 // Función para emitir señal de ready
 const emitReady = () => {
@@ -11,10 +14,11 @@ const emitReady = () => {
 // Función para ejecutar con manejo de errores
 async function executeWithErrorHandling() {
   try {
-    await fetchClientFilesFromNetwork();
-    console.log('Procesamiento inicial de clientes completado');
+    console.log('Llamando al endpoint de verificación de ETD...');
+    const response = await axios.post(`${BACKEND_API_URL}/api/cron/check-etd`);
+    console.log('Verificación de ETD completada:', response.data.message);
   } catch (error) {
-    console.error('Error en procesamiento inicial de clientes:', error.message);
+    console.error('Error en verificación de ETD:', error.response?.data?.error || error.message);
     console.log('Continuando con el siguiente proceso...');
   } finally {
     emitReady();
@@ -33,13 +37,13 @@ if (arg === 'execute-now') {
   emitReady();
 }
 
-cron.schedule('0 5 * * *', async () => {
-  console.log(`[${new Date().toISOString()}] Iniciando procesamiento de archivos de clientes...`);
+cron.schedule('0 7 * * *', async () => {
+  console.log(`[${new Date().toISOString()}] Iniciando verificación de ETD...`);
   try {
-    await fetchClientFilesFromNetwork();
-    console.log(`[${new Date().toISOString()}] Archivos de clientes procesados.`);
+    await checkETD();
+    console.log(`[${new Date().toISOString()}] Verificación de ETD completada.`);
   } catch (error) {
-    console.error(`[${new Date().toISOString()}] Error en procesamiento de clientes:`, error.message);
+    console.error(`[${new Date().toISOString()}] Error en verificación de ETD:`, error.message);
     console.log('Continuando con el siguiente proceso...');
   }
 });

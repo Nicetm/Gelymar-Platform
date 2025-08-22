@@ -3,79 +3,100 @@ module.exports = {
     apps: [
       {
         name: 'gelymar-client-fetcher',
-        script: './cron/checkClients.js',
-        args: 'execute-now',
-        watch: false,
-        autorestart: true,
-        wait_ready: true,
-        listen_timeout: 10000,
-        kill_timeout: 5000
-      },
-      {
-        name: 'gelymar-client-access-checker',
-        script: './cron/checkClientAccess.js',
+        script: './modules/checkClients.js',
         args: 'execute-now',
         watch: false,
         autorestart: true,
         wait_ready: true,
         listen_timeout: 10000,
         kill_timeout: 5000,
-        dependencies: ['gelymar-client-fetcher']
+        env: {
+          BACKEND_API_URL: 'http://localhost:3000'
+        }
+      },
+      {
+        name: 'gelymar-client-access',
+        script: './modules/checkClientAccess.js',
+        args: 'execute-now',
+        watch: false,
+        autorestart: true,
+        wait_ready: true,
+        listen_timeout: 10000,
+        kill_timeout: 5000,
+        dependencies: ['gelymar-client-fetcher'],
+        env: {
+          BACKEND_API_URL: 'http://localhost:3000'
+        }
       },
       {
         name: 'gelymar-item-fetcher',
-        script: './cron/checkItems.js',
+        script: './modules/checkItems.js',
         args: 'execute-now',
         watch: false,
         autorestart: true,
         wait_ready: true,
         listen_timeout: 10000,
         kill_timeout: 5000,
-        dependencies: ['gelymar-client-access-checker']
+        dependencies: ['gelymar-client-access'],
+        env: {
+          BACKEND_API_URL: 'http://localhost:3000'
+        }
       },
       {
         name: 'gelymar-order-fetcher',
-        script: './cron/checkOrders.js',
+        script: './modules/checkOrders.js',
         args: 'execute-now',
         watch: false,
         autorestart: true,
         wait_ready: true,
         listen_timeout: 10000,
         kill_timeout: 5000,
-        dependencies: ['gelymar-item-fetcher']
+        dependencies: ['gelymar-item-fetcher'],
+        env: {
+          BACKEND_API_URL: 'http://localhost:3000'
+        }
       },
       {
         name: 'gelymar-orderline-fetcher',
-        script: './cron/checkOrderLines.js',
+        script: './modules/checkOrderLines.js',
         args: 'execute-now',
         watch: false,
         autorestart: true,
         wait_ready: true,
         listen_timeout: 10000,
         kill_timeout: 5000,
-        dependencies: ['gelymar-order-fetcher']
+        dependencies: ['gelymar-order-fetcher'],
+        env: {
+          BACKEND_API_URL: 'http://localhost:3000'
+        }
       },
       {
-        name: 'gelymar-defaultfiles-generator',
-        script: './cron/checkDefaultFiles.js',
+        name: 'gelymar-files-generator',
+        script: './modules/checkDefaultFiles.js',
         args: 'execute-now',
         watch: false,
         autorestart: true,
         wait_ready: true,
         listen_timeout: 10000,
         kill_timeout: 5000,
-        dependencies: ['gelymar-orderline-fetcher']
+        dependencies: ['gelymar-orderline-fetcher'],
+        env: {
+          BACKEND_API_URL: 'http://localhost:3000'
+        }
       },
       {
         name: 'gelymar-etd-checker',
-        script: './cron/checkETD.js',
+        script: './modules/checkETD.js',
         args: 'execute-now',
         watch: false,
         autorestart: true,
         wait_ready: true,
         listen_timeout: 10000,
         kill_timeout: 5000,
-        dependencies: ['gelymar-defaultfiles-generator']
+        dependencies: ['gelymar-files-generator'],
+        env: {
+          BACKEND_API_URL: 'http://localhost:3000'
+        }
       }
     ]
   };

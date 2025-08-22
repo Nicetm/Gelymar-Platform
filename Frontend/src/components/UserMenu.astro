@@ -9,41 +9,19 @@ const t: any = {
 const apiBase = import.meta.env.PUBLIC_API_URL;       
 const fileServer = import.meta.env.PUBLIC_FILE_SERVER_URL; 
 
-// Intenta varios nombres de cookie por compatibilidad
-const token =
-  Astro.cookies.get('token')?.value ??
-  Astro.cookies.get('accessToken')?.value ??
-  Astro.cookies.get('jwt')?.value ??
-  null;
+// Token se manejará en el cliente para evitar problemas de conexión desde Docker
 
 /** @type {import('../types/entities.js').Users | null} */
 let user = null;
 
-try {
-  // En SSR (Node), 'credentials' no es soportado por los tipos de fetch, y las cookies httpOnly
-  // no se envían automáticamente. Solo usamos el header Authorization si tenemos token.
-  if (token) {
-    const data = await fetch(`${apiBase}/api/users/profile`, {
-      headers: { Authorization: `Bearer ${token}` }
-    }).then(r => (r.ok ? r.json() : null));
-    user = data;
-    if (user && !user.role && user.role_id !== undefined) {
-      user.role = user.role_id === 1 ? 'admin'
-                : user.role_id === 2 ? 'client'
-                : String(user.role_id);
-    }
-  }
-} catch (err) {
-  console.error('Error fetching user (SSR):', err);
-}
+// Remover fetch del SSR para evitar errores de conexión desde Docker
+// Los datos se cargarán en el cliente
 
 if (!user) {
   user = { full_name: 'User', email: 'user@example.com', role: 'guest', avatar: '' };
 }
 
-const avatarUrl = user.avatar_path
-  ? `${fileServer}/${user.avatar_path}`
-  : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.full_name)}&backgroundColor=4b5563&fontColor=ffffff`;
+const avatarUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.full_name)}&backgroundColor=4b5563&fontColor=ffffff`;
 ---
 
 <div class="relative flex items-center ml-3">
@@ -142,7 +120,7 @@ const avatarUrl = user.avatar_path
     if (!clientToken) return;
 
     try {
-      const res = await fetch(`${API_BASE}/api/users/profile`, {
+      const res = await fetch(`${API_BASE}/api/auth/me`, {
         headers: clientToken ? { Authorization: `Bearer ${clientToken}` } : undefined
       });
       if (!res.ok) return;

@@ -1,4 +1,12 @@
 ---
+// Página catch-all para rutas no definidas
+
+// Obtener la ruta actual
+const { slug } = Astro.params;
+const currentPath = '/' + (slug || '');
+
+console.log(`🔍 Ruta no definida detectada: ${currentPath}`);
+
 // Validar rol del usuario y redirigir según corresponda
 const token = Astro.cookies.get('token')?.value;
 
@@ -13,29 +21,32 @@ if (token) {
       const user = await response.json();
       const userRole = user.role || (user.role_id === 1 ? 'admin' : 'client');
       
-      console.log(`🔍 Usuario autenticado en index: ${user.email} con rol ${userRole}`);
+      console.log(`🔍 Usuario autenticado en catch-all: ${user.email} con rol ${userRole}`);
+      console.log(`🔄 Redirigiendo desde ${currentPath} según rol ${userRole}`);
       
       // Redirigir según el rol del usuario
       if (userRole === 'admin') {
-        console.log('🔄 Redirigiendo admin a /admin desde index');
         return Astro.redirect('/admin');
       } else if (userRole === 'client') {
-        console.log('🔄 Redirigiendo client a /client desde index');
         return Astro.redirect('/client');
       }
     }
   } catch (error) {
-    console.error('Error validando rol en index:', error);
+    console.error('Error validando rol en catch-all:', error);
   }
 }
 
 // Si no hay token o hay error, redirigir al login
+console.log(`🔄 Redirigiendo a login desde ${currentPath}`);
 return Astro.redirect('/authentication/sign-in');
 ---
 
+<!-- Esta página nunca debería mostrarse, siempre redirige -->
 <html>
   <head>
-    <meta http-equiv="refresh" content="0; URL='/authentication/sign-in'" />
+    <title>Redirigiendo...</title>
   </head>
-  <body></body>
-</html>
+  <body>
+    <p>Redirigiendo...</p>
+  </body>
+</html> 

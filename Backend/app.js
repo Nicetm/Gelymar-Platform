@@ -23,6 +23,7 @@ const itemRoutes = require('./routes/item.routes');
 const documentDirectoryRoutes = require('./routes/documentDirectory.routes');
 const documentFileRoutes = require('./routes/documentFile.routes');
 const documentTypeRoutes = require('./routes/documentType.routes');
+const cronRoutes = require('./routes/cron.routes');
 
 // Middlewares globales
 app.use(cors());
@@ -57,6 +58,9 @@ app.use('/api/directories', authMiddleware, authorizeRoles(['admin']), documentD
 app.use('/api/files', authMiddleware, authorizeRoles(['admin']), documentFileRoutes);
 app.use('/api/document-types', authMiddleware, authorizeRoles(['admin']), documentTypeRoutes);
 
+// Rutas de cron (sin autenticación para acceso interno)
+app.use('/api/cron', cronRoutes);
+
 // Sirve archivos estáticos desde la carpeta 'uploads'
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
@@ -66,16 +70,61 @@ const pathClient = path.join(__dirname, 'views-protegidas/client/index.html');
 
 app.get('/admin', authFromCookie, (req, res) => {
   if (req.user.role !== 'admin') {
-    return res.status(403).send('Acceso no autorizado');
+    console.warn(`Acceso denegado a /admin: usuario ${req.user.email} con rol ${req.user.role}`);
+    return res.status(403).send('Acceso no autorizado - Solo administradores');
   }
   res.sendFile(pathAdmin);
 });
 
 app.get('/client', authFromCookie, (req, res) => {
   if (req.user.role !== 'client') {
-    return res.status(403).send('Acceso no autorizado');
+    console.warn(`Acceso denegado a /client: usuario ${req.user.email} con rol ${req.user.role}`);
+    return res.status(403).send('Acceso no autorizado - Solo clientes');
   }
   res.sendFile(pathClient);
+});
+
+// 🔐 Middleware para proteger rutas de admin y client
+app.use('/admin', authFromCookie, (req, res, next) => {
+  if (req.user.role !== 'admin') {
+    console.warn(`Acceso denegado a ${req.path}: usuario ${req.user.email} con rol ${req.user.role}`);
+    return res.status(403).send('Acceso no autorizado - Solo administradores');
+  }
+  next();
+});
+
+app.use('/client', authFromCookie, (req, res, next) => {
+  if (req.user.role !== 'client') {
+    console.warn(`Acceso denegado a ${req.path}: usuario ${req.user.email} con rol ${req.user.role}`);
+    return res.status(403).send('Acceso no autorizado - Solo clientes');
+  }
+  next();
+});
+
+// 🔐 Rutas específicas para admin
+app.get('/admin/dashboard', (req, res) => {
+  res.redirect('/admin');
+});
+
+app.get('/admin/users', (req, res) => {
+  res.redirect('/admin');
+});
+
+app.get('/admin/orders', (req, res) => {
+  res.redirect('/admin');
+});
+
+// 🔐 Rutas específicas para client
+app.get('/client/dashboard', (req, res) => {
+  res.redirect('/client');
+});
+
+app.get('/client/documents', (req, res) => {
+  res.redirect('/client');
+});
+
+app.get('/client/settings', (req, res) => {
+  res.redirect('/client');
 });
 
 // Página principal (opcional)
