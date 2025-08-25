@@ -4,14 +4,126 @@ const services = {
     backend: { port: 3000, container: 'gelymar-platform-backend', name: 'Backend API' },
     frontend: { port: 2121, container: 'gelymar-platform-frontend', name: 'Frontend' },
     fileserver: { port: 8080, container: 'gelymar-platform-fileserver', name: 'File Server' },
-    cron: { port: 9615, container: 'gelymar-platform-cron', name: 'Cron Jobs' },
+    cronjob: { port: 9615, container: 'gelymar-platform-cron', name: 'Cron Jobs' },
     shell: { port: 8082, container: 'gelymar-platform-monitoring', name: 'Shell Access' }
 };
 
+// Variables globales para el usuario
+let currentUser = null;
+let userAppTypes = [];
+
 // Verificar autenticación
-function checkAuth() {
-    if (!localStorage.getItem('authenticated')) {
+async function checkAuth() {
+    const token = localStorage.getItem('monitoring_token');
+    const userData = localStorage.getItem('monitoring_user');
+    
+    if (!token || !userData) {
         window.location.href = 'login.html';
+        return;
+    }
+    
+    try {
+        // Verificar token con el backend
+        const response = await fetch('http://localhost:3000/api/monitoring/verify', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ token })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok || !data.success) {
+            // Token inválido, limpiar y redirigir
+            localStorage.removeItem('monitoring_token');
+            localStorage.removeItem('monitoring_user');
+            localStorage.removeItem('authenticated');
+            window.location.href = 'login.html';
+            return;
+        }
+        
+        // Guardar datos del usuario
+        currentUser = data.user;
+        userAppTypes = data.user.appTypes || [];
+        
+        // Actualizar UI con información del usuario
+        updateUserInfo();
+        
+    } catch (error) {
+        console.error('Error verificando autenticación:', error);
+        // En caso de error de conexión, usar datos locales
+        try {
+            currentUser = JSON.parse(userData);
+            userAppTypes = currentUser.appTypes || [];
+            updateUserInfo();
+        } catch (e) {
+            // Datos corruptos, redirigir a login
+            localStorage.clear();
+            window.location.href = 'login.html';
+        }
+    }
+}
+
+// Actualizar información del usuario en la UI
+function updateUserInfo() {
+    if (currentUser) {
+        // Ocultar el botón de salir original
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            logoutBtn.style.display = 'none';
+        }
+        
+        // Agregar información del usuario al header con menú desplegable
+        const headerActions = document.querySelector('.header-actions');
+        if (headerActions) {
+            const userMenu = document.createElement('div');
+            userMenu.className = 'user-menu';
+            userMenu.innerHTML = `
+                <div class="user-menu-trigger">
+                    <span style="color: white; font-weight: 500; margin-right: 10px;">
+                        👤 ${currentUser.username}
+                    </span>
+                    <span style="color: white; font-size: 12px;">▼</span>
+                </div>
+                <div class="user-menu-dropdown">
+                    <button class="user-menu-item" onclick="logout()">🚪 Salir</button>
+                </div>
+            `;
+            headerActions.appendChild(userMenu);
+        }
+    }
+}
+
+// Filtrar servicios según permisos del usuario
+function getFilteredServices() {
+    if (!userAppTypes || userAppTypes.length === 0) {
+        return {}; // Sin permisos
+    }
+    
+    const filtered = {};
+    for (const [serviceName, service] of Object.entries(services)) {
+        if (userAppTypes.includes(serviceName)) {
+            filtered[serviceName] = service;
+        }
+    }
+    
+    return filtered;
+}
+
+// Ocultar servicios no autorizados
+function hideUnauthorizedServices() {
+    const filteredServices = getFilteredServices();
+    
+    for (const serviceName of Object.keys(services)) {
+        const serviceCard = document.querySelector(`[data-service="${serviceName}"]`);
+        if (serviceCard) {
+            if (filteredServices[serviceName]) {
+                serviceCard.style.display = 'block';
+            } else {
+                serviceCard.style.display = 'none';
+            }
+        }
     }
 }
 
@@ -39,7 +151,7 @@ async function checkServiceStatus(serviceName) {
     }
 
     // Para Cron (PM2), verificar el puerto 9615
-    if (serviceName === 'cron') {
+    if (serviceName === 'cronjob') { // Changed from 'cron' to 'cronjob'
         try {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 2000);
@@ -136,10 +248,17 @@ async function checkAllServices() {
     const statusBanner = document.getElementById('statusBanner');
     const globalStatus = document.getElementById('globalStatus');
     
+    const filteredServices = getFilteredServices();
     let onlineCount = 0;
-    let totalServices = Object.keys(services).length;
+    let totalServices = Object.keys(filteredServices).length;
     
-    for (const [serviceName, service] of Object.entries(services)) {
+    if (totalServices === 0) {
+        statusBanner.className = 'status-banner error';
+        globalStatus.textContent = '❌ No tienes permisos para ver ningún servicio';
+        return;
+    }
+    
+    for (const [serviceName, service] of Object.entries(filteredServices)) {
         updateStatusIndicator(serviceName, 'loading');
         
         try {
@@ -199,14 +318,39 @@ function closeModal() {
 }
 
 // Logout
-function logout() {
+async function logout() {
+    const token = localStorage.getItem('monitoring_token');
+    
+    if (token) {
+        try {
+            // Notificar al backend sobre el logout
+            await fetch('http://localhost:3000/api/monitoring/logout', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ token })
+            });
+        } catch (error) {
+            console.error('Error en logout:', error);
+        }
+    }
+    
+    // Limpiar localStorage
+    localStorage.removeItem('monitoring_token');
+    localStorage.removeItem('monitoring_user');
     localStorage.removeItem('authenticated');
+    
+    // Redirigir a login
     window.location.href = 'login.html';
 }
 
 // Inicializar dashboard
-function initDashboard() {
-    checkAuth();
+async function initDashboard() {
+    await checkAuth();
+    
+    // Ocultar servicios no autorizados
+    hideUnauthorizedServices();
     
     // Verificar servicios inicialmente
     checkAllServices();
@@ -216,7 +360,20 @@ function initDashboard() {
     
     // Event listeners
     document.getElementById('refreshBtn').addEventListener('click', checkAllServices);
-    document.getElementById('logoutBtn').addEventListener('click', logout);
+    
+    // Event listener para el menú de usuario
+    document.addEventListener('click', function(event) {
+        const userMenu = document.querySelector('.user-menu');
+        const userMenuTrigger = document.querySelector('.user-menu-trigger');
+        
+        if (userMenu && userMenuTrigger) {
+            if (userMenuTrigger.contains(event.target)) {
+                userMenu.classList.toggle('active');
+            } else if (!userMenu.contains(event.target)) {
+                userMenu.classList.remove('active');
+            }
+        }
+    });
     
     // Modal events
     document.querySelector('.close').addEventListener('click', closeModal);

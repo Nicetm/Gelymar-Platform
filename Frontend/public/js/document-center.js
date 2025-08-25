@@ -18,11 +18,11 @@ const searchInput = document.querySelector('input[placeholder="Search documents.
 const typeFilter = document.querySelector('select');
 
 // Verificar que los elementos críticos existan
-console.log('🔍 DOM Elements check:');
-console.log('ordersGrid:', ordersGrid);
-console.log('documentsStats:', documentsStats);
-console.log('documentsSection:', documentsSection);
-console.log('documentsContainer:', documentsContainer);
+// console.log('🔍 DOM Elements check:');
+// console.log('ordersGrid:', ordersGrid);
+// console.log('documentsStats:', documentsStats);
+// console.log('documentsSection:', documentsSection);
+// console.log('documentsContainer:', documentsContainer);
 
 // ▸ Configuración de colores para estados
 const statusColors = {
@@ -198,9 +198,11 @@ function renderOrders() {
  * Selecciona una orden y muestra sus documentos
  */
 async function selectOrder(orderId) {
-  console.log('📋 Selecting order:', orderId);
-  
   currentOrderId = orderId;
+  
+  // Limpiar datos anteriores
+  documents = [];
+  filteredDocuments = [];
   
   // Mostrar loading en la sección de documentos
   showDocumentsLoading();
@@ -214,17 +216,19 @@ async function selectOrder(orderId) {
     documents = window.docsByOrder[orderId] || [];
   }
   
-  filteredDocuments = [...documents];
-  currentPage = 1;
-  
-  console.log('📄 Documents for order', orderId, ':', documents);
-  console.log('📄 Filtered documents:', filteredDocuments);
-  
-  // Ocultar loading y actualizar UI
-  hideDocumentsLoading();
-  renderDocuments(filteredDocuments, currentPage);
-  updatePagination();
-  updateStatistics();
+      // Asegurar que filteredDocuments tenga los documentos actualizados
+    filteredDocuments = [...documents];
+    currentPage = 1;
+    
+    // Ocultar loading y actualizar UI
+    hideDocumentsLoading();
+    renderDocuments(filteredDocuments, currentPage);
+    updatePagination();
+    
+    // Actualizar estadísticas después de que todo esté listo
+    setTimeout(() => {
+      updateStatistics();
+    }, 100);
   
   // Resaltar orden seleccionada
   const orderCards = document.querySelectorAll('[data-order-id]');
@@ -306,7 +310,8 @@ async function loadOrderDocumentsFromAPI(orderId) {
       url: doc.filepath || '#'
     }));
     
-    console.log('✅ Documentos cargados desde API:', documents.length);
+    // Inicializar filteredDocuments con todos los documentos visibles
+    filteredDocuments = [...documents];
   } catch (error) {
     console.error('❌ Error cargando documentos desde API:', error);
     throw error;
@@ -317,7 +322,7 @@ async function loadOrderDocumentsFromAPI(orderId) {
  * Renderiza los documentos
  */
 function renderDocuments(docs, page) {
-  console.log('🎨 Rendering documents:', docs.length, 'docs, page:', page);
+  // console.log('🎨 Rendering documents:', docs.length, 'docs, page:', page);
   
   if (!documentsContainer) {
     console.error('❌ documentsContainer not found');
@@ -328,7 +333,7 @@ function renderDocuments(docs, page) {
   const endIndex = startIndex + itemsPerPage;
   const pageDocuments = docs.slice(startIndex, endIndex);
 
-  console.log('📄 Page documents:', pageDocuments.length, 'docs');
+  // console.log('📄 Page documents:', pageDocuments.length, 'docs');
 
   documentsContainer.innerHTML = '';
 

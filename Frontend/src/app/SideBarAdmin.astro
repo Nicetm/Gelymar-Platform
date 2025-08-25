@@ -245,56 +245,7 @@ let avatarDarkSrc  = user.avatar
           {t.sidebar.shipments}
         </span>
       </a>
-
-      <!-- users -->
-      <button
-        type="button"
-        class="sidebar-link w-full group flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 border-transparent hover:border-gray-400 dark:hover:border-gray-500"
-        data-collapse-toggle="users-submenu"
-      >
-        <div class="icon-container w-8 h-8 bg-gray-200 dark:bg-gray-600 rounded-lg flex items-center justify-center shadow-sm group-hover:shadow-md transition-all duration-200">
-          <i data-lucide="users" class="w-4 h-4 text-gray-600 dark:text-gray-300"></i>
-        </div>
-        <span class="nav-text flex-1 font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors duration-200 text-left">
-          {t.sidebar.users}
-        </span>
-        <i data-lucide="chevron-down" class="w-4 h-4 text-gray-500 transition-transform group-hover:rotate-180"></i>
-      </button>
-      <ul id="users-submenu" class="hidden py-2 space-y-2 pl-7">
-        <li>
-          <a
-            href="/admin/users"
-            class="sidebar-link group flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 border-transparent hover:border-gray-400 dark:hover:border-gray-500"
-          >
-            <div class="icon-container w-6 h-6 bg-gray-200 dark:bg-gray-600 rounded-lg flex items-center justify-center shadow-sm group-hover:shadow-md transition-all duration-200">
-              <i data-lucide="user" class="w-3 h-3 text-gray-600 dark:text-gray-300"></i>
-            </div>
-            <span class="nav-text text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors duration-200">
-              {t.sidebar.users_list}
-            </span>
-          </a>
-        </li>
-      </ul>
-
     </div>
-  </div>
-
-  <!-- Support section at bottom -->
-  <div class="absolute bottom-20 left-0 w-full px-4">
-    <!-- Divider -->
-    <hr class="mb-4 border-gray-300 dark:border-gray-600" />
-    
-    <!-- Support link -->
-    <a href="/admin/info/support" class="support-link group block transition-all duration-200">
-      <div class="bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 rounded-xl shadow-sm border border-green-200 dark:border-green-700 p-3 group-hover:shadow-md group-hover:scale-[1.02] transition-all duration-200">
-        <div class="flex items-center justify-center gap-2">
-          <span class="text-lg">💬</span>
-          <span class="text-sm font-medium text-green-700 dark:text-green-300 group-hover:font-semibold transition-all duration-200">
-            Chat with us
-          </span>
-        </div>
-      </div>
-    </a>
   </div>
 
   <!-- Footer: settings + language -->
@@ -324,7 +275,7 @@ let avatarDarkSrc  = user.avatar
         id="currentLangBtn"
       >
         <div class="flex items-center justify-center gap-1">
-          <span id="currentLangFlag" class="text-sm">🇺🇸</span>
+          <img id="currentLangFlag" src="https://flagcdn.com/w20/us.png" alt="US Flag" class="w-4 h-3 rounded-sm">
           <span id="currentLangText" class="text-xs font-medium text-gray-700 dark:text-gray-300">EN</span>
           <i data-lucide="chevron-up" class="w-3 h-3 text-gray-500 transform transition-transform duration-200"></i>
         </div>
@@ -339,14 +290,14 @@ let avatarDarkSrc  = user.avatar
             data-lang="en"
             class="language-option flex-1 flex items-center justify-center gap-1 px-2 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white rounded-lg transition-all duration-200"
           >
-            🇺🇸 EN
+            <img src="https://flagcdn.com/w20/us.png" alt="US Flag" class="w-4 h-3 rounded-sm"> EN
           </a>
           <a
             href="#"
             data-lang="es"
             class="language-option flex-1 flex items-center justify-center gap-1 px-2 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white rounded-lg transition-all duration-200"
           >
-            🇨🇱 ES
+            <img src="https://flagcdn.com/w20/cl.png" alt="Chile Flag" class="w-4 h-3 rounded-sm"> ES
           </a>
         </div>
       </div>
@@ -462,290 +413,8 @@ let avatarDarkSrc  = user.avatar
 
 <!-- SCRIPTS -->
 <script type="module" define:vars={{ apiBase, clientApiBase, fileServer, t, token, lang }}>
-  // Hacer las variables disponibles globalmente
-  window.apiBase = clientApiBase; // Usar clientApiBase para JavaScript del cliente
-  window.fileServer = fileServer;
-  window.lang = lang;
-/* ---------- helpers que usan las traducciones ---------- */
-/* ---------- consts de entorno ---------- */
-  const API_BASE = window.apiBase || apiBase;
-  const FILE_SERVER = window.fileServer || fileServer;
-
-  console.log( "apiBase SideBarAdmin.astro", apiBase);
-
-// Función para obtener el token del cliente
-function getClientToken() {
-  let clientToken =
-    localStorage.getItem("token")        ||
-    localStorage.getItem("accessToken")  ||
-    localStorage.getItem("jwt")          ||
-    null;
-
-  if (!clientToken) {
-    const match = document.cookie.match(/(?:^|; )(?:token|accessToken|jwt)=([^;]+)/);
-    clientToken = match ? decodeURIComponent(match[1]) : null;
-  }
+  import { initSidebarAdmin } from '/js/sidebar-admin.js';
   
-  return clientToken;
-}
-
-async function loadAdminData () {
-  // 2. Llama a la API para obtener perfil completo
-  try {
-    const res = await fetch(`${API_BASE}/api/users/profile`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-    const u = await res.json();
-
-    // 3. Actualiza campos del formulario
-    if (u.full_name)  document.getElementById("adminNameInput").value  = u.full_name;
-    if (u.email)      document.getElementById("adminEmailInput").value = u.email;
-    if (u.phone)      document.getElementById("adminPhoneInput").value = u.phone;
-
-    // 4. Actualiza avatar con URL absoluta al file‑server o fallback de iniciales
-    if (u.avatar_path) {
-      const avatarUrl = `${FILE_SERVER}/${u.avatar_path}`;
-      document.getElementById("adminAvatarLight").src = avatarUrl;
-      document.getElementById("adminAvatarDark").src  = avatarUrl;
-    } else if (u.full_name) {
-      const seed = encodeURIComponent(u.full_name);
-      document.getElementById("adminAvatarLight").src =
-        `https://api.dicebear.com/7.x/initials/svg?seed=${seed}&backgroundColor=4b5563&fontColor=ffffff`;
-      document.getElementById("adminAvatarDark").src  =
-        `https://api.dicebear.com/7.x/initials/svg?seed=${seed}&backgroundColor=1e293b&fontColor=ffffff`;
-    }
-  } catch (err) {
-    console.error("No se pudo cargar el perfil del admin:", err);
-    // Si algo falla, dejamos valores por defecto vacíos
-  }
-}
-
-function validateForm () {
-  const name  = document.getElementById("adminNameInput").value.trim();
-  const phone = document.getElementById("adminPhoneInput").value.trim();
-  if (!name || !phone) {
-    alert(t.admin_settings.name_and_phone_required);
-    return false;
-  }
-  return true;
-}
-
-  /* ---------- script principal: corre cuando el DOM está listo ---------- */
-  document.addEventListener("DOMContentLoaded", async () => {
-    // Cargar datos del admin al inicio
-    await loadAdminData();
-
-  /* ---------- lógica de íconos y submenu ---------- */
-  const path            = window.location.pathname;
-  // ---- highlight active page in sidebar ----
-  document.querySelectorAll("#sidebar a[href]").forEach(link => {
-    const href = link.getAttribute("href");
-    if (href && (path === href || path.startsWith(href + "/"))) {
-      link.classList.add("active");
-      
-      // Special styling for support link when active
-      if (href === "/admin/info/support") {
-        // Los estilos activos del soporte se manejan con CSS usando .support-link.active
-        // No necesitamos JavaScript adicional aquí
-      }
-    }
-  });
-  const usersSubmenu    = document.getElementById("users-submenu");
-  const nestedUserPaths = ["/admin/users", "/admin/roles"];
-  if (usersSubmenu && nestedUserPaths.some(p => path === p || path.startsWith(p + "/"))) {
-    usersSubmenu.classList.remove("hidden");
-  }
-
-/* ---------- refs DOM ---------- */
-const openBtn   = document.getElementById("openAdminSettings");
-const closeBtn  = document.getElementById("closeAdminSettings");
-const cancelBtn = document.getElementById("cancelAdminEdit");
-const form      = document.getElementById("adminSettingsForm");
-const modal     = document.getElementById("adminSettingsModal");
-
-const avatarInput = document.getElementById("adminAvatarInput");
-const avatarLight = document.getElementById("adminAvatarLight");
-const avatarDark  = document.getElementById("adminAvatarDark");
-
-const modalContent = modal.querySelector(".modal-card");
-
-/* ---------- util modal ---------- */
-const showModal = () => {
-  modal.classList.remove("hidden");
-  modal.classList.add("flex");
-  // fade‑in backdrop
-  modal.classList.remove("opacity-0");
-  // Trigger animation on next frame
-  requestAnimationFrame(() => {
-    modalContent.classList.remove("opacity-0", "scale-90", "translate-y-6");
-  });
-};
-const hideModal = () => {
-  // fade‑out backdrop
-  modal.classList.add("opacity-0");
-  // Start exit animation
-  modalContent.classList.add("opacity-0", "scale-90", "translate-y-6");
-  modal.addEventListener(
-    "transitionend",
-    function handler() {
-      modal.removeEventListener("transitionend", handler);
-      modal.classList.remove("flex");
-      modal.classList.add("hidden");
-    },
-    { once: true },
-  );
-};
-
-  /* ---------- avatar preview ---------- */
-  avatarInput?.addEventListener("change", () => {
-    const file = avatarInput.files?.[0];
-    if (!file) return;
-    
-    // Validar tipo de archivo
-    const allowedTypes = ['image/png', 'image/jpg', 'image/jpeg'];
-    if (!allowedTypes.includes(file.type)) {
-      alert('Solo se permiten archivos PNG, JPG o JPEG');
-      avatarInput.value = '';
-      return;
-    }
-    
-    // Validar tamaño (5MB)
-    const maxSize = 5 * 1024 * 1024;
-    if (file.size > maxSize) {
-      alert('El archivo no puede ser mayor a 5MB');
-      avatarInput.value = '';
-      return;
-    }
-    
-    const url = URL.createObjectURL(file);
-    avatarLight.src = url;
-    avatarDark.src  = url;
-  });
-
-  /* ---------- eventos modal ---------- */
-  openBtn?.addEventListener("click",  e => { e.preventDefault(); showModal(); });
-  closeBtn?.addEventListener("click", hideModal);
-  cancelBtn?.addEventListener("click", hideModal);
-  modal?.addEventListener("click",    e => { if (e.target === modal) hideModal(); });
-
-  /* ---------- envío de formulario ---------- */
-  form?.addEventListener("submit", async e => {
-    e.preventDefault();
-    if (!validateForm()) return;
-
-    try {
-      // 1. Subir avatar si se seleccionó uno
-      let avatarPath = null;
-      if (avatarInput?.files?.[0]) {
-        const avatarFormData = new FormData();
-        avatarFormData.append('avatar', avatarInput.files[0]);
-
-        const avatarRes = await fetch(`${API_BASE}/api/users/avatar`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-          body: avatarFormData
-        });
-        
-        if (!avatarRes.ok) {
-          const error = await avatarRes.json();
-          throw new Error(error.message || 'Error al subir avatar');
-        }
-        
-        const avatarData = await avatarRes.json();
-        avatarPath = avatarData.avatar_path;
-      }
-
-      // 2. Actualizar perfil
-      const profileData = {
-        full_name: document.getElementById("adminNameInput").value.trim(),
-        phone: document.getElementById("adminPhoneInput").value.trim(),
-        country: 'Chile', // Por defecto
-        city: 'Puerto Montt' // Por defecto
-      };
-
-      const profileRes = await fetch(`${API_BASE}/api/users/profile`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(profileData)
-      });
-
-      if (!profileRes.ok) {
-        const error = await profileRes.json();
-        throw new Error(error.message || 'Error al actualizar perfil');
-      }
-
-      alert(t.admin_settings.data_updated_successfully);
-      hideModal();
-      
-      // Recargar datos del perfil
-      await loadAdminData();
-    } catch (err) {
-      console.error(err);
-      alert(err.message || t.admin_settings.error_saving_changes);
-    }
-  });
-
-  /* ---------- toggles de submenús ---------- */
-  document.querySelectorAll("[data-collapse-toggle]").forEach(btn => {
-    const targetId = btn.getAttribute("data-collapse-toggle");
-    const target   = targetId ? document.getElementById(targetId) : null;
-    if (!target) return;
-
-    btn.addEventListener("click", () => {
-      target.classList.toggle("hidden");
-      btn.querySelector("[data-lucide='chevron-down']")?.classList.toggle("rotate-180");
-    });
-  });
-
-  /* ---------- cambio de idioma ---------- */
-  // Función para actualizar el flag y texto del idioma actual
-  function updateCurrentLangFlag() {
-    const currentLang = localStorage.getItem('lang') || '{lang}';
-    const flagElement = document.getElementById('currentLangFlag');
-    const textElement = document.getElementById('currentLangText');
-    const chevronElement = document.querySelector('#currentLangBtn i[data-lucide="chevron-up"]');
-    
-    if (flagElement) {
-      flagElement.textContent = currentLang === 'es' ? '🇨🇱' : '🇺🇸';
-    }
-    if (textElement) {
-      textElement.textContent = currentLang === 'es' ? 'ES' : 'EN';
-    }
-    
-    // Animar chevron cuando cambia
-    if (chevronElement) {
-      chevronElement.style.transform = 'rotate(180deg)';
-      setTimeout(() => {
-        chevronElement.style.transform = 'rotate(0deg)';
-      }, 200);
-    }
-  }
-
-  // Actualizar flag al cargar
-  updateCurrentLangFlag();
-
-  document.querySelectorAll(".language-option").forEach(option => {
-    option.addEventListener("click", (e) => {
-      e.preventDefault();
-      const lang = option.getAttribute("data-lang");
-      if (lang) {
-        // Importar y usar la función setLang
-        import('/src/lib/i18n.js').then(({ setLang }) => {
-          setLang(lang);
-        }).catch(err => {
-          console.error('Error al cambiar idioma:', err);
-          // Fallback manual
-          localStorage.setItem('lang', lang);
-          document.cookie = `user-lang=${lang}; path=/; max-age=31536000`;
-          window.location.reload();
-        });
-      }
-    });
-  });
-});
+  // Inicializar el sidebar admin con la configuración
+  initSidebarAdmin({ apiBase, clientApiBase, fileServer, t, token, lang });
 </script>

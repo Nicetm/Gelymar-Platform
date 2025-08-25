@@ -25,6 +25,11 @@ export interface Orders {
   customer_name: string;
   customer_uuid: string;
   files_count: number;
+  fecha_cliente?: string | null;
+  currency?: string | null;
+  medio_envio?: string | null;
+  factura?: string | null;
+  fecha_factura?: string | null;
 }
 
 // --- USERS ---
@@ -75,11 +80,14 @@ export interface Folders {
   pc: string;
   oc: string;
   factura: number;
-  fec_factura: string;
   created_at: string;
   updated_at: string;
 	fileCount?: number; // <-- opcional, para mostrar el número de archivos en la carpeta
 	customer_uuid?: string; // <-- opcional, para mostrar el UUID del cliente asociado a la carpeta
+  fecha_cliente?: string | null;
+  currency?: string | null;
+  medio_envio?: string | null;
+  fecha_factura?: string | null;
 }
 
 // --- FILES ---
@@ -107,4 +115,30 @@ export interface Files {
 export interface OrderStatus {
   id: number;
   name: string;
+}
+
+// --- ORDER DETAIL ---
+export interface OrderDetail {
+  id: number;
+  order_id: number;
+  incoterm?: string | null;
+  direccion_destino?: string | null;
+  puerto_destino?: string | null;
+  u_observaciones?: string | null;
+  fecha_eta?: string | null;
+  fecha_etd?: string | null;
+  certificados?: string | null;
+  pymnt_group?: string | null;
+  fec_deseada_dep_planta?: string | null;
+  fec_deseada_cliente?: string | null;
+  fec_real_dep_planta?: string | null;
+  fec_original_cliente?: string | null;
+  u_reserva?: string | null;
+  folio_gd?: string | null;
+  motivo_retraso?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  // Campos adicionales de la tabla orders
+  pc?: string | null;
+  oc?: string | null;
 }

@@ -1,0 +1,287 @@
+---
+// Componente de campanita de notificaciones para el admin
+export interface Props {
+  unreadCount?: number;
+}
+
+const { unreadCount = 0 } = Astro.props;
+const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
+---
+
+<!-- Campanita de notificaciones -->
+<div class="relative">
+  <button
+    id="notification-bell"
+    class="relative p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+    aria-label="Notificaciones"
+  >
+    <!-- Icono de campanita -->
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <!-- cuerpo -->
+      <path d="M12 4c-3.3 0-6 2.7-6 6v3c0 .9-.34 1.7-.95 2.32L4 17h16l-.95-1.68c-.61-.62-.95-1.43-.95-2.32V10c0-3.3-2.7-6-6-6z"/>
+      <!-- badajo/sonido -->
+      <path d="M10 20a2 2 0 0 0 4 0"/>
+    </svg>
+    
+    <!-- Badge de notificaciones no leídas (se actualiza dinámicamente) -->
+    <span id="notification-badge" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center animate-pulse hidden">
+      0
+    </span>
+    
+    <!-- Animación de ping cuando hay notificaciones -->
+    <span id="notification-ping" class="absolute -top-1 -right-1 bg-red-400 rounded-full w-4 h-4 animate-ping opacity-75 hidden"></span>
+  </button>
+  
+  <!-- Dropdown de notificaciones -->
+  <div
+    id="notification-dropdown"
+    class="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 hidden"
+  >
+    <!-- Header del dropdown -->
+    <div class="flex items-center justify-between p-3 border-b border-gray-200 dark:border-gray-700">
+      <h3 class="text-base font-semibold text-gray-900 dark:text-white">Notificaciones</h3>
+      {unreadCount > 0 && (
+        <button
+          id="mark-all-read"
+          class="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+        >
+          Marcar como leídos
+        </button>
+      )}
+    </div>
+    
+    <!-- Lista de notificaciones -->
+    <div id="notification-list" class="max-h-96 overflow-y-auto">
+      <!-- Las notificaciones se cargarán dinámicamente aquí -->
+      <div class="p-4 text-center text-gray-500 dark:text-gray-400">
+        <svg class="w-8 h-8 mx-auto mb-2 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <!-- cuerpo -->
+          <path d="M12 4c-3.3 0-6 2.7-6 6v3c0 .9-.34 1.7-.95 2.32L4 17h16l-.95-1.68c-.61-.62-.95-1.43-.95-2.32V10c0-3.3-2.7-6-6-6z"/>
+          <!-- badajo/sonido -->
+          <path d="M10 20a2 2 0 0 0 4 0"/>
+        </svg>
+        <p>No hay notificaciones</p>
+      </div>
+    </div>
+    
+    <!-- Footer del dropdown -->
+    <div class="p-2 border-t border-gray-200 dark:border-gray-700">
+      <a
+        href="/admin/messaging"
+        class="block text-center text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+      >
+        Ver todos los mensajes
+      </a>
+    </div>
+  </div>
+</div>
+
+<script define:vars={{ apiBase }}>
+  // Variables
+  let notifications = [];
+  let unreadCount = 0;
+  let previousUnreadCount = 0;
+  
+  // Elementos del DOM
+  const notificationBell = document.getElementById('notification-bell');
+  const notificationDropdown = document.getElementById('notification-dropdown');
+  const notificationList = document.getElementById('notification-list');
+  const markAllReadBtn = document.getElementById('mark-all-read');
+  
+  // Función para cargar notificaciones
+  async function loadNotifications() {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      
+      const response = await fetch(`${apiBase}/api/chat/summary`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) return;
+      
+      const data = await response.json();
+      const newUnreadCount = data.data.totalUnread || 0;
+      
+      console.log('Notificaciones cargadas:', { 
+        previousUnreadCount, 
+        newUnreadCount, 
+        totalUnread: data.data.totalUnread 
+      });
+      
+      // Verificar si hay nuevos mensajes
+      if (newUnreadCount > previousUnreadCount) {
+        console.log('¡Nuevos mensajes recibidos!');
+        // Aquí podrías agregar una notificación visual o sonora
+      }
+      
+      unreadCount = newUnreadCount;
+      previousUnreadCount = newUnreadCount;
+      
+      // Actualizar badge
+      updateNotificationBadge();
+      
+      // Cargar chats recientes como notificaciones
+      notifications = data.data.recentChats || [];
+      renderNotifications();
+      
+    } catch (error) {
+      console.error('Error cargando notificaciones:', error);
+    }
+  }
+  
+  // Función para actualizar el badge y color de la campanita
+  function updateNotificationBadge() {
+    const badge = document.getElementById('notification-badge');
+    const ping = document.getElementById('notification-ping');
+    const bellIcon = notificationBell?.querySelector('svg');
+    
+    console.log('Actualizando badge:', { unreadCount, badge: !!badge, ping: !!ping, bellIcon: !!bellIcon });
+    
+    if (unreadCount > 0) {
+      // Cambiar color de la campanita a naranja
+      if (bellIcon) {
+        bellIcon.classList.remove('text-gray-600', 'dark:text-gray-300');
+        bellIcon.classList.add('text-orange-500');
+      }
+      
+      if (badge) {
+        badge.textContent = unreadCount > 99 ? '99+' : unreadCount.toString();
+        badge.classList.remove('hidden');
+      }
+      if (ping) {
+        ping.classList.remove('hidden');
+      }
+    } else {
+      // Restaurar color original de la campanita
+      if (bellIcon) {
+        bellIcon.classList.remove('text-orange-500');
+        bellIcon.classList.add('text-gray-600', 'dark:text-gray-300');
+      }
+      
+      if (badge) badge.classList.add('hidden');
+      if (ping) ping.classList.add('hidden');
+    }
+  }
+  
+  // Función para renderizar notificaciones
+  function renderNotifications() {
+    if (!notificationList) return;
+    
+    if (notifications.length === 0) {
+      notificationList.innerHTML = `
+        <div class="p-3 text-center text-gray-500 dark:text-gray-400">
+          <svg class="w-6 h-6 mx-auto mb-2 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <!-- cuerpo -->
+            <path d="M12 4c-3.3 0-6 2.7-6 6v3c0 .9-.34 1.7-.95 2.32L4 17h16l-.95-1.68c-.61-.62-.95-1.43-.95-2.32V10c0-3.3-2.7-6-6-6z"/>
+            <!-- badajo/sonido -->
+            <path d="M10 20a2 2 0 0 0 4 0"/>
+          </svg>
+          <p class="text-sm">No hay mensajes nuevos</p>
+        </div>
+      `;
+      return;
+    }
+    
+    const notificationsHTML = notifications.map(chat => `
+      <div 
+        class="p-3 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
+        onclick="openAdminChat('${chat.customer_id}', '${chat.company_name}', '${chat.company_name}'); notificationDropdown.classList.add('hidden');"
+      >
+        <div class="flex items-start justify-between">
+          <div class="flex-1">
+            <p class="font-medium text-sm text-gray-900 dark:text-white">${chat.company_name}</p>
+            <p class="text-xs text-gray-600 dark:text-gray-400 truncate">${chat.last_message}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-500 mt-1">
+              ${new Date(chat.last_message_time).toLocaleString()}
+            </p>
+          </div>
+          ${chat.unread_count > 0 ? `
+            <span class="ml-2 bg-red-500 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center">
+              ${chat.unread_count}
+            </span>
+          ` : ''}
+        </div>
+      </div>
+    `).join('');
+    
+    notificationList.innerHTML = notificationsHTML;
+  }
+  
+  // Event listeners
+  notificationBell?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    notificationDropdown?.classList.toggle('hidden');
+    
+    // Cargar notificaciones cuando se abre
+    if (!notificationDropdown?.classList.contains('hidden')) {
+      loadNotifications();
+    }
+  });
+  
+  markAllReadBtn?.addEventListener('click', async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      
+      // Marcar todas como leídas
+      await fetch(`${apiBase}/api/chat/mark-all-read`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      // Recargar notificaciones
+      loadNotifications();
+      
+    } catch (error) {
+      console.error('Error marcando como leídas:', error);
+    }
+  });
+  
+  // Cerrar dropdown al hacer clic fuera
+  document.addEventListener('click', (e) => {
+    if (!notificationBell?.contains(e.target)) {
+      notificationDropdown?.classList.add('hidden');
+    }
+  });
+  
+  // Variable para el polling de notificaciones
+  let notificationPollingInterval = null;
+  
+  // Función para iniciar el polling de notificaciones
+  function startNotificationPolling() {
+    if (notificationPollingInterval) {
+      clearInterval(notificationPollingInterval);
+    }
+    notificationPollingInterval = setInterval(loadNotifications, 5000); // Actualizar cada 5 segundos
+  }
+  
+  // Función para detener el polling de notificaciones
+  function stopNotificationPolling() {
+    if (notificationPollingInterval) {
+      clearInterval(notificationPollingInterval);
+      notificationPollingInterval = null;
+    }
+  }
+  
+  // Inicializar badge al cargar la página
+  updateNotificationBadge();
+  
+  // Cargar notificaciones al cargar la página
+  loadNotifications();
+  
+  // Iniciar polling automático de notificaciones
+  startNotificationPolling();
+  
+  // Función global para recargar notificaciones (usada por AdminChatModal)
+  window.reloadNotifications = loadNotifications;
+  
+  // Función para actualizar inmediatamente (sin esperar al polling)
+  window.updateNotificationsImmediately = function() {
+    loadNotifications();
+  };
+</script> 

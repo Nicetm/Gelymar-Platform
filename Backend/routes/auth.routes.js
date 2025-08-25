@@ -34,11 +34,28 @@ router.get('/2fa/status', authController.check2FAStatus);
 router.get('/me', authMiddleware, async (req, res) => {
     try {
         const user = await userService.findUserByEmailOrUsername(req.user.email);
+        
+        // Buscar el customer_id usando el RUT (email del usuario)
+        let customer_id = null;
+        if (req.user.role === 'client') {
+            const { poolPromise } = require('../config/db');
+            const pool = await poolPromise;
+            const [customerRows] = await pool.query('SELECT id FROM customers WHERE rut = ?', [req.user.email]);
+            if (customerRows.length > 0) {
+                customer_id = customerRows[0].id;
+            }
+        }
+        
         res.json({
             id: req.user.id,
             email: req.user.email,
+            full_name: user.full_name,
+            phone: user.phone,
+            country: user.country,
+            city: user.city,
             role: req.user.role,
-            change_pw: user.change_pw
+            change_pw: user.change_pw,
+            customer_id: customer_id
         });
     } catch (error) {
         res.status(500).json({ message: 'Error interno' });

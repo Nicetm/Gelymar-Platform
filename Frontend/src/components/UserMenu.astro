@@ -14,8 +14,6 @@ const fileServer = import.meta.env.PUBLIC_FILE_SERVER_URL;
 /** @type {import('../types/entities.js').Users | null} */
 let user = null;
 
-// Remover fetch del SSR para evitar errores de conexión desde Docker
-// Los datos se cargarán en el cliente
 
 if (!user) {
   user = { full_name: 'User', email: 'user@example.com', role: 'guest', avatar: '' };

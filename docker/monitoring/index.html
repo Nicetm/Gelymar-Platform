@@ -111,8 +111,8 @@
                     </div>
                     <div class="card-body">
                         <div class="service-details">
-                            <p><strong>HTTP:</strong> 8080</p>
-                            <p><strong>FTP:</strong> 21</p>
+                            <p><strong>HTTP:</strong> 8080 - <strong>FTP:</strong> 21</p>
+                            <p><strong>Contenedor:</strong> gelymar-platform-fileserver</p>
                             <p><strong>Estado:</strong> <span id="fileserver-state">Verificando...</span></p>
                         </div>
                         <div class="card-actions">
@@ -123,24 +123,24 @@
                 </div>
 
                 <!-- Cron Jobs -->
-                <div class="service-card" data-service="cron">
+                <div class="service-card" data-service="cronjob">
                     <div class="card-header">
                         <div class="service-icon">⏰</div>
                         <div class="service-info">
                             <h3>Cron Jobs</h3>
                             <p>PM2 + Tareas programadas</p>
                         </div>
-                        <div class="status-indicator" id="cron-status">⏳</div>
+                        <div class="status-indicator" id="cronjob-status">⏳</div>
                     </div>
                     <div class="card-body">
                         <div class="service-details">
                             <p><strong>PM2 Web:</strong> 9615</p>
                             <p><strong>Contenedor:</strong> gelymar-platform-cron</p>
-                            <p><strong>Estado:</strong> <span id="cron-state">Verificando...</span></p>
+                            <p><strong>Estado:</strong> <span id="cronjob-state">Verificando...</span></p>
                         </div>
                         <div class="card-actions">
                             <a href="http://localhost:9615" target="_blank" class="btn-action">📊 PM2</a>
-                            <button class="btn-action" onclick="viewLogs('cron')">📋 Logs</button>
+                            <button class="btn-action" onclick="viewLogs('cronjob')">📋 Logs</button>
                         </div>
                     </div>
                 </div>

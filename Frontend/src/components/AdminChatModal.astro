@@ -1,0 +1,251 @@
+---
+// Modal de chat para el admin
+const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
+---
+
+<div id="admin-chat-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+  <div class="flex items-center justify-center min-h-screen p-4">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+      <!-- Header -->
+      <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white" id="chat-customer-name">Chat con Cliente</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400" id="chat-customer-company">Empresa</p>
+          </div>
+        </div>
+        <button id="close-admin-chat" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Messages Area -->
+      <div id="admin-chat-messages" class="flex-1 overflow-y-auto p-4 space-y-4 max-h-96">
+        <div class="text-center text-gray-500 dark:text-gray-400">
+          <p>Cargando mensajes...</p>
+        </div>
+      </div>
+
+      <!-- Input Area -->
+      <div class="p-4 border-t border-gray-200 dark:border-gray-700">
+        <div class="flex space-x-2">
+          <input 
+            type="text" 
+            id="admin-chat-input" 
+            placeholder="Escribe tu mensaje..." 
+            class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+          >
+          <button 
+            id="admin-send-message" 
+            class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Enviar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script define:vars={{ apiBase: apiBase }}>
+  let currentCustomerId = null;
+  let isTyping = false;
+
+  // Elementos del DOM
+  const chatModal = document.getElementById('admin-chat-modal');
+  const chatMessages = document.getElementById('admin-chat-messages');
+  const chatInput = document.getElementById('admin-chat-input');
+  const sendButton = document.getElementById('admin-send-message');
+  const closeButton = document.getElementById('close-admin-chat');
+  const customerName = document.getElementById('chat-customer-name');
+  const customerCompany = document.getElementById('chat-customer-company');
+
+  // Cerrar modal
+  function closeAdminChatModal() {
+    chatModal.classList.add('hidden');
+    currentCustomerId = null;
+    chatInput.value = '';
+    stopAdminChatPolling(); // Detener polling cuando se cierra
+  }
+
+  // Agregar mensaje al chat
+  function addMessageToChat(message, sender) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `flex ${sender === 'admin' ? 'justify-end' : 'justify-start'}`;
+    
+    const messageBubble = document.createElement('div');
+    messageBubble.className = `max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+      sender === 'admin' 
+        ? 'bg-blue-500 text-white' 
+        : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
+    }`;
+    messageBubble.textContent = message;
+    
+    messageDiv.appendChild(messageBubble);
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  // Variable para el polling del admin
+  let adminChatPollingInterval = null;
+  
+  // Función para iniciar el polling de mensajes del admin
+  function startAdminChatPolling() {
+    if (adminChatPollingInterval) {
+      clearInterval(adminChatPollingInterval);
+    }
+    adminChatPollingInterval = setInterval(() => {
+      if (currentCustomerId) {
+        loadCustomerMessages(currentCustomerId);
+      }
+    }, 3000); // Actualizar cada 3 segundos
+  }
+  
+  // Función para detener el polling del admin
+  function stopAdminChatPolling() {
+    if (adminChatPollingInterval) {
+      clearInterval(adminChatPollingInterval);
+      adminChatPollingInterval = null;
+    }
+  }
+  
+  // Cargar mensajes del cliente
+  async function loadCustomerMessages(customerId) {
+    if (!chatMessages) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.error('Token no encontrado');
+        return;
+      }
+
+      const response = await fetch(`${apiBase}/api/chat/messages/${customerId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!response.ok) {
+        throw new Error('Error cargando mensajes');
+      }
+
+      const data = await response.json();
+      chatMessages.innerHTML = '';
+      
+      data.data.forEach((msg) => {
+        const sender = msg.sender_type === 'admin' ? 'admin' : 'client';
+        addMessageToChat(msg.message, sender);
+      });
+
+      // Marcar como leídos por admin
+      await fetch(`${apiBase}/api/chat/mark-read-admin/${customerId}`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      // Recargar notificaciones para actualizar el contador inmediatamente
+      if (window.updateNotificationsImmediately) {
+        console.log('Actualizando notificaciones inmediatamente');
+        window.updateNotificationsImmediately();
+      }
+
+    } catch (error) {
+      console.error('Error cargando mensajes:', error);
+      chatMessages.innerHTML = '<div class="text-center text-red-500">Error cargando mensajes</div>';
+    }
+  }
+
+  // Enviar mensaje
+  async function sendAdminMessage() {
+    if (!chatInput || !sendButton || !currentCustomerId) return;
+    
+    const message = chatInput.value.trim();
+    if (!message || isTyping) return;
+
+    isTyping = true;
+    sendButton.disabled = true;
+
+    try {
+      addMessageToChat(message, 'admin');
+      chatInput.value = '';
+
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.error('Token no encontrado');
+        return;
+      }
+
+      const response = await fetch(`${apiBase}/api/chat/send`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json', 
+          'Authorization': `Bearer ${token}` 
+        },
+        body: JSON.stringify({ 
+          customer_id: currentCustomerId, 
+          message: message, 
+          sender_role: 'admin' 
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Error enviando mensaje');
+      }
+      
+      // Actualizar notificaciones después de enviar mensaje
+      if (window.updateNotificationsImmediately) {
+        setTimeout(() => {
+          window.updateNotificationsImmediately();
+        }, 500);
+      }
+
+    } catch (error) {
+      console.error('Error enviando mensaje:', error);
+      addMessageToChat('Error enviando mensaje. Inténtalo de nuevo.', 'admin');
+    } finally {
+      isTyping = false;
+      sendButton.disabled = false;
+    }
+  }
+
+  // Abrir chat con cliente
+  window.openAdminChat = function(customerId, customerNameText, companyName) {
+    currentCustomerId = customerId;
+    customerName.textContent = `Chat con ${customerNameText}`;
+    customerCompany.textContent = companyName;
+    
+    chatModal.classList.remove('hidden');
+    loadCustomerMessages(customerId);
+    
+    // Iniciar polling para actualizaciones en tiempo real
+    setTimeout(() => {
+      startAdminChatPolling();
+      chatInput.focus();
+    }, 200);
+  };
+
+  // Event listeners
+  closeButton?.addEventListener('click', closeAdminChatModal);
+  
+  sendButton?.addEventListener('click', sendAdminMessage);
+  
+  chatInput?.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendAdminMessage();
+    }
+  });
+
+  // Cerrar modal al hacer clic fuera
+  chatModal?.addEventListener('click', (e) => {
+    if (e.target === chatModal) {
+      closeAdminChatModal();
+    }
+  });
+</script> 

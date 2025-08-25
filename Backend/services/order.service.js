@@ -13,14 +13,18 @@ const getOrdersByFilters = async (filters = {}) => {
     SELECT 
       o.id,
       o.rut,
-      o.name AS oc,
+      o.oc,
       o.pc,
-      o.path,
       o.created_at,
       o.updated_at,
       c.name AS customer_name,
       c.uuid AS customer_uuid,
-      COUNT(f.id) AS files_count
+      COUNT(f.id) AS files_count,
+      o.fecha_cliente,
+      o.currency,
+      o.medio_envio,
+      o.factura,
+      o.fecha_factura
     FROM orders o
     JOIN customers c ON o.rut = c.rut
     LEFT JOIN files f ON f.pc = o.pc
@@ -64,7 +68,7 @@ const getOrdersByFilters = async (filters = {}) => {
     }
   }
 
-  query += ` GROUP BY o.id, o.pc, o.rut, o.name, o.path, o.created_at, o.updated_at, c.name, c.uuid`;
+  query += ` GROUP BY o.id, o.pc, o.rut, o.oc, o.created_at, o.updated_at, c.name, c.uuid, o.fecha_cliente, o.currency, o.medio_envio, o.factura, o.fecha_factura`;
 
   const [rows] = await pool.query(query, params);
 
@@ -79,7 +83,12 @@ const getOrdersByFilters = async (filters = {}) => {
       updated_at: r.updated_at,
       customer_name: r.customer_name,
       customer_uuid: r.customer_uuid,
-      files_count: r.files_count
+      files_count: r.files_count,
+      fecha_cliente: r.fecha_cliente,
+      currency: r.currency,
+      medio_envio: r.medio_envio,
+      factura: r.factura,
+      fecha_factura: r.fecha_factura
     });
 
     return order;
@@ -97,14 +106,14 @@ const getClientDashboardOrders = async (customerUUID) => {
   const query = `
     SELECT 
       o.id,
-      o.name AS orderNumber,
+      o.oc AS orderNumber,
       c.name AS clientName,
       o.created_at,
       o.updated_at,
-      COUNT(f.id) AS documents,
+      COUNT(CASE WHEN f.is_visible_to_client = 1 THEN f.id END) AS documents,
       CASE 
-        WHEN COUNT(f.id) = 0 THEN 'Pending'
-        WHEN COUNT(f.id) < 5 THEN 'In Progress'
+        WHEN COUNT(CASE WHEN f.is_visible_to_client = 1 THEN f.id END) = 0 THEN 'Pending'
+        WHEN COUNT(CASE WHEN f.is_visible_to_client = 1 THEN f.id END) < 5 THEN 'In Progress'
         ELSE 'Completed'
       END AS status,
       CASE 
@@ -116,7 +125,7 @@ const getClientDashboardOrders = async (customerUUID) => {
     JOIN customers c ON o.customer_id = c.id
     LEFT JOIN files f ON f.order_id = o.id
     WHERE c.uuid = ?
-    GROUP BY o.id, o.name, c.name, o.created_at, o.updated_at
+    GROUP BY o.id, o.oc, c.name, o.created_at, o.updated_at
     ORDER BY o.updated_at DESC
     LIMIT 6
   `;
@@ -146,7 +155,7 @@ const getClientOrderDocuments = async (orderId, customerUUID) => {
 
     // Primero verificar que la orden pertenece al cliente
     const orderQuery = `
-      SELECT o.id, o.name AS orderNumber, c.name AS clientName
+      SELECT o.id, o.oc AS orderNumber, c.name AS clientName
       FROM orders o
       JOIN customers c ON o.customer_id = c.id
       WHERE o.id = ? AND c.uuid = ?
@@ -160,7 +169,7 @@ const getClientOrderDocuments = async (orderId, customerUUID) => {
 
   const order = orderRows[0];
 
-  // Obtener documentos de la orden
+  // Obtener documentos de la orden (solo los visibles para el cliente)
   const documentsQuery = `
     SELECT 
       f.id,
@@ -172,7 +181,7 @@ const getClientOrderDocuments = async (orderId, customerUUID) => {
       s.name AS status
     FROM files f
     LEFT JOIN order_status s ON f.status_id = s.id
-    WHERE f.order_id = ?
+    WHERE f.order_id = ? AND f.is_visible_to_client = 1
     ORDER BY f.created_at DESC
   `;
 

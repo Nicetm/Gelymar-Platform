@@ -1,6 +1,7 @@
 ---
-import { loadTranslations, getServerLang } from '../lib/i18n.js';
-import type { Orders } from '../types/entities.js';
+import { loadTranslations, getServerLang } from '../../lib/i18n.js';
+import type { Orders } from '../../types/entities.js';
+import { formatDateShort } from '../../utils/formatDate.js';
 
 // Para el código del servidor (SSR), usar SERVER_API_URL
 // Para el código del cliente, usar PUBLIC_API_URL
@@ -157,8 +158,11 @@ const orders: Orders[] = await fetch(`${apiBase}/api/orders`, {
 					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.carpetas.name}</th>
 					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.carpetas.oc}</th>
 					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.clientes.client_name}</th>
-					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.carpetas.createdAt}</th>
-					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.carpetas.updatedAt}</th>
+					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.carpetas.fecha}</th>
+					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.carpetas.moneda}</th>
+					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.carpetas.medioEnvio}</th>
+					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.carpetas.factura}</th>
+					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.carpetas.fechaFactura}</th>
 					<th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.comond.actions}</th>
 				</tr>
 			</thead>
@@ -168,8 +172,11 @@ const orders: Orders[] = await fetch(`${apiBase}/api/orders`, {
 						<td class="px-6 py-4 text-sm editable-filename group cursor-pointer" data-id={order.id}>{order.pc}</td>
 						<td class="px-6 py-4 text-sm editable-filename group cursor-pointer" data-id={order.id}>{order.oc}</td>
 						<td class="px-4 py-3 break-all text-blue-600 dark:text-blue-400">{order.customer_name}</td>
-						<td class="px-6 py-4 items-center gap-3">{new Date(order.created_at).toLocaleString("es-CL")}</td>
-						<td class="px-6 py-4 items-center gap-3">{new Date(order.updated_at).toLocaleString("es-CL")}</td>
+						<td class="px-6 py-4 items-center gap-3">{formatDateShort(order.fecha_cliente)}</td>
+						<td class="px-6 py-4 items-center gap-3">{order.currency || '-'}</td>
+						<td class="px-6 py-4 items-center gap-3">{order.medio_envio || '-'}</td>
+						<td class="px-6 py-4 items-center gap-3">{order.factura || '-'}</td>
+						<td class="px-6 py-4 items-center gap-3">{formatDateShort(order.fecha_factura)}</td>
 						<td class="px-6 py-4 items-center gap-3">
 							<div class="flex justify-center items-center gap-3 text-gray-900 dark:text-white">
 								<a href={`/admin/clients/documents/view/${order.customer_uuid}?f=${order.id}&pc=${order.pc}&c=${order.customer_name}`} class="go-to-order-btn" title="Ir a la orden">

@@ -1,0 +1,347 @@
+---
+// Modal de chat para comunicación cliente-admin
+const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
+---
+
+<!-- Modal de chat -->
+<div id="chat-modal" class="fixed inset-0 z-50 hidden">
+  <!-- Backdrop -->
+  <div id="chat-backdrop" class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+  
+  <!-- Modal content -->
+  <div class="absolute bottom-6 right-6 w-96 h-[500px] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col">
+    
+    <!-- Header del chat -->
+    <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700 rounded-t-2xl">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+          </svg>
+        </div>
+        <div>
+          <h3 class="font-semibold text-gray-900 dark:text-white">Operador Gelymar</h3>
+          <p class="text-xs text-gray-500 dark:text-gray-400">En línea</p>
+        </div>
+      </div>
+      
+      <!-- Botón cerrar -->
+      <button id="close-chat-btn" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    
+    <!-- Área de mensajes -->
+    <div id="chat-messages" class="flex-1 p-4 overflow-y-auto space-y-3">
+      <!-- Mensaje de bienvenida -->
+      <div class="flex justify-start">
+        <div class="max-w-xs bg-gray-100 dark:bg-gray-700 rounded-lg p-3">
+          <p class="text-sm text-gray-900 dark:text-white">
+            ¡Hola! Soy el operador de Gelymar. ¿En qué puedo ayudarte hoy?
+          </p>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Ahora</p>
+        </div>
+      </div>
+      
+      <!-- Los mensajes se cargarán dinámicamente aquí -->
+    </div>
+    
+    <!-- Área de escritura -->
+    <div class="p-4 border-t border-gray-200 dark:border-gray-700">
+      <div class="flex gap-2">
+        <input 
+          id="chat-input" 
+          type="text" 
+          placeholder="Escribe tu mensaje..."
+          class="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        />
+        <button 
+          id="send-message-btn"
+          class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script define:vars={{ apiBase }}>
+  // Elementos del DOM
+  const chatModal = document.getElementById('chat-modal');
+  const chatBackdrop = document.getElementById('chat-backdrop');
+  const closeChatBtn = document.getElementById('close-chat-btn');
+  const chatMessagesDiv = document.getElementById('chat-messages');
+  const chatInput = document.getElementById('chat-input');
+  const sendMessageBtn = document.getElementById('send-message-btn');
+  
+  let isTyping = false;
+  
+  // Función para obtener el customerId del usuario
+  async function getCustomerId() {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return null;
+      
+      const response = await fetch(`${apiBase}/api/auth/me`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) return null;
+      
+      const userData = await response.json();
+      return userData.customer_id;
+    } catch (error) {
+      console.error('Error obteniendo customerId:', error);
+      return null;
+    }
+  }
+  
+  // Función para cerrar el modal
+  function closeChatModal() {
+    if (chatModal && chatInput) {
+      chatModal.classList.add('hidden');
+      chatInput.blur();
+      stopChatPolling(); // Detener polling cuando se cierra
+    }
+  }
+  
+  // Función para enviar mensaje
+  async function sendMessage() {
+    if (!chatInput || !sendMessageBtn || !chatMessagesDiv) return;
+    
+    const message = chatInput.value.trim();
+    if (!message || isTyping) return;
+    
+    isTyping = true;
+    sendMessageBtn.disabled = true;
+    
+    try {
+      // Agregar mensaje del usuario
+      addMessageToChat(message, 'user');
+      chatInput.value = '';
+      
+      // Enviar mensaje a la API
+      const token = localStorage.getItem('token');
+      const customerId = await getCustomerId();
+      
+      if (!token || !customerId) {
+        console.error('Token o customerId no encontrado');
+        return;
+      }
+      
+      const response = await fetch(`${apiBase}/api/chat/send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          customer_id: customerId,
+          message: message,
+          sender_role: 'client'
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Error enviando mensaje');
+      }
+      
+      // Marcar mensajes como leídos
+      await fetch(`${apiBase}/api/chat/read/${customerId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      // Notificar al admin que hay un nuevo mensaje (esto se maneja automáticamente por el polling)
+      console.log('Mensaje enviado, el admin será notificado en el próximo polling');
+      
+    } catch (error) {
+      console.error('Error enviando mensaje:', error);
+      addMessageToChat('Error enviando mensaje. Inténtalo de nuevo.', 'admin');
+    } finally {
+      isTyping = false;
+      sendMessageBtn.disabled = false;
+    }
+  }
+  
+  // Función para agregar mensaje al chat
+  function addMessageToChat(message, sender) {
+    if (!chatMessagesDiv) return;
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `flex ${sender === 'user' ? 'justify-end' : 'justify-start'}`;
+    
+    const messageBubble = document.createElement('div');
+    messageBubble.className = `max-w-xs rounded-lg p-3 ${
+      sender === 'user' 
+        ? 'bg-blue-600 text-white' 
+        : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'
+    }`;
+    
+    messageBubble.innerHTML = `
+      <p class="text-sm">${message}</p>
+      <p class="text-xs ${sender === 'user' ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'} mt-1">Ahora</p>
+    `;
+    
+    messageDiv.appendChild(messageBubble);
+    chatMessagesDiv.appendChild(messageDiv);
+    
+    // Scroll al final
+    chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+  }
+  
+  // Función para cargar mensajes
+  async function loadChatMessages() {
+    if (!chatMessagesDiv) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      const customerId = await getCustomerId();
+      
+      if (!token || !customerId) {
+        console.error('Token o customerId no encontrado');
+        return;
+      }
+      
+      const response = await fetch(`${apiBase}/api/chat/messages/${customerId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Error cargando mensajes');
+      }
+      
+      const data = await response.json();
+      console.log('Mensajes cargados desde API:', data.data);
+      
+      // Usar la función actualizada para evitar duplicados
+      updateChatMessages(data.data);
+      
+      // Marcar como leídos
+      await fetch(`${apiBase}/api/chat/read/${customerId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+    } catch (error) {
+      console.error('Error cargando mensajes:', error);
+    }
+  }
+  
+  // Función para limpiar y agregar mensajes (evita duplicados)
+  function updateChatMessages(messages) {
+    if (!chatMessagesDiv) return;
+    
+    // Limpiar mensajes existentes
+    chatMessagesDiv.innerHTML = '';
+    
+    // Agregar mensaje de bienvenida
+    addMessageToChat('¡Hola! Soy el operador de Gelymar. ¿En qué puedo ayudarte hoy?', 'admin');
+    
+    // Agregar mensajes desde la API
+    messages.forEach((msg) => {
+      const sender = msg.sender_type === 'client' ? 'user' : 'admin';
+      addMessageToChat(msg.message, sender);
+    });
+  }
+  
+  // Hacer las funciones globales para que el botón flotante pueda acceder
+  window.loadChatMessages = loadChatMessages;
+  window.startChatPolling = startChatPolling;
+  window.stopChatPolling = stopChatPolling;
+  
+  // Variable para el polling
+  let chatPollingInterval = null;
+  
+  // Función para iniciar el polling de mensajes
+  function startChatPolling() {
+    if (chatPollingInterval) {
+      clearInterval(chatPollingInterval);
+    }
+    chatPollingInterval = setInterval(loadChatMessages, 3000); // Actualizar cada 3 segundos
+  }
+  
+  // Función para detener el polling
+  function stopChatPolling() {
+    if (chatPollingInterval) {
+      clearInterval(chatPollingInterval);
+      chatPollingInterval = null;
+    }
+  }
+  
+  // Event listeners
+  closeChatBtn?.addEventListener('click', closeChatModal);
+  chatBackdrop?.addEventListener('click', closeChatModal);
+  
+  sendMessageBtn?.addEventListener('click', sendMessage);
+  
+  chatInput?.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      sendMessage();
+    }
+  });
+  
+  // Habilitar/deshabilitar botón de envío según input
+  chatInput?.addEventListener('input', () => {
+    if (sendMessageBtn && chatInput) {
+      sendMessageBtn.disabled = !chatInput.value.trim();
+    }
+  });
+  
+  // Cerrar con Escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && chatModal && !chatModal.classList.contains('hidden')) {
+      closeChatModal();
+    }
+  });
+</script>
+
+<style>
+  /* Scrollbar personalizado para el área de mensajes */
+  #chat-messages::-webkit-scrollbar {
+    width: 4px;
+  }
+  
+  #chat-messages::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  #chat-messages::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 2px;
+  }
+  
+  #chat-messages::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+  }
+  
+  /* Animación de entrada del modal */
+  #chat-modal:not(.hidden) {
+    animation: slideIn 0.3s ease-out;
+  }
+  
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+</style> 

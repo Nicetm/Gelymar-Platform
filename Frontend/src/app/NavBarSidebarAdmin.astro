@@ -4,6 +4,7 @@
 // import AppsDropdown from '../components/AppsDropdown.astro';
 import ColorModeSwitcher from '../components/ColorModeSwitcher.astro';
 import UserMenu from '../components/UserMenu.astro';
+import NotificationBell from '../components/NotificationBell.astro';
 ---
 
 <nav
@@ -43,6 +44,7 @@ import UserMenu from '../components/UserMenu.astro';
       <div class="flex items-center space-x-5 ml-3 pr-4 lg:pr-8">
         <!-- <NotificationDropdown /> -->
         <!-- <AppsDropdown /> -->
+        <NotificationBell unreadCount={0} />
         <ColorModeSwitcher />
         <UserMenu />
       </div>

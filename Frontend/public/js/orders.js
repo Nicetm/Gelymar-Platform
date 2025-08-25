@@ -1,4 +1,4 @@
-import { qs, showNotification, createPagination, formatDate, setupScrollShadow } from './utils.js';
+import { qs, showNotification, createPagination, formatDate, formatDateShort, setupScrollShadow } from './utils.js';
 
 // Detectar idioma
 let lang = localStorage.getItem('lang') || 'es';
@@ -101,7 +101,7 @@ export async function initOrdersScript() {
     const pageData = currentData.slice(start, end);
 
     if (pageData.length === 0) {
-      tablaBody.innerHTML = `<tr><td colspan="7" class="px-4 py-4 text-center text-gray-400 dark:text-gray-500">${t.noResults}</td></tr>`;
+      tablaBody.innerHTML = `<tr><td colspan="9" class="px-4 py-4 text-center text-gray-400 dark:text-gray-500">${t.noResults}</td></tr>`;
       updatePagination();
       return;
     }
@@ -111,9 +111,12 @@ export async function initOrdersScript() {
         <td class="px-6 py-4 items-center gap-3">${order.pc || '-'}</td>
         <td class="px-6 py-4 items-center gap-3">${order.oc || '-'}</td>
         <td class="px-4 py-3 break-all text-blue-600 dark:text-blue-400">${order.customer_name || '-'}</td>
-        <td class="px-6 py-4 items-center gap-3">${formatDate(order.created_at)}</td>
-        <td class="px-6 py-4 items-center gap-3">${formatDate(order.updated_at)}</td>
-        <td class="px-6 py-4">
+        <td class="px-6 py-4 items-center gap-3">${formatDateShort(order.fecha_cliente)}</td>
+        <td class="px-6 py-4 items-center gap-3">${order.currency || '-'}</td>
+        <td class="px-6 py-4 items-center gap-3">${order.medio_envio || '-'}</td>
+        <td class="px-6 py-4 items-center gap-3">${order.factura || '-'}</td>
+        <td class="px-6 py-4 items-center gap-3">${formatDateShort(order.fecha_factura)}</td>
+        <td class="px-6 py-4 text-center gap-3">
           <div class="flex justify-center items-center gap-3 text-gray-900 dark:text-white">
             <a href="/admin/clients/documents/view/${order.customer_uuid}?f=${order.id}&pc=${order.pc}&c=${order.customer_name}" class="go-to-order-btn" title="Ir a la orden">
               <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -136,7 +139,7 @@ export async function initOrdersScript() {
   function showSkeleton(count = 8) {
     const skeletonRow = `
       <tr class="animate-pulse">
-        <td colspan="7" class="px-6 py-4">
+        <td colspan="9" class="px-6 py-4">
           <div class="space-y-2">
             <div class="h-4 w-3/4 bg-gray-300 dark:bg-gray-700 rounded"></div>
             <div class="h-4 w-1/2 bg-gray-300 dark:bg-gray-700 rounded"></div>
@@ -252,7 +255,7 @@ export async function initOrdersScript() {
       renderPage();
     } catch (error) {
       console.error(error);
-      tablaBody.innerHTML = `<tr><td colspan="6" class="px-4 py-4 text-center text-red-500">${t.searchError}</td></tr>`;
+      tablaBody.innerHTML = `<tr><td colspan="9" class="px-4 py-4 text-center text-red-500">${t.searchError}</td></tr>`;
     }
   }
 

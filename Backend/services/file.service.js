@@ -99,7 +99,6 @@ const getFiles = async (customerId, folderId) => {
         f.*, 
         os.id AS status_id, 
         os.name AS status_name,
-        o.name AS folder_name,
         o.pc,
         o.oc,
         f.eta,

@@ -4,7 +4,8 @@ import {
   showModal,
   hideModal,
   setupModalClose,
-  formatDate
+  formatDate,
+  formatDateShort
 } from './utils.js';
 
 // Función para cargar traducciones
@@ -71,13 +72,9 @@ export async function initFoldersScript() {
     
     let value = cell.textContent.trim();
     
-    // Para la columna de archivos, convertir a número
-    if (columnIndex === 3) { // fileCount
-      return parseInt(value, 10) || 0;
-    }
-    
-    // Para la columna de fecha, convertir a timestamp
-    if (columnIndex === 2) { // created_at
+    // Para las columnas de fecha, convertir a timestamp
+    if (columnIndex === 2 || columnIndex === 6) { // fecha_cliente, fecha_factura
+      if (value === '-') return 0;
       return new Date(value).getTime();
     }
     
@@ -91,8 +88,11 @@ export async function initFoldersScript() {
     const columnMap = {
       'pc': 0,
       'oc': 1,
-      'created_at': 2,
-      'fileCount': 3
+      'fecha': 2,
+      'moneda': 3,
+      'medio_envio': 4,
+      'factura': 5,
+      'fecha_factura': 6
     };
     
     const columnIndex = columnMap[column];
@@ -151,18 +151,26 @@ export async function initFoldersScript() {
         <tr data-id="${folder.id}" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-sm min-h-[600px]">
           <td class="px-6 py-4 items-center gap-3">${folder.pc}</td>
           <td class="px-6 py-4 items-center gap-3">${folder.oc}</td>
-          <td class="px-6 py-4 items-center gap-3">${new Date(folder.created_at).toLocaleString("es-CL")}</td>
-          <td class="px-6 py-4 items-center text-center gap-3">${folder.fileCount}</td>
+          <td class="px-6 py-4 items-center gap-3">${formatDateShort(folder.fecha_cliente)}</td>
+          <td class="px-6 py-4 items-center gap-3">${folder.currency || '-'}</td>
+          <td class="px-6 py-4 items-center gap-3">${folder.medio_envio || '-'}</td>
+          <td class="px-6 py-4 items-center gap-3">${folder.factura || '-'}</td>
+          <td class="px-6 py-4 items-center gap-3">${formatDateShort(folder.fecha_factura)}</td>
           <td class="w-[25%] px-6 py-4 text-sm">
             <div class="flex justify-center items-center gap-3 text-gray-900 dark:text-white">
               <a href="/admin/clients/documents/view/${folder.customer_uuid}?f=${folder.id}&pc=${folder.pc}&c=${clientName}" title="Ver documentos de PC ${folder.pc}" class="hover:text-blue-500 transition">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
               </a>
-              <a href="#" title="Ver Lista de items de PC ${folder.pc}" class="hover:text-indigo-500 transition">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
-                </svg>
-              </a>
+                          <a href="#" title="Ver Lista de items de PC ${folder.pc}" class="hover:text-indigo-500 transition">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+              </svg>
+            </a>
+            <a href="#" title="Detalles de la Orden ${folder.pc}" class="order-detail-btn hover:text-blue-500 transition" data-order-id="${folder.id}">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </a>
             </div>
           </td>
         </tr>
@@ -311,12 +319,8 @@ export async function initFoldersScript() {
       // Calcular y mostrar totales
       const totalItems = items.length;
       
-      // Debug: mostrar los items y sus cantidades
-      console.log('Items recibidos:', items);
-      
       const totalQuantity = items.reduce((sum, item) => {
         const quantity = parseFloat(item.kg_solicitados) || 0;
-        console.log(`Item ${item.item_name}: kg_solicitados = ${item.kg_solicitados}, parsed = ${quantity}`);
         return sum + quantity;
       }, 0);
       
@@ -324,11 +328,8 @@ export async function initFoldersScript() {
         const quantity = parseFloat(item.kg_solicitados) || 0;
         const price = parseFloat(item.unit_price) || 0;
         const itemTotal = quantity * price;
-        console.log(`Item ${item.item_name}: quantity=${quantity}, price=${price}, total=${itemTotal}`);
         return sum + itemTotal;
       }, 0);
-
-      console.log('Totales calculados:', { totalItems, totalQuantity, totalValue });
 
       document.getElementById('totalItems').textContent = totalItems;
       document.getElementById('totalQuantity').textContent = totalQuantity.toLocaleString('es-CL');
@@ -389,4 +390,122 @@ export async function initFoldersScript() {
   });
 
   renderTable();
+
+  // ===== MODAL DE DETALLES DE ORDEN =====
+  const orderDetailModal = qs('orderDetailModal');
+  const closeOrderDetailModalBtn = qs('closeOrderDetailModalBtn');
+
+  /**
+   * Función para cargar los detalles de una orden
+   */
+  async function loadOrderDetail(orderId, pc, oc) {
+    try {
+      const response = await fetch(`${apiBase}/api/order-detail/${orderId}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      let orderDetail;
+
+      if (response.ok) {
+        orderDetail = await response.json();
+      } else if (response.status === 404) {
+        // Si no hay datos en order_detail, crear un objeto con datos básicos
+        orderDetail = {
+          pc: pc,
+          oc: oc,
+          fecha_etd: null,
+          fecha_eta: null,
+          incoterm: null,
+          certificados: null,
+          direccion_destino: null,
+          puerto_destino: null,
+          u_observaciones: null
+        };
+      } else {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      // Actualizar el título del modal
+      document.getElementById('orderDetailTitle').textContent = `PC: ${pc} - OC: ${oc}`;
+      document.getElementById('orderDetailInitials').textContent = 'OD';
+
+      // Función helper para mostrar valores
+      const setValue = (elementId, value) => {
+        const element = document.getElementById(elementId);
+        if (element) {
+          element.textContent = value || '-';
+        }
+      };
+
+      // Función helper para formatear fechas
+      const formatDateValue = (dateString) => {
+        if (!dateString) return '-';
+        return formatDateShort(dateString);
+      };
+
+      // Actualizar los campos del modal
+      setValue('orderDetailPc', orderDetail.pc);
+      setValue('orderDetailOc', orderDetail.oc);
+      setValue('orderDetailFechaEtd', formatDateValue(orderDetail.fecha_etd));
+      setValue('orderDetailFechaEta', formatDateValue(orderDetail.fecha_eta));
+      setValue('orderDetailIncoterm', orderDetail.incoterm);
+      setValue('orderDetailCertificados', orderDetail.certificados);
+      setValue('orderDetailDireccionDestino', orderDetail.direccion_destino);
+      setValue('orderDetailPuertoDestino', orderDetail.puerto_destino);
+      setValue('orderDetailObservaciones', orderDetail.u_observaciones);
+
+      // Mostrar el modal
+      orderDetailModal.classList.remove('hidden');
+      orderDetailModal.classList.add('flex');
+
+    } catch (error) {
+      console.error('Error loading order detail:', error);
+      showNotification('Error al cargar los detalles de la orden', 'error');
+    }
+  }
+
+  /**
+   * Función para cerrar el modal de detalles
+   */
+  function closeOrderDetailModal() {
+    orderDetailModal.classList.add('hidden');
+    orderDetailModal.classList.remove('flex');
+  }
+
+  /**
+   * Event listeners para el modal de detalles
+   */
+  if (closeOrderDetailModalBtn) {
+    closeOrderDetailModalBtn.addEventListener('click', closeOrderDetailModal);
+  }
+
+  // Cerrar modal al hacer clic fuera
+  if (orderDetailModal) {
+    orderDetailModal.addEventListener('click', (e) => {
+      if (e.target === orderDetailModal) {
+        closeOrderDetailModal();
+      }
+    });
+  }
+
+  /**
+   * Event listener para los botones "Detalles de la Orden"
+   */
+  document.addEventListener('click', (e) => {
+    const orderDetailBtn = e.target.closest('.order-detail-btn');
+    if (orderDetailBtn) {
+      e.preventDefault();
+      
+      const orderId = orderDetailBtn.dataset.orderId;
+      const row = orderDetailBtn.closest('tr');
+      if (row) {
+        const pc = row.cells[0]?.textContent?.trim() || ''; // PC
+        const oc = row.cells[1]?.textContent?.trim() || ''; // OC
+        
+        loadOrderDetail(orderId, pc, oc);
+      }
+    }
+  });
 } 

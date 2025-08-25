@@ -1,0 +1,38 @@
+---
+import LayoutSidebarClient from '../../../app/LayoutSidebarClient.astro';
+import AuthGuard from '../../../components/AuthGuard.astro';
+
+// Validación de rol en el servidor
+import { validateRole } from '../../../lib/auth.js';
+const redirect = await validateRole(Astro, 'client');
+if (redirect) return redirect;
+---
+
+<LayoutSidebarClient title="Messages - Client Panel">
+  <AuthGuard role="client" />
+  
+  <div class="min-h-screen pt-5">
+    <!-- Header -->
+    <section class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+      <div class="px-6 py-6 text-center">
+        <div class="inline-flex items-center justify-center w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-full mb-3">
+          <svg class="w-6 h-6 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+          </svg>
+        </div>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-1">Messages</h1>
+        <p class="text-base text-gray-600 dark:text-gray-400">
+          Communicate with the team
+        </p>
+      </div>
+    </section>
+
+    <!-- Contenido principal -->
+    <div class="px-6 py-8">
+      <div class="text-center py-12">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Messages</h3>
+        <p class="text-sm text-gray-600 dark:text-gray-400">This section will display your messages</p>
+      </div>
+    </div>
+  </div>
+</LayoutSidebarClient>

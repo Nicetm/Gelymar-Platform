@@ -4,6 +4,8 @@ import FooterSidebar from './FooterSidebarClient.astro';
 import LayoutCommon from './LayoutCommon.astro';
 import NavBarSidebar from './NavBarSidebarClient.astro';
 import SideBar from './SideBarClient.astro';
+import FloatingChatButton from '../components/FloatingChatButton.astro';
+import ChatModal from '../components/ChatModal.astro';
 ---
 
 <LayoutCommon>
@@ -16,5 +18,11 @@ import SideBar from './SideBarClient.astro';
       <FooterSidebar />
     </section>
   </main>
+  
+  <!-- Botón flotante de chat -->
+  <FloatingChatButton unreadCount={0} />
+  
+  <!-- Modal de chat -->
+  <ChatModal />
 </LayoutCommon>
 

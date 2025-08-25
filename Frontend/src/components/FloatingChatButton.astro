@@ -1,0 +1,97 @@
+---
+// Componente de botón flotante de chat
+export interface Props {
+  unreadCount?: number;
+}
+
+const { unreadCount = 0 } = Astro.props;
+---
+
+<!-- Botón flotante de chat -->
+<div id="floating-chat-button" class="fixed bottom-6 right-6 z-50">
+  <!-- Botón principal -->
+  <button 
+    id="chat-toggle-btn"
+    class="relative bg-blue-600 hover:bg-blue-700 text-white w-14 h-14 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center group"
+    aria-label="Abrir chat"
+  >
+    <!-- Icono de chat -->
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+    </svg>
+    
+    <!-- Contador de mensajes no leídos -->
+    {unreadCount > 0 && (
+      <span class="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center animate-pulse">
+        {unreadCount > 99 ? '99+' : unreadCount}
+      </span>
+    )}
+    
+    <!-- Efecto de pulso cuando hay mensajes -->
+    {unreadCount > 0 && (
+      <span class="absolute inset-0 bg-blue-400 rounded-full animate-ping opacity-75"></span>
+    )}
+  </button>
+  
+  <!-- Tooltip -->
+  <div class="absolute bottom-full right-0 mb-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
+    Chat con soporte
+    <div class="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+  </div>
+</div>
+
+<style>
+  /* Animación personalizada para el botón */
+  #floating-chat-button button:hover {
+    transform: scale(1.1);
+  }
+  
+  /* Animación de rebote cuando hay mensajes nuevos */
+  @keyframes bounce {
+    0%, 20%, 53%, 80%, 100% {
+      transform: translate3d(0,0,0);
+    }
+    40%, 43% {
+      transform: translate3d(0,-8px,0);
+    }
+    70% {
+      transform: translate3d(0,-4px,0);
+    }
+    90% {
+      transform: translate3d(0,-2px,0);
+    }
+  }
+  
+  #floating-chat-button button:has(span) {
+    animation: bounce 2s infinite;
+  }
+</style>
+
+<script>
+  // Event listener para abrir el chat
+  document.getElementById('chat-toggle-btn')?.addEventListener('click', () => {
+    // Abrir el modal de chat
+    const chatModal = document.getElementById('chat-modal');
+    if (chatModal) {
+      chatModal.classList.remove('hidden');
+      
+      // Cargar mensajes e iniciar polling
+      const loadChatMessages = (window as any).loadChatMessages;
+      const startChatPolling = (window as any).startChatPolling;
+      if (loadChatMessages) {
+        setTimeout(() => {
+          loadChatMessages();
+          if (startChatPolling) {
+            startChatPolling();
+          }
+        }, 100);
+      }
+      
+      // Enfocar el input del chat
+      const chatInput = document.getElementById('chat-input');
+      if (chatInput) {
+        setTimeout(() => chatInput.focus(), 200);
+      }
+    }
+  });
+</script> 

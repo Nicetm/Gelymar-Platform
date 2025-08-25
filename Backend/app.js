@@ -19,11 +19,14 @@ const customerRoutes = require('./routes/customer.routes');
 const userRoutes = require('./routes/user.routes');
 const authRoutes = require('./routes/auth.routes');
 const orderRoutes = require('./routes/order.routes');
+const orderDetailRoutes = require('./routes/orderDetail.routes');
 const itemRoutes = require('./routes/item.routes');
 const documentDirectoryRoutes = require('./routes/documentDirectory.routes');
 const documentFileRoutes = require('./routes/documentFile.routes');
 const documentTypeRoutes = require('./routes/documentType.routes');
+const chatRoutes = require('./routes/chat.routes');
 const cronRoutes = require('./routes/cron.routes');
+const monitoringRoutes = require('./routes/monitoring.routes');
 
 // Middlewares globales
 app.use(cors());
@@ -48,15 +51,18 @@ app.get('/api-docs', (req, res) => {
 
 // Rutas API públicas
 app.use('/api/auth', authRoutes);
+app.use('/api/monitoring', monitoringRoutes);
 
 // Rutas protegidas (requieren token + rol adecuado)
 app.use('/api/customers', authMiddleware, authorizeRoles(['admin']), customerRoutes);
 app.use('/api/users', authMiddleware, authorizeRoles(['admin', 'client']), userRoutes);
 app.use('/api/orders', authMiddleware, authorizeRoles(['admin', 'client']), orderRoutes);
+app.use('/api/order-detail', authMiddleware, authorizeRoles(['admin', 'client']), orderDetailRoutes);
 app.use('/api/items', authMiddleware, authorizeRoles(['admin']), itemRoutes);
 app.use('/api/directories', authMiddleware, authorizeRoles(['admin']), documentDirectoryRoutes);
 app.use('/api/files', authMiddleware, authorizeRoles(['admin']), documentFileRoutes);
 app.use('/api/document-types', authMiddleware, authorizeRoles(['admin']), documentTypeRoutes);
+app.use('/api/chat', chatRoutes);
 
 // Rutas de cron (sin autenticación para acceso interno)
 app.use('/api/cron', cronRoutes);

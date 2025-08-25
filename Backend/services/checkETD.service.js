@@ -9,7 +9,7 @@ async function checkOrdersWithETD() {
 
   const pool = await poolPromise;
   const [rows] = await pool.query(`
-    SELECT o.id, o.name, od.fec_etd
+    SELECT o.id, o.oc, od.fec_etd
     FROM orders o
     INNER JOIN order_detail od ON o.id = od.order_id
     WHERE DATE(od.fec_etd) = ?
@@ -19,7 +19,7 @@ async function checkOrdersWithETD() {
     console.log(`[${new Date().toLocaleString()}] Se encontraron órdenes con ETD = hoy:`);
 
     for (const order of rows) {
-      console.log(`- Orden ID: ${order.id}, Nombre: ${order.name}, ETD: ${order.fec_etd}`);
+      console.log(`- Orden ID: ${order.id}, Nombre: ${order.oc}, ETD: ${order.fec_etd}`);
       // await enviarCorreo(order);
       // await actualizarEstado(order.id);
     }

@@ -97,18 +97,51 @@
     </div>
 
     <script>
-        document.getElementById('loginForm').addEventListener('submit', function(e) {
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
+            const errorDiv = document.getElementById('error');
+            const submitBtn = document.querySelector('button[type="submit"]');
             
-            // Credenciales hardcodeadas (en producción usar autenticación real)
-            if (username === 'admin' && password === 'gelymar2024') {
-                localStorage.setItem('authenticated', 'true');
-                window.location.href = 'index.html';
-            } else {
-                document.getElementById('error').style.display = 'block';
+            // Mostrar estado de carga
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Iniciando sesión...';
+            errorDiv.style.display = 'none';
+            
+            try {
+                const response = await fetch('http://localhost:3000/api/monitoring/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    // Guardar token y datos del usuario
+                    localStorage.setItem('monitoring_token', data.token);
+                    localStorage.setItem('monitoring_user', JSON.stringify(data.user));
+                    localStorage.setItem('authenticated', 'true');
+                    
+                    // Redirigir al dashboard
+                    window.location.href = 'index.html';
+                } else {
+                    // Mostrar error
+                    errorDiv.textContent = data.message || 'Error de autenticación';
+                    errorDiv.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error de conexión:', error);
+                errorDiv.textContent = 'Error de conexión con el servidor';
+                errorDiv.style.display = 'block';
+            } finally {
+                // Restaurar botón
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Iniciar Sesión';
             }
         });
     </script>
