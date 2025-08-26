@@ -3,7 +3,7 @@ name: gelymar-platform
 services:
   # Capa Base de Datos
   mysql:
-    image: mysql:8.0
+    image: nicetm/gelymar-platform:mysql
     container_name: gelymar-platform-mysql
     restart: unless-stopped
     environment:
