@@ -35,7 +35,11 @@ async function cleanDatabaseAndDirectories() {
     
     for (const table of tablesToClean) {
       try {
-        const [result] = await pool.query(`DELETE FROM ${table}`);
+        // Validar nombre de tabla para prevenir SQL injection
+        if (!tablesToClean.includes(table)) {
+          throw new Error(`Nombre de tabla no permitido: ${table}`);
+        }
+        const [result] = await pool.query('DELETE FROM ??', [table]);
         console.log(`Tabla ${table} limpiada: ${result.affectedRows} registros eliminados`);
       } catch (error) {
         console.error(`Error limpiando tabla ${table}:`, error.message);
@@ -45,7 +49,11 @@ async function cleanDatabaseAndDirectories() {
     // Resetear auto-increment
     for (const table of tablesToClean) {
       try {
-        await pool.query(`ALTER TABLE ${table} AUTO_INCREMENT = 1`);
+        // Validar nombre de tabla para prevenir SQL injection
+        if (!tablesToClean.includes(table)) {
+          throw new Error(`Nombre de tabla no permitido: ${table}`);
+        }
+        await pool.query('ALTER TABLE ?? AUTO_INCREMENT = 1', [table]);
         console.log(`Auto-increment de tabla ${table} reseteado`);
       } catch (error) {
         console.error(`Error reseteando auto-increment de ${table}:`, error.message);

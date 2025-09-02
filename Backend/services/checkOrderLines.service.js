@@ -1,110 +1,37 @@
 const fs = require('fs-extra');
-const os = require('os');
-const path = require('path');
-const { execSync } = require('child_process');
 const { parse } = require('csv-parse/sync');
 const { stringify } = require('csv-stringify/sync');
-const { insertOrderLine, getAllExistingOrderLines } = require('./orderItem.service');
-const { getOrderIdByPc } = require('./order.service');
+const { insertOrderLine, getAllExistingOrderLinesWithHashes, updateOrderLineByKey } = require('./orderItem.service');
+const { getOrderIdByPcOnly } = require('./order.service');
 const { getItemByCode } = require('./item.service');
+const { poolPromise } = require('../config/db');
+const crypto = require('crypto');
 
-const SERVER = '172.20.10.167';
-const SHARE_PATH = 'Users/above/Documents/BotArchivoWeb/archivos';
-const FILE_NAME = 'FAC_LIN_SOFTKEY.txt';
-const USER = 'softkey';
-const PASSWORD = 'sK06.2025#';
-
-let isMounted = false;
-
-function mountIfNeeded() {
-  const platform = os.platform();
-  if (platform === 'win32') {
-    const filePath = `Z:\\${FILE_NAME}`;
-    
-    // Verificar si la unidad Z: ya está montada y el archivo existe
-    if (fs.existsSync(filePath)) {
-      console.log('Unidad Z: ya está montada y accesible');
-      return filePath;
-    }
-    
-    // Si el archivo no existe, intentar montar la red compartida
-    console.log('Unidad Z: no está montada o archivo no encontrado, intentando montar...');
-    try {
-      const mountCmd = `net use Z: \\\\${SERVER}\\${SHARE_PATH} /user:${USER} ${PASSWORD}`;
-      execSync(mountCmd, { stdio: 'pipe' });
-      isMounted = true;
-      console.log('Red compartida montada correctamente en Windows');
-      
-      // Verificar si ahora existe el archivo
-      if (fs.existsSync(filePath)) {
-        console.log('Archivo encontrado después del montaje');
-        return filePath;
-      } else {
-        console.log('Archivo no encontrado después del montaje');
-        return filePath;
-      }
-    } catch (mountErr) {
-      console.error('Error montando red en Windows:', mountErr.message);
-      return filePath;
-    }
-  } else {
-    const mountPoint = '/mnt/red';
-    const filePath = path.join(mountPoint, FILE_NAME);
-    if (!fs.existsSync(filePath)) {
-      try {
-        execSync(`mkdir -p ${mountPoint}`);
-        const mountCmd = `mount -t cifs //${SERVER}/${SHARE_PATH} ${mountPoint} -o username=${USER},password='${PASSWORD}',iocharset=utf8,vers=1.0`;
-        execSync(mountCmd);
-        isMounted = true;
-        console.log('Red compartida montada correctamente');
-      } catch (err) {
-        console.error('Error montando red en Linux:', err.message);
-        return null;
-      }
-    } else {
-      console.log('Red compartida ya está montada');
-    }
-    return filePath;
-  }
+// Funciones para csv_processing_tracking
+async function insertCsvTracking(orderLineId, orderLineHash, fileTimestamp) {
+  const pool = await poolPromise;
+  await pool.query(`
+    INSERT INTO csv_processing_tracking (order_item_id, order_items_hash, csv_file_timestamp, last_processed_at)
+    VALUES (?, ?, ?, NOW())
+  `, [orderLineId, orderLineHash, fileTimestamp]);
 }
 
-function unmountIfNeeded() {
-  const platform = os.platform();
-  if (platform === 'win32') {
-    if (isMounted) {
-      try {
-        execSync('net use Z: /delete', { stdio: 'pipe' });
-        console.log('Red compartida desmontada correctamente en Windows');
-        isMounted = false;
-      } catch (err) {
-        console.error('Error desmontando red en Windows:', err.message);
-      }
-    } else {
-      console.log('Red compartida no estaba montada por este proceso en Windows');
-    }
-  } else {
-    if (isMounted) {
-      try {
-        const mountPoint = '/mnt/red';
-        execSync(`umount ${mountPoint}`);
-        console.log('Red compartida desmontada correctamente');
-        isMounted = false;
-      } catch (err) {
-        console.error('Error desmontando red en Linux:', err.message);
-      }
-    } else {
-      console.log('Red compartida no estaba montada por este proceso');
-    }
-  }
+async function updateCsvTracking(orderLineId, orderLineHash, fileTimestamp) {
+  const pool = await poolPromise;
+  await pool.query(`
+    UPDATE csv_processing_tracking 
+    SET order_items_hash = ?, csv_file_timestamp = ?, last_processed_at = NOW()
+    WHERE order_item_id = ?
+  `, [orderLineHash, fileTimestamp, orderLineId]);
 }
 
 async function fetchOrderLineFilesFromNetwork() {
-  const inputPath = mountIfNeeded();
-  console.log('Ruta del archivo montado:', inputPath);
+  const inputPath = 'Z:\\FAC_LIN_SOFTKEY.txt';
+  console.log('Ruta del archivo:', inputPath);
 
-  if (!inputPath || !fs.existsSync(inputPath)) {
-    console.error('Archivo no disponible o no montado:', inputPath);
-    unmountIfNeeded();
+  if (!fs.existsSync(inputPath)) {
+    console.error('Archivo no disponible en Z:\\FAC_LIN_SOFTKEY.txt');
+    console.log('Conéctate manualmente a la red compartida antes de ejecutar el cron');
     return;
   }
 
@@ -128,22 +55,34 @@ async function fetchOrderLineFilesFromNetwork() {
     if (records.length > 0) {
       console.log('Columnas disponibles en el archivo:');
       console.log(Object.keys(records[0]));
-      console.log('Primer registro completo:');
-      console.log(JSON.stringify(records[0], null, 2));
     }
 
     // Guardar CSV en disco para verificación
     const output = stringify(records, { header: true, delimiter: ';' });
     fs.ensureDirSync('documentos');
-    fs.writeFileSync('documentos/FAC_LIN_SOFTKEY.csv', output, 'utf8');
-    console.log('FAC_LIN_SOFTKEY.csv generado correctamente.');
+    
+    // Generar CSV sin fecha para evitar conflictos
+    const filename = `documentos/FAC_LIN_SOFTKEY.csv`;
+    
+    try {
+      fs.writeFileSync(filename, output, 'utf8');
+      console.log(`${filename} generado correctamente.`);
+    } catch (writeError) {
+      console.warn(`No se pudo escribir el archivo CSV: ${writeError.message}`);
+      console.log('Continuando con el procesamiento...');
+    }
 
-    // Obtener líneas de orden existentes
-    const existingOrderLines = await getAllExistingOrderLines();
+    // Obtener timestamp del archivo para comparación
+    const fileStats = fs.statSync(inputPath);
+    const fileTimestamp = fileStats.mtime;
+
+    // Obtener líneas de orden existentes con hashes
+    const existingOrderLines = await getAllExistingOrderLinesWithHashes();
     console.log(`Líneas de orden ya existentes en BD: ${existingOrderLines.length}`);
 
     let procesados = 0;
     let insertados = 0;
+    let actualizados = 0;
     let omitidos = 0;
     let errores = 0;
 
@@ -152,78 +91,197 @@ async function fetchOrderLineFilesFromNetwork() {
         procesados++;
         
         // Extraer campos del archivo según el mapeo correcto
+        const tipo = record.Tipo?.trim();
         const pc = record.Nro?.trim();
         const linea = record.Linea?.trim();
-        const itemCode = record.Item?.trim();
         const factura = record.Factura?.trim();
         const localizacion = record.Localizacion?.trim();
+        const itemCode = record.Item?.trim();
+        const descripcion = record.Descripcion?.trim();
         const kgSolicitados = record.Cant_ordenada?.trim();
-        const precioUnitario = record.Precio_Unit_US?.trim();
+        const kgEnviados = record.Cant_enviada?.trim();
+        const precioUnitario = record.Precio_Unit?.trim();
         const comentario = record.Comentario?.trim();
         const mercado = record.Mercado?.trim();
         const embalaje = record.Embalaje?.trim();
         const volumen = record.Volumen?.trim();
         const etiqueta = record.Etiqueta?.trim();
         const ktoEtiqueta5 = record.Kto_Etiqueta5?.trim();
+        const fechaEtd = record.ETD_Item_OV?.trim();
+        const fechaEta = record.ETA_Item_OV?.trim();
+        const kgFacturados = record.KilosFacturados?.trim();
         
         if (!pc) {
-          console.log('Registro omitido sin PC (Nro):', record);
+          console.log(`Omitido: PC=N/A, Línea=${record.Linea || 'N/A'}, Item=${record.Item || 'N/A'} - Sin PC`);
           omitidos++;
           continue;
         }
 
         if (!itemCode) {
-          console.log('Registro omitido sin código de item:', record);
+          console.log(`Omitido: PC=${pc}, Línea=${record.Linea || 'N/A'}, Item=N/A - Sin item`);
           omitidos++;
           continue;
         }
 
         // Verificar si la línea de orden ya existe
         const lineKey = `${pc}-${linea}-${factura}`;
-        if (existingOrderLines.includes(lineKey)) {
-          console.log(`Línea de orden ya existe: ${lineKey}`);
-          omitidos++;
+        const existingOrderLine = existingOrderLines.find(o => o.key === lineKey);
+        
+        if (existingOrderLine) {
+          // Calcular hash de la fila actual del CSV
+          const orderLineHash = crypto.createHash('md5')
+            .update(JSON.stringify({
+              tipo: tipo,
+              pc: pc,
+              linea: linea,
+              factura: factura,
+              localizacion: localizacion,
+              itemCode: itemCode,
+              descripcion: descripcion,
+              kgSolicitados: kgSolicitados,
+              kgEnviados: kgEnviados,
+              precioUnitario: precioUnitario,
+              comentario: comentario,
+              mercado: mercado,
+              embalaje: embalaje,
+              volumen: volumen,
+              etiqueta: etiqueta,
+              ktoEtiqueta5: ktoEtiqueta5,
+              fechaEtd: fechaEtd,
+              fechaEta: fechaEta,
+              kgFacturados: kgFacturados
+            }))
+            .digest('hex');
+
+          // Verificar si hay cambios
+          const hasChanges = orderLineHash !== existingOrderLine.csv_row_hash || 
+                           fileTimestamp > existingOrderLine.csv_file_timestamp;
+
+          if (hasChanges) {
+            // Buscar la orden en la base de datos
+            const orderId = await getOrderIdByPcOnly(pc);
+            if (!orderId) {
+              console.log(`Omitido: PC=${pc}, Línea=${linea || 'N/A'}, Item=${itemCode} - Orden no encontrada`);
+
+              omitidos++;
+              continue;
+            }
+
+            // Buscar el item por código: ${itemCode}
+            const item = await getItemByCode(itemCode);
+            if (!item) {
+              console.log(`Omitido: PC=${pc}, Línea=${linea || 'N/A'}, Item=${itemCode} - Item no encontrado`);
+              console.log(`Registro omitido: PC=${pc}, Línea=${linea || 'N/A'}, Item=${itemCode} - Motivo: Item no encontrado`);
+              omitidos++;
+              continue;
+            }
+
+            // Actualizar la línea de orden existente
+            await updateOrderLineByKey(lineKey, {
+              descripcion: descripcion,
+              localizacion: localizacion,
+              kg_solicitados: kgSolicitados ? parseFloat(kgSolicitados.replace(',', '.')) : null,
+              kg_despachados: kgEnviados ? parseFloat(kgEnviados.replace(',', '.')) : null,
+              unit_price: precioUnitario ? parseFloat(precioUnitario.replace(',', '.')) : null,
+              observacion: comentario,
+              mercado: mercado,
+              embalaje: embalaje,
+              volumen: volumen ? parseFloat(volumen.replace(',', '.')) : null,
+              etiqueta: etiqueta,
+              kto_etiqueta5: ktoEtiqueta5,
+              tipo: tipo,
+              fecha_etd: fechaEtd && fechaEtd.trim() !== '' ? fechaEtd : null,
+              fecha_eta: fechaEta && fechaEta.trim() !== '' ? fechaEta : null,
+              kg_facturados: kgFacturados ? parseFloat(kgFacturados.replace(',', '.')) : null,
+              csv_row_hash: orderLineHash,
+              csv_file_timestamp: fileTimestamp
+            });
+
+            // Actualizar en csv_processing_tracking
+            await updateCsvTracking(existingOrderLine.id, orderLineHash, fileTimestamp);
+
+            console.log(`Actualizado: PC=${pc}, Línea=${linea}, Item=${itemCode}`);
+            actualizados++;
+          } else {
+            console.log(`Omitido: PC=${pc}, Línea=${linea}, Item=${itemCode} - Sin cambios`);
+            omitidos++;
+          }
           continue;
         }
 
         // Buscar la orden en la base de datos
-        const orderId = await getOrderIdByPc(pc);
+        const orderId = await getOrderIdByPcOnly(pc);
         if (!orderId) {
-          console.log(`Orden no encontrada para PC: ${pc}`);
-          console.log(`Verificando si existe en la tabla orders...`);
+          console.log(`Omitido: PC=${pc}, Línea=${linea || 'N/A'}, Item=${itemCode} - Orden no encontrada`);
           omitidos++;
           continue;
         }
-
-        console.log(`Orden encontrada: PC=${pc}, Order ID=${orderId}`);
 
         // Buscar el item en la base de datos
         const item = await getItemByCode(itemCode);
         if (!item) {
-          console.log(`Item no encontrado: ${itemCode}`);
+          console.log(`Omitido: PC=${pc}, Línea=${linea || 'N/A'}, Item=${itemCode} - Item no encontrado`);
           omitidos++;
           continue;
         }
 
+        // Calcular hash para nueva línea de orden
+        const orderLineHash = crypto.createHash('md5')
+          .update(JSON.stringify({
+            tipo: tipo,
+            pc: pc,
+            linea: linea,
+            factura: factura,
+            localizacion: localizacion,
+            itemCode: itemCode,
+            descripcion: descripcion,
+            kgSolicitados: kgSolicitados,
+            kgEnviados: kgEnviados,
+            precioUnitario: precioUnitario,
+            comentario: comentario,
+            mercado: mercado,
+            embalaje: embalaje,
+            volumen: volumen,
+            etiqueta: etiqueta,
+            ktoEtiqueta5: ktoEtiqueta5,
+            fechaEtd: fechaEtd,
+            fechaEta: fechaEta,
+            kgFacturados: kgFacturados
+          }))
+          .digest('hex');
+
         // Insertar la línea de orden
-        await insertOrderLine({
+        const orderLineId = await insertOrderLine({
           order_id: orderId,
           item_id: item.id,
+          descripcion: descripcion,
           pc: pc,
           linea: linea ? parseInt(linea) : null,
           factura: factura,
           localizacion: localizacion,
           kg_solicitados: kgSolicitados ? parseFloat(kgSolicitados.replace(',', '.')) : null,
+          kg_despachados: kgEnviados ? parseFloat(kgEnviados.replace(',', '.')) : null,
           unit_price: precioUnitario ? parseFloat(precioUnitario.replace(',', '.')) : null,
           observacion: comentario,
           mercado: mercado,
           embalaje: embalaje,
           volumen: volumen ? parseFloat(volumen.replace(',', '.')) : null,
           etiqueta: etiqueta,
-          kto_etiqueta5: ktoEtiqueta5
+          kto_etiqueta5: ktoEtiqueta5,
+          tipo: tipo,
+          fecha_etd: fechaEtd && fechaEtd.trim() !== '' ? fechaEtd : null,
+          fecha_eta: fechaEta && fechaEta.trim() !== '' ? fechaEta : null,
+          kg_facturados: kgFacturados ? parseFloat(kgFacturados.replace(',', '.')) : null,
+          csv_row_hash: orderLineHash,
+          csv_file_timestamp: fileTimestamp
         });
 
-        console.log(`Línea de orden insertada: ${lineKey}`);
+        // Insertar en csv_processing_tracking (solo si la orden existe)
+        if (orderId) {
+          await insertCsvTracking(orderLineId, orderLineHash, fileTimestamp);
+        }
+
+        console.log(`Insertado: PC=${pc}, Línea=${linea}, Item=${itemCode}`);
         insertados++;
       } catch (error) {
         console.error(`Error procesando línea de orden ${record.Nro}:`, error.message);
@@ -231,12 +289,9 @@ async function fetchOrderLineFilesFromNetwork() {
       }
     }
 
-    console.log(`Procesamiento completado. Procesados: ${procesados}, Insertados: ${insertados}, Omitidos: ${omitidos}, Errores: ${errores}`);
+    console.log(`Procesamiento completado. Procesados: ${procesados}, Insertados: ${insertados}, Actualizados: ${actualizados}, Omitidos: ${omitidos}, Errores: ${errores}`);
   } catch (error) {
     console.error('Error procesando archivo de líneas de orden:', error);
-  } finally {
-    // Siempre desmontar al finalizar
-    unmountIfNeeded();
   }
 }
 

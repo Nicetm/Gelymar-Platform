@@ -127,90 +127,6 @@ function hideUnauthorizedServices() {
     }
 }
 
-// Verificar estado de un servicio
-async function checkServiceStatus(serviceName) {
-    const service = services[serviceName];
-    if (!service) return 'offline';
-
-    // Para MySQL, verificar si el puerto está abierto
-    if (serviceName === 'mysql') {
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 2000);
-            
-            // Intentar conectar a MySQL (puerto 3306)
-            await fetch(`http://localhost:${service.port}`, {
-                signal: controller.signal
-            });
-            clearTimeout(timeoutId);
-            return 'online';
-        } catch (e) {
-            // MySQL no responde a HTTP, pero si está corriendo el puerto está abierto
-            return 'online'; // Asumimos que está online si el contenedor está corriendo
-        }
-    }
-
-    // Para Cron (PM2), verificar el puerto 9615
-    if (serviceName === 'cronjob') { // Changed from 'cron' to 'cronjob'
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 2000);
-            
-            await fetch(`http://localhost:${service.port}`, {
-                signal: controller.signal
-            });
-            clearTimeout(timeoutId);
-            return 'online';
-        } catch (e) {
-            // PM2 puede no estar respondiendo, pero el contenedor está corriendo
-            return 'online'; // Asumimos que está online si el contenedor está corriendo
-        }
-    }
-
-    // Para Frontend (Astro), verificar el puerto 2121
-    if (serviceName === 'frontend') {
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 3000);
-            
-            // Intentar conectar al frontend
-            const response = await fetch(`http://localhost:${service.port}/`, {
-                signal: controller.signal,
-                method: 'GET'
-            });
-            clearTimeout(timeoutId);
-            
-            // Cualquier respuesta HTTP del frontend indica que está funcionando
-            return 'online';
-        } catch (e) {
-            console.log(`Frontend check error:`, e.message);
-            // Si hay error de red pero el contenedor está corriendo, asumimos que está online
-            return 'online';
-        }
-    }
-
-    // Para otros servicios HTTP (backend, fileserver, shell)
-    try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000);
-        
-        const response = await fetch(`http://localhost:${service.port}`, {
-            signal: controller.signal,
-            method: 'GET'
-        });
-        clearTimeout(timeoutId);
-        
-        if (response.ok) {
-            return 'online';
-        } else {
-            return 'offline';
-        }
-    } catch (error) {
-        console.log(`Error checking ${serviceName}:`, error.message);
-        return 'offline';
-    }
-}
-
 // Actualizar indicador de estado
 function updateStatusIndicator(serviceName, status) {
     const indicator = document.getElementById(`${serviceName}-status`);
@@ -258,17 +174,30 @@ async function checkAllServices() {
         return;
     }
     
-    for (const [serviceName, service] of Object.entries(filteredServices)) {
-        updateStatusIndicator(serviceName, 'loading');
+    try {
+        // Obtener estado de servicios desde el backend
+        const response = await fetch('http://localhost:3000/api/monitoring/status');
+        const data = await response.json();
         
-        try {
-            const status = await checkServiceStatus(serviceName);
-            updateStatusIndicator(serviceName, status);
-            
-            if (status === 'online') {
-                onlineCount++;
+        if (data.success) {
+            for (const [serviceName, service] of Object.entries(filteredServices)) {
+                const status = data.status[serviceName] || 'offline';
+                updateStatusIndicator(serviceName, status);
+                
+                if (status === 'online') {
+                    onlineCount++;
+                }
             }
-        } catch (error) {
+        } else {
+            // Si falla la petición al backend, mostrar todos como offline
+            for (const [serviceName, service] of Object.entries(filteredServices)) {
+                updateStatusIndicator(serviceName, 'offline');
+            }
+        }
+    } catch (error) {
+        console.error('Error obteniendo estado de servicios:', error);
+        // Si hay error de conexión, mostrar todos como offline
+        for (const [serviceName, service] of Object.entries(filteredServices)) {
             updateStatusIndicator(serviceName, 'offline');
         }
     }

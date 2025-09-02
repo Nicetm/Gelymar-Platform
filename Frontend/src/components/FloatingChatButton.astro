@@ -67,7 +67,154 @@ const { unreadCount = 0 } = Astro.props;
   }
 </style>
 
-<script>
+<script is:inline>
+  // Socket.io service (inline)
+  class SocketService {
+    constructor() {
+      this.socket = null;
+      this.isConnected = false;
+      this.reconnectAttempts = 0;
+      this.maxReconnectAttempts = 5;
+    }
+
+    connect(token) {
+      if (this.socket && this.isConnected) {
+        return this.socket;
+      }
+
+      const apiBase = window.apiBase || 'http://localhost:3000';
+      console.log('Socket.io conectando a:', apiBase);
+      
+      this.socket = io(apiBase, {
+        auth: { token },
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionAttempts: this.maxReconnectAttempts,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000,
+      });
+
+      this.socket.on('connect', () => {
+        console.log('Socket.io conectado');
+        this.isConnected = true;
+        this.reconnectAttempts = 0;
+      });
+
+      this.socket.on('disconnect', (reason) => {
+        console.log('Socket.io desconectado:', reason);
+        this.isConnected = false;
+      });
+
+      this.socket.on('connect_error', (error) => {
+        console.error('Error de conexión Socket.io:', error);
+        this.reconnectAttempts++;
+        
+        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+          console.error('Máximo de intentos de reconexión alcanzado');
+        }
+      });
+
+      this.socket.on('reconnect', (attemptNumber) => {
+        console.log(`Socket.io reconectado después de ${attemptNumber} intentos`);
+        this.isConnected = true;
+        this.reconnectAttempts = 0;
+      });
+
+      return this.socket;
+    }
+
+    onNewMessage(callback) {
+      if (this.socket) {
+        this.socket.on('newMessage', callback);
+      }
+    }
+
+    onUpdateNotifications(callback) {
+      if (this.socket) {
+        this.socket.on('updateNotifications', callback);
+      }
+    }
+  }
+
+  const socketService = new SocketService();
+  let socket = null;
+  
+  // Inicializar Socket.io para el cliente
+  function initializeClientSocket() {
+    // Verificar que Socket.io esté disponible
+    if (typeof io === 'undefined') {
+      console.error('Socket.io no está disponible');
+      return;
+    }
+
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.error('Token no encontrado para Socket.io');
+      return;
+    }
+
+    socket = socketService.connect(token);
+    
+    // Escuchar mensajes nuevos
+    socketService.onNewMessage((messageData) => {
+      console.log('Nuevo mensaje recibido (cliente):', messageData);
+      
+      // Actualizar contador de notificaciones
+      updateNotificationCount();
+      
+      // Si el chat está abierto, mostrar el mensaje
+      const chatModal = document.getElementById('chat-modal');
+      if (chatModal && !chatModal.classList.contains('hidden')) {
+        const addMessageToChat = window.addMessageToChat;
+        if (addMessageToChat) {
+          const sender = messageData.sender_role === 'admin' ? 'admin' : 'client';
+          addMessageToChat(messageData.message, sender);
+        }
+      }
+    });
+  }
+  
+  // Actualizar contador de notificaciones
+  async function updateNotificationCount() {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    
+    try {
+      // Obtener customerId del token
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const customerId = payload.customer_id || payload.id;
+      
+      if (!customerId) {
+        console.error('No se pudo obtener customerId del token');
+        return;
+      }
+      
+      const response = await fetch(`${window.apiBase}/api/chat/unread/${customerId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (!response.ok) {
+        console.error('Error obteniendo notificaciones:', response.status);
+        return;
+      }
+      
+      const data = await response.json();
+      const notificationBadge = document.querySelector('#floating-chat-button span');
+      if (notificationBadge && data.success && data.data) {
+        const count = data.data.unreadCount;
+        if (count > 0) {
+          notificationBadge.textContent = count > 99 ? '99+' : count.toString();
+          notificationBadge.classList.remove('hidden');
+        } else {
+          notificationBadge.classList.add('hidden');
+        }
+      }
+    } catch (error) {
+      console.error('Error actualizando notificaciones:', error);
+    }
+  }
+  
   // Event listener para abrir el chat
   document.getElementById('chat-toggle-btn')?.addEventListener('click', () => {
     // Abrir el modal de chat
@@ -75,15 +222,11 @@ const { unreadCount = 0 } = Astro.props;
     if (chatModal) {
       chatModal.classList.remove('hidden');
       
-      // Cargar mensajes e iniciar polling
-      const loadChatMessages = (window as any).loadChatMessages;
-      const startChatPolling = (window as any).startChatPolling;
+      // Cargar mensajes
+      const loadChatMessages = window.loadChatMessages;
       if (loadChatMessages) {
         setTimeout(() => {
           loadChatMessages();
-          if (startChatPolling) {
-            startChatPolling();
-          }
         }, 100);
       }
       
@@ -93,5 +236,14 @@ const { unreadCount = 0 } = Astro.props;
         setTimeout(() => chatInput.focus(), 200);
       }
     }
+  });
+  
+  // Inicializar Socket.io cuando se carga la página
+  document.addEventListener('DOMContentLoaded', () => {
+    // Esperar un poco para asegurar que Socket.io esté cargado
+    setTimeout(() => {
+      initializeClientSocket();
+      updateNotificationCount();
+    }, 1000);
   });
 </script> 

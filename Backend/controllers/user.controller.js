@@ -3,7 +3,7 @@ const userAvatarService = require('../services/user_avatar.service');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const logger = require('../utils/logger');
+const { logger } = require('../utils/logger');
 
 // Configuración de almacenamiento para Multer - Avatares
 const storage = multer.diskStorage({

@@ -40,7 +40,7 @@ if (arg === 'execute-now') {
 cron.schedule('0 7 * * *', async () => {
   console.log(`[${new Date().toISOString()}] Iniciando verificación de ETD...`);
   try {
-    await checkETD();
+    await executeWithErrorHandling();
     console.log(`[${new Date().toISOString()}] Verificación de ETD completada.`);
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Error en verificación de ETD:`, error.message);

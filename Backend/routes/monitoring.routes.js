@@ -2,7 +2,9 @@
 const express = require('express');
 const router = express.Router();
 const monitoringService = require('../services/monitoring.service');
-const logger = require('../utils/logger');
+const { logger } = require('../utils/logger');
+const http = require('http');
+const net = require('net');
 
 /**
  * @route POST /api/monitoring/login
@@ -94,6 +96,110 @@ router.post('/verify', async (req, res) => {
     });
   }
 });
+
+/**
+ * @route GET /api/monitoring/status
+ * @desc Verificar estado de todos los servicios
+ * @access Público
+ */
+router.get('/status', async (req, res) => {
+  try {
+    const services = {
+      mysql: { port: 3306, host: 'mysql' },
+      backend: { port: 3000, host: 'localhost' },
+      frontend: { port: 2121, host: 'frontend' },
+      fileserver: { port: 80, host: 'fileserver' },
+      cronjob: { port: 9615, host: 'cron' },
+      shell: { port: 80, host: 'monitoring' }
+    };
+
+    const status = {};
+
+    for (const [serviceName, config] of Object.entries(services)) {
+      try {
+        if (serviceName === 'mysql') {
+          // Para MySQL, verificar si el puerto está abierto
+          const isOpen = await checkPort(config.host, config.port);
+          status[serviceName] = isOpen ? 'online' : 'offline';
+        } else {
+          // Para servicios HTTP, hacer una petición
+          const isOnline = await checkHttpService(config.host, config.port);
+          status[serviceName] = isOnline ? 'online' : 'offline';
+        }
+      } catch (error) {
+        logger.error(`Error checking ${serviceName}: ${error.message}`);
+        status[serviceName] = 'offline';
+      }
+    }
+
+    res.json({
+      success: true,
+      status
+    });
+
+  } catch (error) {
+    logger.error(`Error verificando servicios: ${error.message}`);
+    res.status(500).json({ 
+      success: false,
+      message: 'Error interno del servidor' 
+    });
+  }
+});
+
+// Función para verificar si un puerto está abierto
+function checkPort(host, port) {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    const timeout = 2000;
+
+    socket.setTimeout(timeout);
+
+    socket.on('connect', () => {
+      socket.destroy();
+      resolve(true);
+    });
+
+    socket.on('timeout', () => {
+      socket.destroy();
+      resolve(false);
+    });
+
+    socket.on('error', () => {
+      socket.destroy();
+      resolve(false);
+    });
+
+    socket.connect(port, host);
+  });
+}
+
+// Función para verificar servicios HTTP
+function checkHttpService(host, port) {
+  return new Promise((resolve) => {
+    const options = {
+      hostname: host,
+      port: port,
+      path: '/',
+      method: 'GET',
+      timeout: 3000
+    };
+
+    const req = http.request(options, (res) => {
+      resolve(true);
+    });
+
+    req.on('error', () => {
+      resolve(false);
+    });
+
+    req.on('timeout', () => {
+      req.destroy();
+      resolve(false);
+    });
+
+    req.end();
+  });
+}
 
 /**
  * @route POST /api/monitoring/logout

@@ -2,6 +2,7 @@
 import { loadTranslations, getServerLang } from '../lib/i18n.js';
 
 const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
+const clientApiBase = import.meta.env.PUBLIC_API_URL; // Para JavaScript del cliente
 const fileServer = import.meta.env.PUBLIC_FILE_SERVER_URL;
 const lang       = getServerLang(Astro.cookies);   // idioma dinámico
 
@@ -42,12 +43,6 @@ if (!user) {
   user = { full_name: 'User', email: 'user@example.com', role: 'guest', avatar: '' };
 }
 
-// Convertir role a nombre capitalizado para mostrar
-const userRole = user.role === 'admin' ? 'Admin' 
-               : user.role === 'client' ? 'Client' 
-               : user.role === 'guest' ? 'Guest'
-               : 'User';
-
 // ── Avatares por defecto ───────────────────────────────────────────────────────
 const avatarUrl = user.avatar
   ? (user.avatar.startsWith('http') ? user.avatar : `${fileServer}/${user.avatar}`)
@@ -60,187 +55,252 @@ let avatarDarkSrc  = user.avatar
   : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.full_name)}&backgroundColor=1e293b&fontColor=ffffff`;
 ---
 
-<style is:global>
-  /* Fondo sólido y sombra */
-  #sidebar {
-    @apply bg-white dark:bg-gray-800 border-r border-gray-300 dark:border-gray-700 shadow-2xl transition-all duration-500;
-  }
-  /* Hover animado y barra de acento */
-  .sidebar-link {
-    @apply flex items-center gap-2 p-2 px-4 text-base rounded-lg border-transparent transition-all duration-200 ease-out relative;
-    @apply text-black hover:bg-gray-300 dark:text-gray-200 dark:hover:bg-gray-700;
-    overflow: hidden;
-  }
+<style>
+/* ── Estilos del Sidebar ─────────────────────────────────────────────────────── */
 
-  .sidebar-link.active::before {
-    content: '';
-    position: absolute;
-    left: 0; top: 0; bottom: 0;
-    width: 4px;
-    background: #6b7280;
-    border-radius: 0;
-    transition: background 0.3s;
-  }
-  .sidebar-link i {
-    @apply w-6 h-6 text-gray-700 dark:text-gray-400 transition-colors duration-200;
-  }
+/* Fondo sólido y sombra */
+#sidebar {
+  @apply bg-white dark:bg-gray-800 border-r border-gray-300 dark:border-gray-700 transition-all duration-500;
+}
 
-  .sidebar-link.active {
-    @apply bg-blue-50 text-black border-[#00538C] dark:bg-blue-900/40 dark:text-blue-300;
-    box-shadow: 0 2px 8px 0 #00538C22;
-  }
+/* Hover animado y barra de acento */
+.sidebar-link {
+  @apply flex items-center gap-2 p-2 px-4 text-sm border-transparent transition-all duration-200 ease-out relative;
+  @apply text-black hover:bg-gray-300 dark:text-gray-200 dark:hover:bg-gray-700;
+  overflow: hidden;
+}
 
-  /* Estilos específicos para elementos activos en modo claro */
-  .sidebar-link.active {
-    @apply bg-gray-100 border-gray-400 text-gray-800 dark:bg-gray-700 dark:border-gray-500 dark:text-gray-200;
-    box-shadow: 0 2px 8px 0 rgba(107, 114, 128, 0.2);
-  }
+.sidebar-link.active::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  background: #6b7280;
+  border-radius: 0;
+  transition: background 0.3s;
+}
 
-  /* Estilos para el contenedor del ícono cuando está activo */
-  .sidebar-link.active .icon-container {
-    @apply bg-gray-300 dark:bg-gray-600 shadow-md;
-  }
+.sidebar-link i {
+  @apply w-6 h-6 text-gray-700 dark:text-gray-400 transition-colors duration-200;
+}
 
-  /* Estilos para el texto cuando está activo */
-  .sidebar-link.active .nav-text {
-    @apply text-gray-800 dark:text-gray-200 font-semibold;
-  }
+.sidebar-link.active {
+  @apply bg-blue-50 text-black border-[#00538C] dark:bg-blue-900/40 dark:text-blue-300;
+}
 
-  /* Estilos para el ícono cuando está activo */
-  .sidebar-link.active .icon-container i {
-    @apply text-gray-700 dark:text-gray-300;
-  }
+/* Estilos específicos para elementos activos en modo claro */
+.sidebar-link.active {
+  @apply bg-gray-100 border-gray-400 text-gray-800 dark:bg-gray-700 dark:border-gray-500 dark:text-gray-200;
+}
 
-  /* Estilos específicos para el botón de soporte cuando está activo */
-  .support-link.active {
-    transform: scale(1.05);
-  }
-  
-  .support-link.active > div {
-    @apply bg-gradient-to-br from-green-100 to-blue-100 dark:from-green-800/40 dark:to-blue-800/40;
-    @apply border-green-300 dark:border-green-600;
-    @apply ring-2 ring-green-400/50 dark:ring-green-500/50;
-    @apply shadow-lg;
-  }
-  
-  .support-link.active span:last-child {
-    @apply text-green-800 dark:text-green-200 font-semibold;
-  }
-  /* Transición suave para el sidebar */
-  #sidebar, .sidebar-link, .sidebar-link i {
-    transition: all 0.3s cubic-bezier(.4,0,.2,1);
-  }
+/* Estilos para el contenedor del ícono cuando está activo */
+.sidebar-link.active .icon-container {
+  @apply bg-gray-300 dark:bg-gray-600;
+}
 
-  /* Animación para el dropdown de idioma */
-  #language-dropdown {
-    opacity: 0;
-    transform: translateY(10px);
-    transition: all 0.2s ease-out;
-  }
-  
-  #language-dropdown:not(.hidden) {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  
-  /* Rotar chevron cuando dropdown está abierto */
-  button[data-dropdown-toggle="language-dropdown"][aria-expanded="true"] i[data-lucide="chevron-up"] {
-    transform: rotate(180deg);
-  }
+/* Estilos para el texto cuando está activo */
+.sidebar-link.active .nav-text {
+  @apply text-gray-800 dark:text-gray-200 font-semibold;
+}
+
+/* Estilos para el ícono cuando está activo */
+.sidebar-link.active .icon-container i {
+  @apply text-gray-700 dark:text-gray-300;
+}
+
+/* Estilos específicos para el botón de soporte cuando está activo */
+.support-link.active {
+  transform: scale(1.05);
+}
+
+.support-link.active > div {
+  @apply bg-gradient-to-br from-green-100 to-blue-100 dark:from-green-800/40 dark:to-blue-800/40;
+  @apply border-green-300 dark:border-green-600;
+  @apply ring-2 ring-green-400/50 dark:ring-green-500/50;
+}
+
+.support-link.active span:last-child {
+  @apply text-green-800 dark:text-green-200 font-semibold;
+}
+
+/* Transición suave para el sidebar */
+#sidebar, .sidebar-link, .sidebar-link i {
+  transition: all 0.3s cubic-bezier(.4,0,.2,1);
+}
+
+/* Dropdown de idioma simple */
+#language-dropdown {
+  display: block !important;
+}
+
+#language-dropdown.hidden {
+  display: none !important;
+}
+
+/* Opciones de idioma */
+.language-option {
+  @apply rounded-lg transition-all duration-200;
+  @apply hover:bg-gray-50 dark:hover:bg-gray-800;
+}
+
+/* Rotar chevron cuando dropdown está abierto */
+button[data-dropdown-toggle="language-dropdown"][aria-expanded="true"] i[data-lucide="chevron-up"] {
+  transform: rotate(180deg);
+}
+
+/* ── Scrollbar personalizada ────────────────────────────────────────────────── */
+.scrollbar::-webkit-scrollbar {
+  @apply w-2;
+}
+
+.scrollbar::-webkit-scrollbar-track {
+  @apply bg-gray-400 dark:bg-gray-800;
+}
+
+.scrollbar::-webkit-scrollbar-thumb {
+  @apply bg-slate-200 dark:bg-slate-900 rounded-md;
+}
+
+.scrollbar::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-300 dark:bg-slate-700;
+}
+
+/* ── Panel de Usuario Moderno ───────────────────────────────────────────────── */
+.user-panel-container {
+  @apply mx-0;
+}
+
+.user-panel-admin {
+  @apply bg-gray-100 dark:bg-gray-800 p-4 border-b border-gray-200 dark:border-gray-700 w-full min-h-[140px];
+}
+
+.user-panel-client {
+  @apply bg-gray-100 dark:bg-gray-800 p-4 border-b border-gray-200 dark:border-gray-700 w-full min-h-[140px];
+}
+
+.user-panel-header {
+  @apply flex items-center justify-between mb-4;
+}
+
+.user-panel-title {
+  @apply flex items-center gap-2;
+}
+
+.user-panel-indicator {
+  @apply w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-lg;
+}
+
+.user-panel-title-text-admin {
+  @apply text-sm font-semibold text-gray-700 dark:text-gray-300;
+}
+
+.user-panel-title-text-client {
+  @apply text-sm font-semibold text-gray-700 dark:text-gray-300;
+}
+
+.user-panel-icon-admin {
+  @apply w-6 h-6 bg-gray-500 dark:bg-gray-600 rounded flex items-center justify-center;
+}
+
+.user-panel-icon-client {
+  @apply w-6 h-6 bg-gray-500 dark:bg-gray-600 rounded flex items-center justify-center;
+}
+
+.user-panel-icon-svg {
+  @apply w-3 h-3 text-white;
+}
+
+.user-panel-content {
+  @apply text-left;
+}
+
+.user-panel-name {
+  @apply text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3;
+}
+
+.user-panel-session {
+  @apply flex items-center gap-1;
+}
+
+.user-panel-session-dot {
+  @apply w-1.5 h-1.5 bg-green-400 rounded-full;
+}
+
+.user-panel-session-text {
+  @apply text-xs text-gray-600 dark:text-gray-400;
+}
 </style>
----
 
 <!-- Carga Lucide diferido y renderiza íconos al terminar -->
 <script src="https://unpkg.com/lucide@latest" defer onload="window.lucide?.createIcons?.()"></script>
 
 <aside
   id="sidebar"
-  class="fixed top-0 left-0 z-20 flex-col flex-shrink-0 hidden w-56 h-full pt-20 font-normal lg:flex transition-width bg-white border-r border-gray-200 dark:bg-gray-800 dark:border-gray-700 -px-2"
+  class="fixed top-0 left-0 z-20 flex-col flex-shrink-0 hidden w-56 h-full pt-16 font-normal lg:flex transition-width bg-white border-r border-gray-200 dark:bg-gray-800 dark:border-gray-700 -px-2"
   aria-label="Sidebar"
+  data-api-base={apiBase}
+  data-file-server={fileServer}
 >
   <!-- Scrollable content -->
   <div
-    class="flex-1 px-3 overflow-y-auto scrollbar scrollbar-w-2 scrollbar-thumb-rounded-md scrollbar-thumb-slate-200 scrollbar-track-gray-400 dark:scrollbar-thumb-slate-900 dark:scrollbar-track-gray-800"
+    class="flex-1 overflow-y-auto scrollbar scrollbar-w-2 scrollbar-thumb-rounded-md scrollbar-thumb-slate-200 scrollbar-track-gray-400 dark:scrollbar-thumb-slate-900 dark:scrollbar-track-gray-800"
   >
-    <!-- Minimal Client Panel -->
-    <div class="mt-4 mb-6 mx-2">
-      <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
-        <div class="flex items-center justify-center gap-2 mb-2">
-          <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-          <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Client Panel</span>
-        </div>
-        <div class="text-center">
-          <div class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{user?.full_name || 'Cliente'}</div>
-          <div class="flex items-center justify-center gap-2 mb-1">
-            <span class="text-xs font-medium text-blue-700 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded-full border border-blue-200 dark:border-blue-800">{userRole}</span>
+    <!-- Modern Client Panel -->
+    <div class="user-panel-container">
+      <div class="user-panel-client">
+        <div class="user-panel-header">
+          <div class="user-panel-title">
+            <div class="user-panel-indicator"></div>
+            <span class="user-panel-title-text-client">Client Panel</span>
           </div>
-          <span class="text-xs text-gray-500 dark:text-gray-400">Active Session</span>
+          <div class="user-panel-icon-client">
+            <i data-lucide="user" class="user-panel-icon-svg"></i>
+          </div>
+        </div>
+        <div class="user-panel-content">
+          <div class="user-panel-name">{user?.full_name || 'Cliente'}</div>
+          <div class="user-panel-session">
+            <div class="user-panel-session-dot"></div>
+            <span class="user-panel-session-text">Active Session</span>
+          </div>
         </div>
       </div>
     </div>
     
-    <!-- Divider -->
-    <hr class="my-4 border-gray-300 dark:border-gray-600" />
-    
-    <div class="space-y-3">
+    <div class="pt-3 space-y-3">
       <!-- dashboard -->
-              <a
-          href="/client/dashboard"
-          class="sidebar-link group flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 border-transparent hover:border-gray-400 dark:hover:border-gray-500"
-        >
-        <div class="icon-container w-8 h-8 bg-gray-200 dark:bg-gray-600 rounded-lg flex items-center justify-center shadow-sm group-hover:shadow-md transition-all duration-200">
-          <i data-lucide="layout-dashboard" class="w-4 h-4 text-gray-600 dark:text-gray-300"></i>
+      <a
+        href="/client/dashboard"
+        class="sidebar-link group flex items-center gap-3 px-4 py-3 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-300 ease-out"
+        style="display: none;"
+      >
+        <div class="icon-container w-8 h-8 bg-blue-500 dark:bg-blue-600 rounded-lg flex items-center justify-center shadow-md group-hover:shadow-lg group-hover:scale-105 transition-all duration-300 ease-out">
+          <i data-lucide="layout-dashboard" class="w-4 h-4 text-white"></i>
         </div>
-        <span class="nav-text font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors duration-200">
+        <span class="nav-text font-semibold text-gray-700 dark:text-gray-300 group-hover:text-blue-700 dark:group-hover:text-blue-300 transition-all duration-300 ease-out">
           {t.sidebar.dashboard}
         </span>
       </a>
 
       <!-- documents -->
-              <a
-          href="/client/documents"
-          class="sidebar-link group flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 border-transparent hover:border-gray-400 dark:hover:border-gray-500"
-        >
-        <div class="icon-container w-8 h-8 bg-gray-200 dark:bg-gray-600 rounded-lg flex items-center justify-center shadow-sm group-hover:shadow-md transition-all duration-200">
-          <i data-lucide="folder-open" class="w-4 h-4 text-gray-600 dark:text-gray-300"></i>
+      <a href="/client/documents" class="sidebar-link group flex items-center gap-3 px-4 py-3 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-all duration-300 ease-out">
+        <div class="icon-container w-8 h-8 bg-emerald-500 dark:bg-emerald-600 flex items-center justify-center group-hover:scale-105 transition-all duration-300 ease-out">
+          <i data-lucide="folder-open" class="w-4 h-4 text-white"></i>
         </div>
-        <span class="nav-text font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors duration-200">
+        <span class="nav-text font-medium text-gray-700 dark:text-gray-300 group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-all duration-300 ease-out">
           {t.sidebar.documents}
         </span>
       </a>
     </div>
   </div>
 
-  <!-- Support section at bottom -->
-  <div class="absolute bottom-20 left-0 w-full px-4">
-    <!-- Divider -->
-    <hr class="mb-4 border-gray-300 dark:border-gray-600" />
-    
-    <!-- Support link -->
-    <a href="/client/info/support" class="support-link group block transition-all duration-200">
-      <div class="bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 rounded-xl shadow-sm border border-green-200 dark:border-green-700 p-3 group-hover:shadow-md group-hover:scale-[1.02] transition-all duration-200">
-        <div class="flex items-center justify-center gap-2">
-          <span class="text-lg">💬</span>
-          <span class="text-sm font-medium text-green-700 dark:text-green-300 group-hover:font-semibold transition-all duration-200">
-            Chat with us
-          </span>
-        </div>
-      </div>
-    </a>
-  </div>
-
   <!-- Footer: settings + language -->
   <div
-    class="absolute bottom-0 left-0 w-full p-3 bg-white border-t border-gray-200 flex gap-2 dark:bg-gray-800 dark:border-gray-700"
-  >
+    class="absolute bottom-0 left-0 w-full p-3 bg-white border-t border-gray-200 flex gap-2 dark:bg-gray-800 dark:border-gray-700">
     <!-- Botón de configuración que abre modal -->
-    <a
-      href="#"
-      id="openClientSettings"
-      class="flex-1 bg-gray-50 dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-2 hover:shadow-md hover:scale-[1.02] transition-all duration-200 group"
-    >
-      <div class="flex items-center justify-center gap-1">
-        <div class="w-5 h-5 bg-gray-200 dark:bg-gray-600 rounded-lg flex items-center justify-center group-hover:bg-gray-300 dark:group-hover:bg-gray-500 transition-colors duration-200">
+    <a href="#" id="openClientSettings" class="flex-1 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-2 h-10 hover:scale-[1.02] transition-all duration-200 group">
+      <div class="flex items-center justify-center gap-2">
+        <div class="w-5 h-5 bg-gray-200 dark:bg-gray-600 rounded flex items-center justify-center group-hover:bg-gray-300 dark:group-hover:bg-gray-500 transition-colors duration-200">
           <i data-lucide="user-cog" class="w-3 h-3 text-gray-600 dark:text-gray-300"></i>
         </div>
         <span class="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors duration-200">Settings</span>
@@ -252,33 +312,33 @@ let avatarDarkSrc  = user.avatar
       <button
         type="button"
         data-dropdown-toggle="language-dropdown"
-        class="w-full bg-gray-50 dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-2 hover:shadow-md hover:scale-[1.02] transition-all duration-200"
+        class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-2 h-10 hover:scale-[1.02] transition-all duration-200 group"
         id="currentLangBtn"
       >
-        <div class="flex items-center justify-center gap-1">
-          <span id="currentLangFlag" class="text-sm">🇺🇸</span>
-          <span id="currentLangText" class="text-xs font-medium text-gray-700 dark:text-gray-300">EN</span>
+        <div class="flex items-center justify-center gap-2">
+          <img id="currentLangFlag" src="https://flagcdn.com/w20/us.png" alt="US Flag" class="w-5 h-4 rounded">
+          <span id="currentLangText" class="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors duration-200">EN</span>
           <i data-lucide="chevron-up" class="w-3 h-3 text-gray-500 transform transition-transform duration-200"></i>
         </div>
       </button>
       <div
         id="language-dropdown"
-        class="absolute bottom-14 left-0 right-0 z-50 hidden bg-gray-50 dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 transition-all duration-200 ease-out"
+        class="absolute bottom-14 left-0 right-0 z-50 hidden bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg"
       >
-        <div class="flex p-2 gap-1">
+        <div class="flex flex-col p-1">
           <a
             href="#"
             data-lang="en"
-            class="language-option flex-1 flex items-center justify-center gap-1 px-2 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white rounded-lg transition-all duration-200"
+            class="language-option flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200"
           >
-            🇺🇸 EN
+            <img src="https://flagcdn.com/w20/us.png" alt="US Flag" class="w-4 h-3 rounded"> EN
           </a>
           <a
             href="#"
             data-lang="es"
-            class="language-option flex-1 flex items-center justify-center gap-1 px-2 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white rounded-lg transition-all duration-200"
+            class="language-option flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200"
           >
-            🇨🇱 ES
+            <img src="https://flagcdn.com/w20/cl.png" alt="Chile Flag" class="w-4 h-3 rounded"> ES
           </a>
         </div>
       </div>
@@ -393,206 +453,9 @@ let avatarDarkSrc  = user.avatar
 ></div>
 
 <!-- SCRIPTS -->
-<script is:inline type="module">
-/* ---------- helpers que usan las traducciones ---------- */
-/* ---------- consts de entorno ---------- */
-const API_BASE    = "{import.meta.env.PUBLIC_API_URL}";
-const FILE_SERVER = "{import.meta.env.PUBLIC_FILE_SERVER_URL}";
-
-async function loadClientData () {
-  // 1. Intenta recuperar un token desde localStorage o cookies accesibles
-  let clientToken =
-    localStorage.getItem("token")        ||
-    localStorage.getItem("accessToken")  ||
-    localStorage.getItem("jwt")          ||
-    null;
-
-  if (!clientToken) {
-    const match = document.cookie.match(/(?:^|; )(?:token|accessToken|jwt)=([^;]+)/);
-    clientToken = match ? decodeURIComponent(match[1]) : null;
-  }
-
-  // 2. Llama a la API.  Si no hay token, igualmente probamos con credenciales de cookie httpOnly
-  try {
-    const res = await fetch(`${API_BASE}/api/auth/me`, {
-      headers     : clientToken ? { Authorization: `Bearer ${clientToken}` } : undefined,
-      credentials : "include"
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-    const data = await res.json();
-    const u = Array.isArray(data) ? (data[0] ?? {}) : data;
-
-    // 3. Actualiza campos del formulario
-    if (u.full_name)  document.getElementById("clientNameInput").value  = u.full_name;
-    if (u.email)      document.getElementById("clientEmailInput").value = u.email;
-    if (u.phone)      document.getElementById("clientPhoneInput").value = u.phone;
-
-    // 4. Actualiza avatar con URL absoluta al file‑server o fallback de iniciales
-    if (u.avatar) {
-      const avatarUrl = u.avatar.startsWith("http") ? u.avatar : `${FILE_SERVER}/${u.avatar}`;
-      document.getElementById("clientAvatarLight").src = avatarUrl;
-      document.getElementById("clientAvatarDark").src  = avatarUrl;
-    } else if (u.full_name) {
-      const seed = encodeURIComponent(u.full_name);
-      document.getElementById("clientAvatarLight").src =
-        `https://api.dicebear.com/7.x/initials/svg?seed=${seed}&backgroundColor=4b5563&fontColor=ffffff`;
-      document.getElementById("clientAvatarDark").src  =
-        `https://api.dicebear.com/7.x/initials/svg?seed=${seed}&backgroundColor=1e293b&fontColor=ffffff`;
-    }
-  } catch (err) {
-    console.error("No se pudo cargar el perfil del cliente:", err);
-    // Si algo falla, dejamos valores por defecto vacíos
-  }
-}
-
-function validateForm () {
-  const name  = document.getElementById("clientNameInput").value.trim();
-  const phone = document.getElementById("clientPhoneInput").value.trim();
-  if (!name || !phone) {
-    alert(t.admin_settings.name_and_phone_required);
-    return false;
-  }
-  return true;
-}
-
-/* ---------- script principal: corre cuando el DOM está listo ---------- */
-document.addEventListener("DOMContentLoaded", () => {
-
-  /* ---------- lógica de íconos y submenu ---------- */
-  const path            = window.location.pathname;
-  // ---- highlight active page in sidebar ----
-  document.querySelectorAll("#sidebar a[href]").forEach(link => {
-    const href = link.getAttribute("href");
-    if (href && (path === href || path.startsWith(href + "/"))) {
-      link.classList.add("active");
-      
-      // Special styling for support link when active
-      if (href === "/client/info/support") {
-        // Los estilos activos del soporte se manejan con CSS usando .support-link.active
-        // No necesitamos JavaScript adicional aquí
-      }
-    }
-  });
-
-/* ---------- refs DOM ---------- */
-const openBtn   = document.getElementById("openClientSettings");
-const closeBtn  = document.getElementById("closeClientSettings");
-const cancelBtn = document.getElementById("cancelClientEdit");
-const form      = document.getElementById("clientSettingsForm");
-const modal     = document.getElementById("clientSettingsModal");
-
-const avatarInput = document.getElementById("clientAvatarInput");
-const avatarLight = document.getElementById("clientAvatarLight");
-const avatarDark  = document.getElementById("clientAvatarDark");
-
-const modalContent = modal.querySelector(".modal-card");
-
-/* ---------- util modal ---------- */
-const showModal = () => {
-  modal.classList.remove("hidden");
-  modal.classList.add("flex");
-  // fade‑in backdrop
-  modal.classList.remove("opacity-0");
-  // Trigger animation on next frame
-  requestAnimationFrame(() => {
-    modalContent.classList.remove("opacity-0", "scale-90", "translate-y-6");
-  });
-};
-const hideModal = () => {
-  // fade‑out backdrop
-  modal.classList.add("opacity-0");
-  // Start exit animation
-  modalContent.classList.add("opacity-0", "scale-90", "translate-y-6");
-  modal.addEventListener(
-    "transitionend",
-    function handler() {
-      modal.removeEventListener("transitionend", handler);
-      modal.classList.remove("flex");
-      modal.classList.add("hidden");
-    },
-    { once: true },
-  );
-};
-
-  /* ---------- avatar preview ---------- */
-  avatarInput?.addEventListener("change", () => {
-    const file = avatarInput.files?.[0];
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    avatarLight.src = url;
-    avatarDark.src  = url;
-  });
-
-  /* ---------- eventos modal ---------- */
-  openBtn?.addEventListener("click",  e => { e.preventDefault(); showModal(); });
-  closeBtn?.addEventListener("click", hideModal);
-  cancelBtn?.addEventListener("click", hideModal);
-  modal?.addEventListener("click",    e => { if (e.target === modal) hideModal(); });
-
-  /* ---------- envío de formulario ---------- */
-  form?.addEventListener("submit", async e => {
-    e.preventDefault();
-    if (!validateForm()) return;
-
-    const formData = new FormData(form);
-    if (avatarInput?.files?.[0]) formData.set("avatar", avatarInput.files[0]);
-
-    try {
-      console.log("▶️ Payload a enviar", [...formData.entries()]);
-      await new Promise(r => setTimeout(r, 800)); // simulación de API
-      alert(t.admin_settings.data_updated_successfully);
-      hideModal();
-    } catch (err) {
-      console.error(err);
-      alert(t.admin_settings.error_saving_changes);
-    }
-  });
-
-  /* ---------- cambio de idioma ---------- */
-  // Función para actualizar el flag y texto del idioma actual
-  function updateCurrentLangFlag() {
-    const currentLang = localStorage.getItem('lang') || '{lang}';
-    const flagElement = document.getElementById('currentLangFlag');
-    const textElement = document.getElementById('currentLangText');
-    const chevronElement = document.querySelector('#currentLangBtn i[data-lucide="chevron-up"]');
-    
-    if (flagElement) {
-      flagElement.textContent = currentLang === 'es' ? '🇨🇱' : '🇺🇸';
-    }
-    if (textElement) {
-      textElement.textContent = currentLang === 'es' ? 'ES' : 'EN';
-    }
-    
-    // Animar chevron cuando cambia
-    if (chevronElement) {
-      chevronElement.style.transform = 'rotate(180deg)';
-      setTimeout(() => {
-        chevronElement.style.transform = 'rotate(0deg)';
-      }, 200);
-    }
-  }
-
-  // Actualizar flag al cargar
-  updateCurrentLangFlag();
-
-  document.querySelectorAll(".language-option").forEach(option => {
-    option.addEventListener("click", (e) => {
-      e.preventDefault();
-      const lang = option.getAttribute("data-lang");
-      if (lang) {
-        // Importar y usar la función setLang
-        import('/src/lib/i18n.js').then(({ setLang }) => {
-          setLang(lang);
-        }).catch(err => {
-          console.error('Error al cambiar idioma:', err);
-          // Fallback manual
-          localStorage.setItem('lang', lang);
-          document.cookie = `user-lang=${lang}; path=/; max-age=31536000`;
-          window.location.reload();
-        });
-      }
-    });
-  });
-});
+<script type="module" define:vars={{ apiBase, clientApiBase, fileServer, t, token, lang }}>
+  import { initSidebarClient } from '/js/sidebar-client.js';
+  
+  // Inicializar el sidebar client con la configuración
+  initSidebarClient({ apiBase, clientApiBase, fileServer, t, token, lang });
 </script>

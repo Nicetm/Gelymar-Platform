@@ -5,7 +5,7 @@ const qrcode = require('qrcode');
 const userService = require('../services/user.service');
 const { generateToken } = require('../utils/jwt.util');
 const { sendEmail } = require('../utils/email.util');
-const logger = require('@utils/logger');
+const { logger } = require('../utils/logger');
 
 /**
  * @route POST /api/auth/login

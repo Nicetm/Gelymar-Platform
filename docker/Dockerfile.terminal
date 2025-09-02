@@ -1,0 +1,17 @@
+FROM alpine:latest
+
+# Instalar dependencias
+RUN apk add --no-cache bash curl docker-cli ttyd
+
+WORKDIR /app
+
+# Script para manejar conexiones a contenedores
+COPY terminal/terminal-manager.sh /app/
+RUN chmod +x /app/terminal-manager.sh
+
+# Copiar archivos del terminal web
+COPY terminal/index.html /app/
+
+EXPOSE 7681
+
+CMD ["ttyd", "-p", "7681", "-c", "admin:admin123", "bash", "/app/terminal-manager.sh"] 

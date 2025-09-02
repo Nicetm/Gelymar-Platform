@@ -1,12 +1,10 @@
 ---
 import { loadTranslations, getServerLang } from '../../lib/i18n.js';
-import type { Orders } from '../../types/entities.js';
-import { formatDateShort } from '../../utils/formatDate.js';
 
 // Para el código del servidor (SSR), usar SERVER_API_URL
 // Para el código del cliente, usar PUBLIC_API_URL
 const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
-const clientApiBase = import.meta.env.PUBLIC_API_URL;
+const apiPublic = import.meta.env.PUBLIC_API_URL;
 const lang = getServerLang(Astro.cookies);
 
 const t: any = {
@@ -15,11 +13,6 @@ const t: any = {
   clientes: await loadTranslations(lang, 'clientes'),
   comond: await loadTranslations(lang, 'comond'),
 };
-
-const token = Astro.cookies.get('token')?.value;
-const orders: Orders[] = await fetch(`${apiBase}/api/orders`, {
-  headers: { Authorization: `Bearer ${token}` }
-}).then(res => res.json());
 ---
 
 <section id="OrderSection" class="px-4 pt-20 pb-6 sm:px-6 lg:px-8">
@@ -47,232 +40,297 @@ const orders: Orders[] = await fetch(`${apiBase}/api/orders`, {
 		</div>
   </header>
 
-	<!-- Buscador avanzado -->
-	<div class="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 bg-gray-50 dark:bg-gray-800 p-4 rounded-md shadow-sm">
-		<!-- Orden -->
-		<div class="relative">
-			<label for="orden" class="block text-sm font-medium text-gray-700 dark:text-gray-200">{t.documentos.pc ?? 'PC'}</label>
-			<div class="relative">
-				<input type="text" id="orden" name="orden" placeholder={t.documentos.orderPlaceholder}
-					class="w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500">
+	<!-- Búsqueda y filtros -->
+	<div class="mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+		<div class="flex flex-col sm:flex-row gap-3 items-center">
+			<div class="relative w-full sm:max-w-xs">
+				<label for="searchInput" class="sr-only">{t.comond.search}</label>
 				<div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-					<svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+					<svg class="w-5 h-5 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M10 18a8 8 0 100-16 8 8 0 000 16z"/>
 					</svg>
 				</div>
-				<div class="absolute inset-y-0 right-0 flex items-center pr-3">
-					<button type="button" id="clearOrdenBtn" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors duration-200 hidden">
-						<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-						</svg>
-					</button>
-				</div>
+				<input id="searchInput" type="text" placeholder={t.comond.search} class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500" />
 			</div>
 		</div>
 
-		<!-- Cliente -->
-		<div class="relative">
-			<label for="cliente" class="block text-sm font-medium text-gray-700 dark:text-gray-200">{t.documentos.cliente ?? 'Cliente'}</label>
-			<div class="relative">
-				<input type="text" id="cliente" name="cliente" placeholder={t.documentos.clientPlaceholder}
-					class="w-full pl-10 pr-20 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
-					autocomplete="off">
-				<div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-					<svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-					</svg>
-				</div>
-				<div class="absolute inset-y-0 right-0 flex items-center pr-3 gap-1">
-					<button type="button" id="clearClienteBtn" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors duration-200 hidden">
-						<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-						</svg>
-					</button>
-					<svg id="clienteDropdownIcon" class="w-5 h-5 text-gray-400 cursor-pointer" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-					</svg>
-				</div>
-			</div>
-			<div id="clienteDropdown" class="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto hidden">
-				<!-- Las opciones se cargarán dinámicamente -->
-			</div>
-		</div>
-
-		<!-- Fecha Ingreso -->
-		<div class="relative">
-			<label for="fechaIngreso" class="block text-sm font-medium text-gray-700 dark:text-gray-200">{t.documentos.fechaIngreso ?? 'Fecha Ingreso'}</label>
-			<div class="relative">
-				<input type="date" id="fechaIngreso" name="fechaIngreso" placeholder={t.documentos.fechaIngresoPlaceholder}
-					class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500">
-				<div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-					<svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-					</svg>
-				</div>
-			</div>
-		</div>
-
-		<!-- Estado -->
-		<div class="relative">
-			<label for="estado" class="block text-sm font-medium text-gray-700 dark:text-gray-200">{t.documentos.estado ?? 'Estado'}</label>
-			<div class="relative">
-				<select id="estado" name="estado"
-					class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500">
-					<option value="">{t.documentos.estadoTodos}</option>
-					<option value="pendiente">{t.documentos.estadoPendiente}</option>
-					<option value="enviado">{t.documentos.estadoEnviado}</option>
-					<option value="completado">{t.documentos.estadoCompletado}</option>
-				</select>
-				<div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-					<svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-					</svg>
-				</div>
-			</div>
+		<!-- Botón exportar a Excel -->
+		<div class="flex items-center gap-2">
+			<button id="exportExcelBtn" class="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800">
+				<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+				</svg>
+				{t.comond.exportToExcel}
+			</button>
 		</div>
 	</div>
 
-	<div class="mt-4 flex justify-end gap-2">
-		<!-- Botón Limpiar -->
-		<button id="limpiarBtn" class="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white text-sm font-semibold rounded-md shadow-sm hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400">
-			<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-				<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-			</svg>
-			{t.comond.clear}
-		</button>
-	
-		<!-- Botón Buscar -->
-		<button id="buscarBtn" data-api-base={clientApiBase} class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-			<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-				<path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M10 18a8 8 0 100-16 8 8 0 000 16z"/>
-			</svg>
-			{t.comond.search}
-		</button>
-	</div>
-
-	<!-- Tabla de resultados -->
-	<div class="overflow-auto mt-6 rounded-xl shadow ring-1 ring-gray-200 dark:ring-gray-700 scrollbar-thin scrollbar-thumb-primary-500/60 dark:scrollbar-thumb-primary-400/60 scrollbar-track-gray-200 dark:scrollbar-track-gray-800">
-		<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 table-fixed">
-			<thead id="ordersHead" class="bg-gray-100/70 dark:bg-gray-800/70 backdrop-blur-md transition-shadow sticky top-0 z-10">
+	<!-- Tabla de órdenes -->
+	<div class="overflow-auto mt-6 rounded-xl shadow ring-1 ring-gray-200 dark:ring-gray-700">
+		<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 table-fixed bg-white dark:bg-gray-900">
+			<thead class="bg-gray-100 dark:bg-gray-800 sticky top-0 z-10">
 				<tr>
-					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.carpetas.name}</th>
-					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.carpetas.oc}</th>
-					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.clientes.client_name}</th>
-					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.carpetas.fecha}</th>
-					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.carpetas.moneda}</th>
-					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.carpetas.medioEnvio}</th>
-					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.carpetas.factura}</th>
-					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.carpetas.fechaFactura}</th>
-					<th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.comond.actions}</th>
+					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="pc">
+						<div class="flex items-center justify-between">
+							<span>{t.carpetas.name}</span>
+							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+							</svg>
+						</div>
+					</th>
+					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="oc">
+						<div class="flex items-center justify-between">
+							<span>{t.carpetas.oc}</span>
+							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+							</svg>
+						</div>
+					</th>
+					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="customer_name">
+						<div class="flex items-center justify-between">
+							<span>{t.clientes.client_name}</span>
+							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+							</svg>
+						</div>
+					</th>
+					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="fecha">
+						<div class="flex items-center justify-between">
+							<span>Date</span>
+							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+							</svg>
+						</div>
+					</th>
+					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="currency">
+						<div class="flex items-center justify-between">
+							<span>Currency</span>
+							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+							</svg>
+						</div>
+					</th>
+					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="medio_envio_factura">
+						<div class="flex items-center justify-between">
+							<span>Shipping Method</span>
+							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+							</svg>
+						</div>
+					</th>
+					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="factura">
+						<div class="flex items-center justify-between">
+							<span>{t.carpetas.factura}</span>
+							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+							</svg>
+						</div>
+					</th>
+					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="fecha_factura">
+						<div class="flex items-center justify-between">
+							<span>{t.carpetas.fechaFactura}</span>
+							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+							</svg>
+						</div>
+					</th>
+					<th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800">{t.comond.actions}</th>
 				</tr>
 			</thead>
-			<tbody id="resultadosTabla" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-sm min-h-[600px] text-gray-900 dark:text-gray-200 transition-all duration-300 ease-out motion-safe:animate-fade-slide">
-				{Array.isArray(orders) && orders.map(order => (
-					<tr data-id={order.id} class="transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-800 hover:shadow-[0_1px_3px_rgba(0,0,0,0.12)]">
-						<td class="px-6 py-4 text-sm editable-filename group cursor-pointer" data-id={order.id}>{order.pc}</td>
-						<td class="px-6 py-4 text-sm editable-filename group cursor-pointer" data-id={order.id}>{order.oc}</td>
-						<td class="px-4 py-3 break-all text-blue-600 dark:text-blue-400">{order.customer_name}</td>
-						<td class="px-6 py-4 items-center gap-3">{formatDateShort(order.fecha_cliente)}</td>
-						<td class="px-6 py-4 items-center gap-3">{order.currency || '-'}</td>
-						<td class="px-6 py-4 items-center gap-3">{order.medio_envio || '-'}</td>
-						<td class="px-6 py-4 items-center gap-3">{order.factura || '-'}</td>
-						<td class="px-6 py-4 items-center gap-3">{formatDateShort(order.fecha_factura)}</td>
-						<td class="px-6 py-4 items-center gap-3">
-							<div class="flex justify-center items-center gap-3 text-gray-900 dark:text-white">
-								<a href={`/admin/clients/documents/view/${order.customer_uuid}?f=${order.id}&pc=${order.pc}&c=${order.customer_name}`} class="go-to-order-btn" title="Ir a la orden">
-									<svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-										<path stroke-linecap="round" stroke-linejoin="round" d="M14 3h7m0 0v7m0-7L10 14m-4 0h.01M5 14a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1h5a1 1 0 0 0 1-1v-.01" />
-									</svg>
-								</a>
-								<a href="#" title={`Editar ${order.oc}`} class="edit-btn hover:text-green-500 transition" data-file-id={order.id}>
-									<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-										<path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.586-6.586a2 2 0 112.828 2.828L11.828 13.83a2 2 0 01-.586.414L9 15l.756-2.243a2 2 0 01.414-.586z" />
-										<path stroke-linecap="round" stroke-linejoin="round" d="M19 20H5" />
-									</svg>
-								</a>
-							</div>
-						</td>
-					</tr>
-				))}
+			<tbody id="ordersTableBody" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-sm min-h-[600px]">
+				<!-- Los datos se cargarán dinámicamente con JavaScript -->
+				<tr id="loadingRow" class="bg-white dark:bg-gray-900">
+					<td colspan="9" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+						<div class="flex items-center justify-center">
+							<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+								<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+								<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+							</svg>
+							Cargando órdenes...
+						</div>
+					</td>
+				</tr>
 			</tbody>
 		</table>
 	</div>
 
 	<!-- Paginación -->
-  <div class="mt-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-6 text-sm">
-    <div class="flex items-center gap-3">
-      <label for="itemsPerPageSelect" class="text-sm font-medium text-gray-700 dark:text-gray-300">{t.clientes.perPage}</label>
-      <div class="relative">
-        <select id="itemsPerPageSelect" class="block w-20 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-sm text-gray-900 dark:text-white rounded-md pl-3 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-          <option value="10">10</option>
-          <option value="20">20</option>
-          <option value="30">30</option>
-        </select>
+	<div class="mt-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-6 text-sm">
+		<div class="flex items-center gap-3">
+			<label for="itemsPerPageSelect" class="text-sm font-medium text-gray-700 dark:text-gray-300">{t.clientes.perPage}</label>
+			<div class="relative">
+				<select id="itemsPerPageSelect" class="block w-20 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-sm text-gray-900 dark:text-gray-100 rounded-md pl-3 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+					<option value="10">10</option>
+					<option value="20">20</option>
+					<option value="30">30</option>
+				</select>
+			</div>
+		</div>
+
+		<div class="flex items-center gap-3">
+			<button id="prevPageBtn" aria-label="Previous page" class="w-9 h-9 flex items-center justify-center bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-100 rounded-md transition">
+				<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+				</svg>
+			</button>
+			<span id="pageIndicator" class="min-w-[120px] text-center px-4 py-1 rounded-lg bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100 text-sm font-medium shadow-sm flex items-center justify-center"></span>
+			<button id="nextPageBtn" aria-label="Next page" class="w-9 h-9 flex items-center justify-center bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-100 rounded-md transition">
+				<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+				</svg>
+			</button>
+		</div>
+	</div>
+
+	<!-- Modal de Items de la Orden -->
+	<div id="itemsModal" class="fixed inset-0 bg-black bg-opacity-50 dark:bg-black/80 hidden justify-center items-center z-50">
+  <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 w-full max-w-4xl mx-4 relative max-h-[90vh] overflow-y-auto shadow-2xl">
+    <!-- Botón de cerrar -->
+    <button id="closeItemsModalBtn" class="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition dark:text-gray-300 dark:hover:text-red-400">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+    
+    <!-- Header con logo y nombre -->
+    <div class="flex items-center gap-4 mb-6">
+      <div class="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+        <span id="itemsInitials">IT</span>
+      </div>
+      <div>
+        <h2 id="itemsOrderTitle" class="text-xl font-bold text-gray-900 dark:text-gray-100"></h2>
+        <p id="itemsOrderSubtitle" class="text-sm text-gray-600 dark:text-gray-400">{t.carpetas.itemsList}</p>
       </div>
     </div>
 
-    <div class="flex items-center gap-3">
-      <button id="prevPageBtn" aria-label="Previous page" class="w-9 h-9 flex items-center justify-center bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-white rounded-md transition-transform duration-150 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary-500">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-        </svg>
-      </button>
-      <span id="pageIndicator" class="px-4 py-1 rounded-lg bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-white text-sm font-medium shadow-sm">Page 1 of 5</span>
-      <button id="nextPageBtn" aria-label="Next page" class="w-9 h-9 flex items-center justify-center bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-white rounded-md transition-transform duration-150 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary-500">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-        </svg>
-      </button>
+    <!-- Tabla de items -->
+    <div class="overflow-auto rounded-xl shadow ring-1 ring-gray-200 dark:ring-gray-700">
+      <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+        <thead class="bg-gray-100 dark:bg-gray-800 sticky top-0 z-10">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.carpetas.itemCode}</th>
+            <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.carpetas.itemName}</th>
+            <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Cantidad</th>
+            <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Precio Unitario</th>
+            <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Total</th>
+          </tr>
+        </thead>
+        <tbody id="itemsTableBody" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
+          <!-- Los items se cargarán dinámicamente aquí -->
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Resumen de la orden -->
+    <div class="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <p class="text-sm font-medium text-gray-600 dark:text-gray-400">{t.carpetas.totalItems}</p>
+          <p id="totalItems" class="text-lg font-bold text-gray-900 dark:text-gray-100">0</p>
+        </div>
+        <div>
+          <p class="text-sm font-medium text-gray-600 dark:text-gray-400">{t.carpetas.totalQuantity}</p>
+          <p id="totalQuantity" class="text-lg font-bold text-gray-900 dark:text-gray-100">0</p>
+        </div>
+        <div>
+          <p class="text-sm font-medium text-gray-600 dark:text-gray-400">{t.carpetas.totalValue}</p>
+          <p id="totalValue" class="text-lg font-bold text-green-600 dark:text-green-400">$0</p>
+        </div>
+      </div>
     </div>
   </div>
+</div>
 
-	<!-- Modal overlay and form -->
-	<div id="editOrderModal" class="fixed inset-0 bg-black bg-opacity-50 hidden justify-center items-center z-50">
-		<div class="bg-white dark:bg-gray-800 dark:text-white rounded-lg p-6 w-full max-w-md relative"> <!-- <-- Aquí -->
+	<!-- Modal de Detalles de la Orden -->
+	<div id="orderDetailModal" class="fixed inset-0 bg-black bg-opacity-50 dark:bg-black/80 hidden z-50 flex justify-center items-center">
+		<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 w-full max-w-2xl mx-4 relative max-h-[90vh] overflow-y-auto shadow-2xl">
 			<!-- Botón de cerrar -->
-			<button id="closeModalBtn" class="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition">
+			<button id="closeOrderDetailModalBtn" class="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition dark:text-gray-300 dark:hover:text-red-400">
 				<svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
 				</svg>
 			</button>
-			<h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">{t.clientes.createTitle}</h2>
-		</div>
-		<div class="flex justify-end gap-2">
-			<button id="cancelEditBtn" class="px-4 py-2 bg-gray-300 dark:bg-gray-600 dark:text-white rounded-md">{t.comond.cancel}</button>
-			<button id="confirmEditBtn" class="bg-[#00538C] hover:bg-[#004773] text-white px-4 py-2 rounded-md font-medium">{t.comond.confirm}</button>
+			
+			<!-- Header con logo y nombre -->
+			<div class="flex items-center gap-4 mb-6">
+				<div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+					<span id="orderDetailInitials">OD</span>
+				</div>
+				<div>
+					<h2 id="orderDetailTitle" class="text-xl font-bold text-gray-900 dark:text-gray-100"></h2>
+					<p id="orderDetailSubtitle" class="text-sm text-gray-600 dark:text-gray-400">{t.carpetas.orderDetails}</p>
+				</div>
+			</div>
+
+			<!-- Detalles de la orden -->
+			<div class="space-y-4">
+				<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+									<div>
+					<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.carpetas.pcNumber}</label>
+					<p id="orderDetailPc" class="text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-800 p-2 rounded border">-</p>
+				</div>
+				<div>
+					<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.carpetas.ocNumber}</label>
+					<p id="orderDetailOc" class="text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-800 p-2 rounded border">-</p>
+				</div>
+				<div>
+					<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.carpetas.fechaEtd}</label>
+					<p id="orderDetailFechaEtd" class="text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-800 p-2 rounded border">-</p>
+				</div>
+				<div>
+					<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.carpetas.fechaEta}</label>
+					<p id="orderDetailFechaEta" class="text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-800 p-2 rounded border">-</p>
+				</div>
+				<div>
+					<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.carpetas.incoterm}</label>
+					<p id="orderDetailIncoterm" class="text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-800 p-2 rounded border">-</p>
+				</div>
+				<div>
+					<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.carpetas.certificados}</label>
+					<p id="orderDetailCertificados" class="text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-800 p-2 rounded border">-</p>
+				</div>
+				</div>
+				
+				<div>
+					<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.carpetas.direccionDestino}</label>
+					<p id="orderDetailDireccionDestino" class="text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-800 p-2 rounded border min-h-[60px]">-</p>
+				</div>
+				
+				<div>
+					<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.carpetas.puertoDestino}</label>
+					<p id="orderDetailPuertoDestino" class="text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-800 p-2 rounded border">-</p>
+				</div>
+				
+				<div>
+					<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.carpetas.observaciones}</label>
+					<p id="orderDetailObservaciones" class="text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-800 p-2 rounded border min-h-[60px]">-</p>
+				</div>
+				
+
+			</div>
 		</div>
 	</div>
+
+	<div id="notification" class="hidden fixed top-5 right-5 px-6 py-4 rounded-lg shadow-lg z-50 text-white text-base font-semibold transition-all duration-300 ease-in-out"></div>
 </section>
 
-<script type="module" define:vars={{ apiBase, lang }}>
-  import { initOrdersScript, openEditOrderModal } from '/js/orders.js';
-  import { showNotification } from '/js/utils.js';
+<script type="module" define:vars={{ apiBase, apiPublic, lang, t }}>
+  import { initOrdersScript } from '/js/orders.js';
+  
+  // Hacer las variables disponibles globalmente
+  window.apiBase = apiPublic;
+  window.lang = lang;
+  window.translations = t;
 
-  // Esperar a que el DOM esté listo antes de inicializar
+  // Inicializar el script cuando el DOM esté completamente cargado
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-      initOrdersScript();
+    document.addEventListener('DOMContentLoaded', async () => {
+      await initOrdersScript();
     });
   } else {
-    initOrdersScript();
-  }
-
-  window.openEditOrderModal = openEditOrderModal;
-
-  document.addEventListener('click', async (e) => {
-    const btn = e.target.closest('.edit-btn');
-    if (!btn) return;
-
-    console.log('Botón de edición clickeado');
-    e.preventDefault();
-    const orderId = btn.dataset.fileId;
-    const row = btn.closest('tr');
-    const orderName = row.querySelector('td:first-child')?.textContent?.trim() || '';
-
-    console.log('OrderId:', orderId, 'OrderName:', orderName);
-    await openEditOrderModal(orderId, orderName);
-  });
-
+    // Si el DOM ya está cargado, ejecutar inmediatamente
+    await initOrdersScript();
+  } 
 </script>
 <style is:inline>
   @layer utilities {

@@ -7,7 +7,7 @@ RUN apk add --no-cache bash curl docker-cli ttyd
 WORKDIR /app
 
 # Script para manejar conexiones a contenedores
-COPY terminal/terminal-manager.sh /app/
+COPY terminal-manager.sh /app/
 RUN chmod +x /app/terminal-manager.sh
 
 # Exponer puerto

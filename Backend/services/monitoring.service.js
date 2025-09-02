@@ -1,6 +1,6 @@
 // services/monitoring.service.js
 const { poolPromise } = require('../config/db');
-const logger = require('../utils/logger');
+const { logger } = require('../utils/logger');
 const crypto = require('crypto');
 
 // Almacenamiento de sesiones en memoria (en producción usar Redis)

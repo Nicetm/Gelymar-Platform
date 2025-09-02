@@ -1,5 +1,5 @@
 const orderDetailService = require('../services/orderDetail.service');
-const logger = require('@utils/logger');
+const { logger } = require('../utils/logger');
 
 /**
  * @route GET /api/order-detail/:orderId
@@ -17,16 +17,9 @@ exports.getOrderDetail = async (req, res) => {
   try {
     const orderDetail = await orderDetailService.getOrderDetailByOrderId(orderId);
     
-    // Siempre devolver una respuesta, incluso si no hay datos en order_detail
     if (!orderDetail) {
-      logger.info(`No hay datos en order_detail para orderId: ${orderId}, devolviendo datos básicos de orders`);
-      // Obtener datos básicos de la tabla orders
-      const basicOrderData = await orderDetailService.getBasicOrderData(orderId);
-      if (basicOrderData) {
-        res.status(200).json(basicOrderData);
-      } else {
-        res.status(404).json({ message: 'Orden no encontrada' });
-      }
+      logger.info(`No hay datos en order_detail para orderId: ${orderId}`);
+      res.status(404).json({ message: 'Detalles de orden no encontrados' });
     } else {
       logger.info(`Detalles de orden obtenidos para orderId: ${orderId}`);
       res.status(200).json(orderDetail);

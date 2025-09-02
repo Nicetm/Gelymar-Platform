@@ -24,12 +24,14 @@ export interface Orders {
   updated_at: string;
   customer_name: string;
   customer_uuid: string;
+  order_id: number;
   files_count: number;
-  fecha_cliente?: string | null;
-  currency?: string | null;
-  medio_envio?: string | null;
   factura?: string | null;
   fecha_factura?: string | null;
+  fecha?: string | null;
+  fecha_etd?: string | null;
+  currency?: string | null;
+  medio_envio_factura?: string | null;
 }
 
 // --- USERS ---
@@ -84,7 +86,7 @@ export interface Folders {
   updated_at: string;
 	fileCount?: number; // <-- opcional, para mostrar el número de archivos en la carpeta
 	customer_uuid?: string; // <-- opcional, para mostrar el UUID del cliente asociado a la carpeta
-  fecha_cliente?: string | null;
+  fecha?: string | null;
   currency?: string | null;
   medio_envio?: string | null;
   fecha_factura?: string | null;

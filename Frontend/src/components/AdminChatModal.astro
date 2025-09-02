@@ -1,52 +1,55 @@
 ---
 // Modal de chat para el admin
-const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
+//const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
+const apiPublic = import.meta.env.PUBLIC_API_URL;
 ---
 
-<div id="admin-chat-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
-  <div class="flex items-center justify-center min-h-screen p-4">
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+<div id="admin-chat-modal" class="fixed bottom-6 right-6 z-50 hidden">
+  <div class="w-96 h-[500px] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col">
       <!-- Header -->
-      <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+      <div class="bg-gray-50 dark:bg-gray-700 rounded-t-2xl px-4 py-3 flex items-center justify-between border-b border-gray-200 dark:border-gray-600">
         <div class="flex items-center space-x-3">
           <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
-            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+            <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clip-rule="evenodd"></path>
             </svg>
           </div>
           <div>
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white" id="chat-customer-name">Chat con Cliente</h3>
-            <p class="text-sm text-gray-500 dark:text-gray-400" id="chat-customer-company">Empresa</p>
+            <div id="admin-chat-customer-name" class="font-semibold text-gray-900 dark:text-white">Chat con Cliente</div>
+            <div id="admin-chat-customer-company" class="text-sm text-gray-500 dark:text-gray-400">Empresa</div>
           </div>
         </div>
-        <button id="close-admin-chat" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+        <button id="admin-chat-close" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
           </svg>
         </button>
       </div>
-
-      <!-- Messages Area -->
-      <div id="admin-chat-messages" class="flex-1 overflow-y-auto p-4 space-y-4 max-h-96">
+      
+      <!-- Messages area -->
+      <div id="admin-chat-messages" class="flex-1 p-4 overflow-y-auto space-y-3">
         <div class="text-center text-gray-500 dark:text-gray-400">
-          <p>Cargando mensajes...</p>
+          <p>Selecciona un cliente para comenzar el chat</p>
         </div>
       </div>
-
-      <!-- Input Area -->
-      <div class="p-4 border-t border-gray-200 dark:border-gray-700">
-        <div class="flex space-x-2">
+      
+      <!-- Input area -->
+      <div class="p-4 border-t border-gray-200 dark:border-gray-600">
+        <div class="flex gap-2">
           <input 
-            type="text" 
             id="admin-chat-input" 
+            type="text" 
             placeholder="Escribe tu mensaje..." 
-            class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+            class="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
           <button 
-            id="admin-send-message" 
-            class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            id="admin-chat-send" 
+            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled
           >
-            Enviar
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+            </svg>
           </button>
         </div>
       </div>
@@ -54,25 +57,97 @@ const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL
   </div>
 </div>
 
-<script define:vars={{ apiBase: apiBase }}>
+<script is:inline define:vars={{ apiPublic }}>
+  window.apiBase = apiPublic;
+  
+  // Socket.io service (inline)
+  class SocketService {
+    constructor() {
+      this.socket = null;
+      this.isConnected = false;
+      this.reconnectAttempts = 0;
+      this.maxReconnectAttempts = 5;
+    }
+
+    connect(token) {
+      if (this.socket && this.isConnected) {
+        return this.socket;
+      }
+
+      const apiBase = window.apiBase || 'http://localhost:3000';
+      console.log('Socket.io conectando a:', apiBase);
+      
+      this.socket = io(apiBase, {
+        auth: { token },
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionAttempts: this.maxReconnectAttempts,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000,
+      });
+
+      this.socket.on('connect', () => {
+        console.log('Socket.io conectado');
+        this.isConnected = true;
+        this.reconnectAttempts = 0;
+      });
+
+      this.socket.on('disconnect', (reason) => {
+        console.log('Socket.io desconectado:', reason);
+        this.isConnected = false;
+      });
+
+      this.socket.on('connect_error', (error) => {
+        console.error('Error de conexión Socket.io:', error);
+        this.reconnectAttempts++;
+        
+        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+          console.error('Máximo de intentos de reconexión alcanzado');
+        }
+      });
+
+      this.socket.on('reconnect', (attemptNumber) => {
+        console.log(`Socket.io reconectado después de ${attemptNumber} intentos`);
+        this.isConnected = true;
+        this.reconnectAttempts = 0;
+      });
+
+      return this.socket;
+    }
+
+    onNewMessage(callback) {
+      if (this.socket) {
+        this.socket.on('newMessage', callback);
+      }
+    }
+
+    onUpdateNotifications(callback) {
+      if (this.socket) {
+        this.socket.on('updateNotifications', callback);
+      }
+    }
+  }
+
+  const socketService = new SocketService();
   let currentCustomerId = null;
   let isTyping = false;
+  let socket = null;
 
   // Elementos del DOM
   const chatModal = document.getElementById('admin-chat-modal');
   const chatMessages = document.getElementById('admin-chat-messages');
   const chatInput = document.getElementById('admin-chat-input');
-  const sendButton = document.getElementById('admin-send-message');
-  const closeButton = document.getElementById('close-admin-chat');
-  const customerName = document.getElementById('chat-customer-name');
-  const customerCompany = document.getElementById('chat-customer-company');
+  const sendButton = document.getElementById('admin-chat-send');
+  const closeButton = document.getElementById('admin-chat-close');
+  const customerName = document.getElementById('admin-chat-customer-name');
+  const customerCompany = document.getElementById('admin-chat-customer-company');
 
   // Cerrar modal
   function closeAdminChatModal() {
     chatModal.classList.add('hidden');
     currentCustomerId = null;
     chatInput.value = '';
-    stopAdminChatPolling(); // Detener polling cuando se cierra
   }
 
   // Agregar mensaje al chat
@@ -93,27 +168,59 @@ const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL
     chatMessages.scrollTop = chatMessages.scrollHeight;
   }
 
-  // Variable para el polling del admin
-  let adminChatPollingInterval = null;
-  
-  // Función para iniciar el polling de mensajes del admin
-  function startAdminChatPolling() {
-    if (adminChatPollingInterval) {
-      clearInterval(adminChatPollingInterval);
+  // Inicializar Socket.io
+  function initializeSocket() {
+    // Verificar que Socket.io esté disponible
+    if (typeof io === 'undefined') {
+      console.error('Socket.io no está disponible');
+      return;
     }
-    adminChatPollingInterval = setInterval(() => {
-      if (currentCustomerId) {
-        loadCustomerMessages(currentCustomerId);
+
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.error('Token no encontrado para Socket.io');
+      return;
+    }
+
+    // Verificar si el token es válido
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const currentTime = Date.now() / 1000;
+      
+      if (payload.exp < currentTime) {
+        console.error('Token expirado para Socket.io');
+        return;
       }
-    }, 3000); // Actualizar cada 3 segundos
-  }
-  
-  // Función para detener el polling del admin
-  function stopAdminChatPolling() {
-    if (adminChatPollingInterval) {
-      clearInterval(adminChatPollingInterval);
-      adminChatPollingInterval = null;
+      
+      console.log('Token válido, conectando Socket.io...');
+      socket = socketService.connect(token);
+    } catch (error) {
+      console.error('Token inválido para Socket.io:', error);
+      return;
     }
+    
+    // Escuchar mensajes nuevos
+    socketService.onNewMessage((messageData) => {
+      console.log('Nuevo mensaje recibido:', messageData);
+      
+      // Solo mostrar mensajes del cliente actual si el chat está abierto
+      if (currentCustomerId && messageData.customer_id === currentCustomerId) {
+        const sender = messageData.sender_role === 'admin' ? 'admin' : 'client';
+        addMessageToChat(messageData.message, sender);
+      }
+      
+      // Actualizar notificaciones
+      if (window.updateNotificationsImmediately) {
+        window.updateNotificationsImmediately();
+      }
+    });
+    
+    // Escuchar actualizaciones de notificaciones
+    socketService.onUpdateNotifications(() => {
+      if (window.updateNotificationsImmediately) {
+        window.updateNotificationsImmediately();
+      }
+    });
   }
   
   // Cargar mensajes del cliente
@@ -139,19 +246,19 @@ const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL
       chatMessages.innerHTML = '';
       
       data.data.forEach((msg) => {
+        if (msg.sender_type === 'admin' && msg.is_security_message === 1) {
+          return;
+        }
         const sender = msg.sender_type === 'admin' ? 'admin' : 'client';
         addMessageToChat(msg.message, sender);
       });
 
-      // Marcar como leídos por admin
       await fetch(`${apiBase}/api/chat/mark-read-admin/${customerId}`, {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
-      // Recargar notificaciones para actualizar el contador inmediatamente
       if (window.updateNotificationsImmediately) {
-        console.log('Actualizando notificaciones inmediatamente');
         window.updateNotificationsImmediately();
       }
 
@@ -198,7 +305,6 @@ const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL
         throw new Error('Error enviando mensaje');
       }
       
-      // Actualizar notificaciones después de enviar mensaje
       if (window.updateNotificationsImmediately) {
         setTimeout(() => {
           window.updateNotificationsImmediately();
@@ -223,16 +329,16 @@ const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL
     chatModal.classList.remove('hidden');
     loadCustomerMessages(customerId);
     
-    // Iniciar polling para actualizaciones en tiempo real
     setTimeout(() => {
-      startAdminChatPolling();
       chatInput.focus();
+      if (sendButton) {
+        sendButton.disabled = !chatInput.value.trim();
+      }
     }, 200);
   };
 
   // Event listeners
   closeButton?.addEventListener('click', closeAdminChatModal);
-  
   sendButton?.addEventListener('click', sendAdminMessage);
   
   chatInput?.addEventListener('keypress', (e) => {
@@ -242,10 +348,17 @@ const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL
     }
   });
 
-  // Cerrar modal al hacer clic fuera
-  chatModal?.addEventListener('click', (e) => {
-    if (e.target === chatModal) {
-      closeAdminChatModal();
+  chatInput?.addEventListener('input', () => {
+    if (sendButton) {
+      sendButton.disabled = !chatInput.value.trim();
     }
+  });
+
+  // Inicializar Socket.io cuando se carga la página
+  document.addEventListener('DOMContentLoaded', () => {
+    // Esperar un poco para asegurar que Socket.io esté cargado
+    setTimeout(() => {
+      initializeSocket();
+    }, 1000);
   });
 </script> 

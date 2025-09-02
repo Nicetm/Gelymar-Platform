@@ -1,14 +1,16 @@
 // config/db.js
 require('dotenv').config();
-const logger = require('../utils/logger');
+const { logger } = require('../utils/logger');
 const mysql = require('mysql2/promise');
 
-// Debug: Mostrar configuración de BD
-console.log('🔍 Configuración de BD:');
-console.log('Host:', process.env.DB_HOST);
-console.log('User:', process.env.DB_USER);
-console.log('Password:', process.env.DB_PASS ? '***' : 'NO DEFINIDA');
-console.log('Database:', process.env.DB_NAME);
+// Debug: Mostrar configuración de BD (solo en desarrollo)
+if (process.env.NODE_ENV === 'development') {
+  console.log('🔍 Configuración de BD:');
+  console.log('Host:', process.env.DB_HOST);
+  console.log('User:', process.env.DB_USER);
+  console.log('Password:', process.env.DB_PASS ? '***' : 'NO DEFINIDA');
+  console.log('Database:', process.env.DB_NAME);
+}
 
 const dbConfig = {
   host: process.env.DB_HOST,
@@ -25,7 +27,9 @@ async function connectWithRetry(retries = 5, delayMs = 5000) {
   let attempt = 0;
   while (attempt < retries) {
     try {
+      if (process.env.NODE_ENV === 'development') {
       console.log(`Intentando conectar a MySQL (Intento ${attempt + 1} de ${retries})...`);
+    }
       const connection = await mysql.createConnection(dbConfig);
 
       await connection.ping();
@@ -37,7 +41,9 @@ async function connectWithRetry(retries = 5, delayMs = 5000) {
       logger.error(`Error conectando a MySQL: ${err.message}`);
       attempt++;
       if (attempt < retries) {
-        console.log(`Reintentando en ${delayMs / 1000} segundos...`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Reintentando en ${delayMs / 1000} segundos...`);
+        }
         await new Promise(res => setTimeout(res, delayMs));
       } else {
         console.error('❌ No se pudo conectar a MySQL después de múltiples intentos.');

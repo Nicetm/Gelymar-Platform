@@ -1,5 +1,5 @@
 const customerService = require('../services/customer.service');
-const logger = require('@utils/logger');
+const { logger } = require('../utils/logger');
 
 /**
  * @route GET /api/customers

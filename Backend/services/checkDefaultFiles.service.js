@@ -133,13 +133,8 @@ async function insertDefaultFile(fileData) {
     fileData.path
   ];
 
-  console.log(`Ejecutando INSERT en MySQL (files):`);
-  console.log(`   Query: ${query}`);
-  console.log(`   Params: [${params.map(p => `"${p}"`).join(', ')}]`);
-
   const [result] = await pool.query(query, params);
   
-  console.log(`INSERT exitoso - ID insertado: ${result.insertId}`);
 }
 
 /**

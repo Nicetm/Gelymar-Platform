@@ -23,6 +23,26 @@ const { class: clazz } = Astro.props;
     <meta http-equiv="Expires" content="0" />
     <link rel="sitemap" type="application/xml" href={url('sitemap-index.xml')} />
 
+    <!-- Security Headers -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block" />
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin" />
+    <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=()" />
+    
+    <!-- Content Security Policy -->
+    <meta http-equiv="Content-Security-Policy" content="
+      default-src 'self';
+      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://cdn.socket.io;
+      style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net;
+      font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net;
+      img-src 'self' data: https: blob:;
+      connect-src 'self' http://localhost:* http://backend:* https://api.gelymar.com ws://localhost:* wss://localhost:*;
+      frame-src 'none';
+      object-src 'none';
+      base-uri 'self';
+      form-action 'self';
+    " />
+
     <!-- CSS del spinner inicial -->
     <style>
       #globalSpinnerInit {
@@ -40,26 +60,66 @@ const { class: clazz } = Astro.props;
       }
     </style>
 
+    <!-- Socket.io -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script is:inline>
+      // Verificar que Socket.io esté disponible
+      window.socketIoReady = false;
+      if (typeof io !== 'undefined') {
+        window.socketIoReady = true;
+      } else {
+        // Esperar a que se cargue
+        window.addEventListener('load', () => {
+          if (typeof io !== 'undefined') {
+            window.socketIoReady = true;
+            console.log('Socket.io cargado correctamente');
+          } else {
+            console.error('Socket.io no se pudo cargar');
+          }
+        });
+      }
+    </script>
+    
     <!-- WATCHER TOKEN -->
-    <script type="module" define:vars={{ 
+    <script is:inline define:vars={{ 
       SERVER_API_URL: import.meta.env.SERVER_API_URL, 
       PUBLIC_API_URL: import.meta.env.PUBLIC_API_URL 
     }}>
-      import { startTokenWatcher, stopTokenWatcher } from '/js/tokenWatcher.js';
+      // Función de logout simplificada
+      function logout() {
+        try {
+          localStorage.removeItem('token');
+          localStorage.removeItem('userRole');
+          localStorage.removeItem('userEmail');
+          document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+          window.location.href = '/authentication/sign-in';
+        } catch (error) {
+          console.error('Error en logout:', error);
+          window.location.href = '/authentication/sign-in';
+        }
+      }
 
-      function iniciarWatcher() {
-        startTokenWatcher({
-          minutesBefore: 5, // 5 minutos antes de expirar
-          onExpireSoon: () => {
+      // Función para verificar token
+      function checkTokenExpiration() {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          const expirationTime = payload.exp * 1000;
+          const currentTime = Date.now();
+          const timeUntilExpiration = expirationTime - currentTime;
+          const fiveMinutes = 5 * 60 * 1000;
+
+          if (timeUntilExpiration <= fiveMinutes && timeUntilExpiration > 0) {
             const modal = document.getElementById('tokenWarningModal');
             if (modal) modal.classList.remove('hidden');
-          },
-          onExpired: () => {
-            console.log('🟦 onExpired');
-            localStorage.removeItem('token');
-            window.location.href = '/authentication/sign-in';
+          } else if (timeUntilExpiration <= 0) {
+            logout();
           }
-        });
+        } catch (error) {
+          console.error('Error checking token:', error);
+        }
       }
 
       window.addEventListener('DOMContentLoaded', () => {
@@ -67,11 +127,14 @@ const { class: clazz } = Astro.props;
         const extendBtn = document.getElementById('extendSession');
         const modal = document.getElementById('tokenWarningModal');
 
-        iniciarWatcher();
+        // Verificar token cada minuto
+        setInterval(checkTokenExpiration, 60000);
+        
+        // Verificar al cargar
+        checkTokenExpiration();
 
         logoutBtn?.addEventListener('click', () => {
-          localStorage.removeItem('token');
-          window.location.href = '/authentication/sign-in';
+          logout();
         });
 
         extendBtn?.addEventListener('click', async () => {
@@ -90,16 +153,12 @@ const { class: clazz } = Astro.props;
             if (res.ok && data.token) {
               localStorage.setItem('token', data.token);
               if (modal) modal.classList.add('hidden');
-              stopTokenWatcher();
-              iniciarWatcher();
             } else {
-              localStorage.removeItem('token');
-              window.location.href = '/authentication/sign-in';
+              logout();
             }
           } catch (e) {
             console.error('Error al renovar token:', e);
-            localStorage.removeItem('token');
-            window.location.href = '/authentication/sign-in';
+            logout();
           }
         });
       });

@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const customerService = require('../services/customer.service');
 const folderService = require('../services/folder.service');
-const logger = require('@utils/logger');
+const { logger } = require('../utils/logger');
 const { cleanDirectoryName } = require('../utils/directoryUtils');
 const FILE_SERVER_ROOT = process.env.FILE_SERVER_ROOT;
 

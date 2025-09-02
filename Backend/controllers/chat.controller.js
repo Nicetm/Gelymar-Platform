@@ -4,7 +4,7 @@ class ChatController {
   // Enviar mensaje (cliente o admin)
   static async sendMessage(req, res) {
     try {
-      const { customer_id, message, sender_role } = req.body;
+      const { customer_id, message, sender_role, is_security_message } = req.body;
 
       if (!customer_id || !message || !sender_role) {
         return res.status(400).json({ 
@@ -21,10 +21,30 @@ class ChatController {
       const messageData = {
         customer_id,
         message: message.trim(),
-        sender_role
+        sender_role,
+        is_security_message: is_security_message || false
       };
 
       const result = await ChatService.sendMessage(messageData);
+      
+      // Emitir evento Socket.io para notificar en tiempo real
+      const io = req.app.get('io');
+      if (io) {
+        const messageWithDetails = {
+          ...result,
+          customer_id: parseInt(customer_id),
+          sender_role: sender_role
+        };
+
+        // Emitir a la sala del admin
+        io.to('admin-room').emit('newMessage', messageWithDetails);
+        
+        // Emitir a la sala específica del cliente
+        io.to(`customer-${customer_id}`).emit('newMessage', messageWithDetails);
+        
+        // Emitir actualización de notificaciones
+        io.to('admin-room').emit('updateNotifications');
+      }
       
       res.status(201).json({
         success: true,
@@ -191,6 +211,12 @@ class ChatController {
       }
 
       const result = await ChatService.markAsReadByAdmin(customerId);
+      
+      // Emitir evento Socket.io para actualizar notificaciones
+      const io = req.app.get('io');
+      if (io) {
+        io.to('admin-room').emit('updateNotifications');
+      }
       
       res.json({
         success: true,

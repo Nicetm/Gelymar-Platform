@@ -40,7 +40,7 @@ if (arg === 'execute-now') {
 cron.schedule('30 7 * * *', async () => {
   console.log(`[${new Date().toISOString()}] Iniciando verificación de acceso de clientes...`);
   try {
-    await checkClientAccess();
+    await executeWithErrorHandling();
     console.log(`[${new Date().toISOString()}] Verificación de acceso de clientes completada.`);
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Error en verificación de acceso de clientes:`, error.message);

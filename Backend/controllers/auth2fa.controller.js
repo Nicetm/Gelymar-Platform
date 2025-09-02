@@ -2,7 +2,7 @@
 const speakeasy = require('speakeasy');
 const qrcode = require('qrcode');
 const pool = require('../config/db').pool;
-const logger = require('@utils/logger');
+const { logger } = require('../utils/logger');
 
 /**
  * @route POST /api/auth/2fa/generate

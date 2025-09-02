@@ -134,9 +134,9 @@ async function loadOrdersFromAPI() {
     }
 
     window.orders = await response.json();
-    console.log('✅ Órdenes cargadas desde API:', window.orders.length);
+
   } catch (error) {
-    console.error('❌ Error cargando órdenes desde API:', error);
+    console.error('Error cargando órdenes desde API:', error);
     throw error;
   }
 }
@@ -175,12 +175,12 @@ function renderOrders() {
           <p class="text-sm text-gray-600 dark:text-gray-400">${order.clientName}</p>
         </div>
         <div class="flex space-x-2">
-          <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColors[order.status]}">
+          <!-- <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColors[order.status]}">
             ${order.status}
           </span>
           <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${priorityColors[order.priority]}">
             ${order.priority}
-          </span>
+          </span> -->
         </div>
       </div>
       <div class="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
@@ -615,7 +615,7 @@ function filterDocuments() {
 function downloadDocument(docId) {
   const originalDoc = documents.find(d => d.id === docId);
   if (originalDoc) {
-    console.log(`📥 Downloading ${originalDoc.name}`);
+    // Downloading document
     showNotification(`Downloading ${originalDoc.name}`);
     
     // Marcar como visto si no lo está
@@ -636,7 +636,7 @@ function downloadDocument(docId) {
 function viewDocument(docId) {
   const originalDoc = documents.find(d => d.id === docId);
   if (originalDoc) {
-    console.log(`👁️ Viewing ${originalDoc.name}`);
+    // Viewing document
     showNotification(`Opening ${originalDoc.name} for viewing`);
     
     // Marcar como visto si no lo está
@@ -655,11 +655,11 @@ function viewDocument(docId) {
 }
 
 function markAsReviewed(docId) {
-  console.log('🔍 markAsReviewed called with docId:', docId);
+      // Marking document as reviewed
   const originalDoc = documents.find(d => d.id === docId);
   
   if (originalDoc && originalDoc.status !== 'Reviewed') {
-    console.log('✅ Document found, marking as reviewed:', originalDoc.name);
+    // Document found, marking as reviewed
     originalDoc.status = 'Reviewed';
     
     const filteredDoc = filteredDocuments.find(d => d.id === docId);
@@ -669,12 +669,12 @@ function markAsReviewed(docId) {
     
     renderDocuments(filteredDocuments, currentPage);
     updateStatistics();
-    console.log('📢 Showing notification for:', originalDoc.name);
+    // Showing notification for document
     
     // Test directo de notificación
     showNotification(`${originalDoc.name} marked as reviewed`, 'success');
   } else {
-    console.log('❌ Document not found or already reviewed');
+    // Document not found or already reviewed
   }
 }
 
@@ -698,7 +698,7 @@ function markAsNotReviewed(docId) {
 function sendDocumentByEmail(docId) {
   const originalDoc = documents.find(d => d.id === docId);
   if (originalDoc) {
-    console.log(`📧 Opening email modal for ${originalDoc.name}`);
+    // Opening email modal for document
     // Aquí se abriría el modal de email
     showNotification(`Email modal opened for ${originalDoc.name}`);
   }
@@ -746,8 +746,8 @@ function formatDate(dateString) {
   }
 }
 
-// Importar showNotification desde utils.js
-import { showNotification as globalShowNotification } from './utils.js';
+// Importar funciones desde utils.js
+import { showNotification as globalShowNotification, getValidToken } from './utils.js';
 
 function showNotification(message, type = 'success') {
   // Verificar si el modal está abierto
@@ -868,7 +868,7 @@ function setupEventListeners() {
  * Abre el modal de email
  */
 function openEmailModal(docId) {
-  console.log('📧 Opening email modal for document:', docId);
+      // Opening email modal for document
   
   const modal = document.getElementById('email-modal');
   const modalContent = modal?.querySelector('.relative.mx-auto');
@@ -978,7 +978,7 @@ ADDITIONAL CONTEXT:
  * Cierra el modal de email
  */
 function closeEmailModal() {
-  console.log('📧 Closing email modal');
+      // Closing email modal
   
   const modal = document.getElementById('email-modal');
   const modalContent = modal?.querySelector('.relative.mx-auto');
@@ -1013,7 +1013,7 @@ function closeEmailModal() {
  * Envía el email desde el modal
  */
 function sendEmailFromModal() {
-  console.log('📧 Sending email from modal');
+      // Sending email from modal
   
   const modal = document.getElementById('email-modal');
   const docId = parseInt(modal?.dataset.docId || '0');
@@ -1142,7 +1142,7 @@ ${contactName.value}`;
     // Mostrar notificación
     showNotification(`Issue report submitted for ${originalDoc.name}`);
     
-    console.log('Issue report sent for:', originalDoc.name);
+    // Issue report sent for document
   }
 }
 

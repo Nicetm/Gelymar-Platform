@@ -14,8 +14,9 @@ const {
 const fileService = require('../services/file.service');
 const emailService = require('../services/email.service');
 const PDFDocument = require('pdfkit');
-const logger = require('../utils/logger');
+const { logger } = require('../utils/logger');
 const { cleanDirectoryName } = require('../utils/directoryUtils');
+const { validateFilePath, setSecureFilePermissions } = require('../utils/filePermissions');
 
 /**
  * Mapea el nombre del documento al generador correspondiente
@@ -211,6 +212,16 @@ exports.handleUpload = async (req, res) => {
 
     const filePath = path.join('uploads', cleanClientName, cleanSubfolder, file.originalname);
 
+    // Validar ruta de archivo para prevenir path traversal
+    const basePath = process.env.FILE_SERVER_ROOT || '/var/www/html';
+    if (!validateFilePath(filePath, basePath)) {
+      logger.warn(`Intento de upload con ruta insegura: ${filePath}`);
+      return res.status(400).json({ message: 'Ruta de archivo inválida' });
+    }
+
+    // Establecer permisos seguros para el archivo subido
+    await setSecureFilePermissions(file.path);
+
     const fileData = {
       customer_id,
       order_id: folder_id,
@@ -351,7 +362,9 @@ exports.sendFile = async (req, res) => {
     }
 
     // Mostrar información del archivo en consola para depuración
-    console.log('Archivo a enviar:', file);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Archivo a enviar:', file);
+    }
 
     await emailService.sendFileToClient(file);
 

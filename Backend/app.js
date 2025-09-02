@@ -3,13 +3,22 @@ const dotenv = require('dotenv');
 const cors = require('cors');
 const path = require('path');
 const cookieParser = require('cookie-parser');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const slowDown = require('express-slow-down');
 const swaggerSpec = require('./docs/swagger');
+const { createServer } = require('http');
+const { Server } = require('socket.io');
 require('module-alias/register');
 
 // Middlewares
-const authMiddleware = require('./middleware/auth.middleware');
+const { createAuthMiddleware } = require('./middleware/auth.middleware');
 const { authorizeRoles } = require('./middleware/role.middleware');
-const authFromCookie = require('./middleware/authFromCookie');
+
+// Crear middlewares de autenticación específicos
+const authMiddleware = createAuthMiddleware();
+const authFromCookie = createAuthMiddleware({ tokenSource: 'cookie' });
+const authAllowExpired = createAuthMiddleware({ allowExpired: true });
 
 dotenv.config();
 const app = express();
@@ -28,9 +37,56 @@ const chatRoutes = require('./routes/chat.routes');
 const cronRoutes = require('./routes/cron.routes');
 const monitoringRoutes = require('./routes/monitoring.routes');
 
+// Configuración de rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 100, // máximo 100 requests por ventana
+  message: { message: 'Demasiadas solicitudes desde esta IP, intente nuevamente en 15 minutos' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const speedLimiter = slowDown({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  delayAfter: 50, // permitir 50 requests sin delay
+  delayMs: (used, req) => {
+    const delayAfter = req.slowDown.limit;
+    return (used - delayAfter) * 500;
+  },
+});
+
+// Middlewares de seguridad globales
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", "http://localhost:*", "http://backend:*", "https://api.gelymar.com", "ws://localhost:*", "wss://localhost:*", "ws://localhost:3000", "wss://localhost:3000"],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+}));
+
+// Configuración CORS más restrictiva
+app.use(cors({
+  origin: [
+    process.env.FRONTEND_BASE_URL || 'http://localhost:2121',
+    'http://localhost:2122',
+    'http://localhost:2123',
+    'http://localhost:8082',
+    'http://localhost:9615',
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
+
 // Middlewares globales
-app.use(cors());
-app.use(express.json());
+//app.use(limiter);
+//app.use(speedLimiter);
+app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
 
 // Archivos estáticos permitidos
@@ -107,30 +163,21 @@ app.use('/client', authFromCookie, (req, res, next) => {
   next();
 });
 
-// 🔐 Rutas específicas para admin
-app.get('/admin/dashboard', (req, res) => {
-  res.redirect('/admin');
+// 🔐 Middleware para rutas de admin y client
+app.use('/admin', (req, res, next) => {
+  // Si no es la ruta principal /admin, redirigir
+  if (req.path !== '/') {
+    return res.redirect('/admin');
+  }
+  next();
 });
 
-app.get('/admin/users', (req, res) => {
-  res.redirect('/admin');
-});
-
-app.get('/admin/orders', (req, res) => {
-  res.redirect('/admin');
-});
-
-// 🔐 Rutas específicas para client
-app.get('/client/dashboard', (req, res) => {
-  res.redirect('/client');
-});
-
-app.get('/client/documents', (req, res) => {
-  res.redirect('/client');
-});
-
-app.get('/client/settings', (req, res) => {
-  res.redirect('/client');
+app.use('/client', (req, res, next) => {
+  // Si no es la ruta principal /client, redirigir
+  if (req.path !== '/') {
+    return res.redirect('/client');
+  }
+  next();
 });
 
 // Página principal (opcional)
@@ -138,8 +185,67 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public/dashboard.html'));
 });
 
+// Inicializar directorios seguros al arrancar
+const { initializeSecureDirectories } = require('./utils/filePermissions');
+
+// Crear servidor HTTP
+const server = createServer(app);
+
+// Configurar Socket.io
+const io = new Server(server, {
+  cors: {
+    origin: [
+      process.env.FRONTEND_BASE_URL || 'http://localhost:2121',
+      'http://localhost:2122',
+      'http://localhost:2123',
+      'http://localhost:8082',
+      'http://localhost:9615',
+    ],
+    credentials: true,
+    methods: ['GET', 'POST']
+  }
+});
+
+// Middleware de autenticación para Socket.io
+const jwt = require('jsonwebtoken');
+const ChatService = require('./services/chat.service');
+
+io.use(async (socket, next) => {
+  try {
+    const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return next(new Error('Token no proporcionado'));
+    }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await ChatService.authenticateUser(decoded.id);  
+    if (!user) {
+      return next(new Error('Usuario no encontrado o inactivo'));
+    }
+    socket.user = user;
+    next();
+  } catch (error) {
+    next(new Error('Token inválido'));
+  }
+});
+// Manejar conexiones de Socket.io
+io.on('connection', (socket) => {
+  // Unir al usuario a una sala específica según su rol
+  if (socket.user.role === 'admin') {
+    socket.join('admin-room');
+  } else if (socket.user.role === 'client' && socket.user.customer_id) {
+    socket.join(`customer-${socket.user.customer_id}`);
+  }
+  // Manejar desconexión
+  socket.on('disconnect', () => {
+  });
+});
+// Exportar io para usar en otros archivos
+app.set('io', io);
 // Iniciar servidor
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Servidor corriendo en: ${process.env.FRONTEND_BASE_URL || 'http://localhost:' + PORT}`);
+server.listen(PORT, async () => {
+  try {
+    await initializeSecureDirectories();
+  } catch (error) {
+  }
 });

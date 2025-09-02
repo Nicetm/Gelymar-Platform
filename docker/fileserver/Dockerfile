@@ -12,7 +12,7 @@ RUN mkdir -p /var/www/html/uploads
 # Configurar vsftpd
 COPY vsftpd.conf /etc/vsftpd/vsftpd.conf
 
-# Configurar Apache (usar configuración por defecto)
+# Configurar Apache (habilitar módulos necesarios)
 RUN a2enmod rewrite
 RUN a2enmod headers
 
@@ -40,4 +40,4 @@ RUN chmod +x /entrypoint.sh
 
 EXPOSE 80 21 30000-30009
 
-ENTRYPOINT ["/entrypoint.sh"] 
+ENTRYPOINT ["/entrypoint.sh"]

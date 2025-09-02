@@ -11,10 +11,12 @@ RUN npm ci
 # Copiar código fuente
 COPY . .
 
-# Configurar variables de entorno para el build
-ARG PUBLIC_API_URL
-ARG PUBLIC_FILE_SERVER_URL
-ARG SERVER_API_URL
+# Los archivos CSS ya están en public/styles/
+
+# Configurar variables de entorno para el build con valores por defecto
+ARG PUBLIC_API_URL=http://localhost:3000
+ARG PUBLIC_FILE_SERVER_URL=http://localhost:8080
+ARG SERVER_API_URL=http://localhost:3000
 ENV PUBLIC_API_URL=${PUBLIC_API_URL}
 ENV PUBLIC_FILE_SERVER_URL=${PUBLIC_FILE_SERVER_URL}
 ENV SERVER_API_URL=${SERVER_API_URL}

@@ -1,199 +1,137 @@
+// services/orderDetail.service.js
 const { poolPromise } = require('../config/db');
-const OrderDetail = require('../models/orderDetail.model');
 
-/**
- * Obtiene los detalles de una orden específica con información de ambas tablas
- * @param {number} orderId - ID de la orden
- * @returns {Promise<Object|null>} Objeto con datos combinados o null si no existe
- */
-const getOrderDetailByOrderId = async (orderId) => {
-  try {
-    const pool = await poolPromise;
-    
-    const query = `
-      SELECT 
-        od.*,
-        o.pc,
-        o.oc,
-        o.fecha_etd as order_fecha_etd,
-        o.fecha_eta as order_fecha_eta
-      FROM order_detail od
-      LEFT JOIN orders o ON od.order_id = o.id
-      WHERE od.order_id = ?
-      LIMIT 1
-    `;
-    
-    const [rows] = await pool.query(query, [orderId]);
-    
-    if (rows.length === 0) {
-      return null;
-    }
-    
-    const row = rows[0];
-    
-    // Crear objeto combinado con datos de ambas tablas
-    const orderDetail = new OrderDetail({
-      id: row.id,
-      order_id: row.order_id,
-      incoterm: row.incoterm,
-      direccion_destino: row.direccion_destino,
-      puerto_destino: row.puerto_destino,
-      u_observaciones: row.u_observaciones,
-      fecha_eta: row.fecha_eta || row.order_fecha_eta,
-      fecha_etd: row.fecha_etd || row.order_fecha_etd,
-      certificados: row.certificados,
-      pymnt_group: row.pymnt_group,
-      fec_deseada_dep_planta: row.fec_deseada_dep_planta,
-      fec_deseada_cliente: row.fec_deseada_cliente,
-      fec_real_dep_planta: row.fec_real_dep_planta,
-      fec_original_cliente: row.fec_original_cliente,
-      u_reserva: row.u_reserva,
-      folio_gd: row.folio_gd,
-      motivo_retraso: row.motivo_retraso,
-      created_at: row.created_at,
-      updated_at: row.updated_at
-    });
-    
-    // Agregar campos de la tabla orders
-    orderDetail.pc = row.pc;
-    orderDetail.oc = row.oc;
-    
-    return orderDetail;
-    
-  } catch (error) {
-    console.error('Error getting order detail:', error);
-    throw error;
-  }
-};
+// Insertar un nuevo order detail
+async function insertOrderDetail(orderDetailData) {
+  const pool = await poolPromise;
+  
+  const [result] = await pool.query(
+    `INSERT INTO order_detail (
+      order_id, fecha, tipo, incoterm, currency, direccion_destino, 
+      direccion_alterna, puerto_embarque, puerto_destino, fecha_eta, 
+      fecha_etd, certificados, estado_ov, medio_envio_factura, 
+      gasto_adicional_flete, localizacion, codigo_impuesto, 
+      vendedor, nave, condicion_venta, csv_row_hash, csv_file_timestamp
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      orderDetailData.order_id,
+      orderDetailData.fecha,
+      orderDetailData.tipo,
+      orderDetailData.incoterm,
+      orderDetailData.currency,
+      orderDetailData.direccion_destino,
+      orderDetailData.direccion_alterna,
+      orderDetailData.puerto_embarque,
+      orderDetailData.puerto_destino,
+      orderDetailData.fecha_eta,
+      orderDetailData.fecha_etd,
+      orderDetailData.certificados,
+      orderDetailData.estado_ov,
+      orderDetailData.medio_envio_factura,
+      orderDetailData.gasto_adicional_flete,
+      orderDetailData.localizacion,
+      orderDetailData.codigo_impuesto,
+      orderDetailData.vendedor,
+      orderDetailData.nave,
+      orderDetailData.condicion_venta,
+      orderDetailData.csv_row_hash,
+      orderDetailData.csv_file_timestamp
+    ]
+  );
+  
+  return result.insertId;
+}
 
-/**
- * Crea o actualiza los detalles de una orden
- * @param {number} orderId - ID de la orden
- * @param {Object} data - Datos a insertar/actualizar
- * @returns {Promise<Object>} Objeto con el resultado de la operación
- */
-const createOrUpdateOrderDetail = async (orderId, data) => {
-  try {
-    const pool = await poolPromise;
-    
-    // Verificar si ya existe un registro para esta orden
-    const [existingRows] = await pool.query(
-      'SELECT id FROM order_detail WHERE order_id = ?',
-      [orderId]
-    );
-    
-    if (existingRows.length > 0) {
-      // Actualizar registro existente
-      const updateQuery = `
-        UPDATE order_detail SET
-          incoterm = ?,
-          direccion_destino = ?,
-          puerto_destino = ?,
-          u_observaciones = ?,
-          fecha_eta = ?,
-          fecha_etd = ?,
-          certificados = ?,
-          updated_at = NOW()
-        WHERE order_id = ?
-      `;
-      
-      const [result] = await pool.query(updateQuery, [
+// Obtener order detail por order_id
+async function getOrderDetailByOrderId(orderId) {
+  const pool = await poolPromise;
+  
+  const [rows] = await pool.query(
+    `SELECT 
+      id, order_id, incoterm, direccion_destino, puerto_destino, 
+      u_observaciones, fecha_eta, fecha_etd, certificados, 
+      pymnt_group, fec_deseada_dep_planta, fec_deseada_cliente, 
+      fec_real_dep_planta, fec_original_cliente, u_reserva, 
+      folio_gd, motivo_retraso, created_at, updated_at
+    FROM order_detail WHERE order_id = ?`,
+    [orderId]
+  );
+  
+  return rows[0];
+}
+
+// Obtener todos los order details
+async function getAllOrderDetails() {
+  const pool = await poolPromise;
+  
+  const [rows] = await pool.query(
+    'SELECT * FROM order_detail ORDER BY id DESC'
+  );
+  
+  return rows;
+}
+
+// Crear o actualizar order detail
+async function createOrUpdateOrderDetail(orderId, data) {
+  const pool = await poolPromise;
+  
+  // Verificar si ya existe un order detail para este order_id
+  const [existingRows] = await pool.query(
+    'SELECT id FROM order_detail WHERE order_id = ?',
+    [orderId]
+  );
+  
+  if (existingRows.length > 0) {
+    // Actualizar el existente
+    const [result] = await pool.query(
+      `UPDATE order_detail SET 
+        fecha = ?, tipo = ?, incoterm = ?, currency = ?, direccion_destino = ?,
+        direccion_alterna = ?, puerto_embarque = ?, puerto_destino = ?, fecha_eta = ?,
+        fecha_etd = ?, certificados = ?, estado_ov = ?, medio_envio_factura = ?,
+        gasto_adicional_flete = ?, localizacion = ?, codigo_impuesto = ?,
+        vendedor = ?, nave = ?, condicion_venta = ?, csv_row_hash = ?, csv_file_timestamp = ?
+      WHERE order_id = ?`,
+      [
+        data.fecha,
+        data.tipo,
         data.incoterm,
+        data.currency,
         data.direccion_destino,
+        data.direccion_alterna,
+        data.puerto_embarque,
         data.puerto_destino,
-        data.u_observaciones,
         data.fecha_eta,
         data.fecha_etd,
         data.certificados,
+        data.estado_ov,
+        data.medio_envio_factura,
+        data.gasto_adicional_flete,
+        data.localizacion,
+        data.codigo_impuesto,
+        data.vendedor,
+        data.nave,
+        data.condicion_venta,
+        data.csv_row_hash,
+        data.csv_file_timestamp,
         orderId
-      ]);
-      
-      return { updated: true, id: existingRows[0].id };
-    } else {
-      // Crear nuevo registro
-      const insertQuery = `
-        INSERT INTO order_detail (
-          order_id, incoterm, direccion_destino, puerto_destino, 
-          u_observaciones, fecha_eta, fecha_etd, certificados, 
-          created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
-      `;
-      
-      const [result] = await pool.query(insertQuery, [
-        orderId,
-        data.incoterm,
-        data.direccion_destino,
-        data.puerto_destino,
-        data.u_observaciones,
-        data.fecha_eta,
-        data.fecha_etd,
-        data.certificados
-      ]);
-      
-      return { created: true, id: result.insertId };
-    }
+      ]
+    );
     
-  } catch (error) {
-    console.error('Error creating/updating order detail:', error);
-    throw error;
+    return { created: false, updated: true, id: existingRows[0].id };
+  } else {
+    // Crear uno nuevo
+    const insertId = await insertOrderDetail({
+      order_id: orderId,
+      ...data
+    });
+    
+    return { created: true, updated: false, id: insertId };
   }
-};
-
-/**
- * Obtiene datos básicos de una orden desde la tabla orders
- * @param {number} orderId - ID de la orden
- * @returns {Promise<Object|null>} Datos básicos de la orden o null si no existe
- */
-const getBasicOrderData = async (orderId) => {
-  try {
-    const pool = await poolPromise;
-    
-    const query = `
-      SELECT 
-        id,
-        pc,
-        oc,
-        fecha_etd,
-        fecha_eta,
-        created_at,
-        updated_at
-      FROM orders
-      WHERE id = ?
-    `;
-    
-    const [rows] = await pool.query(query, [orderId]);
-    
-    if (rows.length === 0) {
-      return null;
-    }
-    
-    const row = rows[0];
-    
-    // Crear objeto con datos básicos
-    return {
-      id: row.id,
-      order_id: row.id,
-      pc: row.pc,
-      oc: row.oc,
-      fecha_etd: row.fecha_etd,
-      fecha_eta: row.fecha_eta,
-      incoterm: null,
-      direccion_destino: null,
-      puerto_destino: null,
-      u_observaciones: null,
-      certificados: null,
-      created_at: row.created_at,
-      updated_at: row.updated_at
-    };
-    
-  } catch (error) {
-    console.error('Error getting basic order data:', error);
-    throw error;
-  }
-};
+}
 
 module.exports = {
+  insertOrderDetail,
   getOrderDetailByOrderId,
-  createOrUpdateOrderDetail,
-  getBasicOrderData
+  getAllOrderDetails,
+  createOrUpdateOrderDetail
 }; 

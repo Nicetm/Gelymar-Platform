@@ -1,31 +1,246 @@
-import { 
-  qs, 
-  showNotification, 
-  confirmAction, 
-  showSuccess, 
-  showError,
-  showModal,
-  hideModal,
-  setupModalClose,
-  showSpinner,
-  hideSpinner,
-  setupDragAndDrop,
-  setupScrollShadow,
-  formatDate
-} from './utils.js';
+// Funciones de utilidad locales
+function qs(selector) {
+  return document.querySelector(selector);
+}
+
+function showNotification(message, type = 'info') {
+  // Usar el estilo original de utils.js
+  const notification = document.createElement('div');
+  
+  // Configurar colores según el tipo
+  const colorMap = {
+    success: { bg: '#10b981', text: '#ffffff' },
+    error: { bg: '#ef4444', text: '#ffffff' },
+    warning: { bg: '#f59e0b', text: '#ffffff' },
+    info: { bg: '#3b82f6', text: '#ffffff' }
+  };
+  
+  const colors = colorMap[type] || colorMap.info;
+  
+  // Configurar iconos
+  const icons = {
+    success: `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+    </svg>`,
+    error: `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+    </svg>`,
+    warning: `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+    </svg>`,
+    info: `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>`
+  };
+  
+  // Calcular posición basada en notificaciones existentes
+  const existingNotifications = document.querySelectorAll('[data-notification]');
+  const topOffset = 4 + (existingNotifications.length * 4);
+  
+  // Aplicar estilos
+  notification.style.cssText = `
+    position: fixed !important;
+    top: ${topOffset}rem !important;
+    right: 1rem !important;
+    z-index: 99999999 !important;
+    padding: 1rem 1.5rem !important;
+    border-radius: 0.5rem !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+    transition: all 0.3s ease !important;
+    transform: translateX(100%) !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.75rem !important;
+    min-width: 300px !important;
+    max-width: 500px !important;
+    word-wrap: break-word !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    background-color: ${colors.bg} !important;
+    color: ${colors.text} !important;
+    margin-bottom: 0.5rem !important;
+  `;
+  
+  notification.setAttribute('data-notification', 'true');
+  notification.innerHTML = `${icons[type] || icons.info}<span>${message}</span>`;
+  
+  document.body.appendChild(notification);
+  
+  // Animar entrada
+  setTimeout(() => {
+    notification.style.transform = 'translateX(0)';
+  }, 100);
+  
+  // Auto-remover después de 4 segundos
+  setTimeout(() => {
+    notification.style.transform = 'translateX(100%)';
+    setTimeout(() => {
+      if (notification.parentNode) {
+        notification.parentNode.removeChild(notification);
+      }
+    }, 300);
+  }, 4000);
+}
+
+function showSuccess(message) {
+  showNotification(message, 'success');
+}
+
+function showError(message) {
+  showNotification(message, 'error');
+}
+
+function showSpinner() {
+  const spinner = qs('#globalSpinner');
+  if (spinner) {
+    spinner.classList.remove('invisible');
+    spinner.classList.add('visible');
+  }
+}
+
+function hideSpinner() {
+  const spinner = qs('#globalSpinner');
+  if (spinner) {
+    spinner.classList.add('invisible');
+    spinner.classList.remove('visible');
+  }
+}
+
+function getValidToken() {
+  const token = localStorage.getItem('token');
+  if (!token) return null;
+  
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const currentTime = Date.now() / 1000;
+    
+    if (payload.exp < currentTime) {
+      localStorage.removeItem('token');
+      return null;
+    }
+    
+    return token;
+  } catch (error) {
+    console.error('Error validando token:', error);
+    localStorage.removeItem('token');
+    return null;
+  }
+}
+
+function confirmAction(title, message, type = 'warning') {
+  return new Promise((resolve) => {
+    if (typeof Swal !== 'undefined') {
+      Swal.fire({
+        title: title,
+        text: message,
+        icon: type,
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Sí, continuar',
+        cancelButtonText: 'Cancelar'
+      }).then((result) => {
+        resolve(result.isConfirmed);
+      });
+    } else {
+      const confirmed = confirm(`${title}\n\n${message}\n\n¿Continuar?`);
+      resolve(confirmed);
+    }
+  });
+}
+
+function showModal(selector) {
+  const modal = document.querySelector(selector);
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+}
+
+function hideModal(selector) {
+  const modal = document.querySelector(selector);
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }
+}
+
+function setupModalClose(modalSelector, closeSelector) {
+  const modal = document.querySelector(modalSelector);
+  const closeBtn = document.querySelector(closeSelector);
+  
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+      hideModal(modalSelector);
+    });
+  }
+  
+  if (modal) {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        hideModal(modalSelector);
+      }
+    });
+  }
+}
+
+function showGlobalSpinner() {
+  const spinner = qs('#globalSpinner');
+  if (spinner) {
+    spinner.classList.remove('invisible');
+    spinner.classList.add('visible');
+  }
+}
+
+function hideGlobalSpinner() {
+  const spinner = qs('#globalSpinner');
+  if (spinner) {
+    spinner.classList.add('invisible');
+    spinner.classList.remove('visible');
+  }
+}
+
+function setupDragAndDrop(dropZone, onFiles) {
+  dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('border-blue-500', 'bg-blue-50');
+  });
+
+  dropZone.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('border-blue-500', 'bg-blue-50');
+  });
+
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('border-blue-500', 'bg-blue-50');
+    const files = Array.from(e.dataTransfer.files);
+    onFiles(files);
+  });
+}
+
+function setupScrollShadow(window, head) {
+  window.addEventListener('scroll', () => {
+    if (window.scrollY > 0) {
+      head.classList.add('shadow-md');
+    } else {
+      head.classList.remove('shadow-md');
+    }
+  });
+}
 
 export function initFilesScript() {
-  const section = qs('filesSection');
-  const tableBody = qs('filesTableBody');
-  const searchInput = qs('searchInput');
-  const itemsPerPageSelect = qs('itemsPerPageSelect');
-  const prevPageBtn = qs('prevPageBtn');
-  const nextPageBtn = qs('nextPageBtn');
-  const pageIndicator = qs('pageIndicator');
-  const uploadFileBtn = qs('uploadFileBtn');
-  const addIcon = qs('addIcon');
-  const spinnerIcon = qs('spinnerIcon');
-  const uploadModal = qs('uploadModal');
+  const section = qs('#filesSection');
+  const tableBody = qs('#filesTableBody');
+  const searchInput = qs('#searchInput');
+  const itemsPerPageSelect = qs('#itemsPerPageSelect');
+  const prevPageBtn = qs('#prevPageBtn');
+  const nextPageBtn = qs('#nextPageBtn');
+  const pageIndicator = qs('#pageIndicator');
+  const uploadFileBtn = qs('#uploadFileBtn');
+  const addIcon = qs('#addIcon');
+  const spinnerIcon = qs('#spinnerIcon');
+  const uploadModal = qs('#uploadModal');
   const uploadCard = uploadModal?.querySelector('.modal-card');
 
   function showUploadModal() {
@@ -58,12 +273,11 @@ export function initFilesScript() {
   });
 
   const uuid = section?.dataset.uuid;
-  const apiBase = window.apiBase || section?.dataset.apiBase;
-  const fileServer = section?.dataset.fileServer;
-  const lang = window.lang || section?.dataset.lang;
-  const orderOc = window.orderOc || section?.dataset.orderOc;
-
-  console.log( "apiBase Files.js", apiBase);
+  const folderId = section?.dataset.folderId;
+  const apiBase = window.apiBase;
+  const fileServer = window.fileServer;
+  const lang = window.lang;
+  const orderOc = window.orderOc;
 
   let currentPage = 1;
   let itemsPerPage = parseInt(itemsPerPageSelect?.value || '10', 10);
@@ -71,10 +285,7 @@ export function initFilesScript() {
   let filteredRows = [...allRows];
 
   const params = new URLSearchParams(window.location.search);
-  const folderId = params.get('f');
   const pc = params.get('pc');
-
-  const token = localStorage.getItem('token');
 
   // Validaciones iniciales
   if (!uuid || !folderId) {
@@ -82,8 +293,9 @@ export function initFilesScript() {
     return;
   }
 
+  // Validar token usando función centralizada
+  const token = getValidToken();
   if (!token) {
-    window.location.href = '/login';
     return;
   }
 
@@ -129,7 +341,7 @@ export function initFilesScript() {
   });
 
   function showGlobalSpinner() {
-    const spinner = qs('globalSpinner');
+    const spinner = document.getElementById('globalSpinner');
     if (spinner) {
       spinner.classList.remove('invisible');
       spinner.classList.add('visible');
@@ -137,7 +349,7 @@ export function initFilesScript() {
   }
 
   function hideGlobalSpinner() {
-    const spinner = qs('globalSpinner');
+    const spinner = document.getElementById('globalSpinner');
     if (spinner) {
       spinner.classList.remove('visible');
       spinner.classList.add('invisible');
@@ -146,21 +358,15 @@ export function initFilesScript() {
 
   async function refreshFiles() {
     try {
-      console.log('DEBUG - refreshFiles - apiBase:', apiBase);
-      console.log('DEBUG - refreshFiles - uuid:', uuid);
-      console.log('DEBUG - refreshFiles - folderId:', folderId);
-      
       const res = await fetch(`${apiBase}/api/files/${uuid}?f=${folderId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
       if (!res.ok) {
-        console.error('DEBUG - refreshFiles - Error response:', res.status, res.statusText);
         throw new Error(`HTTP error! status: ${res.status}`);
       }
 
       const files = await res.json();
-      console.log('DEBUG - refreshFiles - Files received:', files);
 
     if (tableBody) {
       tableBody.innerHTML = files.map(file => {
@@ -281,69 +487,37 @@ export function initFilesScript() {
   }
 
   async function sendDocument(fileId, orderNumber, customMessage, action) {
-    const confirmed = await confirmAction(
-      '¿Enviar documento?',
-      'El documento se enviará por correo al cliente.',
-      'question'
-    );
+    const res = await fetch(`${apiBase}/api/files/${action}/${fileId}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ orderNumber, customMessage })
+    });
 
-    if (confirmed) {
-      try {
-        const res = await fetch(`${apiBase}/api/files/${action}/${fileId}`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ orderNumber, customMessage })
-        });
+    if (!res.ok) throw new Error();
 
-        if (!res.ok) throw new Error();
-
-        const message = action === 'send' ? 'Documento enviado correctamente' : 'Documento reenviado correctamente';
-        showNotification(message, 'success');
-        await refreshFiles();
-        attachGenerateEvents();
-        attachSendResendEvents();
-      } catch (err) {
-        console.error(err);
-        showNotification('Error al enviar el documento', 'error');
-      }
-    }
+    const message = action === 'send' ? 'Documento enviado correctamente' : 'Documento reenviado correctamente';
+    showNotification(message, 'success');
+    await refreshFiles();
+    attachGenerateEvents();
+    attachSendResendEvents();
   }
 
   function openMessageModal(fileId, fileName, order, action) {
-    const modal = qs('messageModal');
-    const orderInput = qs('orderNumber');
-    const docInput = qs('orderDocument');
-    const messageInput = qs('customMessage');
-    const confirmBtn = qs('confirmMessageBtn');
-    const cancelBtn = qs('cancelMessageBtn');
+    const orderInput = qs('#orderNumber');
+    const docInput = qs('#orderDocument');
+    const messageInput = qs('#customMessage');
 
-    if (orderInput) orderInput.value = order;
-    if (docInput) docInput.value = fileName;
+    if (orderInput) orderInput.value = order || '';
+    if (docInput) docInput.value = fileName || '';
     if (messageInput) messageInput.value = '';
     
+    // Guardar datos para usar en el event listener
+    window.currentMessageData = { fileId, action };
+    
     showModal('#messageModal');
-
-    if (confirmBtn) {
-      confirmBtn.onclick = async () => {
-        hideModal('#messageModal');
-        showGlobalSpinner();
-
-        try {
-          await sendDocument(fileId, orderInput?.value?.trim() || '', messageInput?.value?.trim() || '', action);
-        } finally {
-          hideGlobalSpinner();
-        }
-      };
-    }
-
-    if (cancelBtn) {
-      cancelBtn.onclick = () => {
-        hideModal('#messageModal');
-      };
-    }
   }
 
   function attachGenerateEvents() {
@@ -359,7 +533,11 @@ export function initFilesScript() {
         );
 
         if (confirmed) {
-          showGlobalSpinner();
+          // Mostrar loading en el botón
+          const originalText = btn.innerHTML;
+          btn.innerHTML = '<svg class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>';
+          btn.disabled = true;
+
           try {
             const res = await fetch(`${apiBase}/api/files/generate/${fileId}`, {
               method: 'POST',
@@ -371,7 +549,9 @@ export function initFilesScript() {
           } catch (err) {
             showNotification('Error al generar documento', 'error');
           } finally {
-            hideGlobalSpinner();
+            // Restaurar botón
+            btn.innerHTML = originalText;
+            btn.disabled = false;
             await refreshFiles();
             attachGenerateEvents();
             attachSendResendEvents();
@@ -441,8 +621,8 @@ export function initFilesScript() {
     nameInput.value = currentName;
     visibleSelect.value = currentVisible ? '1' : '0';
     
-    // Mostrar el modal
-    modal.classList.remove('hidden');
+    // Mostrar el modal usando la función correcta
+    showModal('#editFileModal');
     
     // Enfocar el input
     nameInput.focus();
@@ -493,8 +673,8 @@ export function initFilesScript() {
     // Llenar el modal con el nombre actual
     nameInput.value = currentName;
     
-    // Mostrar el modal
-    modal.classList.remove('hidden');
+    // Mostrar el modal usando la función correcta
+    showModal('#renameFileModal');
     
     // Enfocar el input
     nameInput.focus();
@@ -502,22 +682,20 @@ export function initFilesScript() {
 
   // Event listeners para el modal de editar archivo
   ['closeEditModalBtn', 'cancelEditBtn'].forEach(id => {
-    const element = qs(id);
+    const element = qs(`#${id}`);
     if (element) {
       element.addEventListener('click', () => {
-        const modal = document.getElementById('editFileModal');
-        modal.classList.add('hidden');
+        hideModal('#editFileModal');
       });
     }
   });
 
   // Event listener para confirmar edición
-  const confirmEditBtn = qs('confirmEditBtn');
+  const confirmEditBtn = qs('#confirmEditBtn');
   if (confirmEditBtn) {
     confirmEditBtn.addEventListener('click', async () => {
       const nameInput = document.getElementById('editFileName');
       const visibleSelect = document.getElementById('editFileVisible');
-      const modal = document.getElementById('editFileModal');
       
       const name = nameInput.value.trim();
       const visible = visibleSelect.value;
@@ -535,54 +713,66 @@ export function initFilesScript() {
         showNotification('Error: No se pudo identificar el archivo', 'error');
         return;
       }
-      
-      try {
-        const res = await fetch(`${apiBase}/api/files/rename/${fileId}/`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            name: name,
-            visible: visible === '1'
-          })
-        });
 
-        const data = await res.json();
+      // Mostrar confirmación
+      const confirmed = await confirmAction(
+        '¿Guardar cambios?',
+        'Se actualizará el nombre y visibilidad del archivo.',
+        'question'
+      );
 
-        if (res.ok) {
-          showNotification('Archivo actualizado correctamente', 'success');
-          modal.classList.add('hidden');
-          await refreshFiles();
-          attachGenerateEvents();
-          attachSendResendEvents();
-        } else {
-          showNotification(data.message || 'Error al actualizar archivo', 'error');
+      if (confirmed) {
+        // Mostrar loading
+        showGlobalSpinner();
+        
+        try {
+          const res = await fetch(`${apiBase}/api/files/rename/${fileId}/`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              name: name,
+              visible: visible === '1'
+            })
+          });
+
+          const data = await res.json();
+
+          if (res.ok) {
+            showNotification('Archivo actualizado correctamente', 'success');
+            hideModal('#editFileModal');
+            await refreshFiles();
+            attachGenerateEvents();
+            attachSendResendEvents();
+          } else {
+            showNotification(data.message || 'Error al actualizar archivo', 'error');
+          }
+        } catch (err) {
+          showNotification('Error de red al actualizar archivo', 'error');
+        } finally {
+          hideGlobalSpinner();
         }
-      } catch (err) {
-        showNotification('Error de red al actualizar archivo', 'error');
       }
     });
   }
 
   // Event listeners para el modal de renombrar archivo
   ['closeRenameModalBtn', 'cancelRenameBtn'].forEach(id => {
-    const element = qs(id);
+    const element = qs(`#${id}`);
     if (element) {
       element.addEventListener('click', () => {
-        const modal = document.getElementById('renameFileModal');
-        modal.classList.add('hidden');
+        hideModal('#renameFileModal');
       });
     }
   });
 
   // Event listener para confirmar renombrar
-  const confirmRenameBtn = qs('confirmRenameBtn');
+  const confirmRenameBtn = qs('#confirmRenameBtn');
   if (confirmRenameBtn) {
     confirmRenameBtn.addEventListener('click', async () => {
       const nameInput = document.getElementById('renameFileName');
-      const modal = document.getElementById('renameFileModal');
       
       const newName = nameInput.value.trim();
       
@@ -602,32 +792,46 @@ export function initFilesScript() {
       }
       
       if (newName === spanElement.textContent.trim()) {
-        modal.classList.add('hidden');
+        hideModal('#renameFileModal');
         return;
       }
-      
-      try {
-        const res = await fetch(`${apiBase}/api/files/rename/${fileId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({ name: newName })
-        });
 
-        const data = await res.json();
+      // Mostrar confirmación
+      const confirmed = await confirmAction(
+        '¿Cambiar nombre?',
+        'Se actualizará el nombre del archivo.',
+        'question'
+      );
 
-        if (res.ok) {
-          spanElement.textContent = newName;
-          showNotification('Nombre actualizado correctamente', 'success');
-          renderTable();
-          modal.classList.add('hidden');
-        } else {
-          showNotification(data.message || 'Error al cambiar el nombre', 'error');
+      if (confirmed) {
+        // Mostrar loading
+        showGlobalSpinner();
+        
+        try {
+          const res = await fetch(`${apiBase}/api/files/rename/${fileId}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({ name: newName })
+          });
+
+          const data = await res.json();
+
+          if (res.ok) {
+            spanElement.textContent = newName;
+            showNotification('Nombre actualizado correctamente', 'success');
+            renderTable();
+            hideModal('#renameFileModal');
+          } else {
+            showNotification(data.message || 'Error al cambiar el nombre', 'error');
+          }
+        } catch (err) {
+          showNotification('Error al renombrar archivo', 'error');
+        } finally {
+          hideGlobalSpinner();
         }
-      } catch (err) {
-        showNotification('Error al renombrar archivo', 'error');
       }
     });
   }
@@ -639,7 +843,7 @@ export function initFilesScript() {
     if (spinnerIcon) spinnerIcon.classList.remove('hidden');
 
     setTimeout(() => {
-      const titleElement = qs('titleFile');
+      const titleElement = qs('#titleFile');
       const clientName = titleElement?.textContent?.replace('Documentos ', '').trim() || '';
       const orderNumber = pc;
 
@@ -653,9 +857,9 @@ export function initFilesScript() {
         uploadModal.dataset.folderId = folderId;
       }
 
-      const uploadFileName = qs('uploadFileName');
-      const uploadFileType = qs('uploadFileType');
-      const uploadFileInput = qs('uploadFileInput');
+      const uploadFileName = qs('#uploadFileName');
+      const uploadFileType = qs('#uploadFileType');
+      const uploadFileInput = qs('#uploadFileInput');
 
       if (uploadFileName) uploadFileName.value = '';
       if (uploadFileType) uploadFileType.value = 'PDF';
@@ -667,7 +871,7 @@ export function initFilesScript() {
 
   // Event listeners para cerrar el modal
   ['cancelUploadBtn', 'closeModalBtn'].forEach(id => {
-    const element = qs(id);
+    const element = qs(`#${id}`);
     if (element) {
       element.addEventListener('click', () => {
         hideUploadModal();
@@ -675,10 +879,10 @@ export function initFilesScript() {
         if (spinnerIcon) spinnerIcon.classList.add('hidden');
         if (addIcon) addIcon.classList.remove('hidden');
 
-        const uploadFileName = qs('uploadFileName');
-        const uploadFileType = qs('uploadFileType');
-        const uploadFileInput = qs('uploadFileInput');
-        const dropZoneText = qs('dropZoneText');
+        const uploadFileName = qs('#uploadFileName');
+        const uploadFileType = qs('#uploadFileType');
+        const uploadFileInput = qs('#uploadFileInput');
+        const dropZoneText = qs('#dropZoneText');
 
         if (uploadFileName) uploadFileName.value = '';
         if (uploadFileType) uploadFileType.value = 'PDF';
@@ -689,20 +893,15 @@ export function initFilesScript() {
   });
 
   // Event listener para confirmar la subida
-  const confirmUploadBtn = qs('confirmUploadBtn');
+  const confirmUploadBtn = qs('#confirmUploadBtn');
   if (confirmUploadBtn) {
     confirmUploadBtn.addEventListener('click', async () => {
-      const fileName = qs('uploadFileName')?.value?.trim();
-      const fileType = qs('uploadFileType')?.value;
-      const pcName = qs('uploadModal')?.dataset?.folderName;
-      const idFolder = qs('uploadModal')?.dataset?.folderId;
-      const isVisibleToCustomer = qs('isVisibleToClient')?.value;
-      const fileObject = qs('uploadFileInput')?.files?.[0];
-
-      console.log('DEBUG - Valores del modal:', {
-        fileName, fileType, pcName, idFolder, isVisibleToCustomer,
-        fileObject: fileObject ? { name: fileObject.name, size: fileObject.size } : null
-      });
+      const fileName = qs('#uploadFileName')?.value?.trim();
+      const fileType = qs('#uploadFileType')?.value;
+      const pcName = qs('#uploadModal')?.dataset?.folderName;
+      const idFolder = qs('#uploadModal')?.dataset?.folderId;
+      const isVisibleToCustomer = qs('#isVisibleToClient')?.value;
+      const fileObject = qs('#uploadFileInput')?.files?.[0];
 
       if (!fileName || !fileType || !fileObject) {
         showNotification('Debe completar todos los campos y seleccionar un archivo', 'error');
@@ -710,7 +909,7 @@ export function initFilesScript() {
       }
 
       showGlobalSpinner();
-      console.log(`${apiBase}/api/customers/uuid/${uuid}`);
+      
       try {
         const response = await fetch(`${apiBase}/api/customers/uuid/${uuid}`, {
           method: 'GET',
@@ -733,31 +932,24 @@ export function initFilesScript() {
         formData.append('file', fileObject);
         formData.append('is_visible_to_customer', isVisibleToCustomer);
 
-        console.log('DEBUG - FormData creado:', {
-          customer_id: uuid,
-          folder_id: idFolder,
-          client_name: clientName,
-          subfolder: pcName,
-          name: fileName,
-          is_visible_to_customer: isVisibleToCustomer
-        });
-
         const res = await fetch(`${apiBase}/api/files/upload`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
           body: formData
         });
 
-        if (!res.ok) throw new Error('Error al subir archivo');
+        if (!res.ok) {
+          throw new Error('Error al subir archivo');
+        }
 
         showNotification('Archivo subido correctamente', 'success');
 
         hideUploadModal();
 
-        const uploadFileName = qs('uploadFileName');
-        const uploadFileType = qs('uploadFileType');
-        const uploadFileInput = qs('uploadFileInput');
-        const dropZoneText = qs('dropZoneText');
+        const uploadFileName = qs('#uploadFileName');
+        const uploadFileType = qs('#uploadFileType');
+        const uploadFileInput = qs('#uploadFileInput');
+        const dropZoneText = qs('#dropZoneText');
 
         if (uploadFileName) uploadFileName.value = '';
         if (uploadFileType) uploadFileType.value = 'PDF';
@@ -776,9 +968,9 @@ export function initFilesScript() {
   }
 
   // Event listeners para drag & drop
-  const dropZone = qs('dropZone');
-  const fileInput = qs('uploadFileInput');
-  const dropZoneText = qs('dropZoneText');
+  const dropZone = qs('#dropZone');
+  const fileInput = qs('#uploadFileInput');
+  const dropZoneText = qs('#dropZoneText');
 
   fileInput?.addEventListener('change', () => {
     if (dropZoneText) {
@@ -790,11 +982,15 @@ export function initFilesScript() {
 
   dropZone?.addEventListener('click', () => fileInput?.click());
 
-  // Configurar drag & drop usando función global
+  // Configurar drag & drop
   if (dropZone && fileInput) {
     setupDragAndDrop(dropZone, (files) => {
       if (files.length > 0) {
-        fileInput.files = files;
+        // Crear un DataTransfer para asignar archivos al input
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(files[0]);
+        fileInput.files = dataTransfer.files;
+        
         if (dropZoneText) {
           dropZoneText.textContent = files[0].name;
         }
@@ -848,5 +1044,63 @@ export function initFilesScript() {
   const head = qs('filesHead');
   if (head) {
     setupScrollShadow(window, head);
+  }
+
+  // Configurar cierre de modales
+  setupModalClose('#messageModal', '#closeMessageModalBtn');
+  setupModalClose('#editFileModal', '#closeEditModalBtn');
+  setupModalClose('#renameFileModal', '#closeRenameModalBtn');
+  setupModalClose('#uploadModal', '#closeUploadModalBtn');
+
+  // Event listeners para el modal de mensaje
+  const confirmMessageBtn = qs('#confirmMessageBtn');
+  const cancelMessageBtn = qs('#cancelMessageBtn');
+
+  if (confirmMessageBtn) {
+    confirmMessageBtn.addEventListener('click', async () => {
+      const orderInput = qs('#orderNumber');
+      const messageInput = qs('#customMessage');
+      
+      if (!window.currentMessageData) {
+        showNotification('Error: No hay datos de mensaje', 'error');
+        return;
+      }
+
+      // Cerrar modal primero
+      hideModal('#messageModal');
+
+      // Mostrar confirmación
+      const confirmed = await confirmAction(
+        '¿Enviar documento?',
+        'El documento se enviará por correo al cliente.',
+        'question'
+      );
+
+      if (confirmed) {
+        // Mostrar loading global
+        showGlobalSpinner();
+        
+        try {
+          await sendDocument(
+            window.currentMessageData.fileId, 
+            orderInput?.value?.trim() || '', 
+            messageInput?.value?.trim() || '', 
+            window.currentMessageData.action
+          );
+        } finally {
+          hideGlobalSpinner();
+          window.currentMessageData = null;
+        }
+      } else {
+        window.currentMessageData = null;
+      }
+    });
+  }
+
+  if (cancelMessageBtn) {
+    cancelMessageBtn.addEventListener('click', () => {
+      hideModal('#messageModal');
+      window.currentMessageData = null;
+    });
   }
 }

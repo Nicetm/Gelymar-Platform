@@ -4,6 +4,7 @@ const router = express.Router();
 const authController = require('../controllers/auth.controller');
 const authMiddleware = require('../middleware/auth.middleware');
 const userService = require('../services/user.service');
+const { authValidations } = require('../middleware/validation.middleware');
 
 /**
  * @swagger
@@ -28,7 +29,7 @@ const userService = require('../services/user.service');
  *       401:
  *         description: Credenciales inválidas
  */
-router.post('/login', authController.login);
+router.post('/login', authValidations.login, authController.login);
 router.get('/2fa/setup', authController.setup2FA);
 router.get('/2fa/status', authController.check2FAStatus);
 router.get('/me', authMiddleware, async (req, res) => {
@@ -38,12 +39,7 @@ router.get('/me', authMiddleware, async (req, res) => {
         // Buscar el customer_id usando el RUT (email del usuario)
         let customer_id = null;
         if (req.user.role === 'client') {
-            const { poolPromise } = require('../config/db');
-            const pool = await poolPromise;
-            const [customerRows] = await pool.query('SELECT id FROM customers WHERE rut = ?', [req.user.email]);
-            if (customerRows.length > 0) {
-                customer_id = customerRows[0].id;
-            }
+            customer_id = await userService.findCustomerIdByRut(req.user.email);
         }
         
         res.json({
@@ -63,9 +59,9 @@ router.get('/me', authMiddleware, async (req, res) => {
 });
 
 router.post('/refresh', authMiddleware, authController.refreshToken);
-router.post('/change-password', authMiddleware, authController.changePassword);
-router.post('/recover', authController.recoverPassword);
-router.post('/reset-password', authController.resetPassword);
+router.post('/change-password', authMiddleware, authValidations.changePassword, authController.changePassword);
+router.post('/recover', authValidations.recoverPassword, authController.recoverPassword);
+router.post('/reset-password', authValidations.resetPassword, authController.resetPassword);
 
 /**
  * @swagger

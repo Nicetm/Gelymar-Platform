@@ -65,9 +65,7 @@ async function getCustomerByRut(rut) {
     const params = [rut];
     
     console.log(`Buscando cliente en MySQL:`);
-    console.log(`   Query: ${query}`);
-    console.log(`   RUT buscado: "${rut}"`);
-    
+
     const [rows] = await pool.query(query, params);
     
     if (rows.length === 0) {

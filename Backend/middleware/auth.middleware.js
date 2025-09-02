@@ -1,52 +1,88 @@
 // middleware/auth.middleware.js
 const jwt = require('jsonwebtoken');
-const { poolPromise } = require('../config/db');
+const { logger } = require('../utils/logger');
+const userService = require('../services/user.service');
 
-module.exports = async (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  // Intenta primero la cookie "token", luego el header Authorization: Bearer <jwt>
-  const token =
-    req.cookies?.token ||
-    (authHeader?.startsWith('Bearer ') ? authHeader.split(' ')[1] : undefined);
+/**
+ * Middleware unificado de autenticación que maneja tanto tokens JWT como cookies
+ * @param {Object} options - Opciones de configuración
+ * @param {boolean} options.requireAuth - Si requiere autenticación (default: true)
+ * @param {boolean} options.allowExpired - Si permite tokens expirados (default: false)
+ * @param {string} options.tokenSource - Fuente del token ('both', 'header', 'cookie')
+ */
+const createAuthMiddleware = (options = {}) => {
+  const {
+    requireAuth = true,
+    allowExpired = false,
+    tokenSource = 'both'
+  } = options;
 
-  if (!token) return res.status(401).json({ message: 'Token requerido' });
+  return async (req, res, next) => {
+    try {
+      let token = null;
 
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    const pool = await poolPromise;
-    const [rows] = await pool.query(
-      `SELECT u.id, u.email, r.name AS role, u.twoFAEnabled, u.twoFASecret, c.uuid
-       FROM users u
-       LEFT JOIN roles r ON u.role_id = r.id
-       LEFT JOIN customers c ON u.email = c.rut
-       WHERE u.id = ?`,
-      [decoded.id]
-    );
-    const user = rows[0];
-    if (!user) {
-      return res.status(401).json({ message: 'Usuario no encontrado' });
-    }
-
-    req.user = user;
-    return next();
-
-  } catch (err) {
-    // Permitir token expirado SOLO para /refresh
-    if (req.path === '/refresh' && err.name === 'TokenExpiredError') {
-      const decoded = jwt.decode(token);
-      if (!decoded) {
-        return res.status(403).json({ message: 'Token inválido' });
+      // Obtener token según la fuente especificada
+      if (tokenSource === 'both' || tokenSource === 'cookie') {
+        token = req.cookies?.token;
       }
       
-      // Verificar que el token decodificado tenga el email
-      if (!decoded.email) {
-        return res.status(403).json({ message: 'Token inválido - sin email' });
+      if (!token && (tokenSource === 'both' || tokenSource === 'header')) {
+        const authHeader = req.headers['authorization'];
+        if (authHeader?.startsWith('Bearer ')) {
+          token = authHeader.split(' ')[1];
+        }
       }
-      
-      req.user = decoded;
-      return next();
+
+      if (!token) {
+        if (requireAuth) {
+          return res.status(401).json({ message: 'Token requerido' });
+        }
+        return next();
+      }
+
+      // Verificar token
+      let decoded;
+      try {
+        decoded = jwt.verify(token, process.env.JWT_SECRET);
+      } catch (err) {
+        // Manejar token expirado según configuración
+        if (allowExpired && err.name === 'TokenExpiredError') {
+          decoded = jwt.decode(token);
+          if (!decoded || !decoded.email) {
+            return res.status(403).json({ message: 'Token inválido' });
+          }
+        } else {
+          return res.status(403).json({ message: 'Token inválido o expirado' });
+        }
+      }
+
+      // Obtener datos completos del usuario desde BD
+      const user = await userService.findUserForAuth(decoded.id);
+      if (!user) {
+        return res.status(401).json({ message: 'Usuario no encontrado' });
+      }
+
+      // Asignar datos completos del usuario
+      req.user = {
+        ...decoded,
+        role: user.role,
+        uuid: user.uuid,
+        twoFAEnabled: user.twoFAEnabled,
+        twoFASecret: user.twoFASecret
+      };
+
+      logger.info(`Usuario autenticado: ${user.email} (${user.role})`);
+      next();
+
+    } catch (error) {
+      logger.error(`Error en middleware de autenticación: ${error.message}`);
+      return res.status(500).json({ message: 'Error interno de autenticación' });
     }
-    return res.status(403).json({ message: 'Token inválido o expirado' });
-  }
+  };
 };
+
+// Middleware por defecto (requiere autenticación)
+module.exports = createAuthMiddleware();
+
+// Exportar función para crear middlewares personalizados
+module.exports.createAuthMiddleware = createAuthMiddleware;

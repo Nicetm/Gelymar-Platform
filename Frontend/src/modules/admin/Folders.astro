@@ -4,6 +4,7 @@ import type { Folders } from '../../types/entities.js';
 import { formatDateShort } from '../../utils/formatDate.js';
 
 const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
+const apiPublic = import.meta.env.PUBLIC_API_URL;
 const fileServer = import.meta.env.PUBLIC_FILE_SERVER_URL;
 const lang = getServerLang(Astro.cookies);
 
@@ -66,7 +67,7 @@ const folders: Folders[] = await fetch(`${apiBase}/api/directories/${id}`, {
 		<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 table-fixed">
 			<thead class="bg-gray-100 dark:bg-gray-800 sticky top-0 z-10">
 				<tr>
-					<th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="pc">
+					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="pc">
 						<div class="flex items-center justify-between">
 							<span>{t.carpetas.pc}</span>
 							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -74,7 +75,7 @@ const folders: Folders[] = await fetch(`${apiBase}/api/directories/${id}`, {
 							</svg>
 						</div>
 					</th>
-					<th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="oc">
+					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="oc">
 						<div class="flex items-center justify-between">
 							<span>{t.carpetas.oc}</span>
 							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -82,7 +83,7 @@ const folders: Folders[] = await fetch(`${apiBase}/api/directories/${id}`, {
 							</svg>
 						</div>
 					</th>
-					<th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="fecha">
+					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="fecha">
 						<div class="flex items-center justify-between">
 							<span>{t.carpetas.fecha}</span>
 							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -90,7 +91,7 @@ const folders: Folders[] = await fetch(`${apiBase}/api/directories/${id}`, {
 							</svg>
 						</div>
 					</th>
-					<th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="moneda">
+					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="moneda">
 						<div class="flex items-center justify-between">
 							<span>{t.carpetas.moneda}</span>
 							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -98,7 +99,7 @@ const folders: Folders[] = await fetch(`${apiBase}/api/directories/${id}`, {
 							</svg>
 						</div>
 					</th>
-					<th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="medio_envio">
+					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="medio_envio">
 						<div class="flex items-center justify-between">
 							<span>{t.carpetas.medioEnvio}</span>
 							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -106,7 +107,7 @@ const folders: Folders[] = await fetch(`${apiBase}/api/directories/${id}`, {
 							</svg>
 						</div>
 					</th>
-					<th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="factura">
+					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="factura">
 						<div class="flex items-center justify-between">
 							<span>{t.carpetas.factura}</span>
 							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -114,7 +115,7 @@ const folders: Folders[] = await fetch(`${apiBase}/api/directories/${id}`, {
 							</svg>
 						</div>
 					</th>
-					<th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="fecha_factura">
+					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="fecha_factura">
 						<div class="flex items-center justify-between">
 							<span>{t.carpetas.fechaFactura}</span>
 							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -122,20 +123,20 @@ const folders: Folders[] = await fetch(`${apiBase}/api/directories/${id}`, {
 							</svg>
 						</div>
 					</th>
-					<th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.comond.actions}</th>
+					<th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800">{t.comond.actions}</th>
 				</tr>
 			</thead>
-			<tbody id="foldersTableBody" class="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900">
+			<tbody id="foldersTableBody" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-sm min-h-[600px]">
 				{Array.isArray(folders) && folders.map(folder => (
 					<tr data-id={folder.id} class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-sm min-h-[600px]">
-						<td class="px-6 py-4 items-center gap-3">{folder.pc}</td>
-						<td class="px-6 py-4 items-center gap-3">{folder.oc}</td>
-						<td class="px-6 py-4 items-center gap-3">{formatDateShort(folder.fecha_cliente)}</td>
-						<td class="px-6 py-4 items-center gap-3">{folder.currency || '-'}</td>
-						<td class="px-6 py-4 items-center gap-3">{folder.medio_envio || '-'}</td>
-						<td class="px-6 py-4 items-center gap-3">{folder.factura || '-'}</td>
-						<td class="px-6 py-4 items-center gap-3">{formatDateShort(folder.fecha_factura)}</td>
-						<td class="px-6 py-4 items-center gap-3">
+						<td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">{folder.pc}</td>
+						<td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">{folder.oc}</td>
+						<td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">{formatDateShort(folder.fecha)}</td>
+						<td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">{folder.currency || '-'}</td>
+						<td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">{folder.medio_envio || '-'}</td>
+						<td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">{folder.factura || '-'}</td>
+						<td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">{formatDateShort(folder.fecha_factura)}</td>
+						<td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">
 							<div class="flex justify-center items-center gap-3 text-gray-900 dark:text-white">
 								<a href={`/admin/clients/documents/view/${folder.customer_uuid}?f=${folder.id}&pc=${folder.pc}&c=${clientName}`} title={`Ver documentos de PC ${folder.pc}`} class="hover:text-blue-500 transition">
 									<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
@@ -143,6 +144,11 @@ const folders: Folders[] = await fetch(`${apiBase}/api/directories/${id}`, {
 								<a href="#" title={`${t.carpetas.viewItemsList} ${folder.pc}`} class="hover:text-indigo-500 transition">
 									<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 										<path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+									</svg>
+								</a>
+								<a href="#" title={`Expandir items de PC ${folder.pc}`} class="expand-items-btn hover:text-green-500 transition" data-order-pc={folder.pc} data-order-oc={folder.oc}>
+									<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
 									</svg>
 								</a>
 								<a href="#" title={`${t.carpetas.orderDetails} ${folder.pc}`} class="order-detail-btn hover:text-blue-500 transition" data-order-id={folder.id}>
@@ -159,23 +165,29 @@ const folders: Folders[] = await fetch(`${apiBase}/api/directories/${id}`, {
 	</div>
 
 	<!-- Paginación -->
-	<div class="mt-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-sm">
+	<div class="mt-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-6 text-sm">
 		<div class="flex items-center gap-3">
-			<label for="itemsPerPageSelect" class="text-sm font-medium">{t.carpetas.perPage}</label>
-			<select id="itemsPerPageSelect" class="block w-20 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white rounded-md py-2 pl-3 pr-8">
-				<option value="10">10</option>
-				<option value="20">20</option>
-				<option value="30">30</option>
-			</select>
+			<label for="itemsPerPageSelect" class="text-sm font-medium text-gray-700 dark:text-gray-300">{t.carpetas.perPage}</label>
+			<div class="relative">
+				<select id="itemsPerPageSelect" class="block w-20 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-sm text-gray-900 dark:text-gray-100 rounded-md pl-3 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+					<option value="10">10</option>
+					<option value="20">20</option>
+					<option value="30">30</option>
+				</select>
+			</div>
 		</div>
 
 		<div class="flex items-center gap-3">
-			<button id="prevPageBtn" class="w-9 h-9 flex items-center justify-center rounded-md bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-white">
-				‹
+			<button id="prevPageBtn" aria-label="Previous page" class="w-9 h-9 flex items-center justify-center bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-100 rounded-md transition">
+				<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+				</svg>
 			</button>
-			<span id="pageIndicator" data-page-label={t.comond.page} data-of-label={t.comond.of} class="text-sm font-medium text-gray-700 dark:text-gray-300">Página 1</span>
-			<button id="nextPageBtn" class="w-9 h-9 flex items-center justify-center rounded-md bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-white">
-				›
+			<span id="pageIndicator" class="min-w-[120px] text-center px-4 py-1 rounded-lg bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100 text-sm font-medium shadow-sm flex items-center justify-center"></span>
+			<button id="nextPageBtn" aria-label="Next page" class="w-9 h-9 flex items-center justify-center bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-100 rounded-md transition">
+				<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+				</svg>
 			</button>
 		</div>
 	</div>
@@ -313,11 +325,11 @@ const folders: Folders[] = await fetch(`${apiBase}/api/directories/${id}`, {
 
 <div id="notification" class="hidden fixed top-5 right-5 px-6 py-4 rounded-lg shadow-lg z-50 text-white text-base font-semibold transition-all duration-300 ease-in-out"></div>
 
-<script type="module" define:vars={{ apiBase, fileServer, lang, t }}>
+<script type="module" define:vars={{ apiPublic, fileServer, lang, t }}>
   import { initFoldersScript } from '/js/folders.js';
   
   // Hacer las variables disponibles globalmente
-  window.apiBase = apiBase;
+  window.apiBase = apiPublic;
   window.fileServer = fileServer;
   window.lang = lang;
   window.translations = t;

@@ -13,19 +13,17 @@ if (token) {
       const user = await response.json();
       const userRole = user.role || (user.role_id === 1 ? 'admin' : 'client');
       
-      console.log(`🔍 Usuario autenticado en index: ${user.email} con rol ${userRole}`);
+      // User authenticated in index
       
-      // Redirigir según el rol del usuario
+      // Redirigir según el rol del usuario usando función centralizada
       if (userRole === 'admin') {
-        console.log('🔄 Redirigiendo admin a /admin desde index');
         return Astro.redirect('/admin');
       } else if (userRole === 'client') {
-        console.log('🔄 Redirigiendo client a /client desde index');
         return Astro.redirect('/client');
       }
     }
   } catch (error) {
-    console.error('Error validando rol en index:', error);
+    // Error validando rol en index
   }
 }
 

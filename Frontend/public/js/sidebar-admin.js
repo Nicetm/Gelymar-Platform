@@ -211,6 +211,40 @@ export function initSidebarAdmin(config) {
       });
     });
 
+    // Language dropdown toggle
+    const langBtn = document.getElementById('currentLangBtn');
+    const langDropdown = document.getElementById('language-dropdown');
+    
+    if (langBtn && langDropdown) {
+      // Forzar estado inicial
+      langDropdown.classList.add('hidden');
+      langDropdown.style.display = 'none';
+      
+      langBtn.onclick = function(e) {
+        e.preventDefault();
+        
+        const isHidden = langDropdown.style.display === 'none';
+        
+        if (isHidden) {
+          // Mostrar dropdown
+          langDropdown.style.display = 'block';
+          langDropdown.classList.remove('hidden');
+        } else {
+          // Ocultar dropdown
+          langDropdown.style.display = 'none';
+          langDropdown.classList.add('hidden');
+        }
+      };
+      
+      // Close when clicking outside
+      document.onclick = function(e) {
+        if (!langBtn.contains(e.target) && !langDropdown.contains(e.target)) {
+          langDropdown.classList.add('hidden');
+          langDropdown.style.display = 'none';
+        }
+      };
+    }
+
     // Language change
     function updateCurrentLangFlag() {
       const currentLang = localStorage.getItem('lang') || lang;

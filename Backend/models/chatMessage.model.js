@@ -3,7 +3,7 @@ const { poolPromise } = require('../config/db');
 class ChatMessage {
   static async create(messageData) {
     const pool = await poolPromise;
-    const { customer_id, message, sender_role } = messageData;
+    const { customer_id, message, sender_role, is_security_message } = messageData;
     
     // Validar que sender_role sea válido
     if (!['client', 'admin'].includes(sender_role)) {
@@ -21,14 +21,17 @@ class ChatMessage {
       throw error;
     }
     
+    // Usar el parámetro is_security_message del request
+    const isSecurityMessage = is_security_message ? 1 : 0;
+    
     const query = `
-      INSERT INTO chat_messages (customer_id, body, sender_role)
-      VALUES (?, ?, ?)
+      INSERT INTO chat_messages (customer_id, body, sender_role, is_security_message)
+      VALUES (?, ?, ?, ?)
     `;
     
     try {
-      console.log('Insertando mensaje:', { customer_id, message, sender_role });
-      const [result] = await pool.query(query, [customer_id, message, sender_role]);
+      console.log('Insertando mensaje:', { customer_id, message, sender_role, isSecurityMessage });
+      const [result] = await pool.query(query, [customer_id, message, sender_role, isSecurityMessage]);
       console.log('Mensaje insertado con ID:', result.insertId);
       return result.insertId;
     } catch (error) {
@@ -45,7 +48,9 @@ class ChatMessage {
         body as message,
         sender_role as sender_type,
         created_at,
-        is_read_by_client as is_read
+        is_read_by_client,
+        is_read_by_admin,
+        is_security_message
       FROM chat_messages
       WHERE customer_id = ?
       ORDER BY created_at ASC
@@ -110,7 +115,9 @@ class ChatMessage {
         SELECT MAX(id) 
         FROM chat_messages 
         WHERE customer_id = c.id
+        AND NOT (sender_role = 'admin' AND is_security_message = 1)
       )
+      AND NOT (cm.sender_role = 'admin' AND cm.is_security_message = 1)
       GROUP BY c.id, c.name, cm.body, cm.created_at, cm.sender_role
       ORDER BY cm.created_at DESC
     `;

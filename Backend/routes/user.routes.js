@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/user.controller');
+const { userValidations } = require('../middleware/validation.middleware');
 const authMiddleware = require('../middleware/auth.middleware');
 const { authorizeRoles } = require('../middleware/role.middleware');
 
@@ -68,7 +69,7 @@ router.get('/profile', authMiddleware, userController.getProfile);
  *       401:
  *         description: No autorizado
  */
-router.put('/profile', authMiddleware, userController.updateProfile);
+router.put('/profile', authMiddleware, userValidations.updateProfile, userController.updateProfile);
 
 /**
  * @swagger
@@ -96,6 +97,6 @@ router.put('/profile', authMiddleware, userController.updateProfile);
  *       401:
  *         description: No autorizado
  */
-router.post('/avatar', authMiddleware, userController.uploadAvatar, userController.handleAvatarUpload);
+router.post('/avatar', authMiddleware, userController.uploadAvatar, userValidations.uploadAvatar, userController.handleAvatarUpload);
 
 module.exports = router;

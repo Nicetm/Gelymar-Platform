@@ -1,5 +1,22 @@
 // ===== FUNCIONES GLOBALES Y UTILIDADES =====
 
+// Función de sanitización para prevenir XSS
+const sanitizeHTML = (str) => {
+  if (typeof str !== 'string') return '';
+  
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+};
+
+// Función para crear elementos HTML de forma segura
+const createSafeHTML = (template, data) => {
+  return template.replace(/\${([^}]+)}/g, (match, key) => {
+    const value = data[key];
+    return typeof value === 'string' ? sanitizeHTML(value) : '';
+  });
+};
+
 // Helper para getElementById (compatibilidad con código existente)
 const qs = (id) => document.getElementById(id);
 
@@ -25,13 +42,13 @@ const showNotification = (message, type = 'info', duration = 4000) => {
     });
     
     if (existingNotification) {
-        console.log('Notificación duplicada ignorada:', message);
+        // Duplicate notification ignored
         return;
     }
     
     // Verificar límite máximo de notificaciones (máximo 3)
     if (activeNotifications.size >= 3) {
-        console.log('Límite de notificaciones alcanzado, ignorando:', message);
+        // Notification limit reached
         return;
     }
     
@@ -133,7 +150,7 @@ const processNotificationQueue = async () => {
     `;
     
     notification.setAttribute('data-notification', 'true');
-    notification.innerHTML = `${icons[type] || icons.info}<span>${message}</span>`;
+    notification.innerHTML = `${icons[type] || icons.info}<span>${sanitizeHTML(message)}</span>`;
     
     document.body.appendChild(notification);
     
@@ -232,14 +249,41 @@ const hideSpinner = (container) => {
     }
 };
 
-// ===== VALIDACIÓN DE TOKEN =====
+// ===== VALIDACIÓN DE TOKENS =====
+const validateToken = (token) => {
+  if (!token) return false;
+  
+  try {
+    const [, payloadBase64] = token.split('.');
+    const payload = JSON.parse(atob(payloadBase64));
+    const exp = payload.exp * 1000;
+    const now = Date.now();
+    
+    // Token expirado si faltan menos de 5 minutos
+    return (exp - now) > (5 * 60 * 1000);
+  } catch (error) {
+    return false;
+  }
+};
+
+const getValidToken = () => {
+  const token = localStorage.getItem('token');
+  if (!validateToken(token)) {
+    localStorage.removeItem('token');
+    window.location.href = '/authentication/sign-in';
+    return null;
+  }
+  return token;
+};
+
+// ===== VALIDACIÓN DE TOKEN (MANTENER COMPATIBILIDAD) =====
 const checkToken = () => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-        window.location.href = '/authentication/sign-in';
-        return false;
-    }
-    return true;
+  const token = localStorage.getItem('token');
+  if (!token) {
+    window.location.href = '/authentication/sign-in';
+    return false;
+  }
+  return true;
 };
 
 // ===== CONFIRMACIONES CON SWEETALERT2 =====
@@ -539,7 +583,7 @@ const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const createElement = (tag, className = '', innerHTML = '') => {
     const element = document.createElement(tag);
     if (className) element.className = className;
-    if (innerHTML) element.innerHTML = innerHTML;
+    if (innerHTML) element.innerHTML = sanitizeHTML(innerHTML);
     return element;
 };
 
@@ -557,6 +601,8 @@ const toggleElement = (element, show) => {
 
 // ===== EXPORTAR FUNCIONES =====
 export {
+    sanitizeHTML,
+    createSafeHTML,
     qs,
     querySelector,
     qsa,
@@ -573,6 +619,8 @@ export {
     showSpinner,
     hideSpinner,
     checkToken,
+    validateToken,
+    getValidToken,
     confirmAction,
     showSuccess,
     showError,

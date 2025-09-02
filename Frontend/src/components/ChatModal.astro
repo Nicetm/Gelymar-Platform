@@ -1,6 +1,7 @@
 ---
 // Modal de chat para comunicación cliente-admin
-const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
+//const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
+const apiPublic = import.meta.env.PUBLIC_API_URL;
 ---
 
 <!-- Modal de chat -->
@@ -39,9 +40,9 @@ const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL
       <div class="flex justify-start">
         <div class="max-w-xs bg-gray-100 dark:bg-gray-700 rounded-lg p-3">
           <p class="text-sm text-gray-900 dark:text-white">
-            ¡Hola! Soy el operador de Gelymar. ¿En qué puedo ayudarte hoy?
+            ¡Hola! Mi nombre es Carla Torres ¿En qué puedo ayudarte hoy?
           </p>
-          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Ahora</p>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1" style="font-size: 10px;">${new Date().toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
         </div>
       </div>
       
@@ -71,7 +72,79 @@ const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL
   </div>
 </div>
 
-<script define:vars={{ apiBase }}>
+<script is:inline define:vars={{ apiPublic }}>
+  window.apiBase = apiPublic;
+  
+  // Socket.io service (inline)
+  class SocketService {
+    constructor() {
+      this.socket = null;
+      this.isConnected = false;
+      this.reconnectAttempts = 0;
+      this.maxReconnectAttempts = 5;
+    }
+
+    connect(token) {
+      if (this.socket && this.isConnected) {
+        return this.socket;
+      }
+
+      const apiBase = window.apiBase || 'http://localhost:3000';
+      console.log('Socket.io conectando a:', apiBase);
+      
+      this.socket = io(apiBase, {
+        auth: { token },
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionAttempts: this.maxReconnectAttempts,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000,
+      });
+
+      this.socket.on('connect', () => {
+        console.log('Socket.io conectado');
+        this.isConnected = true;
+        this.reconnectAttempts = 0;
+      });
+
+      this.socket.on('disconnect', (reason) => {
+        console.log('Socket.io desconectado:', reason);
+        this.isConnected = false;
+      });
+
+      this.socket.on('connect_error', (error) => {
+        console.error('Error de conexión Socket.io:', error);
+        this.reconnectAttempts++;
+        
+        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+          console.error('Máximo de intentos de reconexión alcanzado');
+        }
+      });
+
+      this.socket.on('reconnect', (attemptNumber) => {
+        console.log(`Socket.io reconectado después de ${attemptNumber} intentos`);
+        this.isConnected = true;
+        this.reconnectAttempts = 0;
+      });
+
+      return this.socket;
+    }
+
+    onNewMessage(callback) {
+      if (this.socket) {
+        this.socket.on('newMessage', callback);
+      }
+    }
+
+    onUpdateNotifications(callback) {
+      if (this.socket) {
+        this.socket.on('updateNotifications', callback);
+      }
+    }
+  }
+
+  const socketService = new SocketService();
   // Elementos del DOM
   const chatModal = document.getElementById('chat-modal');
   const chatBackdrop = document.getElementById('chat-backdrop');
@@ -81,6 +154,7 @@ const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL
   const sendMessageBtn = document.getElementById('send-message-btn');
   
   let isTyping = false;
+  let socket = null;
   
   // Función para obtener el customerId del usuario
   async function getCustomerId() {
@@ -109,7 +183,6 @@ const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL
     if (chatModal && chatInput) {
       chatModal.classList.add('hidden');
       chatInput.blur();
-      stopChatPolling(); // Detener polling cuando se cierra
     }
   }
   
@@ -124,8 +197,17 @@ const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL
     sendMessageBtn.disabled = true;
     
     try {
-      // Agregar mensaje del usuario
-      addMessageToChat(message, 'user');
+      // Validar y sanitizar el mensaje
+      const validationResult = validateAndSanitizeMessage(message);
+      if (!validationResult.isValid) {
+        showSecurityWarning(validationResult.reason);
+        isTyping = false;
+        sendMessageBtn.disabled = false;
+        return;
+      }
+
+      // Agregar mensaje del usuario (enviado, no leído aún)
+      addMessageToChat(validationResult.message, 'user', new Date(), false);
       chatInput.value = '';
       
       // Enviar mensaje a la API
@@ -145,7 +227,7 @@ const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL
         },
         body: JSON.stringify({
           customer_id: customerId,
-          message: message,
+          message: validationResult.message,
           sender_role: 'client'
         })
       });
@@ -161,13 +243,9 @@ const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL
           'Authorization': `Bearer ${token}`
         }
       });
-      
-      // Notificar al admin que hay un nuevo mensaje (esto se maneja automáticamente por el polling)
-      console.log('Mensaje enviado, el admin será notificado en el próximo polling');
-      
     } catch (error) {
       console.error('Error enviando mensaje:', error);
-      addMessageToChat('Error enviando mensaje. Inténtalo de nuevo.', 'admin');
+      addMessageToChat('Error enviando mensaje. Inténtalo de nuevo.', 'admin', new Date());
     } finally {
       isTyping = false;
       sendMessageBtn.disabled = false;
@@ -175,23 +253,97 @@ const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL
   }
   
   // Función para agregar mensaje al chat
-  function addMessageToChat(message, sender) {
+  function addMessageToChat(message, sender, createdAt = null, isReadByAdmin = false) {
     if (!chatMessagesDiv) return;
-    
+
     const messageDiv = document.createElement('div');
-    messageDiv.className = `flex ${sender === 'user' ? 'justify-end' : 'justify-start'}`;
-    
+    messageDiv.className = `flex ${sender === 'user' ? 'justify-end' : 'justify-start'} mb-2`;
+
+    // 📦 Contenedor en columna (burbuja + metadata)
+    const messageContainer = document.createElement('div');
+    messageContainer.className = "flex flex-col";
+
     const messageBubble = document.createElement('div');
     messageBubble.className = `max-w-xs rounded-lg p-3 ${
       sender === 'user' 
         ? 'bg-blue-600 text-white' 
         : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'
     }`;
-    
-    messageBubble.innerHTML = `
-      <p class="text-sm">${message}</p>
-      <p class="text-xs ${sender === 'user' ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'} mt-1">Ahora</p>
+
+    // Fecha
+    let timeString;
+    if (createdAt) {
+      const date = new Date(createdAt);
+      timeString = date.toLocaleString('es-ES', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: true
+      });
+    } else {
+      const now = new Date();
+      timeString = now.toLocaleString('es-ES', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: true
+      });
+    }
+
+    messageBubble.innerHTML = `<p class="text-sm">${message}</p>`;
+    messageContainer.appendChild(messageBubble);
+
+    // Meta (hora + checkmarks)
+    const metaDiv = document.createElement('div');
+    metaDiv.className = `flex items-center mt-1 ${sender === 'user' ? 'justify-end' : 'justify-start'}`;
+
+    let checkmarks = '';
+    if (sender === 'user') {
+      if (isReadByAdmin) {
+        // ✅ Dos checkmarks verdes pegados
+        checkmarks = `
+          <span class="flex items-center">
+            <svg class="w-3 h-3" fill="#10b981" viewBox="0 0 24 24">
+              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+            </svg>
+            <svg class="w-3 h-3 -ml-0.5" fill="#10b981" viewBox="0 0 24 24">
+              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+            </svg>
+          </span>`;
+      } else {
+        // Un check gris oscuro
+        checkmarks = `
+          <svg class="w-3 h-3" fill="#6b7280" viewBox="0 0 24 24">
+            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+          </svg>`;
+      }
+    }
+
+    metaDiv.innerHTML = `
+      <div class="flex items-center gap-1">
+        <p class="text-xs text-gray-500 dark:text-gray-400" style="font-size: 10px;">${timeString}</p>
+        ${checkmarks}
+      </div>
     `;
+
+    messageContainer.appendChild(metaDiv);
+    messageDiv.appendChild(messageContainer);
+    chatMessagesDiv.appendChild(messageDiv);
+
+    chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+  }
+
+  
+  // Función para agregar mensaje de seguridad sin timestamp
+  function addSecurityMessageToChat(message) {
+    if (!chatMessagesDiv) return;
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'flex justify-start mb-2';
+    
+    const messageBubble = document.createElement('div');
+    messageBubble.className = 'max-w-xs rounded-lg p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800';
+    
+    // Solo mostrar mensaje en la burbuja sin timestamp
+    messageBubble.innerHTML = `<p class="text-sm text-red-700 dark:text-red-300">${message}</p>`;
     
     messageDiv.appendChild(messageBubble);
     chatMessagesDiv.appendChild(messageDiv);
@@ -224,8 +376,7 @@ const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL
       }
       
       const data = await response.json();
-      console.log('Mensajes cargados desde API:', data.data);
-      
+        
       // Usar la función actualizada para evitar duplicados
       updateChatMessages(data.data);
       
@@ -250,36 +401,161 @@ const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL
     chatMessagesDiv.innerHTML = '';
     
     // Agregar mensaje de bienvenida
-    addMessageToChat('¡Hola! Soy el operador de Gelymar. ¿En qué puedo ayudarte hoy?', 'admin');
+    addMessageToChat('¡Hola! Mi nombre es Carla Torres ¿En qué puedo ayudarte hoy?', 'admin');
     
-    // Agregar mensajes desde la API
+    // Agregar mensajes desde la API (filtrar mensajes de seguridad)
     messages.forEach((msg) => {
+      // Mostrar mensajes de seguridad del admin solo en el cliente
+      if (msg.sender_type === 'admin' && msg.is_security_message === 1) {
+        addSecurityMessageToChat(msg.message);
+        return;
+      }
       const sender = msg.sender_type === 'client' ? 'user' : 'admin';
-      addMessageToChat(msg.message, sender);
+      addMessageToChat(msg.message, sender, msg.created_at, msg.is_read_by_admin);
     });
   }
   
   // Hacer las funciones globales para que el botón flotante pueda acceder
   window.loadChatMessages = loadChatMessages;
-  window.startChatPolling = startChatPolling;
-  window.stopChatPolling = stopChatPolling;
+  // Socket.io ya maneja las actualizaciones en tiempo real
+  window.startChatPolling = () => console.log('Socket.io maneja las actualizaciones automáticamente');
+  window.stopChatPolling = () => console.log('Socket.io maneja las actualizaciones automáticamente');
   
-  // Variable para el polling
-  let chatPollingInterval = null;
-  
-  // Función para iniciar el polling de mensajes
-  function startChatPolling() {
-    if (chatPollingInterval) {
-      clearInterval(chatPollingInterval);
+  // Inicializar Socket.io para el chat del cliente
+  function initializeChatSocket() {
+    // Verificar que Socket.io esté disponible
+    if (typeof io === 'undefined') {
+      console.error('Socket.io no está disponible');
+      return;
     }
-    chatPollingInterval = setInterval(loadChatMessages, 3000); // Actualizar cada 3 segundos
+
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.error('Token no encontrado para Socket.io');
+      return;
+    }
+
+    socket = socketService.connect(token);
+    
+    // Escuchar mensajes nuevos
+    socketService.onNewMessage((messageData) => {
+      console.log('Nuevo mensaje recibido (chat modal):', messageData);
+      
+      // Solo mostrar mensajes del admin (no del propio cliente)
+      if (messageData.sender_role === 'admin') {
+        addMessageToChat(messageData.message, 'admin');
+      }
+    });
   }
   
-  // Función para detener el polling
-  function stopChatPolling() {
-    if (chatPollingInterval) {
-      clearInterval(chatPollingInterval);
-      chatPollingInterval = null;
+  // Función para validar y sanitizar mensajes
+  function validateAndSanitizeMessage(message) {
+    // Patrones de SQL injection comunes
+    const sqlInjectionPatterns = [
+      /(\b(union|select|insert|update|delete|drop|create|alter|exec|execute|script|javascript|vbscript|onload|onerror|onclick)\b)/i,
+      /(['"`;]|--|\/\*|\*\/|xp_|sp_|@@|0x[0-9a-f]+)/i,
+      /(\b(and|or)\s+\d+\s*=\s*\d+)/i,
+      /(\b(and|or)\s+['"`]\w+['"`]\s*=\s*['"`]\w+['"`])/i,
+      /(\b(union|select)\s+.*\bfrom\b)/i,
+      /(\b(insert|update)\s+.*\binto\b)/i,
+      /(\b(delete|drop)\s+.*\bfrom\b)/i,
+      /(\b(create|alter)\s+.*\b(table|database|user)\b)/i
+    ];
+    
+    // Patrones de XSS
+    const xssPatterns = [
+      /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
+      /javascript:/gi,
+      /vbscript:/gi,
+      /on\w+\s*=/gi,
+      /<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi,
+      /<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi,
+      /<embed\b[^<]*(?:(?!<\/embed>)<[^<]*)*<\/embed>/gi
+    ];
+    
+    // Verificar SQL injection
+    for (const pattern of sqlInjectionPatterns) {
+      if (pattern.test(message)) {
+        return { isValid: false, reason: 'sql_injection' };
+      }
+    }
+    
+    // Verificar XSS
+    for (const pattern of xssPatterns) {
+      if (pattern.test(message)) {
+        return { isValid: false, reason: 'xss' };
+      }
+    }
+    
+    // Verificar longitud máxima
+    if (message.length > 1000) {
+      return { isValid: false, reason: 'too_long' };
+    }
+    
+    // Verificar caracteres especiales peligrosos
+    const dangerousChars = /[<>{}[\]\\]/g;
+    if (dangerousChars.test(message)) {
+      return { isValid: false, reason: 'dangerous_chars' };
+    }
+    
+    // Sanitizar el mensaje (escapar HTML)
+    const sanitizedMessage = message
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#x27;')
+      .replace(/\//g, '&#x2F;');
+    
+    return { isValid: true, message: sanitizedMessage };
+  }
+  
+  // Función para mostrar advertencia de seguridad
+  async function showSecurityWarning(reason) {
+    let warningMessage = '';
+    
+    switch (reason) {
+      case 'sql_injection':
+        warningMessage = '⚠️ ¡Cuidado! Tu mensaje contiene patrones sospechosos. Por favor, evita usar comandos de base de datos o caracteres especiales.';
+        break;
+      case 'xss':
+        warningMessage = '⚠️ ¡Cuidado! Tu mensaje contiene código potencialmente peligroso. Por favor, escribe solo texto normal.';
+        break;
+      case 'too_long':
+        warningMessage = '⚠️ Tu mensaje es demasiado largo. Por favor, acorta tu mensaje a menos de 1000 caracteres.';
+        break;
+      case 'dangerous_chars':
+        warningMessage = '⚠️ Tu mensaje contiene caracteres especiales no permitidos. Por favor, usa solo texto normal.';
+        break;
+      default:
+        warningMessage = '⚠️ ¡Cuidado con lo que escribes en el chat! Tu mensaje contiene contenido no permitido.';
+    }
+    
+    // Mostrar mensaje de advertencia en el chat sin timestamp
+    addSecurityMessageToChat(warningMessage);
+    
+    // Enviar mensaje de advertencia a la BD con rol admin
+    try {
+      const token = localStorage.getItem('token');
+      const customerId = await getCustomerId();
+      
+      if (token && customerId) {
+        await fetch(`${apiBase}/api/chat/send`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            customer_id: customerId,
+            message: warningMessage,
+            sender_role: 'admin',
+            is_security_message: true
+          })
+        });
+      }
+    } catch (error) {
+      console.error('Error enviando mensaje de seguridad:', error);
     }
   }
   
@@ -307,6 +583,14 @@ const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL
     if (e.key === 'Escape' && chatModal && !chatModal.classList.contains('hidden')) {
       closeChatModal();
     }
+  });
+  
+  // Inicializar Socket.io cuando se carga la página
+  document.addEventListener('DOMContentLoaded', () => {
+    // Esperar un poco para asegurar que Socket.io esté cargado
+    setTimeout(() => {
+      initializeChatSocket();
+    }, 1000);
   });
 </script>
 

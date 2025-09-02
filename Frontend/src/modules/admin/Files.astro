@@ -35,11 +35,7 @@ const orderPc = files.length > 0 ? files[0]?.pc : '';
 const orderOc = files.length > 0 ? files[0]?.oc : '';
 ---
 
-<section id="filesSection" data-api-base={apiBase} data-file-server={fileServer} data-uuid={id} data-lang={lang} class="px-4 pt-24 pb-6 sm:px-6 lg:px-8">
-  <!-- Debug: Mostrar apiBase en el HTML -->
-  <script>
-    console.log('DEBUG - apiBase en HTML:', '{apiBase}');
-  </script>
+<section id="filesSection" data-uuid={id} data-folder-id={folderId} class="px-4 pt-24 pb-6 sm:px-6 lg:px-8">
   <!-- Encabezado y breadcrumb -->
   <header class="flex flex-col gap-4 border-b border-gray-200 dark:border-gray-700 pb-4">
     <nav class="text-sm text-gray-500 dark:text-gray-400" aria-label="Breadcrumb">
@@ -433,11 +429,16 @@ const orderOc = files.length > 0 ? files[0]?.oc : '';
   // Inicializar el script cuando el DOM esté completamente cargado
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-      initFilesScript();
+      // Pequeño delay para asegurar que todo esté listo
+      setTimeout(() => {
+        initFilesScript();
+      }, 100);
     });
   } else {
-    // Si el DOM ya está cargado, ejecutar inmediatamente
-    initFilesScript();
+    // Si el DOM ya está cargado, ejecutar con un pequeño delay
+    setTimeout(() => {
+      initFilesScript();
+    }, 100);
   } 
 </script>
 

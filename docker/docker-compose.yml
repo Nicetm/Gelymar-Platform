@@ -3,7 +3,7 @@ name: gelymar-platform
 services:
   # Capa Base de Datos
   mysql:
-    image: nicetm/gelymar-platform:mysql
+    image: mysql:8.0
     container_name: gelymar-platform-mysql
     restart: unless-stopped
     environment:
@@ -66,6 +66,10 @@ services:
       - SMTP_PORT=587
       - SMTP_USER=logistics@gelymar.com
       - SMTP_PASS=T$718649482733av
+      - NETWORK_USER=softkey
+      - NETWORK_PASSWORD=sK06.2025#
+      - NETWORK_SERVER=172.20.10.167
+      - NETWORK_SHARE_PATH=Users/above/Documents/BotArchivoWeb/archivos
     volumes:
       - backend_logs:/app/logs
       - fileserver_data:/var/www/html
@@ -110,7 +114,7 @@ services:
   cron:
     build:
       context: ..
-      dockerfile: docker/cron/Dockerfile
+      dockerfile: docker/Dockerfile.cron
     container_name: gelymar-platform-cron
     restart: unless-stopped
     environment:
@@ -170,7 +174,7 @@ services:
   monitoring:
     build:
       context: .
-      dockerfile: monitoring/Dockerfile
+      dockerfile: Dockerfile.monitoring
     container_name: gelymar-platform-monitoring
     restart: unless-stopped
     ports:
@@ -189,7 +193,7 @@ services:
   terminal:
     build:
       context: .
-      dockerfile: terminal/Dockerfile
+      dockerfile: Dockerfile.terminal
     container_name: gelymar-platform-terminal
     restart: unless-stopped
     ports:

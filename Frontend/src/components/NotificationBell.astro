@@ -5,7 +5,8 @@ export interface Props {
 }
 
 const { unreadCount = 0 } = Astro.props;
-const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
+//const apiBase = import.meta.env.PUBLIC_API_URL || import.meta.env.SERVER_API_URL;
+const apiPublic = import.meta.env.PUBLIC_API_URL;
 ---
 
 <!-- Campanita de notificaciones -->
@@ -76,7 +77,102 @@ const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL
   </div>
 </div>
 
-<script define:vars={{ apiBase }}>
+<script is:inline define:vars={{ apiPublic }}>
+  window.apiBase = apiPublic;
+  
+  // Socket.io service (inline)
+  class SocketService {
+    constructor() {
+      this.socket = null;
+      this.isConnected = false;
+      this.reconnectAttempts = 0;
+      this.maxReconnectAttempts = 5;
+    }
+
+    connect(token) {
+      if (this.socket && this.isConnected) {
+        return this.socket;
+      }
+
+      const apiBase = window.apiBase || 'http://localhost:3000';
+      console.log('Socket.io conectando a:', apiBase);
+      
+      this.socket = io(apiBase, {
+        auth: { token },
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionAttempts: this.maxReconnectAttempts,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000,
+      });
+
+      this.socket.on('connect', () => {
+        console.log('Socket.io conectado');
+        this.isConnected = true;
+        this.reconnectAttempts = 0;
+      });
+
+      this.socket.on('disconnect', (reason) => {
+        console.log('Socket.io desconectado:', reason);
+        this.isConnected = false;
+      });
+
+      this.socket.on('connect_error', (error) => {
+        console.error('Error de conexión Socket.io:', error);
+        this.reconnectAttempts++;
+        
+        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+          console.error('Máximo de intentos de reconexión alcanzado');
+        }
+      });
+
+      this.socket.on('reconnect', (attemptNumber) => {
+        console.log(`Socket.io reconectado después de ${attemptNumber} intentos`);
+        this.isConnected = true;
+        this.reconnectAttempts = 0;
+      });
+
+      return this.socket;
+    }
+
+    onNewMessage(callback) {
+      if (this.socket) {
+        this.socket.on('newMessage', callback);
+      }
+    }
+
+    onUpdateNotifications(callback) {
+      if (this.socket) {
+        this.socket.on('updateNotifications', callback);
+      }
+    }
+  }
+
+  const socketService = new SocketService();
+  let socket = null;
+  
+  // Función local para obtener token válido
+  function getValidToken() {
+    const token = localStorage.getItem('token');
+    if (!token) return null;
+    
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const currentTime = Date.now() / 1000;
+      
+      if (payload.exp < currentTime) {
+        localStorage.removeItem('token');
+        return null;
+      }
+      
+      return token;
+    } catch (error) {
+      console.error('Error validando token:', error);
+      localStorage.removeItem('token');
+      return null;
+    }
+  }
   // Variables
   let notifications = [];
   let unreadCount = 0;
@@ -91,7 +187,8 @@ const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL
   // Función para cargar notificaciones
   async function loadNotifications() {
     try {
-      const token = localStorage.getItem('token');
+      // Validar token usando función centralizada
+      const token = getValidToken();
       if (!token) return;
       
       const response = await fetch(`${apiBase}/api/chat/summary`, {
@@ -105,15 +202,8 @@ const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL
       const data = await response.json();
       const newUnreadCount = data.data.totalUnread || 0;
       
-      console.log('Notificaciones cargadas:', { 
-        previousUnreadCount, 
-        newUnreadCount, 
-        totalUnread: data.data.totalUnread 
-      });
-      
       // Verificar si hay nuevos mensajes
       if (newUnreadCount > previousUnreadCount) {
-        console.log('¡Nuevos mensajes recibidos!');
         // Aquí podrías agregar una notificación visual o sonora
       }
       
@@ -138,7 +228,7 @@ const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL
     const ping = document.getElementById('notification-ping');
     const bellIcon = notificationBell?.querySelector('svg');
     
-    console.log('Actualizando badge:', { unreadCount, badge: !!badge, ping: !!ping, bellIcon: !!bellIcon });
+
     
     if (unreadCount > 0) {
       // Cambiar color de la campanita a naranja
@@ -187,8 +277,9 @@ const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL
     
     const notificationsHTML = notifications.map(chat => `
       <div 
-        class="p-3 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
-        onclick="openAdminChat('${chat.customer_id}', '${chat.company_name}', '${chat.company_name}'); notificationDropdown.classList.add('hidden');"
+        class="p-3 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors notification-item"
+        data-customer-id="${chat.customer_id}"
+        data-company-name="${chat.company_name}"
       >
         <div class="flex items-start justify-between">
           <div class="flex-1">
@@ -208,6 +299,20 @@ const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL
     `).join('');
     
     notificationList.innerHTML = notificationsHTML;
+    
+    // Agregar event listeners a los elementos de notificación
+    notificationList.querySelectorAll('.notification-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const customerId = item.getAttribute('data-customer-id');
+        const companyName = item.getAttribute('data-company-name');
+        
+        if (typeof openAdminChat === 'function') {
+          openAdminChat(customerId, companyName, companyName);
+        }
+        
+        notificationDropdown?.classList.add('hidden');
+      });
+    });
   }
   
   // Event listeners
@@ -249,23 +354,48 @@ const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL
     }
   });
   
-  // Variable para el polling de notificaciones
-  let notificationPollingInterval = null;
-  
-  // Función para iniciar el polling de notificaciones
-  function startNotificationPolling() {
-    if (notificationPollingInterval) {
-      clearInterval(notificationPollingInterval);
+  // Inicializar Socket.io para notificaciones
+  function initializeNotificationSocket() {
+    // Verificar que Socket.io esté disponible
+    if (typeof io === 'undefined') {
+      console.error('Socket.io no está disponible');
+      return;
     }
-    notificationPollingInterval = setInterval(loadNotifications, 5000); // Actualizar cada 5 segundos
-  }
-  
-  // Función para detener el polling de notificaciones
-  function stopNotificationPolling() {
-    if (notificationPollingInterval) {
-      clearInterval(notificationPollingInterval);
-      notificationPollingInterval = null;
+
+    const token = getValidToken();
+    if (!token) {
+      console.error('Token no encontrado para Socket.io');
+      return;
     }
+
+    // Verificar si el token es válido
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const currentTime = Date.now() / 1000;
+      
+      if (payload.exp < currentTime) {
+        console.error('Token expirado para Socket.io');
+        return;
+      }
+      
+      console.log('Token válido, conectando Socket.io...');
+      socket = socketService.connect(token);
+    } catch (error) {
+      console.error('Token inválido para Socket.io:', error);
+      return;
+    }
+    
+    // Escuchar actualizaciones de notificaciones
+    socketService.onUpdateNotifications(() => {
+      console.log('Actualización de notificaciones recibida');
+      loadNotifications();
+    });
+    
+    // Escuchar mensajes nuevos para actualizar notificaciones
+    socketService.onNewMessage((messageData) => {
+      console.log('Nuevo mensaje recibido (notificaciones):', messageData);
+      loadNotifications();
+    });
   }
   
   // Inicializar badge al cargar la página
@@ -274,8 +404,10 @@ const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL
   // Cargar notificaciones al cargar la página
   loadNotifications();
   
-  // Iniciar polling automático de notificaciones
-  startNotificationPolling();
+  // Inicializar Socket.io para notificaciones
+  setTimeout(() => {
+    initializeNotificationSocket();
+  }, 1000);
   
   // Función global para recargar notificaciones (usada por AdminChatModal)
   window.reloadNotifications = loadNotifications;

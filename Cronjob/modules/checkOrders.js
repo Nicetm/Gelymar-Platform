@@ -40,7 +40,7 @@ if (arg === 'execute-now') {
 cron.schedule('0 6 * * *', async () => {
   console.log(`[${new Date().toISOString()}] Iniciando procesamiento de archivos de órdenes...`);
   try {
-    await fetchOrderFilesFromNetwork();
+    await executeWithErrorHandling();
     console.log(`[${new Date().toISOString()}] Archivos de órdenes procesados.`);
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Error en procesamiento de órdenes:`, error.message);

@@ -6,103 +6,13 @@ const { parse } = require('csv-parse/sync');
 const { stringify } = require('csv-stringify/sync');
 const { getAllCustomerRuts, insertCustomer } = require('./customer.service');
 
-const SERVER = '172.20.10.167';
-const SHARE_PATH = 'Users/above/Documents/BotArchivoWeb/archivos';
-const FILE_NAME = 'CLIENTES.txt';
-const USER = 'softkey';
-const PASSWORD = 'sK06.2025#';
-
-let isMounted = false;
-
-function mountIfNeeded() {
-  const platform = os.platform();
-  if (platform === 'win32') {
-    const filePath = `Z:\\${FILE_NAME}`;
-    
-    // Verificar si la unidad Z: ya está montada y el archivo existe
-    if (fs.existsSync(filePath)) {
-      console.log('Unidad Z: ya está montada y accesible');
-      return filePath;
-    }
-    
-    // Si el archivo no existe, intentar montar la red compartida
-    console.log('Unidad Z: no está montada o archivo no encontrado, intentando montar...');
-    try {
-      const mountCmd = `net use Z: \\\\${SERVER}\\${SHARE_PATH} /user:${USER} ${PASSWORD}`;
-      execSync(mountCmd, { stdio: 'pipe' });
-      isMounted = true;
-      console.log('Red compartida montada correctamente en Windows');
-      
-      // Verificar si ahora existe el archivo
-      if (fs.existsSync(filePath)) {
-        console.log('Archivo encontrado después del montaje');
-        return filePath;
-      } else {
-        console.log('Archivo no encontrado después del montaje');
-        return filePath;
-      }
-    } catch (mountErr) {
-      console.error('Error montando red en Windows:', mountErr.message);
-      return filePath;
-    }
-  } else {
-    const mountPoint = '/mnt/red';
-    const filePath = path.join(mountPoint, FILE_NAME);
-    if (!fs.existsSync(filePath)) {
-      try {
-        execSync(`mkdir -p ${mountPoint}`);
-        const mountCmd = `mount -t cifs //${SERVER}/${SHARE_PATH} ${mountPoint} -o username=${USER},password='${PASSWORD}',iocharset=utf8,vers=1.0`;
-        execSync(mountCmd);
-        isMounted = true;
-        console.log('Red compartida montada correctamente');
-      } catch (err) {
-        console.error('Error montando red en Linux:', err.message);
-        return null;
-      }
-    } else {
-      console.log('Red compartida ya está montada');
-    }
-    return filePath;
-  }
-}
-
-function unmountIfNeeded() {
-  const platform = os.platform();
-  if (platform === 'win32') {
-    if (isMounted) {
-      try {
-        execSync('net use Z: /delete', { stdio: 'pipe' });
-        console.log('Red compartida desmontada correctamente en Windows');
-        isMounted = false;
-      } catch (err) {
-        console.error('Error desmontando red en Windows:', err.message);
-      }
-    } else {
-      console.log('Red compartida no estaba montada por este proceso en Windows');
-    }
-  } else {
-    if (isMounted) {
-      try {
-        const mountPoint = '/mnt/red';
-        execSync(`umount ${mountPoint}`);
-        console.log('Red compartida desmontada correctamente');
-        isMounted = false;
-      } catch (err) {
-        console.error('Error desmontando red en Linux:', err.message);
-      }
-    } else {
-      console.log('Red compartida no estaba montada por este proceso');
-    }
-  }
-}
-
 async function fetchClientFilesFromNetwork() {
-    const inputPath = mountIfNeeded();
-    console.log('Ruta del archivo montado:', inputPath);
+    const inputPath = 'Z:\\CLIENTES.txt';
+    console.log('Ruta del archivo:', inputPath);
   
-    if (!inputPath || !fs.existsSync(inputPath)) {
-      console.error('Archivo no disponible o no montado:', inputPath);
-      unmountIfNeeded();
+    if (!fs.existsSync(inputPath)) {
+      console.error('Archivo no disponible en Z:\\CLIENTES.txt');
+      console.log('Conéctate manualmente a la red compartida antes de ejecutar el cron');
       return;
     }
   
@@ -123,8 +33,18 @@ async function fetchClientFilesFromNetwork() {
       // Guardar CSV en disco
       const output = stringify(records, { header: true, delimiter: ';' });
       fs.ensureDirSync('documentos');
-      fs.writeFileSync('documentos/CLIENTES.csv', output, 'utf8');
-      console.log('CLIENTES.csv generado correctamente.');
+      
+      // Usar timestamp para evitar conflictos de archivo
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `documentos/CLIENTES_${timestamp}.csv`;
+      
+      try {
+        fs.writeFileSync(filename, output, 'utf8');
+        console.log(`${filename} generado correctamente.`);
+      } catch (writeError) {
+        console.warn(`No se pudo escribir el archivo CSV: ${writeError.message}`);
+        console.log('Continuando con el procesamiento...');
+      }
   
       // Leer RUTs existentes en la BD
       const existingRuts = await getAllCustomerRuts();
@@ -163,9 +83,6 @@ async function fetchClientFilesFromNetwork() {
       console.log(`Procesamiento completado. Nuevos clientes: ${nuevos}`);
     } catch (error) {
       console.error('Error procesando archivo de clientes:', error);
-    } finally {
-      // Siempre desmontar al finalizar
-      unmountIfNeeded();
     }
 }
 

@@ -6,9 +6,8 @@ const { poolPromise } = require('../config/db');
  * @returns {Promise<void>}
  */
 const insertOrderLine = async (data) => {
-
-  console.log('Inserting order line:', data);
   try {
+
     const pool = await poolPromise;
     
     const query = `
@@ -16,8 +15,9 @@ const insertOrderLine = async (data) => {
         order_id, pc, linea, factura, localizacion, item_id, descripcion, 
         kg_solicitados, kg_despachados, unit_price, observacion, 
         mercado, embalaje, volumen, etiqueta, kto_etiqueta5, 
-        created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        tipo, fecha_etd, fecha_eta, kg_facturados,
+        csv_row_hash, csv_file_timestamp, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
     `;
 
     const params = [
@@ -36,16 +36,19 @@ const insertOrderLine = async (data) => {
       data.embalaje,
       data.volumen,
       data.etiqueta,
-      data.kto_etiqueta5
+      data.kto_etiqueta5,
+      data.tipo,
+      data.fecha_etd,
+      data.fecha_eta,
+      data.kg_facturados,
+      data.csv_row_hash || null,
+      data.csv_file_timestamp || null
     ];
 
-    console.log(`Ejecutando INSERT en MySQL (order_items):`);
-    //console.log(`   Query: ${query}`);
-    //console.log(`   Params: [${params.map(p => `"${p}"`).join(', ')}]`);
+
 
     const [result] = await pool.query(query, params);
-    
-    console.log(`INSERT exitoso - ID insertado: ${result.insertId}`);
+    return result.insertId;
     
   } catch (error) {
     console.error(`Error en INSERT MySQL (order_items):`);
@@ -103,6 +106,69 @@ const getOrderLineByPc = async (pc) => {
 };
 
 /**
+ * Obtiene todas las líneas de orden existentes con hashes para comparación
+ * @returns {Promise<Array<Object>>}
+ */
+const getAllExistingOrderLinesWithHashes = async () => {
+  const pool = await poolPromise;
+  const [rows] = await pool.query(`
+    SELECT 
+      id, pc, linea, factura, csv_row_hash, csv_file_timestamp
+    FROM order_items 
+    WHERE pc IS NOT NULL AND linea IS NOT NULL AND factura IS NOT NULL
+  `);
+  return rows.map(row => ({
+    id: row.id,
+    key: `${row.pc}-${row.linea}-${row.factura}`,
+    pc: row.pc,
+    linea: row.linea,
+    factura: row.factura,
+    csv_row_hash: row.csv_row_hash,
+    csv_file_timestamp: row.csv_file_timestamp
+  }));
+};
+
+/**
+ * Actualiza una línea de orden existente por clave compuesta
+ * @param {string} lineKey - Clave compuesta (pc-linea-factura)
+ * @param {Object} data - Datos a actualizar
+ * @returns {Promise<void>}
+ */
+const updateOrderLineByKey = async (lineKey, data) => {
+  const pool = await poolPromise;
+  const [pc, linea, factura] = lineKey.split('-');
+  
+  const updateFields = [];
+  const updateValues = [];
+  
+  // Construir campos dinámicamente
+  if (data.descripcion !== undefined) updateFields.push('descripcion = ?'), updateValues.push(data.descripcion);
+  if (data.localizacion !== undefined) updateFields.push('localizacion = ?'), updateValues.push(data.localizacion);
+  if (data.kg_solicitados !== undefined) updateFields.push('kg_solicitados = ?'), updateValues.push(data.kg_solicitados);
+  if (data.kg_despachados !== undefined) updateFields.push('kg_despachados = ?'), updateValues.push(data.kg_despachados);
+  if (data.unit_price !== undefined) updateFields.push('unit_price = ?'), updateValues.push(data.unit_price);
+  if (data.observacion !== undefined) updateFields.push('observacion = ?'), updateValues.push(data.observacion);
+  if (data.mercado !== undefined) updateFields.push('mercado = ?'), updateValues.push(data.mercado);
+  if (data.embalaje !== undefined) updateFields.push('embalaje = ?'), updateValues.push(data.embalaje);
+  if (data.volumen !== undefined) updateFields.push('volumen = ?'), updateValues.push(data.volumen);
+  if (data.etiqueta !== undefined) updateFields.push('etiqueta = ?'), updateValues.push(data.etiqueta);
+  if (data.kto_etiqueta5 !== undefined) updateFields.push('kto_etiqueta5 = ?'), updateValues.push(data.kto_etiqueta5);
+  if (data.tipo !== undefined) updateFields.push('tipo = ?'), updateValues.push(data.tipo);
+  if (data.fecha_etd !== undefined) updateFields.push('fecha_etd = ?'), updateValues.push(data.fecha_etd);
+  if (data.fecha_eta !== undefined) updateFields.push('fecha_eta = ?'), updateValues.push(data.fecha_eta);
+  if (data.kg_facturados !== undefined) updateFields.push('kg_facturados = ?'), updateValues.push(data.kg_facturados);
+  if (data.csv_row_hash !== undefined) updateFields.push('csv_row_hash = ?'), updateValues.push(data.csv_row_hash);
+  if (data.csv_file_timestamp !== undefined) updateFields.push('csv_file_timestamp = ?'), updateValues.push(data.csv_file_timestamp);
+  
+  updateFields.push('updated_at = NOW()');
+  
+  const query = `UPDATE order_items SET ${updateFields.join(', ')} WHERE pc = ? AND linea = ? AND factura = ?`;
+  updateValues.push(pc, linea, factura);
+  
+  await pool.query(query, updateValues);
+};
+
+/**
  * Actualiza el campo factura de una línea de orden
  * @param {number} orderLineId - ID de la línea de orden
  * @param {string} factura - Nueva factura
@@ -135,7 +201,9 @@ const updateOrderLineFactura = async (orderLineId, factura) => {
 module.exports = {
   insertOrderLine,
   getAllExistingOrderLines,
+  getAllExistingOrderLinesWithHashes,
   getAllOrderLines,
   getOrderLineByPc,
-  updateOrderLineFactura
+  updateOrderLineFactura,
+  updateOrderLineByKey
 }; 

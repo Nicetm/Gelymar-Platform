@@ -40,7 +40,7 @@ if (arg === 'execute-now') {
 cron.schedule('30 5 * * *', async () => {
   console.log(`[${new Date().toISOString()}] Iniciando procesamiento de archivos de items...`);
   try {
-    await fetchItemFilesFromNetwork();
+    await executeWithErrorHandling();
     console.log(`[${new Date().toISOString()}] Archivos de items procesados.`);
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Error en procesamiento de items:`, error.message);

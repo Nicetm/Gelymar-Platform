@@ -1,0 +1,64 @@
+/* ── Panel de Usuario Moderno ───────────────────────────────────────────────── */
+.user-panel-container {
+  @apply mx-0;
+}
+
+.user-panel-admin {
+  @apply bg-gray-100 dark:bg-gray-800 p-4 border-b border-gray-200 dark:border-gray-700 w-full min-h-[140px];
+}
+
+.user-panel-client {
+  @apply bg-gray-100 dark:bg-gray-800 p-4 border-b border-gray-200 dark:border-gray-700 w-full min-h-[140px];
+}
+
+.user-panel-header {
+  @apply flex items-center justify-between mb-4;
+}
+
+.user-panel-title {
+  @apply flex items-center gap-2;
+}
+
+.user-panel-indicator {
+  @apply w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-lg;
+}
+
+.user-panel-title-text-admin {
+  @apply text-sm font-semibold text-gray-700 dark:text-gray-300;
+}
+
+.user-panel-title-text-client {
+  @apply text-sm font-semibold text-gray-700 dark:text-gray-300;
+}
+
+.user-panel-icon-admin {
+  @apply w-6 h-6 bg-gray-500 dark:bg-gray-600 rounded flex items-center justify-center;
+}
+
+.user-panel-icon-client {
+  @apply w-6 h-6 bg-gray-500 dark:bg-gray-600 rounded flex items-center justify-center;
+}
+
+.user-panel-icon-svg {
+  @apply w-3 h-3 text-white;
+}
+
+.user-panel-content {
+  @apply text-left;
+}
+
+.user-panel-name {
+  @apply text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3;
+}
+
+.user-panel-session {
+  @apply flex items-center gap-1;
+}
+
+.user-panel-session-dot {
+  @apply w-1.5 h-1.5 bg-green-400 rounded-full;
+}
+
+.user-panel-session-text {
+  @apply text-xs text-gray-600 dark:text-gray-400;
+} 

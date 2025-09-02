@@ -9,7 +9,7 @@ const apiBase = import.meta.env.PUBLIC_API_URL;
     Your password has been updated. You can now log in.
   </p>
 
-  <form id="loginForm" class="space-y-6">
+  <form id="loginForm" class="space-y-6" method="POST" action="javascript:void(0);" onsubmit="return false;" novalidate>
     <!-- Username -->
     <div>
       <label for="username" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Username</label>
@@ -75,106 +75,122 @@ const apiBase = import.meta.env.PUBLIC_API_URL;
     document.getElementById('resetSuccessMessage').classList.remove('hidden');
   }
 
-  document.getElementById('loginForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-
-    const username = e.target.username.value.trim();
-    const password = e.target.password.value.trim();
-    const otp = e.target.otp?.value?.trim();
-    const msg = document.getElementById('loginMessage');
-
-    msg.classList.add('hidden');
-    console.log(apiBase)
-
-    try {
-      const res = await fetch(`${apiBase}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password, otp })
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        if ((data.message?.toLowerCase().includes('2fa') || data.message?.toLowerCase().includes('código 2fa')) && !otpShown) {
-          otpShown = true;
-          document.getElementById('otpContainer').classList.remove('hidden');
-
-          const statusRes = await fetch(`${apiBase}/api/auth/2fa/status?username=${encodeURIComponent(username)}`);
-          const { twoFAEnabled } = await statusRes.json();
-
-          if (!twoFAEnabled) {
-            document.getElementById('qrContainer').classList.remove('hidden');
-            const qrRes = await fetch(`${apiBase}/api/auth/2fa/setup?username=${encodeURIComponent(username)}`);
-            const { qr } = await qrRes.json();
-            document.getElementById('qrImage').src = qr;
-          }
-
-          msg.textContent = 'Please enter your 2FA code from the authenticator app.';
+  // Event listener único para el formulario
+  document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('loginForm');
+    if (form) {
+      form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Obtener datos del formulario
+        const formData = new FormData(e.target);
+        const username = formData.get('username')?.trim() || '';
+        const password = formData.get('password') || '';
+        const otp = formData.get('otp')?.trim() || '';
+        
+        // Validación básica
+        if (!username || !password) {
+          const msg = document.getElementById('loginMessage');
+          msg.textContent = 'Por favor complete todos los campos requeridos';
           msg.classList.remove('hidden');
-          msg.classList.remove('text-red-500');
-          msg.classList.add('text-green-600');
+          msg.classList.remove('text-green-600');
+          msg.classList.add('text-red-500');
           return;
         }
-
-        msg.textContent = data.message || 'Login failed';
+        
+        const msg = document.getElementById('loginMessage');
+        msg.classList.add('hidden');
+        msg.textContent = 'Iniciando sesión...';
         msg.classList.remove('hidden');
-        msg.classList.remove('text-green-600');
-        msg.classList.add('text-red-500');
-        return;
-      }
+        msg.classList.remove('text-red-500');
+        msg.classList.add('text-blue-600');
 
-      // ✅ Guardar token
-			document.cookie = `token=${data.token}; path=/; SameSite=Strict`;
-      localStorage.setItem('token', data.token);
+        try {
+          const res = await fetch(`${apiBase}/api/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password, otp })
+          });
 
-      // ✅ Consultar /me para obtener el rol seguro
-      console.log('🔍 Llamando a /me con token:', data.token.substring(0, 20) + '...');
-      
-      const meRes = await fetch(`${apiBase}/api/auth/me`, {
-        headers: {
-          Authorization: `Bearer ${data.token}`
+          const data = await res.json();
+
+          if (!res.ok) {
+            if ((data.message?.toLowerCase().includes('2fa') || data.message?.toLowerCase().includes('código 2fa')) && !otpShown) {
+              otpShown = true;
+              document.getElementById('otpContainer').classList.remove('hidden');
+
+              const statusRes = await fetch(`${apiBase}/api/auth/2fa/status?username=${encodeURIComponent(username)}`);
+              const { twoFAEnabled } = await statusRes.json();
+
+              if (!twoFAEnabled) {
+                document.getElementById('qrContainer').classList.remove('hidden');
+                const qrRes = await fetch(`${apiBase}/api/auth/2fa/setup?username=${encodeURIComponent(username)}`);
+                const { qr } = await qrRes.json();
+                document.getElementById('qrImage').src = qr;
+              }
+
+              msg.textContent = 'Please enter your 2FA code from the authenticator app.';
+              msg.classList.remove('hidden');
+              msg.classList.remove('text-red-500');
+              msg.classList.add('text-green-600');
+              return;
+            }
+
+            msg.textContent = data.message || 'Login failed';
+            msg.classList.remove('hidden');
+            msg.classList.remove('text-green-600');
+            msg.classList.add('text-red-500');
+            return;
+          }
+
+          // Guardar token
+          localStorage.setItem('token', data.token);
+          document.cookie = `token=${data.token}; path=/; SameSite=Strict`;
+
+          // Obtener rol del usuario
+          try {
+            const meRes = await fetch(`${apiBase}/api/auth/me`, {
+              headers: { Authorization: `Bearer ${data.token}` }
+            });
+
+            if (meRes.ok) {
+              const user = await meRes.json();
+              const userRole = user.role || (user.role_id === 1 ? 'admin' : 'client');
+              
+              // Verificar si debe cambiar password
+              if (user.change_pw === 0) {
+                localStorage.setItem('userRole', userRole);
+                window.location.href = '/authentication/change-password';
+                return;
+              }
+
+              // Redirigir según rol
+              if (userRole === 'admin') {
+                window.location.href = '/admin/';
+              } else {
+                window.location.href = '/client/';
+              }
+            } else {
+              msg.textContent = 'Error validando usuario';
+              msg.classList.remove('hidden');
+              msg.classList.add('text-red-500');
+            }
+          } catch (error) {
+            console.error('Error obteniendo rol:', error);
+            msg.textContent = 'Error validando usuario';
+            msg.classList.remove('hidden');
+            msg.classList.add('text-red-500');
+          }
+
+        } catch (err) {
+          console.error('Error en login:', err); // Debug
+          msg.textContent = 'Connection error';
+          msg.classList.remove('hidden');
+          msg.classList.add('text-red-500');
         }
       });
-
-      console.log('🔍 Respuesta de /me:', meRes.status, meRes.statusText);
-
-      if (!meRes.ok) {
-        const errorText = await meRes.text();
-        console.log('🔍 Error en /me:', errorText);
-        msg.textContent = 'Error validando usuario';
-        msg.classList.remove('hidden');
-        msg.classList.add('text-red-500');
-        return;
-      }
-
-      const user = await meRes.json();
-      console.log('🔍 Usuario obtenido:', user);
-
-      // ✅ Verificar si debe cambiar password
-      if (user.change_pw === 0) {
-        console.log('🔍 Usuario debe cambiar password');
-        localStorage.setItem('userRole', user.role);
-        window.location.href = '/authentication/change-password';
-        return;
-      }
-
-      // ✅ Redirigir según rol real
-      if (user.role === 'admin') {
-        console.log('🔍 Redirigiendo a admin');
-        window.location.href = '/admin/';
-      } else {
-        console.log('🔍 Redirigiendo a client');
-        window.location.href = '/client/';
-      }
-
-    } catch (err) {
-      msg.textContent = 'Connection error';
-      msg.classList.remove('hidden');
-      msg.classList.add('text-red-500');
     }
   });
-
-
 </script>
 

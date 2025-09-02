@@ -1,5 +1,4 @@
 const orderService = require('../services/order.service');
-const orderDetails = require('../dummy/orderDetails.json');
 
 /**
  * GET /api/orders
@@ -52,48 +51,43 @@ exports.searchOrders = async (req, res) => {
  * GET /api/orders/:id
  * Devuelve una orden específica
  */
-exports.getOrderById = (req, res) => {
-  const order = orders.find(o => o.DocEntry == req.params.id);
-  if (!order) return res.status(404).json({ message: 'Orden no encontrada' });
+exports.getOrderById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const order = await orderService.getOrderById(id, req.user);
+    
+    if (!order) {
+      return res.status(404).json({ message: 'Orden no encontrada' });
+    }
 
-  if (req.user.role === 'client' && req.user.cardCode !== order.CardCode) {
-    return res.status(403).json({ message: 'No autorizado para ver esta orden' });
+    res.json(order);
+  } catch (err) {
+    console.error('[getOrderById] Error:', err.message);
+    res.status(500).json({ message: 'Error al obtener orden' });
   }
-
-  res.json(order);
 };
 
 /**
  * GET /api/orders/:id/details
  * Devuelve el detalle de una orden específica
  */
-exports.getOrderDetails = (req, res) => {
-  const order = orders.find(o => o.DocEntry == req.params.id);
-  if (!order) return res.status(404).json({ message: 'Orden no encontrada' });
-
-  if (req.user.role === 'client' && req.user.cardCode !== order.CardCode) {
-    return res.status(403).json({ message: 'No autorizado para ver el detalle de esta orden' });
-  }
-
-  const details = orderDetails.filter(d => d.DocEntry == req.params.id);
-  res.json(details);
-};
-
-exports.searchOrders = async (req, res) => {
+exports.getOrderDetails = async (req, res) => {
   try {
-    const filters = req.body;
-
-    if (!filters || typeof filters !== 'object') {
-      return res.status(400).json({ message: 'Filtros no válidos' });
+    const { id } = req.params;
+    const details = await orderService.getOrderDetails(id, req.user);
+    
+    if (!details) {
+      return res.status(404).json({ message: 'Orden no encontrada' });
     }
 
-    const data = await orderService.getOrdersByFilters(filters);
-    res.json(data);
+    res.json(details);
   } catch (err) {
-    console.error('[searchOrders] Error:', err.message);
-    res.status(500).json({ message: 'Error interno al buscar órdenes' });
+    console.error('[getOrderDetails] Error:', err.message);
+    res.status(500).json({ message: 'Error al obtener detalles de orden' });
   }
 };
+
+
 
 /**
  * GET /api/orders/client/dashboard
@@ -154,16 +148,16 @@ exports.getClientOrderDocuments = async (req, res) => {
 };
 
 /**
- * GET /api/orders/:orderId/items
+ * GET /api/orders/:orderPc/items
  * Devuelve los items de una orden específica
  * Accesible por admin y clientes (clientes solo pueden ver sus propias órdenes)
  */
 exports.getOrderItems = async (req, res) => {
   try {
-    const { orderId } = req.params;
+    const { orderPc } = req.params;
 
     // Obtener items de la orden
-    const items = await orderService.getOrderItems(orderId, req.user);
+    const items = await orderService.getOrderItems(orderPc, req.user);
 
     if (!items) {
       return res.status(404).json({ message: 'Orden no encontrada o no autorizada' });
@@ -173,5 +167,28 @@ exports.getOrderItems = async (req, res) => {
   } catch (err) {
     console.error('[getOrderItems] Error:', err.message);
     res.status(500).json({ message: 'Error al obtener items de la orden' });
+  }
+};
+
+/**
+ * GET /api/orders/:orderId/detail
+ * Devuelve los detalles completos de una orden específica
+ * Accesible por admin y clientes (clientes solo pueden ver sus propias órdenes)
+ */
+exports.getOrderDetail = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    // Obtener detalles de la orden
+    const orderDetail = await orderService.getOrderDetails(orderId, req.user);
+
+    if (!orderDetail) {
+      return res.status(404).json({ message: 'Orden no encontrada o no autorizada' });
+    }
+
+    res.json(orderDetail);
+  } catch (err) {
+    console.error('[getOrderDetail] Error:', err.message);
+    res.status(500).json({ message: 'Error al obtener detalles de la orden' });
   }
 };

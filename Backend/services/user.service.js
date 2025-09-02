@@ -21,7 +21,6 @@ async function getAllUsers() {
 // Buscar por email o username con JOIN a roles
 async function findUserByEmailOrUsername(emailOrUsername) {
   const pool = await poolPromise;
-  console.log('🔍 Buscando usuario:', emailOrUsername);
   
   const [rows] = await pool.query(
     `
@@ -37,7 +36,27 @@ async function findUserByEmailOrUsername(emailOrUsername) {
     [emailOrUsername]
   );
   
-  console.log('🔍 Resultado de búsqueda:', rows[0] ? { id: rows[0].id, email: rows[0].email, role: rows[0].role } : 'No encontrado');
+  return rows[0];
+}
+
+// Buscar customer_id por RUT
+async function findCustomerIdByRut(rut) {
+  const pool = await poolPromise;
+  const [rows] = await pool.query('SELECT id FROM customers WHERE rut = ?', [rut]);
+  return rows.length > 0 ? rows[0].id : null;
+}
+
+// Buscar usuario completo con roles y customer info para autenticación
+async function findUserForAuth(userId) {
+  const pool = await poolPromise;
+  const [rows] = await pool.query(
+    `SELECT u.id, u.email, r.name AS role, u.twoFAEnabled, u.twoFASecret, c.uuid
+     FROM users u
+     LEFT JOIN roles r ON u.role_id = r.id
+     LEFT JOIN customers c ON u.email = c.rut
+     WHERE u.id = ?`,
+    [userId]
+  );
   return rows[0];
 }
 
@@ -99,6 +118,8 @@ async function updateUser2FASecret(userId, secret) {
 module.exports = {
   getAllUsers,
   findUserByEmailOrUsername,
+  findCustomerIdByRut,
+  findUserForAuth,
   getUserProfile,
   updateUserProfile,
   createUser,

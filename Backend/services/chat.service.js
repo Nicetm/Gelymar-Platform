@@ -1,4 +1,5 @@
 const ChatMessage = require('../models/chatMessage.model');
+const UserService = require('./user.service');
 
 class ChatService {
   static async sendMessage(messageData) {
@@ -76,6 +77,15 @@ class ChatService {
     try {
       const affectedRows = await ChatMessage.markAsReadByAdmin(customerId);
       return { success: true, affectedRows };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  static async authenticateUser(userId) {
+    try {
+      const user = await UserService.findUserForAuth(userId);
+      return user;
     } catch (error) {
       throw error;
     }

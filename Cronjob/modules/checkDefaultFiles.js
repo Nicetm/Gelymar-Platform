@@ -43,8 +43,8 @@ if (arg === 'execute-now') {
 cron.schedule('45 6 * * *', async () => {
   console.log(`[${new Date().toISOString()}] Iniciando generación de archivos por defecto...`);
   try {
-    const response = await axios.post(`${BACKEND_API_URL}/api/cron/generate-default-files`);
-    console.log(`[${new Date().toISOString()}] Archivos por defecto generados:`, response.data.message);
+    await executeWithErrorHandling();
+    console.log(`[${new Date().toISOString()}] Archivos por defecto generados.`);
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Error en generación de archivos por defecto:`, error.response?.data?.error || error.message);
     console.log('Continuando con el siguiente proceso...');

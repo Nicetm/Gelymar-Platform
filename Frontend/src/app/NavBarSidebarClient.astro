@@ -9,7 +9,7 @@ import UserMenu from '../components/UserMenu.astro';
 <nav
   role="navigation"
   aria-label="Main navigation"
-  class="fixed z-30 w-full bg-white/80 dark:bg-gray-900/70 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 ring-1 ring-white/10 dark:ring-gray-700 shadow-md transition-colors motion-reduce:transition-none">
+  class="fixed z-30 w-full bg-white/80 dark:bg-gray-900/70 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 ring-1 ring-white/10 dark:ring-gray-700 transition-colors motion-reduce:transition-none">
   <div class="px-3 py-2 lg:px-5 lg:pl-3">
     <div class="flex items-center justify-between">
       <!-- Logo + Toggle -->
@@ -18,22 +18,14 @@ import UserMenu from '../components/UserMenu.astro';
           id="toggleSidebarMobile"
           aria-label="Toggle sidebar"
           aria-expanded="false"
-          class="p-2 xl:hidden relative z-20 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 transition"
-        >
+          class="p-2 xl:hidden relative z-20 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 transition">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
             <path d="M4 6h16M4 12h16M4 18h16"/>
           </svg>
         </button>
-        <a
-          href="/client"
-          class="ml-2 md:ml-0 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/90 dark:bg-gray-800/70 backdrop-blur-md ring-1 ring-inset ring-gray-200 dark:ring-gray-700 shadow-md hover:shadow-lg hover:-translate-y-0.5 hover:scale-105 transition-transform duration-300 ease-out focus:outline-none focus:ring-2 focus:ring-primary-500"
-        >
-          <img
-            src="/assets/gelymar.svg"
-            alt="Gelymar logo"
-            class="h-9 w-auto drop-shadow-sm transition-transform duration-300 ease-in-out group-hover:scale-150 filter dark:invert dark:brightness-200 -px-2"
-          >
-          <span class="text-xl dark:text-xl font-extrabold tracking-tight text-[#002E50] dark:text-gray-100 transition-colors duration-300 px-1">
+        <a href="/client" class="ml-2 md:ml-0 inline-flex items-center gap-2">
+          <img src="/assets/gelymar.svg"  alt="Gelymar logo" class="h-9 w-auto">
+          <span class="text-xl dark:text-xl font-extrabold tracking-tight text-[#002E50] dark:text-gray-100">
             Gelymar
           </span>
         </a>

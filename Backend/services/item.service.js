@@ -22,13 +22,7 @@ const insertItem = async (data) => {
       data.unidad_medida
     ];
 
-    console.log(`Ejecutando INSERT en MySQL (items):`);
-    console.log(`   Query: ${query}`);
-    console.log(`   Params: [${params.map(p => `"${p}"`).join(', ')}]`);
-
     const [result] = await pool.query(query, params);
-    
-    console.log(`INSERT exitoso - ID insertado: ${result.insertId}`);
     
   } catch (error) {
     console.error(`Error en INSERT MySQL (items):`);
@@ -70,9 +64,43 @@ const getAllItemCodes = async () => {
   return rows.map(row => row.item_code);
 };
 
+/**
+ * Obtener items por orden con validación de permisos
+ * @param {number} orderId - ID de la orden
+ * @param {object} user - Usuario autenticado
+ * @returns {Promise<array|null>} Items de la orden o null
+ */
+async function getItemsByOrder(orderId, user) {
+  try {
+    const pool = await poolPromise;
+    let query = `
+      SELECT oi.*, i.item_name, i.item_code, i.unidad_medida
+      FROM order_items oi
+      JOIN items i ON oi.item_id = i.id
+      JOIN orders o ON oi.order_id = o.id
+      JOIN customers c ON o.customer_id = c.id
+      WHERE o.id = ?
+    `;
+    let params = [orderId];
+
+    // Si es cliente, verificar que la orden pertenezca al cliente
+    if (user.role === 'client') {
+      query += ' AND c.uuid = ?';
+      params.push(user.uuid);
+    }
+
+    const [rows] = await pool.query(query, params);
+    return rows.length > 0 ? rows : null;
+  } catch (error) {
+    console.error('Error en getItemsByOrder:', error.message);
+    throw error;
+  }
+}
+
 module.exports = {
   insertItem,
   getAllItems,
   getItemByCode,
-  getAllItemCodes
+  getAllItemCodes,
+  getItemsByOrder
 }; 

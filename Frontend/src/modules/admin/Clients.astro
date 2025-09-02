@@ -1,21 +1,14 @@
 ---
 import { loadTranslations, getServerLang } from '../../lib/i18n.js';
-import type { Customers } from '../../types/entities.js';
 
 const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
+const apiPublic = import.meta.env.PUBLIC_API_URL;
 const lang = getServerLang(Astro.cookies);
 
 const t: any = {
   clientes: await loadTranslations(lang, 'clientes'),
 	comond: await loadTranslations(lang, 'comond'),
 };
-
-const token = Astro.cookies.get('token')?.value;
-const customers: Customers[] = await fetch(`${apiBase}/api/customers`, {
-  headers: { Authorization: `Bearer ${token}` }
-}).then(res => res.json());
-
-// Eliminar también la declaración de itemsPerPage
 ---
 
 <section id="clientSection" class="px-4 pt-24 pb-6 sm:px-6 lg:px-8">
@@ -142,31 +135,18 @@ const customers: Customers[] = await fetch(`${apiBase}/api/customers`, {
         </tr>
       </thead>
       <tbody id="customersTableBody" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-sm min-h-[600px]">
-        <!-- Las filas <tr> se agregan dinámicamente aquí con JavaScript -->
-		{Array.isArray(customers) && customers.map(customer => (
-			<tr data-id={customer.id} class="hover:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition bg-white dark:bg-gray-900">
-				<td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">{customer.name}</td>
-				<td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">{customer.rut}</td>
-				<td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">{customer.email}</td>
-				<td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">{customer.phone}</td>
-				<td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">{customer.country}</td>
-				<td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">{customer.city}</td>
-				<td class="px-6 py-4 text-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">{customer.order_count}</td>
-				<td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">
-					<div class="flex justify-center items-center gap-3 text-gray-900 dark:text-white">
-						<a href={`/admin/clients/folders/view/${customer.uuid}?c=${customer.name}`} title="Orders" class="hover:text-yellow-500 transition">
-							<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h18v4H3z"/><path d="M3 7h18v13H3z"/><path d="M16 3v4"/></svg>
-						</a>
-						<a href="#" data-uuid={`${customer.uuid}`} title={t.comond.view} class="hover:text-blue-500 transition">
-							<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 20.5C6.753 20.5 2.5 16.247 2.5 11S6.753 1.5 12 1.5 21.5 5.753 21.5 11 17.247 20.5 12 20.5z"/></svg>
-						</a>
-						<a href="#" data-uuid={`${customer.uuid}`} data-name={`${customer.name}`} title={t.clientes.manageContacts} class="hover:text-indigo-500 transition manage-contacts-btn">
-							<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-						</a>
-					</div>
-				</td>
-			</tr>
-		))}
+        <!-- Los datos se cargarán dinámicamente con JavaScript -->
+        <tr id="loadingRow" class="bg-white dark:bg-gray-900">
+          <td colspan="8" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+            <div class="flex items-center justify-center">
+              <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Cargando clientes...
+            </div>
+          </td>
+        </tr>
       </tbody>
     </table>
   </div>
@@ -342,11 +322,11 @@ const customers: Customers[] = await fetch(`${apiBase}/api/customers`, {
   </div>
 </div>
 
-<script type="module" define:vars={{ apiBase, lang, t }}>
+<script type="module" define:vars={{ apiBase, apiPublic, lang, t }}>
   import { initClientsScript } from '/js/clients.js';
   
   // Hacer las variables disponibles globalmente
-  window.apiBase = apiBase;
+  window.apiBase = apiPublic;
   window.lang = lang;
   window.translations = t;
 

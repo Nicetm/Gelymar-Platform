@@ -118,9 +118,33 @@ router.post('/search', authMiddleware, authorizeRoles(['admin', 'client']), orde
 
 /**
  * @swagger
- * /api/orders/{orderId}/items:
+ * /api/orders/{orderPc}/items:
  *   get:
  *     summary: Obtiene los items de una orden específica
+ *     tags: [Órdenes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: orderPc
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Lista de items de la orden
+ *       403:
+ *         description: No autorizado
+ *       404:
+ *         description: Orden no encontrada
+ */
+router.get('/:orderPc/items', authMiddleware, authorizeRoles(['admin', 'client']), orderController.getOrderItems);
+
+/**
+ * @swagger
+ * /api/orders/{orderId}/detail:
+ *   get:
+ *     summary: Obtiene los detalles completos de una orden específica
  *     tags: [Órdenes]
  *     security:
  *       - bearerAuth: []
@@ -132,12 +156,12 @@ router.post('/search', authMiddleware, authorizeRoles(['admin', 'client']), orde
  *           type: integer
  *     responses:
  *       200:
- *         description: Lista de items de la orden
+ *         description: Detalles completos de la orden
  *       403:
  *         description: No autorizado
  *       404:
  *         description: Orden no encontrada
  */
-router.get('/:orderId/items', authMiddleware, authorizeRoles(['admin', 'client']), orderController.getOrderItems);
+router.get('/:orderId/detail', authMiddleware, authorizeRoles(['admin', 'client']), orderController.getOrderDetail);
 
 module.exports = router;

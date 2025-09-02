@@ -40,8 +40,8 @@ if (arg === 'execute-now') {
 cron.schedule('0 5 * * *', async () => {
   console.log(`[${new Date().toISOString()}] Iniciando procesamiento de archivos de clientes...`);
   try {
-    const response = await axios.post(`${BACKEND_API_URL}/api/cron/check-clients`);
-    console.log(`[${new Date().toISOString()}] Archivos de clientes procesados:`, response.data.message);
+    await executeWithErrorHandling();
+    console.log(`[${new Date().toISOString()}] Archivos de clientes procesados.`);
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Error en procesamiento de clientes:`, error.response?.data?.error || error.message);
     console.log('Continuando con el siguiente proceso...');

@@ -1,5 +1,5 @@
 const DocumentType = require('../models/documentType.model');
-const logger = require('../utils/logger');
+const { logger } = require('../utils/logger');
 
 /**
  * @route GET /api/document-types
