@@ -1,28 +1,14 @@
 // logger.js
 const { createLogger, format, transports } = require('winston');
-require('winston-daily-rotate-file');
 const path = require('path');
 const fs = require('fs');
-
-// Asegurar que el directorio de logs exista
-const logDir = path.join(__dirname, '..', 'logs');
-if (!fs.existsSync(logDir)) {
-  fs.mkdirSync(logDir);
-}
-
-// Formato detallado para archivos
-const fileFormat = format.combine(
-  format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-  format.errors({ stack: true }),
-  format.json()
-);
 
 // Formato simple para consola
 const consoleFormat = format.combine(
   format.colorize(),
-  format.timestamp({ format: 'HH:mm:ss' }),
+  format.timestamp({ format: 'YYYY-MM-DDTHH:mm:ss.SSSZ' }),
   format.printf(({ timestamp, level, message, ...meta }) => {
-    let log = `${timestamp} [${level}]: ${message}`;
+    let log = `[${timestamp}] -> Logger Process -> ${message}`;
     if (Object.keys(meta).length > 0) {
       log += ` ${JSON.stringify(meta)}`;
     }
@@ -30,86 +16,73 @@ const consoleFormat = format.combine(
   })
 );
 
-// Transportes de archivo con rotación diaria
-const dailyRotateFileTransport = new transports.DailyRotateFile({
-  filename: path.join(logDir, 'app-%DATE%.log'),
-  datePattern: 'YYYY-MM-DD',
-  zippedArchive: true,
-  maxSize: '20m',
-  maxFiles: '14d', // guarda 14 días de logs
-  format: fileFormat
-});
-
-// Transporte para errores separado
-const errorFileTransport = new transports.DailyRotateFile({
-  filename: path.join(logDir, 'error-%DATE%.log'),
-  datePattern: 'YYYY-MM-DD',
-  zippedArchive: true,
-  maxSize: '20m',
-  maxFiles: '30d', // guarda 30 días de logs de error
-  level: 'error',
-  format: fileFormat
-});
-
-// Transporte para auditoría de seguridad
-const securityFileTransport = new transports.DailyRotateFile({
-  filename: path.join(logDir, 'security-%DATE%.log'),
-  datePattern: 'YYYY-MM-DD',
-  zippedArchive: true,
-  maxSize: '10m',
-  maxFiles: '90d', // guarda 90 días de logs de seguridad
-  format: fileFormat
-});
-
-// Configuración del logger según entorno
-const isDevelopment = process.env.NODE_ENV === 'development';
-const isProduction = process.env.NODE_ENV === 'production';
-
+// Configuración del logger - solo consola para evitar bloqueos
 const loggerConfig = {
-  level: isDevelopment ? 'debug' : 'info',
-  format: isProduction ? fileFormat : consoleFormat,
-  transports: []
+  level: 'info',
+  format: consoleFormat,
+  transports: [
+    new transports.Console({ format: consoleFormat })
+  ]
 };
 
-// Agregar transportes según entorno
-if (isProduction) {
-  // En producción: solo archivos
-  loggerConfig.transports = [
-    dailyRotateFileTransport,
-    errorFileTransport,
-    securityFileTransport
-  ];
-} else {
-  // En desarrollo: consola + archivos básicos
-  loggerConfig.transports = [
-    new transports.Console({ format: consoleFormat }),
-    dailyRotateFileTransport
-  ];
-}
-
-// Crear logger principal
-const logger = createLogger(loggerConfig);
-
-// Logger específico para seguridad
-const securityLogger = createLogger({
-  level: 'info',
-  format: fileFormat,
-  transports: [securityFileTransport]
+// Crear logger principal con manejo de errores
+const logger = createLogger({
+  ...loggerConfig,
+  handleExceptions: true,
+  handleRejections: true,
+  exitOnError: false // No cerrar la aplicación si hay errores de logging
 });
 
-// Logger específico para auditoría
+// Manejo global de errores de logging
+logger.on('error', (error) => {
+  console.error('Error en el logger:', error.message);
+});
+
+// Manejo de excepciones no capturadas
+process.on('uncaughtException', (error) => {
+  console.error('Excepción no capturada:', error.message);
+  // Intentar loggear si es posible
+  try {
+    logger.error('Excepción no capturada', { error: error.message, stack: error.stack });
+  } catch (logError) {
+    console.error('No se pudo loggear la excepción:', logError.message);
+  }
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Promesa rechazada no manejada:', reason);
+  // Intentar loggear si es posible
+  try {
+    logger.error('Promesa rechazada no manejada', { reason: String(reason) });
+  } catch (logError) {
+    console.error('No se pudo loggear la promesa rechazada:', logError.message);
+  }
+});
+
+// Logger específico para seguridad (solo consola)
+const securityLogger = createLogger({
+  level: 'info',
+  format: consoleFormat,
+  transports: [
+    new transports.Console({ format: consoleFormat })
+  ]
+});
+
+// Logger específico para auditoría (solo consola)
 const auditLogger = createLogger({
   level: 'info',
-  format: fileFormat,
+  format: consoleFormat,
   transports: [
-    new transports.DailyRotateFile({
-      filename: path.join(logDir, 'audit-%DATE%.log'),
-      datePattern: 'YYYY-MM-DD',
-      zippedArchive: true,
-      maxSize: '10m',
-      maxFiles: '365d', // guarda 1 año de logs de auditoría
-      format: fileFormat
-    })
+    new transports.Console({ format: consoleFormat })
+  ]
+});
+
+// Logger específico para cron jobs (solo consola)
+const cronLogger = createLogger({
+  level: 'info',
+  format: consoleFormat,
+  transports: [
+    new transports.Console({ format: consoleFormat })
   ]
 });
 
@@ -138,20 +111,30 @@ const logAudit = (action, details = {}) => {
   });
 };
 
-// Manejar errores no capturados
-process.on('uncaughtException', (error) => {
-  logger.error('Uncaught Exception:', error);
-  process.exit(1);
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
-});
+// Función helper para logging de cron jobs
+const logCronJob = (jobName, action, details = {}) => {
+  const logMessage = `CRON_JOB: ${jobName} - ${action}`;
+  cronLogger.info(logMessage, {
+    jobName,
+    action,
+    timestamp: new Date().toISOString(),
+    ...details
+  });
+  
+  // También escribir en el logger principal
+  logger.info(logMessage, {
+    jobName,
+    action,
+    ...details
+  });
+};
 
 module.exports = {
   logger,
   securityLogger,
   auditLogger,
+  cronLogger,
   logSecurity,
-  logAudit
+  logAudit,
+  logCronJob
 };

@@ -55,12 +55,6 @@ function drawHeader(doc, logoPath, title, subtitle) {
   doc.fontSize(20).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
     .text(title, 0, doc.y, { align: 'center', width: doc.page.width });
   
-  if (subtitle) {
-    doc.moveDown(0.3);
-    doc.fontSize(14).font(STYLES.font).fillColor(STYLES.textSecondary)
-      .text(subtitle, 0, doc.y, { align: 'center', width: doc.page.width });
-  }
-  
   // Línea divisoria inferior
   doc.moveDown(1);
   const lineY = doc.y;
@@ -84,7 +78,7 @@ function drawInfoSection(doc, data) {
   const startY = doc.y;
   const sectionWidth = 500;
   const sectionX = (doc.page.width - sectionWidth) / 2;
-  const boxHeight = 100;
+  const boxHeight = 160; // Aumentar altura para los nuevos campos
 
   // Fondo gris claro con bordes redondeados
   doc.save();
@@ -102,27 +96,63 @@ function drawInfoSection(doc, data) {
   const leftColumn = sectionX + 35;
   const rightColumn = sectionX + 290;
   const row1Y = doc.y;
+  const row2Y = row1Y + 20;
+  const row3Y = row2Y + 20;
+  const row4Y = row3Y + 20;
+  const row5Y = row4Y + 20;
+  const row6Y = row5Y + 20;
 
-  // Primera fila: Cliente y Fecha
+  // COLUMNA IZQUIERDA
   doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
     .text('Cliente:', leftColumn, row1Y, { continued: true })
     .font(STYLES.font).fillColor(STYLES.textSecondary)
     .text(` ${data.customerName}`, { width: 180 });
+  
+  doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text('Número de pedido interno:', leftColumn, row2Y, { continued: true })
+    .font(STYLES.font).fillColor(STYLES.textSecondary)
+    .text(` ${data.internalOrderNumber || 'N/A'}`, { width: 180 });
+  
+  doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text('Número de Orden:', leftColumn, row3Y, { continued: true })
+    .font(STYLES.font).fillColor(STYLES.textSecondary)
+    .text(` ${data.orderNumber}`, { width: 180 });
+  
+  doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text('Puerto de Destino:', leftColumn, row4Y, { continued: true })
+    .font(STYLES.font).fillColor(STYLES.textSecondary)
+    .text(` ${data.destinationPort || 'N/A'}`, { width: 180 });
+  
+  doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text('Fecha de entrega Incoterm:', leftColumn, row5Y, { continued: true })
+    .font(STYLES.font).fillColor(STYLES.textSecondary)
+    .text(` ${data.incotermDeliveryDate || 'Semana 42'}`, { width: 180 });
+
+  doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text('Condición de Pago:', leftColumn, row6Y, { continued: true })
+    .font(STYLES.font).fillColor(STYLES.textSecondary)
+    .text(` ${data.paymentCondition || 'N/A'}`, { width: 180 });
+
+  // COLUMNA DERECHA
   doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
     .text('Fecha:', rightColumn, row1Y, { continued: true })
     .font(STYLES.font).fillColor(STYLES.textSecondary)
     .text(` ${new Date().toLocaleDateString('es-CL')}`, { width: 180 });
-
-  // Segunda fila: N° Orden y Responsable
-  const row2Y = row1Y + 20;
+  
   doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
-    .text('N° Orden:', leftColumn, row2Y, { continued: true })
+    .text('Moneda:', rightColumn, row2Y, { continued: true })
     .font(STYLES.font).fillColor(STYLES.textSecondary)
-    .text(` ${data.orderNumber}`, { width: 180 });
+    .text(` ${data.currency || 'N/A'}`, { width: 180 });
+  
   doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
-    .text('Responsable:', rightColumn, row2Y, { continued: true })
+    .text('Incoterm:', rightColumn, row3Y, { continued: true })
     .font(STYLES.font).fillColor(STYLES.textSecondary)
-    .text(` ${data.responsiblePerson || 'Sistema'}`, { width: 180 });
+    .text(` ${data.incoterm || 'N/A'}`, { width: 180 });
+  
+  doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text('Medio de envío:', rightColumn, row4Y, { continued: true })
+    .font(STYLES.font).fillColor(STYLES.textSecondary)
+    .text(` ${data.shippingMethod || 'N/A'}`, { width: 180 });
 
   doc.moveDown(3);
 }
@@ -333,7 +363,7 @@ async function generatePDF(filePath, templateName, data) {
     
     // Secciones de información
     drawInfoSection(doc, data);
-    drawStatusSection(doc, data);
+    //drawStatusSection(doc, data);
     
     // Contenido dinámico desde el template .hbs
     const templatePath = path.join(__dirname, 'templates', `${templateName}.hbs`);

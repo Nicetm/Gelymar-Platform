@@ -191,7 +191,7 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
       const token = getValidToken();
       if (!token) return;
       
-      const response = await fetch(`${apiBase}/api/chat/summary`, {
+      const response = await fetch(`${window.apiBase || 'http://localhost:3000'}/api/chat/summary`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -332,7 +332,7 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
       if (!token) return;
       
       // Marcar todas como leídas
-      await fetch(`${apiBase}/api/chat/mark-all-read`, {
+      await fetch(`${window.apiBase || 'http://localhost:3000'}/api/chat/mark-all-read`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -391,23 +391,49 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
       loadNotifications();
     });
     
-    // Escuchar mensajes nuevos para actualizar notificaciones
+    // Escuchar mensajes nuevos
     socketService.onNewMessage((messageData) => {
-      console.log('Nuevo mensaje recibido (notificaciones):', messageData);
-      loadNotifications();
+      // Verificar que el mensaje sea para este usuario
+      if (messageData.sender_role !== userRole) {
+        // Si es admin, verificar si está hablando con ese cliente
+        if (userRole === 'admin' && messageData.sender_role === 'client') {
+          // Verificar si el admin está hablando con ese cliente
+          const adminChatModal = document.getElementById('admin-chat-modal');
+          if (adminChatModal && !adminChatModal.classList.contains('hidden')) {
+            // El chat está abierto, verificar si es del cliente actual
+            const currentCustomerId = window.currentAdminChatCustomerId;
+            if (currentCustomerId && parseInt(messageData.customer_id) === parseInt(currentCustomerId)) {
+              return;
+            }
+          }
+        }
+        
+        // Actualizar contador de notificaciones
+        updateNotificationCount();
+        
+        // Si es admin, actualizar todas las notificaciones
+        if (userRole === 'admin') {
+          if (window.updateNotificationsImmediately) {
+            window.updateNotificationsImmediately();
+          }
+        }
+      }
     });
   }
   
   // Inicializar badge al cargar la página
   updateNotificationBadge();
   
-  // Cargar notificaciones al cargar la página
-  loadNotifications();
-  
-  // Inicializar Socket.io para notificaciones
-  setTimeout(() => {
-    initializeNotificationSocket();
-  }, 1000);
+  // Inicializar notificaciones al cargar la página
+  document.addEventListener('DOMContentLoaded', () => {
+    updateNotificationBadge();
+    loadNotifications();
+    
+    // Inicializar Socket.io para notificaciones
+    setTimeout(() => {
+      initializeNotificationSocket();
+    }, 1000);
+  });
   
   // Función global para recargar notificaciones (usada por AdminChatModal)
   window.reloadNotifications = loadNotifications;
@@ -416,4 +442,58 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
   window.updateNotificationsImmediately = function() {
     loadNotifications();
   };
+
+  // Función para obtener el customer_id del usuario actual
+  async function getCustomerId() {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return null;
+      
+      const response = await fetch(`${window.apiBase || 'http://localhost:3000'}/api/auth/me`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const userData = await response.json();
+        return userData.customer_id;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error obteniendo customer_id:', error);
+      return null;
+    }
+  }
+
+  // Función para actualizar contador de notificaciones
+  async function updateNotificationCount() {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      
+      if (userRole === 'admin') {
+        const response = await fetch(`${window.apiBase || 'http://localhost:3000'}/api/chat/summary`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          updateNotificationBadge(data.totalUnread || 0);
+        }
+      } else {
+        const customerId = await getCustomerId();
+        if (customerId) {
+          const response = await fetch(`${window.apiBase || 'http://localhost:3000'}/api/chat/unread-count/${customerId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            updateNotificationBadge(data.count || 0);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error actualizando contador de notificaciones:', error);
+    }
+  }
 </script> 

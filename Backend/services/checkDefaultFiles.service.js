@@ -4,111 +4,134 @@ const { getCustomerByRut } = require('./customer.service');
 const fs = require('fs').promises;
 const path = require('path');
 const { cleanDirectoryName } = require('../utils/directoryUtils');
-require('dotenv').config();
+// Las variables de entorno ya se cargan automáticamente en app.js
 
 async function generateDefaultFiles() {
   try {
     console.log('Iniciando generación de documentos por defecto...');
-    console.log(`FILE_SERVER_ROOT configurado: "${process.env.FILE_SERVER_ROOT}"`);
     
     // Obtener todas las órdenes agrupadas por RUT
     const ordersByRut = await getAllOrdersGroupedByRut();
-    console.log(`Total de clientes con órdenes: ${Object.keys(ordersByRut).length}`);
+    const totalClients = Object.keys(ordersByRut).length;
+    
+    if (totalClients === 0) {
+      console.log(`No hay órdenes para procesar`);
+      return;
+    }
     
     let totalFilesCreated = 0;
     let totalOrdersProcessed = 0;
     let totalDirectoriesCreated = 0;
     
-    for (const [rut, orders] of Object.entries(ordersByRut)) {
-      console.log(`Procesando cliente RUT: ${rut} con ${orders.length} órdenes`);
+    // Procesar clientes en lotes para evitar problemas de memoria
+    const clientEntries = Object.entries(ordersByRut);
+    const batchSize = 10; // Lotes más pequeños para clientes
+    const totalBatches = Math.ceil(clientEntries.length / batchSize);
+    
+    for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+      const startIndex = batchIndex * batchSize;
+      const endIndex = Math.min(startIndex + batchSize, clientEntries.length);
+      const currentBatch = clientEntries.slice(startIndex, endIndex);
       
-      for (const order of orders) {
-        try {
-          // Obtener información del cliente
-          const customer = await getCustomerByRut(order.rut);
-          if (!customer) {
-            console.log(`Cliente no encontrado para RUT: ${order.rut}, omitiendo orden ${order.id}`);
-            continue;
-          }
-          
-          // Crear directorio físico en el servidor de archivos (siempre)
-          const directoryPath = await createClientDirectory(customer.name, order.pc);
-          if (!directoryPath) {
-            console.log(`Error creando directorio para orden ${order.id}, omitiendo`);
-            continue;
-          }
-          totalDirectoriesCreated++;
-          
-          // Verificar si ya existen los tres documentos para esta orden
-          const existingFiles = await checkExistingFiles(order.id);
-          
-          if (existingFiles.length >= 3) {
-            console.log(`Orden ${order.id} ya tiene documentos por defecto (${existingFiles.length} archivos), pero directorio creado: ${directoryPath}`);
-            continue;
-          }
-          
-          // Crear los tres documentos por defecto
-          const defaultDocuments = [
-            {
-              name: 'Recepcion de orden',
-              order_id: order.id, // Usar el ID real de la orden
-              pc: order.pc,
-              oc: order.oc,
-              path: directoryPath
-            },
-            {
-              name: 'Aviso de Embarque',
-              order_id: order.id, // Usar el ID real de la orden
-              pc: order.pc,
-              oc: order.oc,
-              path: directoryPath
-            },
-            {
-              name: 'Aviso de Recepcion de orden',
-              order_id: order.id, // Usar el ID real de la orden
-              pc: order.pc,
-              oc: order.oc,
-              path: directoryPath
+      for (const [rut, orders] of currentBatch) {
+        for (const order of orders) {
+          try {
+            // Obtener información del cliente
+            const customer = await getCustomerByRut(order.rut);
+            if (!customer) {
+              continue;
             }
-          ];
-          
-          // Insertar los documentos
-          for (const doc of defaultDocuments) {
-            await insertDefaultFile(doc);
-            totalFilesCreated++;
+            
+            // Verificar si ya existen documentos por defecto para esta orden
+            // Si existe al menos un registro, NO crear ni registros en BD ni directorio
+            const existingFiles = await checkExistingFiles(order.id, order.pc);
+            if (existingFiles.length > 0) {
+              totalOrdersProcessed++;
+              continue;
+            }
+
+            // Crear directorio físico en el servidor de archivos SOLO si no existen registros
+            const directoryPath = await createClientDirectory(customer.name, order.pc);
+            if (!directoryPath) {
+              console.log(`[${new Date().toISOString()}] -> Check Default Files Process -> Error creando directorio para orden ${order.id}, omitiendo`);
+              continue;
+            }
+            totalDirectoriesCreated++;
+
+            // Crear los cuatro documentos por defecto
+            const defaultDocuments = [
+              {
+                name: 'Recepcion de orden',
+                order_id: order.id,
+                pc: order.pc,
+                oc: order.oc,
+                path: directoryPath
+              },
+              {
+                name: 'Aviso de Embarque',
+                order_id: order.id,
+                pc: order.pc,
+                oc: order.oc,
+                path: directoryPath
+              },
+              {
+                name: 'Aviso de Recepcion de orden',
+                order_id: order.id,
+                pc: order.pc,
+                oc: order.oc,
+                path: directoryPath
+              },
+              {
+                name: 'Aviso de Disponibilidad de Orden',
+                order_id: order.id,
+                pc: order.pc,
+                oc: order.oc,
+                path: directoryPath
+              }
+            ];
+            
+            // Insertar los documentos
+            for (const doc of defaultDocuments) {
+              try {
+                await insertDefaultFile(doc);
+                totalFilesCreated++;
+              } catch (insertError) {
+                console.error(`[${new Date().toISOString()}] -> Check Default Files Process -> Error insertando ${doc.name} para orden ${order.id}:`, insertError.message);
+              }
+            }
+            
+            totalOrdersProcessed++;
+            
+          } catch (orderError) {
+            console.error(`Error procesando orden ${order.id}:`, orderError.message);
           }
-          
-          console.log(`Creados 3 documentos para orden ${order.id} (PC: ${order.pc}, OC: ${order.oc}) con order_id: ${order.id} en directorio: ${directoryPath}`);
-          totalOrdersProcessed++;
-          
-        } catch (error) {
-          console.error(`Error procesando orden ${order.id}:`, error.message);
         }
       }
     }
     
-    console.log(`Proceso completado:`);
-    console.log(`- Órdenes procesadas: ${totalOrdersProcessed}`);
-    console.log(`- Directorios creados: ${totalDirectoriesCreated}`);
-    console.log(`- Archivos creados: ${totalFilesCreated}`);
+    console.log(`✅ Documentos generados: ${totalFilesCreated} archivos, ${totalOrdersProcessed} órdenes, ${totalDirectoriesCreated} directorios`);
     
   } catch (error) {
-    console.error('Error en generación de documentos por defecto:', error.message);
+    console.error(`[${new Date().toISOString()}] -> Check Default Files Process -> Error en generación de documentos por defecto:`, error.message);
+    console.error(`   Stack: ${error.stack}`);
+    throw error;
   }
 }
 
-async function checkExistingFiles(orderId) {
+async function checkExistingFiles(orderId, pc) {
   const pool = await poolPromise;
   
-  // Primero verificar si la tabla files existe
   try {
     const [rows] = await pool.query(`
       SELECT f.* FROM files f 
-      WHERE f.order_id = ? AND f.name IN ('Recepcion de orden', 'Aviso de Embarque', 'Aviso de Recepcion de orden')
-    `, [orderId]);
+      WHERE f.order_id = ? AND f.pc = ?
+    `, [orderId, pc]);
+    
     return rows;
+    
   } catch (error) {
-    console.error(`Error verificando archivos existentes para orden ${orderId}:`, error.message);
+    console.error(`[${new Date().toISOString()}] -> Check Default Files Process -> Error verificando archivos existentes para orden ${orderId}:`, error.message);
+    console.error(`[${new Date().toISOString()}] -> Check Default Files Process -> Stack completo:`, error.stack);
     // Si hay error, retornar array vacío para que continúe el proceso
     return [];
   }
@@ -117,24 +140,31 @@ async function checkExistingFiles(orderId) {
 async function insertDefaultFile(fileData) {
   const pool = await poolPromise;
   
-  const query = `
-    INSERT INTO files (
-      order_id, pc, oc, name, path, eta, etd, was_sent, 
-      document_type, file_type, status_id, is_visible_to_client, 
-      created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, 'PDF', 1, 0, NOW(), NOW())
-  `;
+  try {
+    const query = `
+      INSERT INTO files (
+        order_id, pc, oc, name, path, eta, etd, was_sent, 
+        document_type, file_type, status_id, is_visible_to_client, 
+        created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, 'PDF', 1, 0, NOW(), NOW())
+    `;
 
-  const params = [
-    fileData.order_id, // Usar el order_id real
-    fileData.pc,
-    fileData.oc,
-    fileData.name,
-    fileData.path
-  ];
+    const params = [
+      fileData.order_id, // Usar el order_id real
+      fileData.pc,
+      fileData.oc,
+      fileData.name,
+      fileData.path
+    ];
 
-  const [result] = await pool.query(query, params);
-  
+    const [result] = await pool.query(query, params);
+    console.log(`[${new Date().toISOString()}] -> Check Default Files Process -> Archivo por defecto insertado: ${fileData.name} para orden ${fileData.order_id}`);
+    return result;
+    
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] -> Check Default Files Process -> Error insertando archivo por defecto ${fileData.name} para orden ${fileData.order_id}:`, error.message);
+    throw error;
+  }
 }
 
 /**
@@ -158,32 +188,20 @@ async function createClientDirectory(customerName, pc) {
     // Crear ruta del directorio: /uploads/CLIENTE_NOMBRE/Numero PC
     const directoryPath = path.join(fileServerRoot, 'uploads', cleanCustomerName, pc);
     
-    console.log(`Intentando crear directorio: "${directoryPath}"`);
-    
     // Verificar si el directorio ya existe
     try {
       await fs.access(directoryPath);
-      console.log(`El directorio ya existe: ${directoryPath}`);
       return directoryPath;
     } catch (accessError) {
-      console.log(`El directorio no existe, creando: ${directoryPath}`);
+      // El directorio no existe, crearlo
     }
     
     // Crear directorio y subdirectorios si no existen
     await fs.mkdir(directoryPath, { recursive: true });
-    
-    // Verificar que se creó correctamente
-    try {
-      await fs.access(directoryPath);
-      console.log(`Directorio creado exitosamente: ${directoryPath}`);
       return directoryPath;
-    } catch (verifyError) {
-      console.error(`Error verificando directorio creado: ${directoryPath}`);
-      return null;
-    }
     
   } catch (error) {
-    console.error(`Error creando directorio para cliente ${customerName}, PC ${pc}:`);
+    console.error(`[${new Date().toISOString()}] -> Check Default Files Process -> Error creando directorio para cliente ${customerName}, PC ${pc}:`);
     console.error(`   Error: ${error.message}`);
     console.error(`   Stack: ${error.stack}`);
     return null;

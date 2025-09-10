@@ -1,11 +1,12 @@
 // src/lib/authConfig.js - Configuración centralizada de autenticación
+import { SERVER_API_URL, PUBLIC_API_URL } from '../app/constants.ts';
 
 /**
  * Configuración de autenticación
  */
 export const AUTH_CONFIG = {
   // URLs de la API
-  API_BASE: import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL,
+  API_BASE: SERVER_API_URL || PUBLIC_API_URL,
   
   // Rutas de autenticación
   LOGIN_URL: '/authentication/sign-in',

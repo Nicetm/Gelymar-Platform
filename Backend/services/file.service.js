@@ -202,7 +202,7 @@ const duplicateFile = async (fileId) => {
 const getAllOrdersGroupedByRut = async () => {
   const pool = await poolPromise;
   const [rows] = await pool.query(`
-    SELECT id, rut, pc, oc, name, created_at 
+    SELECT id, rut, pc, oc, created_at 
     FROM orders 
     WHERE rut IS NOT NULL AND pc IS NOT NULL AND oc IS NOT NULL
     ORDER BY rut, created_at

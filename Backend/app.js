@@ -20,7 +20,24 @@ const authMiddleware = createAuthMiddleware();
 const authFromCookie = createAuthMiddleware({ tokenSource: 'cookie' });
 const authAllowExpired = createAuthMiddleware({ allowExpired: true });
 
-dotenv.config();
+// Configurar variables de entorno según el entorno
+const os = require('os');
+const networkInterfaces = os.networkInterfaces();
+
+// Detectar si estamos en el servidor Ubuntu (172.20.10.151)
+const isServer = Object.values(networkInterfaces)
+  .flat()
+  .some(iface => iface && iface.address === '172.20.10.151');
+
+// Cargar archivo de configuración según entorno
+if (isServer) {
+  dotenv.config({ path: './env.server' });
+  console.log('🔧 [Backend] Entorno detectado: Servidor Ubuntu (172.20.10.151)');
+} else {
+  dotenv.config({ path: './env.local' });
+  console.log('🔧 [Backend] Entorno detectado: Desarrollo local');
+}
+
 const app = express();
 
 // Rutas API
@@ -36,6 +53,7 @@ const documentTypeRoutes = require('./routes/documentType.routes');
 const chatRoutes = require('./routes/chat.routes');
 const cronRoutes = require('./routes/cron.routes');
 const monitoringRoutes = require('./routes/monitoring.routes');
+
 
 // Configuración de rate limiting
 const limiter = rateLimit({
@@ -77,6 +95,7 @@ app.use(cors({
     'http://localhost:2123',
     'http://localhost:8082',
     'http://localhost:9615',
+    /^http:\/\/172\.20\.10\.151:\d+$/, // Permite cualquier puerto para 172.20.10.151
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
@@ -122,6 +141,8 @@ app.use('/api/chat', chatRoutes);
 
 // Rutas de cron (sin autenticación para acceso interno)
 app.use('/api/cron', cronRoutes);
+
+
 
 // Sirve archivos estáticos desde la carpeta 'uploads'
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -200,6 +221,7 @@ const io = new Server(server, {
       'http://localhost:2123',
       'http://localhost:8082',
       'http://localhost:9615',
+      /^http:\/\/172\.20\.10\.151:\d+$/, // Permite cualquier puerto para 172.20.10.151
     ],
     credentials: true,
     methods: ['GET', 'POST']
@@ -233,19 +255,24 @@ io.on('connection', (socket) => {
   if (socket.user.role === 'admin') {
     socket.join('admin-room');
   } else if (socket.user.role === 'client' && socket.user.customer_id) {
-    socket.join(`customer-${socket.user.customer_id}`);
+    const customerRoom = `customer-${socket.user.customer_id}`;
+    socket.join(customerRoom);
   }
+  
   // Manejar desconexión
   socket.on('disconnect', () => {
   });
 });
+
 // Exportar io para usar en otros archivos
 app.set('io', io);
+
 // Iniciar servidor
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, async () => {
   try {
     await initializeSecureDirectories();
   } catch (error) {
+    console.error('Error inicializando directorios:', error);
   }
 });

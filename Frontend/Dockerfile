@@ -1,5 +1,9 @@
 FROM node:18-alpine
 
+# Zona horaria (Alpine)
+RUN apk add --no-cache tzdata
+ENV TZ=America/Santiago
+
 WORKDIR /app
 
 # Copiar package.json y package-lock.json

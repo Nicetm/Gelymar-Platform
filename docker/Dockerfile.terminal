@@ -1,7 +1,8 @@
 FROM alpine:latest
 
-# Instalar dependencias
-RUN apk add --no-cache bash curl docker-cli ttyd
+# Dependencias + tzdata para zona horaria
+RUN apk add --no-cache bash curl docker-cli ttyd tzdata
+ENV TZ=America/Santiago
 
 WORKDIR /app
 
@@ -12,6 +13,13 @@ RUN chmod +x /app/terminal-manager.sh
 # Copiar archivos del terminal web
 COPY terminal/index.html /app/
 
+# Script de entrada que maneja las variables de entorno
+RUN echo '#!/bin/bash' > /app/entrypoint.sh && \
+    echo 'TERMINAL_USER=${TERMINAL_USER:-admin}' >> /app/entrypoint.sh && \
+    echo 'TERMINAL_PASS=${TERMINAL_PASS:-admin123}' >> /app/entrypoint.sh && \
+    echo 'ttyd -p 7681 -c "$TERMINAL_USER:$TERMINAL_PASS" bash /app/terminal-manager.sh' >> /app/entrypoint.sh && \
+    chmod +x /app/entrypoint.sh
+
 EXPOSE 7681
 
-CMD ["ttyd", "-p", "7681", "-c", "admin:admin123", "bash", "/app/terminal-manager.sh"] 
+CMD ["/app/entrypoint.sh"] 

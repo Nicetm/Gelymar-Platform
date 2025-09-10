@@ -1,41 +1,17 @@
 const fs = require('fs-extra');
 const { parse } = require('csv-parse/sync');
 const { stringify } = require('csv-stringify/sync');
-const { insertOrderLine, getAllExistingOrderLinesWithHashes, updateOrderLineByKey } = require('./orderItem.service');
+const { insertOrderLine } = require('./orderItem.service');
 const { getOrderIdByPcOnly } = require('./order.service');
 const { getItemByCode } = require('./item.service');
-const { poolPromise } = require('../config/db');
-const crypto = require('crypto');
-
-// Funciones para csv_processing_tracking
-async function insertCsvTracking(orderLineId, orderLineHash, fileTimestamp) {
-  const pool = await poolPromise;
-  await pool.query(`
-    INSERT INTO csv_processing_tracking (order_item_id, order_items_hash, csv_file_timestamp, last_processed_at)
-    VALUES (?, ?, ?, NOW())
-  `, [orderLineId, orderLineHash, fileTimestamp]);
-}
-
-async function updateCsvTracking(orderLineId, orderLineHash, fileTimestamp) {
-  const pool = await poolPromise;
-  await pool.query(`
-    UPDATE csv_processing_tracking 
-    SET order_items_hash = ?, csv_file_timestamp = ?, last_processed_at = NOW()
-    WHERE order_item_id = ?
-  `, [orderLineHash, fileTimestamp, orderLineId]);
-}
+const { getNetworkFilePath } = require('./networkMount.service');
 
 async function fetchOrderLineFilesFromNetwork() {
-  const inputPath = 'Z:\\FAC_LIN_SOFTKEY.txt';
-  console.log('Ruta del archivo:', inputPath);
-
-  if (!fs.existsSync(inputPath)) {
-    console.error('Archivo no disponible en Z:\\FAC_LIN_SOFTKEY.txt');
-    console.log('Conéctate manualmente a la red compartida antes de ejecutar el cron');
-    return;
-  }
-
   try {
+    // Usar el servicio centralizado para obtener la ruta del archivo
+    const inputPath = await getNetworkFilePath('FAC_LIN_SOFTKEY.txt');
+    console.log('Ruta del archivo:', inputPath);
+    
     const content = fs.readFileSync(inputPath, 'latin1');
     console.log('Contenido leído (primeras líneas):');
     console.log(content.split('\n').slice(0, 3).join('\n'));
@@ -72,21 +48,26 @@ async function fetchOrderLineFilesFromNetwork() {
       console.log('Continuando con el procesamiento...');
     }
 
-    // Obtener timestamp del archivo para comparación
-    const fileStats = fs.statSync(inputPath);
-    const fileTimestamp = fileStats.mtime;
-
-    // Obtener líneas de orden existentes con hashes
-    const existingOrderLines = await getAllExistingOrderLinesWithHashes();
-    console.log(`Líneas de orden ya existentes en BD: ${existingOrderLines.length}`);
-
     let procesados = 0;
     let insertados = 0;
-    let actualizados = 0;
     let omitidos = 0;
     let errores = 0;
+    const totalRecords = records.length;
 
-    for (const record of records) {
+    console.log(`[${new Date().toISOString()}] -> Check Order Line Process -> Procesando ${totalRecords} registros del CSV`);
+    
+    // Procesar en lotes de 100 para evitar problemas de memoria y timeout
+    const batchSize = 100;
+    const totalBatches = Math.ceil(totalRecords / batchSize);
+    
+    for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+      const startIndex = batchIndex * batchSize;
+      const endIndex = Math.min(startIndex + batchSize, totalRecords);
+      const currentBatch = records.slice(startIndex, endIndex);
+      
+      console.log(`[${new Date().toISOString()}] -> Check Order Line Process -> Procesando lote ${batchIndex + 1}/${totalBatches} (registros ${startIndex + 1}-${endIndex})`);
+      
+      for (const record of currentBatch) {
       try {
         procesados++;
         
@@ -111,108 +92,10 @@ async function fetchOrderLineFilesFromNetwork() {
         const fechaEta = record.ETA_Item_OV?.trim();
         const kgFacturados = record.KilosFacturados?.trim();
         
-        if (!pc) {
-          console.log(`Omitido: PC=N/A, Línea=${record.Linea || 'N/A'}, Item=${record.Item || 'N/A'} - Sin PC`);
-          omitidos++;
-          continue;
-        }
-
-        if (!itemCode) {
-          console.log(`Omitido: PC=${pc}, Línea=${record.Linea || 'N/A'}, Item=N/A - Sin item`);
-          omitidos++;
-          continue;
-        }
-
-        // Verificar si la línea de orden ya existe
-        const lineKey = `${pc}-${linea}-${factura}`;
-        const existingOrderLine = existingOrderLines.find(o => o.key === lineKey);
-        
-        if (existingOrderLine) {
-          // Calcular hash de la fila actual del CSV
-          const orderLineHash = crypto.createHash('md5')
-            .update(JSON.stringify({
-              tipo: tipo,
-              pc: pc,
-              linea: linea,
-              factura: factura,
-              localizacion: localizacion,
-              itemCode: itemCode,
-              descripcion: descripcion,
-              kgSolicitados: kgSolicitados,
-              kgEnviados: kgEnviados,
-              precioUnitario: precioUnitario,
-              comentario: comentario,
-              mercado: mercado,
-              embalaje: embalaje,
-              volumen: volumen,
-              etiqueta: etiqueta,
-              ktoEtiqueta5: ktoEtiqueta5,
-              fechaEtd: fechaEtd,
-              fechaEta: fechaEta,
-              kgFacturados: kgFacturados
-            }))
-            .digest('hex');
-
-          // Verificar si hay cambios
-          const hasChanges = orderLineHash !== existingOrderLine.csv_row_hash || 
-                           fileTimestamp > existingOrderLine.csv_file_timestamp;
-
-          if (hasChanges) {
-            // Buscar la orden en la base de datos
-            const orderId = await getOrderIdByPcOnly(pc);
-            if (!orderId) {
-              console.log(`Omitido: PC=${pc}, Línea=${linea || 'N/A'}, Item=${itemCode} - Orden no encontrada`);
-
-              omitidos++;
-              continue;
-            }
-
-            // Buscar el item por código: ${itemCode}
-            const item = await getItemByCode(itemCode);
-            if (!item) {
-              console.log(`Omitido: PC=${pc}, Línea=${linea || 'N/A'}, Item=${itemCode} - Item no encontrado`);
-              console.log(`Registro omitido: PC=${pc}, Línea=${linea || 'N/A'}, Item=${itemCode} - Motivo: Item no encontrado`);
-              omitidos++;
-              continue;
-            }
-
-            // Actualizar la línea de orden existente
-            await updateOrderLineByKey(lineKey, {
-              descripcion: descripcion,
-              localizacion: localizacion,
-              kg_solicitados: kgSolicitados ? parseFloat(kgSolicitados.replace(',', '.')) : null,
-              kg_despachados: kgEnviados ? parseFloat(kgEnviados.replace(',', '.')) : null,
-              unit_price: precioUnitario ? parseFloat(precioUnitario.replace(',', '.')) : null,
-              observacion: comentario,
-              mercado: mercado,
-              embalaje: embalaje,
-              volumen: volumen ? parseFloat(volumen.replace(',', '.')) : null,
-              etiqueta: etiqueta,
-              kto_etiqueta5: ktoEtiqueta5,
-              tipo: tipo,
-              fecha_etd: fechaEtd && fechaEtd.trim() !== '' ? fechaEtd : null,
-              fecha_eta: fechaEta && fechaEta.trim() !== '' ? fechaEta : null,
-              kg_facturados: kgFacturados ? parseFloat(kgFacturados.replace(',', '.')) : null,
-              csv_row_hash: orderLineHash,
-              csv_file_timestamp: fileTimestamp
-            });
-
-            // Actualizar en csv_processing_tracking
-            await updateCsvTracking(existingOrderLine.id, orderLineHash, fileTimestamp);
-
-            console.log(`Actualizado: PC=${pc}, Línea=${linea}, Item=${itemCode}`);
-            actualizados++;
-          } else {
-            console.log(`Omitido: PC=${pc}, Línea=${linea}, Item=${itemCode} - Sin cambios`);
-            omitidos++;
-          }
-          continue;
-        }
-
         // Buscar la orden en la base de datos
         const orderId = await getOrderIdByPcOnly(pc);
         if (!orderId) {
-          console.log(`Omitido: PC=${pc}, Línea=${linea || 'N/A'}, Item=${itemCode} - Orden no encontrada`);
+          console.log(`[${new Date().toISOString()}] -> Check Order Line Process -> Registro omitido: PC=${pc}, Línea=${linea || 'N/A'}, Item=${itemCode} - Motivo: Orden no encontrada`);
           omitidos++;
           continue;
         }
@@ -220,38 +103,13 @@ async function fetchOrderLineFilesFromNetwork() {
         // Buscar el item en la base de datos
         const item = await getItemByCode(itemCode);
         if (!item) {
-          console.log(`Omitido: PC=${pc}, Línea=${linea || 'N/A'}, Item=${itemCode} - Item no encontrado`);
+          console.log(`[${new Date().toISOString()}] -> Check Order Line Process -> Registro omitido: PC=${pc}, Línea=${linea || 'N/A'}, Item=${itemCode} - Motivo: Item no encontrado`);
           omitidos++;
           continue;
         }
 
-        // Calcular hash para nueva línea de orden
-        const orderLineHash = crypto.createHash('md5')
-          .update(JSON.stringify({
-            tipo: tipo,
-            pc: pc,
-            linea: linea,
-            factura: factura,
-            localizacion: localizacion,
-            itemCode: itemCode,
-            descripcion: descripcion,
-            kgSolicitados: kgSolicitados,
-            kgEnviados: kgEnviados,
-            precioUnitario: precioUnitario,
-            comentario: comentario,
-            mercado: mercado,
-            embalaje: embalaje,
-            volumen: volumen,
-            etiqueta: etiqueta,
-            ktoEtiqueta5: ktoEtiqueta5,
-            fechaEtd: fechaEtd,
-            fechaEta: fechaEta,
-            kgFacturados: kgFacturados
-          }))
-          .digest('hex');
-
         // Insertar la línea de orden
-        const orderLineId = await insertOrderLine({
+        await insertOrderLine({
           order_id: orderId,
           item_id: item.id,
           descripcion: descripcion,
@@ -272,26 +130,31 @@ async function fetchOrderLineFilesFromNetwork() {
           fecha_etd: fechaEtd && fechaEtd.trim() !== '' ? fechaEtd : null,
           fecha_eta: fechaEta && fechaEta.trim() !== '' ? fechaEta : null,
           kg_facturados: kgFacturados ? parseFloat(kgFacturados.replace(',', '.')) : null,
-          csv_row_hash: orderLineHash,
-          csv_file_timestamp: fileTimestamp
+          created_at: new Date(),
+          updated_at: new Date()
         });
 
-        // Insertar en csv_processing_tracking (solo si la orden existe)
-        if (orderId) {
-          await insertCsvTracking(orderLineId, orderLineHash, fileTimestamp);
-        }
-
-        console.log(`Insertado: PC=${pc}, Línea=${linea}, Item=${itemCode}`);
+        console.log(`[${new Date().toISOString()}] -> Check Order Line Process -> insertando fila: PC=${pc}, Línea=${linea}, Item=${itemCode}`);
         insertados++;
       } catch (error) {
-        console.error(`Error procesando línea de orden ${record.Nro}:`, error.message);
+        console.error(`[${new Date().toISOString()}] -> Check Order Line Process -> Error procesando línea de orden ${record.Nro}:`, error.message);
         errores++;
       }
+      }
+      
+      // Log de progreso del lote
+      console.log(`[${new Date().toISOString()}] -> Check Order Line Process -> Lote ${batchIndex + 1}/${totalBatches} completado. Progreso: ${procesados}/${totalRecords} registros procesados`);
     }
 
-    console.log(`Procesamiento completado. Procesados: ${procesados}, Insertados: ${insertados}, Actualizados: ${actualizados}, Omitidos: ${omitidos}, Errores: ${errores}`);
+    console.log(`\n[${new Date().toISOString()}] -> Check Order Line Process -> RESUMEN DEL PROCESAMIENTO:`);
+    console.log(`   • Total procesados: ${procesados}`);
+    console.log(`   • Nuevos registros: ${insertados}`);
+    console.log(`   • Registros omitidos: ${omitidos}`);
+    console.log(`   • Errores: ${errores}`);
+    console.log(`\n[${new Date().toISOString()}] -> Check Order Line Process -> Procesamiento completado exitosamente.`);
   } catch (error) {
-    console.error('Error procesando archivo de líneas de orden:', error);
+    console.error(`[${new Date().toISOString()}] -> Check Order Line Process -> Error obteniendo archivo de red:`, error.message);
+    return;
   }
 }
 

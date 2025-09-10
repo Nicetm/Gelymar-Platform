@@ -8,6 +8,147 @@ import {
   formatDateShort
 } from './utils.js';
 
+// Función para formatear moneda
+function formatCurrency(amount, currency = 'CLP') {
+  const currencyMap = {
+    'USD': 'USD',
+    'US': 'USD',
+    'UF': 'CLF',
+    'CLP': 'CLP',
+    'PESO': 'CLP'
+  };
+  
+  const mappedCurrency = currencyMap[currency] || currency;
+  
+  const formatted = new Intl.NumberFormat('es-CL', {
+    style: 'currency',
+    currency: mappedCurrency,
+    minimumFractionDigits: 4,
+    maximumFractionDigits: 4
+  }).format(amount);
+  
+  // Agregar espacio después del código de moneda y asegurar USD
+  return formatted.replace(/([A-Z]{2,3})\$/, '$1 $').replace('US $', 'USD $');
+}
+
+// Función para formatear cantidad con unidad
+function formatQuantity(amount, unit = 'KG') {
+  const unitMap = {
+    'KG': 'kg',
+    'KILOGRAMOS': 'kg',
+    'TON': 'ton',
+    'TONELADAS': 'ton',
+    'LITROS': 'L',
+    'L': 'L',
+    'UNIDADES': 'un',
+    'UN': 'un'
+  };
+  
+  const mappedUnit = unitMap[unit] || unit.toLowerCase();
+  return `${amount.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${mappedUnit}`;
+}
+
+// Función para formatear precio unitario
+function formatUnitPrice(amount) {
+  return `$${amount.toFixed(4).replace(',', '.')}`;
+}
+
+// Función para formatear total
+function formatTotal(amount) {
+  const parts = amount.toFixed(4).split('.');
+  const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `$${integerPart},${parts[1]}`;
+}
+
+// Función para abrir modal de items (mover fuera de initFoldersScript)
+async function openItemsModal(orderPc, orderOc, factura) {
+  const itemsModal = document.getElementById('itemsModal');
+  const itemsOrderTitle = document.getElementById('itemsOrderTitle');
+  const itemsTableBody = document.getElementById('itemsTableBody');
+
+  if (!itemsModal || !itemsOrderTitle || !itemsTableBody) return;
+
+  try {
+    // Cargar items de la orden
+    const token = localStorage.getItem('token');
+    const apiBase = window.apiBase;
+    
+    const response = await fetch(`${apiBase}/api/orders/${orderPc}/${factura}/items`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    if (!response.ok) {
+      throw new Error('Error al cargar los items de la orden');
+    }
+
+    const items = await response.json();
+    
+    // Actualizar header del modal
+    document.getElementById('itemsInitials').textContent = 'IT';
+    document.getElementById('itemsOrderTitle').textContent = `Orden: ${orderOc}`;
+    document.getElementById('itemsOrderSubtitle').textContent = 'Lista de Items';
+    
+    // Renderizar tabla de items
+    if (itemsTableBody) {
+      const currency = items[0]?.currency || 'CLP';
+      itemsTableBody.innerHTML = items.map(item => {
+        const quantity = parseFloat(item.kg_solicitados) || 0;
+        const unitPrice = parseFloat(item.unit_price) || 0;
+        const total = quantity * unitPrice;
+        const unit = item.unidad_medida || 'KG';
+        
+        return `
+          <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+            <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">${item.item_code || 'N/A'}</td>
+            <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">${item.item_name || 'N/A'}</td>
+            <td class="px-6 py-4 text-sm text-center text-gray-900 dark:text-gray-100">${formatQuantity(quantity, unit)}</td>
+            <td class="px-6 py-4 text-sm text-center text-gray-900 dark:text-gray-100">${formatUnitPrice(unitPrice)}</td>
+            <td class="px-6 py-4 text-sm text-center font-semibold text-gray-900 dark:text-gray-100">${formatTotal(total)}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Calcular y mostrar totales
+    const totalItems = document.getElementById('totalItems');
+    const totalQuantity = document.getElementById('totalQuantity');
+    const totalValue = document.getElementById('totalValue');
+    
+    if (totalItems && totalQuantity && totalValue) {
+      const totalItemsCount = items.length;
+      
+      const totalQuantitySum = items.reduce((sum, item) => {
+        const quantity = parseFloat(item.kg_solicitados) || 0;
+        return sum + quantity;
+      }, 0);
+      
+      const totalValueSum = items.reduce((sum, item) => {
+        const quantity = parseFloat(item.kg_solicitados) || 0;
+        const price = parseFloat(item.unit_price) || 0;
+        const itemTotal = quantity * price;
+        return sum + itemTotal;
+      }, 0);
+
+      const currency = items[0]?.currency || 'CLP';
+      const unit = items[0]?.unidad_medida || 'KG';
+      totalItems.textContent = totalItemsCount;
+      totalQuantity.textContent = formatQuantity(totalQuantitySum, unit);
+      totalValue.textContent = formatCurrency(totalValueSum.toFixed(4), currency);
+    }
+
+    // Mostrar modal
+    itemsModal.classList.remove('hidden');
+    itemsModal.classList.add('flex');
+    
+  } catch (error) {
+    console.error('Error cargando items para modal:', error);
+    // Mostrar notificación de error si está disponible
+    if (typeof showNotification === 'function') {
+      showNotification('Error al cargar items de la orden', 'error');
+    }
+  }
+}
+
 // Función para cargar traducciones
 async function loadTranslations(lang, section) {
   try {
@@ -26,7 +167,11 @@ export async function initFoldersScript() {
   // Cargar traducciones
   const currentLang = localStorage.getItem('lang') || 'en';
   const messages = await loadTranslations(currentLang, 'messages');
-  
+  const t = await loadTranslations(currentLang, 'carpetas');
+
+  // Configurar event listeners de modales
+  setupModalEventListeners();
+
   const tableBody = qs('foldersTableBody');
   const searchInput = qs('searchInput');
   const itemsPerPageSelect = qs('itemsPerPageSelect');
@@ -161,21 +306,21 @@ export async function initFoldersScript() {
               <a href="/admin/clients/documents/view/${folder.customer_uuid}?f=${folder.id}&pc=${folder.pc}&c=${clientName}" title="Ver documentos de PC ${folder.pc}" class="hover:text-blue-500 transition">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
               </a>
-                          <a href="#" title="Ver Lista de items de PC ${folder.pc}" class="hover:text-indigo-500 transition">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
-              </svg>
-            </a>
-            <a href="#" title="Expandir items de PC ${folder.pc}" class="expand-items-btn hover:text-green-500 transition" data-order-pc="${folder.pc}" data-order-oc="${folder.oc}">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
-              </svg>
-            </a>
-            <a href="#" title="Detalles de la Orden ${folder.pc}" class="order-detail-btn hover:text-blue-500 transition" data-order-id="${folder.id}">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-              </svg>
-            </a>
+              <a href="#" title="Ver Lista de items de PC ${folder.pc}" class="items-list-btn hover:text-indigo-500 transition" data-order-pc="${folder.pc}" data-order-oc="${folder.oc}" data-factura="${folder.factura}">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+                </svg>
+              </a>
+              <a href="#" title="Expandir items de PC ${folder.pc}" class="expand-items-btn hover:text-green-500 transition" data-order-pc="${folder.pc}" data-order-oc="${folder.oc}" data-factura="${folder.factura}">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+                </svg>
+              </a>
+              <a href="#" title="Detalles de la Orden ${folder.pc}" class="order-detail-btn hover:text-blue-500 transition" data-order-id="${folder.id}" data-order-pc="${folder.pc}" data-order-oc="${folder.oc}">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+              </a>
             </div>
           </td>
         </tr>
@@ -343,7 +488,7 @@ export async function initFoldersScript() {
       const row = document.querySelector(`tr[data-id="${orderId}"]`);
       const pc = row?.cells[0]?.textContent?.trim() || '';
       
-      const response = await fetch(`${apiBase}/api/orders/${pc}/items`, {
+      const response = await fetch(`${apiBase}/api/orders/${pc}/${oc}/items`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -437,26 +582,6 @@ export async function initFoldersScript() {
     });
   }
 
-  /**
-   * Event listener para los botones "Ver Lista de items"
-   */
-  document.addEventListener('click', (e) => {
-    const viewItemsBtn = e.target.closest('a[title*="List"], a[title*="items"]');
-    if (viewItemsBtn && !viewItemsBtn.classList.contains('expand-items-btn')) {
-      e.preventDefault();
-      
-      const row = viewItemsBtn.closest('tr');
-      if (row) {
-        const orderId = row.dataset.id;
-        const pc = row.cells[0]?.textContent?.trim() || ''; // PC
-        const oc = row.cells[1]?.textContent?.trim() || ''; // OC
-        const clientNameFromURL = clientName || 'Cliente'; // Nombre del cliente desde la URL
-        
-        loadOrderItems(orderId, oc, clientNameFromURL);
-      }
-    }
-  });
-
   renderTable();
 
   // ===== MODAL DE DETALLES DE ORDEN =====
@@ -530,7 +655,6 @@ export async function initFoldersScript() {
       setValue('orderDetailCertificados', orderDetail.certificados);
       setValue('orderDetailDireccionDestino', orderDetail.direccion_destino);
       setValue('orderDetailPuertoDestino', orderDetail.puerto_destino);
-      setValue('orderDetailObservaciones', orderDetail.u_observaciones);
 
       // Mostrar el modal
       orderDetailModal.classList.remove('hidden');
@@ -568,7 +692,7 @@ export async function initFoldersScript() {
   }
 
   // Función para expandir/contraer items de una orden
-  async function toggleItemsExpansion(orderPc, orderOc) {
+  async function toggleItemsExpansion(orderPc, orderOc, factura) {
     // Buscar la fila específica usando el botón que se hizo clic
     const expandBtn = event.target.closest('.expand-items-btn');
     const row = expandBtn.closest('tr');
@@ -589,7 +713,7 @@ export async function initFoldersScript() {
       const token = localStorage.getItem('token');
       const apiBase = window.apiBase;
       
-      const response = await fetch(`${apiBase}/api/orders/${orderPc}/items`, {
+      const response = await fetch(`${apiBase}/api/orders/${orderPc}/${factura}/items`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -733,6 +857,20 @@ export async function initFoldersScript() {
   });
 
   /**
+   * Event listeners para botones de lista de items
+   */
+  document.addEventListener('click', (e) => {
+    const itemsBtn = e.target.closest('.items-list-btn');
+    if (itemsBtn) {
+      e.preventDefault();
+      const orderPc = itemsBtn.dataset.orderPc;
+      const orderOc = itemsBtn.dataset.orderOc;
+      const factura = itemsBtn.dataset.factura;
+      openItemsModal(orderPc, orderOc, factura);
+    }
+  });
+
+  /**
    * Event listeners para botones de expansión de items
    */
   document.addEventListener('click', (e) => {
@@ -741,7 +879,8 @@ export async function initFoldersScript() {
       e.preventDefault();
       const orderPc = expandBtn.dataset.orderPc;
       const orderOc = expandBtn.dataset.orderOc;
-      toggleItemsExpansion(orderPc, orderOc);
+      const factura = expandBtn.dataset.factura;
+      toggleItemsExpansion(orderPc, orderOc, factura);
     }
   });
 
@@ -757,6 +896,145 @@ export async function initFoldersScript() {
     }
   });
 
+  // Función para abrir el modal de detalles de orden
+  async function openOrderDetailModal(orderId, orderOc) {
+    const orderDetailModal = document.getElementById('orderDetailModal');
+    const orderDetailTitle = document.getElementById('orderDetailTitle');
+    const orderDetailPc = document.getElementById('orderDetailPc');
+    const orderDetailOc = document.getElementById('orderDetailOc');
+    const orderDetailFechaEtd = document.getElementById('orderDetailFechaEtd');
+    const orderDetailFechaEta = document.getElementById('orderDetailFechaEta');
+    const orderDetailIncoterm = document.getElementById('orderDetailIncoterm');
+    const orderDetailCertificados = document.getElementById('orderDetailCertificados');
+    const orderDetailDireccionDestino = document.getElementById('orderDetailDireccionDestino');
+    const orderDetailPuertoDestino = document.getElementById('orderDetailPuertoDestino');
+
+    if (!orderDetailModal || !orderDetailTitle) return;
+
+    // Actualizar título
+    orderDetailTitle.textContent = `PC ${orderOc} - Detalles`;
+
+    try {
+      // Cargar detalles de la orden
+      const token = localStorage.getItem('token');
+      const apiBase = window.apiBase;
+      const response = await fetch(`${apiBase}/api/orders/${orderId}/detail`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const orderDetail = await response.json();
+      
+      console.log('Order Detail Response:', orderDetail);
+
+      // Función para formatear fechas
+      function formatDateToDDMMYYYY(dateString) {
+        if (!dateString) return '-';
+        try {
+          const date = new Date(dateString);
+          if (isNaN(date.getTime())) return '-';
+          return date.toLocaleDateString('es-ES', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+          });
+        } catch (error) {
+          return '-';
+        }
+      }
+
+      // Actualizar campos del modal
+      orderDetailPc.textContent = orderDetail.pc || '-';
+      orderDetailOc.textContent = orderDetail.oc || '-';
+      orderDetailFechaEtd.textContent = formatDateToDDMMYYYY(orderDetail.fecha_etd);
+      orderDetailFechaEta.textContent = formatDateToDDMMYYYY(orderDetail.fecha_eta);
+      orderDetailIncoterm.textContent = orderDetail.incoterm || '-';
+      orderDetailCertificados.textContent = orderDetail.certificados || '-';
+      orderDetailDireccionDestino.textContent = orderDetail.direccion_destino || '-';
+      orderDetailPuertoDestino.textContent = orderDetail.puerto_destino || '-';
+
+      // Mostrar modal
+      orderDetailModal.classList.remove('hidden');
+
+    } catch (error) {
+      console.error('Error cargando detalles de orden:', error);
+      
+      // Mostrar valores por defecto en caso de error
+      orderDetailPc.textContent = '-';
+      orderDetailOc.textContent = '-';
+      orderDetailFechaEtd.textContent = '-';
+      orderDetailFechaEta.textContent = '-';
+      orderDetailIncoterm.textContent = '-';
+      orderDetailCertificados.textContent = '-';
+      orderDetailDireccionDestino.textContent = '-';
+      orderDetailPuertoDestino.textContent = '-';
+
+      orderDetailModal.classList.remove('hidden');
+    }
+  }
+
+  /**
+   * Event listeners para botones de detalles de orden
+   */
+  document.addEventListener('click', (e) => {
+    const orderDetailBtn = e.target.closest('.order-detail-btn');
+    if (orderDetailBtn) {
+      e.preventDefault();
+      
+      const orderId = orderDetailBtn.dataset.orderId;
+      const row = orderDetailBtn.closest('tr');
+      if (row) {
+        const pc = row.cells[0]?.textContent?.trim() || ''; // PC
+        const oc = row.cells[1]?.textContent?.trim() || ''; // OC
+        
+        openOrderDetailModal(orderId, oc);
+      }
+    }
+  });
+
   // Cargar los datos iniciales
   refreshFolders();
+
+  /**
+   * Configurar event listeners para los modales
+   */
+  function setupModalEventListeners() {
+    // Event listeners para botones de items
+    document.addEventListener('click', (e) => {
+      const itemsBtn = e.target.closest('.items-list-btn');
+      if (itemsBtn) {
+        e.preventDefault();
+        const orderPc = itemsBtn.dataset.orderPc;
+        const orderOc = itemsBtn.dataset.orderOc;
+        const factura = itemsBtn.dataset.factura;
+        openItemsModal(orderPc, orderOc, factura);
+      }
+    });
+
+    // Event listeners para botones de expansión de items
+    document.addEventListener('click', (e) => {
+      const expandBtn = e.target.closest('.expand-items-btn');
+      if (expandBtn) {
+        e.preventDefault();
+        const orderPc = expandBtn.dataset.orderPc;
+        const orderOc = expandBtn.dataset.orderOc;
+        const factura = expandBtn.dataset.factura;
+        // toggleItemsExpansion(orderPc, orderOc, factura); // Si necesitas esta función
+      }
+    });
+
+    // Event listeners para botones de detalles de orden
+    document.addEventListener('click', (e) => {
+      const detailBtn = e.target.closest('.order-detail-btn');
+      if (detailBtn) {
+        e.preventDefault();
+        const orderId = detailBtn.dataset.orderId;
+        const orderOc = detailBtn.dataset.orderOc;
+        openOrderDetailModal(orderId, orderOc);
+      }
+    });
+  }
 } 

@@ -43,9 +43,12 @@ import PaginationControls from './PaginationControls.astro';
     </div>
   </header>
 
-  <!-- List -->
-  <div class="divide-y divide-gray-200 dark:divide-gray-700" id="documents-container">
-    <!-- Document rows will be injected by JS -->
+  <!-- Table -->
+  <div class="overflow-auto">
+    <!-- Grid de cards en lugar de tabla -->
+    <div id="documents-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-4 min-h-[200px]">
+      <!-- Document cards will be injected by JS -->
+    </div>
   </div>
 
   <!-- Pagination -->

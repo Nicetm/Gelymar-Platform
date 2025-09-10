@@ -20,6 +20,7 @@ async function getFoldersByCustomer(customerId) {
     FROM orders o
     INNER JOIN customers c ON o.customer_id = c.id
     WHERE o.customer_id = ?
+    ORDER BY o.fecha_factura DESC
   `, [customerId]);
 
   const countMap = await getFileCountByCustomer(customerId);

@@ -1,9 +1,10 @@
 ---
 import { loadTranslations, getServerLang } from '../lib/i18n.js';
+import { getApiBase, getPublicApiUrl, getFileServerUrl } from './constants.ts';
 
-const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
-const clientApiBase = import.meta.env.PUBLIC_API_URL; // Para JavaScript del cliente
-const fileServer = import.meta.env.PUBLIC_FILE_SERVER_URL;
+const apiBase = getApiBase();
+const clientApiBase = getPublicApiUrl(); // Para JavaScript del cliente
+const fileServer = getFileServerUrl();
 const lang       = getServerLang(Astro.cookies);   // idioma dinámico
 
 const t: any = {

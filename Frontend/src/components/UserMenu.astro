@@ -1,13 +1,15 @@
 ---
 import { loadTranslations } from '../lib/i18n.js';
 
-const lang = import.meta.env.PUBLIC_LANG || 'en';
+import { PUBLIC_LANG, PUBLIC_API_URL, FILE_SERVER_URL } from '../app/constants.ts';
+
+const lang = PUBLIC_LANG;
 const t: any = {
   usermenu: await loadTranslations(lang, 'usermenu'),
 };
 
-const apiBase = import.meta.env.PUBLIC_API_URL;       
-const fileServer = import.meta.env.PUBLIC_FILE_SERVER_URL; 
+const apiBase = PUBLIC_API_URL;       
+const fileServer = FILE_SERVER_URL; 
 
 // Token se manejará en el cliente para evitar problemas de conexión desde Docker
 

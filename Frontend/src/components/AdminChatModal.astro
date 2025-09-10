@@ -201,17 +201,25 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
     
     // Escuchar mensajes nuevos
     socketService.onNewMessage((messageData) => {
-      console.log('Nuevo mensaje recibido:', messageData);
-      
-      // Solo mostrar mensajes del cliente actual si el chat está abierto
-      if (currentCustomerId && messageData.customer_id === currentCustomerId) {
-        const sender = messageData.sender_role === 'admin' ? 'admin' : 'client';
-        addMessageToChat(messageData.message, sender);
+      // Mostrar mensajes del cliente actual si el chat está abierto
+      if (currentCustomerId && parseInt(messageData.customer_id) === parseInt(currentCustomerId)) {
+        // Solo mostrar mensajes del cliente, no del admin (evitar duplicados)
+        if (messageData.sender_role === 'client') {
+          addMessageToChat(messageData.message, 'client');
+        }
       }
       
-      // Actualizar notificaciones
-      if (window.updateNotificationsImmediately) {
-        window.updateNotificationsImmediately();
+      // Si es un mensaje del cliente, actualizar notificaciones solo si:
+      // 1. No es del cliente con quien estoy hablando actualmente, O
+      // 2. El chat no está abierto
+      if (messageData.sender_role === 'client') {
+        const isFromCurrentChat = currentCustomerId && parseInt(messageData.customer_id) === parseInt(currentCustomerId);
+        
+        if (!isFromCurrentChat) {
+          if (window.updateNotificationsImmediately) {
+            window.updateNotificationsImmediately();
+          }
+        }
       }
     });
     
@@ -279,6 +287,7 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
     sendButton.disabled = true;
 
     try {
+      // Agregar mensaje del admin inmediatamente
       addMessageToChat(message, 'admin');
       chatInput.value = '';
 
@@ -304,17 +313,19 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
       if (!response.ok) {
         throw new Error('Error enviando mensaje');
       }
-      
-      if (window.updateNotificationsImmediately) {
-        setTimeout(() => {
-          window.updateNotificationsImmediately();
-        }, 500);
-      }
 
+      // Marcar mensajes como leídos por admin
+      await fetch(`${apiBase}/api/chat/mark-read-admin/${currentCustomerId}`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      // El mensaje ya se agregó al chat, no necesitamos agregarlo de nuevo
+      isTyping = false;
+      sendButton.disabled = false;
+      
     } catch (error) {
       console.error('Error enviando mensaje:', error);
-      addMessageToChat('Error enviando mensaje. Inténtalo de nuevo.', 'admin');
-    } finally {
       isTyping = false;
       sendButton.disabled = false;
     }
@@ -337,6 +348,60 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
     }, 200);
   };
 
+  // Función para abrir el chat del cliente
+  function openCustomerChat(customerId, customerName) {
+    currentCustomerId = customerId;
+    // Exponer globalmente para que NotificationBell pueda acceder
+    window.currentAdminChatCustomerId = customerId;
+    
+    // Inicializar Socket.io si no está inicializado
+    if (!socket) {
+      initializeSocket();
+    }
+    
+    // Cargar mensajes del cliente
+    loadCustomerMessages(customerId);
+    
+    // Mostrar el modal
+    if (chatModal) {
+      chatModal.classList.remove('hidden');
+      document.getElementById('customer-name').textContent = customerName;
+    }
+    
+    // Marcar mensajes como leídos por admin
+    markMessagesAsReadByAdmin(customerId);
+  }
+  
+  // Función para marcar mensajes como leídos por admin
+  async function markMessagesAsReadByAdmin(customerId) {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      
+      await fetch(`${apiBase}/api/chat/mark-read-admin/${customerId}`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      // Actualizar notificaciones
+      if (window.updateNotificationsImmediately) {
+        window.updateNotificationsImmediately();
+      }
+    } catch (error) {
+      console.error('Error marcando mensajes como leídos:', error);
+    }
+  }
+
+  // Función para cerrar el chat
+  function closeChatModal() {
+    if (chatModal) {
+      chatModal.classList.add('hidden');
+      currentCustomerId = null;
+      // Limpiar variable global
+      window.currentAdminChatCustomerId = null;
+    }
+  }
+
   // Event listeners
   closeButton?.addEventListener('click', closeAdminChatModal);
   sendButton?.addEventListener('click', sendAdminMessage);
@@ -354,11 +419,8 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
     }
   });
 
-  // Inicializar Socket.io cuando se carga la página
+  // Inicializar chat del admin al cargar la página
   document.addEventListener('DOMContentLoaded', () => {
-    // Esperar un poco para asegurar que Socket.io esté cargado
-    setTimeout(() => {
-      initializeSocket();
-    }, 1000);
+    initializeSocket();
   });
 </script> 

@@ -1,24 +1,22 @@
 FROM node:18-alpine
 
+# Dependencias del sistema (incluye tzdata para zona horaria y cifs-utils para SMB)
+RUN apk add --no-cache tzdata cifs-utils
+
+# Zona horaria Chile
+ENV TZ=America/Santiago
+
 WORKDIR /app
 
-# Copiar package.json y package-lock.json
+# Instalar dependencias en modo producción + PM2
 COPY package*.json ./
-
-# Instalar dependencias
-RUN npm ci --only=production
-
-# Instalar PM2 globalmente
-RUN npm install -g pm2
+RUN npm ci --omit=dev && npm install -g pm2
 
 # Copiar código fuente
 COPY . .
 
-# Crear directorio para uploads si no existe
-RUN mkdir -p uploads
+# Crear directorios necesarios
+RUN mkdir -p uploads /mnt/red
 
-# Exponer puerto
 EXPOSE 3000
-
-# Comando para iniciar la aplicación
-CMD ["npm", "start"] 
+CMD ["npm", "start"]

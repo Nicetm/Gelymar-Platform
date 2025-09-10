@@ -10,7 +10,7 @@ const getOrdersByFilters = async (filters = {}) => {
   const pool = await poolPromise;
 
   let query = `
-    SELECT 
+    SELECT DISTINCT
       o.id,
       o.rut,
       o.oc,
@@ -28,7 +28,8 @@ const getOrdersByFilters = async (filters = {}) => {
       od.medio_envio_factura
     FROM orders o
     JOIN customers c ON o.customer_id = c.id
-    JOIN order_detail od ON o.id = od.order_id`;
+    LEFT JOIN order_detail od ON o.id = od.order_id
+    ORDER BY o.fecha_factura DESC`;
 
   const params = [];
 
@@ -68,41 +69,38 @@ const getClientDashboardOrders = async (customerUUID) => {
   
   const query = `
     SELECT 
-      o.id,
-      o.oc AS orderNumber,
-      c.name AS clientName,
-      o.created_at,
-      o.updated_at,
-      COUNT(CASE WHEN f.is_visible_to_client = 1 THEN f.id END) AS documents,
-      CASE 
-        WHEN COUNT(CASE WHEN f.is_visible_to_client = 1 THEN f.id END) = 0 THEN 'Pending'
-        WHEN COUNT(CASE WHEN f.is_visible_to_client = 1 THEN f.id END) < 5 THEN 'In Progress'
-        ELSE 'Completed'
-      END AS status,
-      CASE 
-        WHEN o.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 'high'
-        WHEN o.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 'medium'
-        ELSE 'low'
-      END AS priority
+    o.id,
+    o.pc,
+    o.oc AS orderNumber,
+    c.name AS clientName,
+    o.factura,
+    o.fecha_factura,
+    COUNT(DISTINCT CASE WHEN f.is_visible_to_client = 1 THEN f.id END) AS documents,
+    COALESCE(oi_counts.items_count, 0) AS items_count
     FROM orders o
     JOIN customers c ON o.customer_id = c.id
     LEFT JOIN files f ON f.order_id = o.id
+    LEFT JOIN (
+        SELECT factura, COUNT(*) AS items_count
+        FROM order_items
+        GROUP BY factura
+    ) oi_counts ON oi_counts.factura = o.factura
     WHERE c.uuid = ?
-    GROUP BY o.id, o.oc, c.name, o.created_at, o.updated_at
-    ORDER BY o.updated_at DESC
-    LIMIT 6
+    GROUP BY o.id, o.pc, o.oc, c.name, o.factura, o.fecha_factura, oi_counts.items_count
+    ORDER BY o.fecha_factura DESC;
   `;
   
   const [rows] = await pool.query(query, [customerUUID]);
 
   return rows.map(row => ({
     id: row.id,
+    pc: row.pc,
     orderNumber: row.orderNumber,
     clientName: row.clientName,
-    status: row.status,
+    factura: row.factura,
+    fecha_factura: row.fecha_factura,
     documents: row.documents,
-    lastUpdated: row.updated_at,
-    priority: row.priority
+    items_count: row.items_count
   }));
 };
 
@@ -141,9 +139,12 @@ const getClientOrderDocuments = async (orderId, customerUUID) => {
       f.file_type AS filetype,
       f.created_at,
       f.updated_at,
+      o.factura,
+      o.fecha_factura,
       s.name AS status
     FROM files f
     LEFT JOIN order_status s ON f.status_id = s.id
+    LEFT JOIN orders o ON f.order_id = o.id
     WHERE f.order_id = ? AND f.is_visible_to_client = 1
     ORDER BY f.created_at DESC
   `;
@@ -162,6 +163,8 @@ const getClientOrderDocuments = async (orderId, customerUUID) => {
       filepath: doc.filepath,
       filetype: doc.filetype,
       filesize: 0, // No hay campo filesize en la tabla
+      factura: doc.factura,
+      fecha_factura: doc.fecha_factura,
       status: doc.status || 'Unread',
       statusColor: 'gray', // Color por defecto ya que no hay campo color en order_status
       created: doc.created_at,
@@ -212,45 +215,14 @@ const insertOrder = async (data) => {
 };
 
 /**
- * Obtiene todas las órdenes existentes con datos para comparación
- * @returns {Promise<Array<Object>>}
- */
-const getAllExistingOrders = async () => {
-  const pool = await poolPromise;
-  const [rows] = await pool.query(`
-    SELECT 
-      o.pc, 
-      o.oc, 
-      o.factura, 
-      o.fecha_factura,
-      o.csv_row_hash,
-      o.csv_file_timestamp,
-      o.updated_at
-    FROM orders o 
-    WHERE o.pc IS NOT NULL AND o.oc IS NOT NULL
-  `);
-  return rows.map(row => ({
-    key: `${row.pc}-${row.oc || ''}-${row.factura || ''}`, // Clave compuesta: pc + oc + factura
-    pc: row.pc,
-    oc: row.oc,
-    factura: row.factura,
-    fecha_factura: row.fecha_factura,
-    csv_row_hash: row.csv_row_hash,
-    csv_file_timestamp: row.csv_file_timestamp,
-    updated_at: row.updated_at
-  }));
-};
-
-/**
- * Obtiene el order_id por la clave compuesta pc + oc + factura
+ * Obtiene el order_id por la clave compuesta pc + oc
  * @param {string} pc - Número de PC
  * @param {string} oc - Número de OC
- * @param {string} factura - Número de factura
  * @returns {Promise<number|null>}
  */
-const getOrderIdByPc = async (pc, oc, factura) => {
+const getOrderIdByPc = async (pc, oc) => {
   const pool = await poolPromise;
-  const [rows] = await pool.query('SELECT id FROM orders WHERE pc = ? AND oc = ? AND factura = ?', [pc, oc, factura]);
+  const [rows] = await pool.query('SELECT id FROM orders WHERE pc = ? AND oc = ?', [pc, oc]);
   return rows.length > 0 ? rows[0].id : null;
 };
 
@@ -261,39 +233,12 @@ const getOrderIdByPc = async (pc, oc, factura) => {
  */
 const getOrderIdByPcOnly = async (pc) => {
   const pool = await poolPromise;
-  console.log(`🔍 Buscando orden con PC: "${pc}"`);
   const [rows] = await pool.query('SELECT id FROM orders WHERE pc = ?', [pc]);
-  console.log(`🔍 Resultado:`, rows);
   const result = rows.length > 0 ? rows[0].id : null;
-  console.log(`🔍 orderId retornado:`, result);
   return result;
 };
 
-/**
- * Actualiza una orden existente por PC
- * @param {string} pc - Número de PC
- * @param {Object} data - Datos a actualizar
- * @returns {Promise<void>}
- */
-const updateOrderByPc = async (pc, data) => {
-  const pool = await poolPromise;
-  await pool.query(`
-    UPDATE orders 
-    SET 
-      factura = ?, 
-      fecha_factura = ?, 
-      csv_row_hash = ?,
-      csv_file_timestamp = ?,
-      updated_at = NOW()
-    WHERE pc = ?
-  `, [
-    data.factura, 
-    data.fecha_factura, 
-    data.csv_row_hash,
-    data.csv_file_timestamp,
-    pc
-  ]);
-};
+
 
 /**
  * Obtiene los items de una orden específica
@@ -301,19 +246,20 @@ const updateOrderByPc = async (pc, data) => {
  * @param {object} user - Usuario autenticado
  * @returns {Promise<Array|null>} Array de items o null si no autorizado
  */
-const getOrderItems = async (orderPc, user) => {
+const getOrderItems = async (orderPc, factura, user) => {
   try {
     const pool = await poolPromise;
     
-    // Verificar que la orden existe y el usuario tiene acceso
+        // Verificar que la orden existe y el usuario tiene acceso
     let orderQuery = `
-      SELECT o.id, o.pc, o.oc, c.uuid as customer_uuid
+      SELECT o.id, o.pc, o.oc, o.factura, c.uuid as customer_uuid
       FROM orders o
       JOIN customers c ON o.customer_id = c.id
-      WHERE o.pc = ?
+      WHERE o.pc = ? AND (o.factura = ? OR (o.factura IS NULL AND ? IS NULL))
     `;
+    console.log('orderPc', orderPc, 'factura', factura);
     
-    const [orderRows] = await pool.query(orderQuery, [orderPc]);
+    const [orderRows] = await pool.query(orderQuery, [orderPc, factura, factura]);
     
     if (orderRows.length === 0) {
       return null; // Orden no encontrada
@@ -326,9 +272,9 @@ const getOrderItems = async (orderPc, user) => {
       return null; // No autorizado
     }
     
-    // Obtener los items de la orden con la moneda
+    // Obtener los items de la orden sin duplicados
     const itemsQuery = `
-      SELECT 
+      SELECT DISTINCT
         oi.id,
         oi.order_id,
         oi.item_id,
@@ -341,16 +287,21 @@ const getOrderItems = async (orderPc, user) => {
         oi.kg_facturados,
         i.item_code,
         i.item_name,
-        i.unidad_medida,
-        od.currency
+        i.unidad_medida
       FROM order_items oi
       JOIN items i ON oi.item_id = i.id
-      LEFT JOIN order_detail od ON oi.order_id = od.order_id
-      WHERE oi.order_id = ?
+      WHERE oi.pc = ? AND (oi.factura = ? OR (oi.factura IS NULL AND ? IS NULL))
       ORDER BY oi.id
     `;
     
-    const [itemRows] = await pool.query(itemsQuery, [order.id]);
+    // Obtener currency por separado para evitar duplicados
+    const currencyQuery = `
+      SELECT currency FROM order_detail WHERE order_id = ? LIMIT 1
+    `;
+    
+    const [itemRows] = await pool.query(itemsQuery, [orderPc, factura, factura]);
+    const [currencyRows] = await pool.query(currencyQuery, [order.id]);
+    const currency = currencyRows[0]?.currency || 'CLP';
     
     return itemRows.map(item => ({
       id: item.id,
@@ -366,7 +317,7 @@ const getOrderItems = async (orderPc, user) => {
       mercado: item.mercado,
       kg_despachados: item.kg_despachados,
       kg_facturados: item.kg_facturados,
-      currency: item.currency
+      currency: currency
     }));
     
   } catch (error) {
@@ -397,36 +348,6 @@ const getOrderByRutAndOc = async (rut, oc) => {
     
   } catch (error) {
     console.error('Error getting order by RUT and OC:', error);
-    throw error;
-  }
-};
-
-/**
- * Actualiza el campo factura de una orden
- * @param {number} orderId - ID de la orden
- * @param {string} factura - Nuevo número de factura
- * @returns {Promise<void>}
- */
-const updateOrderFactura = async (orderId, factura) => {
-  try {
-    const pool = await poolPromise;
-    
-    const query = `
-      UPDATE orders 
-      SET factura = ?, updated_at = NOW()
-      WHERE id = ?
-    `;
-    
-    const [result] = await pool.query(query, [factura, orderId]);
-    
-    if (result.affectedRows === 0) {
-      throw new Error(`No se pudo actualizar la orden con ID ${orderId}`);
-    }
-    
-    console.log(`Orden ${orderId} actualizada con factura: ${factura}`);
-    
-  } catch (error) {
-    console.error('Error updating order factura:', error);
     throw error;
   }
 };
@@ -503,35 +424,6 @@ const getOrderDetails = async (orderId, user) => {
   }
 };
 
-/**
- * Actualiza el campo fecha_factura de una orden
- * @param {number} orderId - ID de la orden
- * @param {string} fechaFactura - Nueva fecha de factura
- * @returns {Promise<void>}
- */
-const updateOrderFechaFactura = async (orderId, fechaFactura) => {
-  try {
-    const pool = await poolPromise;
-    
-    const query = `
-      UPDATE orders 
-      SET fec_factura = ?, updated_at = NOW()
-      WHERE id = ?
-    `;
-    
-    const [result] = await pool.query(query, [fechaFactura, orderId]);
-    
-    if (result.affectedRows === 0) {
-      throw new Error(`No se pudo actualizar la orden con ID ${orderId}`);
-    }
-    
-    console.log(`Orden ${orderId} actualizada con fecha de factura: ${fechaFactura}`);
-    
-  } catch (error) {
-    console.error('Error updating order fecha_factura:', error);
-    throw error;
-  }
-};
 
 /**
  * Obtiene los detalles completos de una orden específica
@@ -579,15 +471,11 @@ module.exports = {
   getClientDashboardOrders,
   getClientOrderDocuments,
   insertOrder,
-  getAllExistingOrders,
-  updateOrderByPc,
   getOrderIdByPc,
   getOrderIdByPcOnly,
   getOrderItems,
   getOrderByRutAndOc,
   getOrderById,
   getOrderDetails,
-  getOrderDetail,
-  updateOrderFactura,
-  updateOrderFechaFactura
+  getOrderDetail
 };

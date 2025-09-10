@@ -5,7 +5,6 @@ Header always set Access-Control-Allow-Headers "Content-Type, Authorization"
 
 # Configuración de directorio
 Options Indexes FollowSymLinks
-AllowOverride All
 Require all granted
 
 # Habilitar autoindex como respaldo

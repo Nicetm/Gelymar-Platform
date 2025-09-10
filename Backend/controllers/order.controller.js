@@ -96,6 +96,9 @@ exports.getOrderDetails = async (req, res) => {
  */
 exports.getClientDashboardOrders = async (req, res) => {
   try {
+    console.log('🔍 [Controller] req.user:', req.user);
+    console.log('🔍 [Controller] req.user.uuid:', req.user.uuid);
+    
     // Solo clientes pueden acceder a este endpoint
     if (req.user.role !== 'client') {
       return res.status(403).json({ 
@@ -107,6 +110,7 @@ exports.getClientDashboardOrders = async (req, res) => {
 
     // Obtener órdenes del cliente autenticado
     const orders = await orderService.getClientDashboardOrders(req.user.uuid);
+    console.log('🔍 [Controller] orders found:', orders.length);
 
     res.json(orders);
   } catch (err) {
@@ -154,10 +158,10 @@ exports.getClientOrderDocuments = async (req, res) => {
  */
 exports.getOrderItems = async (req, res) => {
   try {
-    const { orderPc } = req.params;
+    const { orderPc, factura } = req.params;
 
     // Obtener items de la orden
-    const items = await orderService.getOrderItems(orderPc, req.user);
+    const items = await orderService.getOrderItems(orderPc, factura, req.user);
 
     if (!items) {
       return res.status(404).json({ message: 'Orden no encontrada o no autorizada' });

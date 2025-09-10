@@ -31,19 +31,23 @@ class ChatController {
       const io = req.app.get('io');
       if (io) {
         const messageWithDetails = {
-          ...result,
+          messageId: result.messageId,
           customer_id: parseInt(customer_id),
-          sender_role: sender_role
+          sender_role: sender_role,
+          message: messageData.message,
+          created_at: new Date()
         };
 
-        // Emitir a la sala del admin
+        // Emitir a la sala del admin (para notificaciones)
         io.to('admin-room').emit('newMessage', messageWithDetails);
         
         // Emitir a la sala específica del cliente
         io.to(`customer-${customer_id}`).emit('newMessage', messageWithDetails);
         
-        // Emitir actualización de notificaciones
-        io.to('admin-room').emit('updateNotifications');
+        // Emitir actualización de notificaciones solo si es un mensaje del cliente
+        if (sender_role === 'client') {
+          io.to('admin-room').emit('updateNotifications');
+        }
       }
       
       res.status(201).json({
@@ -216,6 +220,8 @@ class ChatController {
       const io = req.app.get('io');
       if (io) {
         io.to('admin-room').emit('updateNotifications');
+        // También notificar al cliente para actualizar check verdes
+        io.to(`customer-${customerId}`).emit('updateNotifications');
       }
       
       res.json({

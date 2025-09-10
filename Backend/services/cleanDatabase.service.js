@@ -1,7 +1,7 @@
 const { poolPromise } = require('../config/db');
 const fs = require('fs-extra');
 const path = require('path');
-require('dotenv').config();
+// Las variables de entorno ya se cargan automáticamente en app.js
 
 async function cleanDatabaseAndDirectories() {
   try {
@@ -31,7 +31,7 @@ async function cleanDatabaseAndDirectories() {
     await pool.query('SET FOREIGN_KEY_CHECKS = 0');
     
     // Limpiar tablas en orden
-    const tablesToClean = ['files', 'order_items', 'orders', 'customers'];
+    const tablesToClean = ['order_items', 'order_detail', 'orders', 'customers'];
     
     for (const table of tablesToClean) {
       try {

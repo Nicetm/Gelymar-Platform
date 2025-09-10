@@ -1,8 +1,9 @@
 // src/lib/auth.ts
 import type { AstroGlobal } from 'astro';
+import { getApiBase } from '../app/constants.ts';
 
 export async function validateRole(astro: AstroGlobal, requiredRole: 'admin' | 'client') {
-  const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
+  const apiBase = getApiBase();
   const token = astro.cookies.get('token')?.value;
 
   if (!token) {

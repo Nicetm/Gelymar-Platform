@@ -50,7 +50,7 @@ async function findCustomerIdByRut(rut) {
 async function findUserForAuth(userId) {
   const pool = await poolPromise;
   const [rows] = await pool.query(
-    `SELECT u.id, u.email, r.name AS role, u.twoFAEnabled, u.twoFASecret, c.uuid
+    `SELECT u.id, u.email, r.name AS role, u.twoFAEnabled, u.twoFASecret, c.id AS customer_id, c.uuid
      FROM users u
      LEFT JOIN roles r ON u.role_id = r.id
      LEFT JOIN customers c ON u.email = c.rut

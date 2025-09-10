@@ -2,7 +2,6 @@
 import LayoutSidebarClient from '../../../app/LayoutSidebarClient.astro';
 import AuthGuard from '../../../components/AuthGuard.astro';
 import OrdersGrid from '../../../modules/client/OrderGrid.astro';
-import DocumentStats from '../../../modules/client/DocumentStats.astro';
 import DocumentsSection from '../../../modules/client/DocumentsSection.astro';
 import EmailModal from '../../../modules/client/EmailModal.astro';
 
@@ -13,12 +12,12 @@ if (redirect) return redirect;
 
 // Configuración de API
 const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
+const fileServer = import.meta.env.PUBLIC_FILE_SERVER;
 const token = Astro.cookies.get('token')?.value;
 
 let orders = [];
 
 try {
-  // Obtener órdenes del cliente desde la API
   const response = await fetch(`${apiBase}/api/orders/client/dashboard`, {
     headers: { 
       'Content-Type': 'application/json',
@@ -28,8 +27,10 @@ try {
 
   if (response.ok) {
     orders = await response.json();
+    console.log('Orders from server:', orders.length); // Solo este log
   }
 } catch (error) {
+  console.log('API Error:', error instanceof Error ? error.message : String(error));
   orders = [];
 }
 ---
@@ -57,7 +58,6 @@ try {
       </div>
 
       <!-- Estadísticas + lista de documentos -->
-      <DocumentStats />
       <DocumentsSection />
     </div>
   </div>
@@ -66,8 +66,10 @@ try {
   <EmailModal />
 
   <!-- Configuración para JavaScript -->
-  <script define:vars={{ apiBase }}>
+  <script define:vars={{ apiBase, orders, fileServer }}>
     window.apiBase = apiBase || 'http://localhost:3000';
+    window.fileServer = fileServer || 'http://localhost:8080';
+    window.orders = orders || [];
   </script>
 
   <!-- Lógica -->

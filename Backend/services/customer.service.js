@@ -64,17 +64,16 @@ async function getCustomerByRut(rut) {
     const query = 'SELECT * FROM customers WHERE rut = ?';
     const params = [rut];
     
-    console.log(`Buscando cliente en MySQL:`);
-
     const [rows] = await pool.query(query, params);
     
     if (rows.length === 0) {
-      console.log(`No se encontró cliente con RUT: "${rut}"`);
+      console.log(`⚠️  Cliente no encontrado con RUT: "${rut}"`);
       return null;
     }
     
     const customer = new Customer(rows[0]);
-    console.log(`Cliente encontrado en BD: ID=${customer.id}, RUT=${customer.rut}, Nombre=${customer.name}`);
+    // Log simplificado solo para debugging cuando sea necesario
+    // console.log(`Cliente encontrado: ${customer.name} (${customer.rut})`);
     
     return customer;
     

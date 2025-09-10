@@ -3,7 +3,7 @@ name: gelymar-platform
 services:
   # Capa Base de Datos
   mysql:
-    image: nicetm/gelymar-platform:mysql
+    image: nicetm/gelymar-platform:mysql-prod
     container_name: gelymar-platform-mysql
     restart: unless-stopped
     environment:
@@ -23,7 +23,7 @@ services:
 
   # Capa File Server
   fileserver:
-    image: nicetm/gelymar-platform:fileserver
+    image: nicetm/gelymar-platform:fileserver-prod
     container_name: gelymar-platform-fileserver
     restart: unless-stopped
     ports:
@@ -38,9 +38,34 @@ services:
       mysql:
         condition: service_healthy
 
+  # VPN Container para acceso a red compartida
+  vpn:
+    image: nicetm/gelymar-platform:vpn-prod
+    container_name: gelymar-platform-vpn
+    restart: unless-stopped
+    environment:
+      - TZ=America/Santiago
+      - VPN_HOST=190.121.25.82
+      - VPN_PORT=11444
+      - VPN_USERNAME=softkey
+      - VPN_PASSWORD=Z4lW00p$+h
+      - VPN_TRUSTED_CERT=e137232dbb266375a29ae71401de95587812652b722c2f81b5e19fe5dc358203
+    volumes:
+      - vpn_config:/etc/openfortivpn
+    networks:
+      - gelymar-network
+    privileged: true
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    sysctls:
+      - net.ipv4.ip_forward=1
+
   # Capa Backend
   backend:
-    image: nicetm/gelymar-platform:backend
+    image: nicetm/gelymar-platform:backend-prod
     container_name: gelymar-platform-backend
     restart: unless-stopped
     ports:
@@ -53,9 +78,8 @@ services:
       - DB_USER=root
       - DB_PASS=root123456
       - DB_NAME=gelymar
-      - DB_SERVER=mysql
       - JWT_SECRET=gelymar_jwt_secret_key_2024
-      - FRONTEND_BASE_URL=http://localhost:2121
+      - FRONTEND_BASE_URL=http://172.20.10.151:2121
       - FILE_SERVER_URL=http://fileserver:80
       - FILE_SERVER_ROOT=/var/www/html
       - SMTP_HOST=smtp.resend.com
@@ -63,33 +87,42 @@ services:
       - SMTP_USER=resend
       - SMTP_PASS=
       - RESEND_KEY=re_fA1mA4H1_GJrLoZvz3Up3L8W7TwpcreAg
+      - NETWORK_USER=softkey
+      - NETWORK_PASSWORD=sK06.2025#
+      - NETWORK_SERVER=172.20.10.167
+      - NETWORK_SHARE_PATH=Users/above/Documents/BotArchivoWeb/archivos
     volumes:
       - backend_logs:/app/logs
       - fileserver_data:/var/www/html
     networks:
       - gelymar-network
+    privileged: true
+    cap_add:
+      - SYS_ADMIN
     depends_on:
       mysql:
         condition: service_healthy
       fileserver:
         condition: service_started
+      vpn:
+        condition: service_started
 
   # Capa Frontend
   frontend:
-    image: nicetm/gelymar-platform:frontend
+    image: nicetm/gelymar-platform:frontend-prod
     container_name: gelymar-platform-frontend
     restart: unless-stopped
     ports:
       - "2121:2121"
     environment:
-      - PUBLIC_API_URL=http://localhost:3000
-      - PUBLIC_FILE_SERVER_URL=http://localhost:8080
-      - PUBLIC_API_BASE_URL=http://localhost:3000/api
-      - PUBLIC_FRONTEND_BASE_URL=http://localhost:2121
+      - PUBLIC_API_URL=http://172.20.10.151:3000
+      - PUBLIC_FILE_SERVER_URL=http://172.20.10.151:8080
+      - PUBLIC_API_BASE_URL=http://172.20.10.151:3000/api
+      - PUBLIC_FRONTEND_BASE_URL=http://172.20.10.151:2121
       - PUBLIC_LANG=en
-      - SITE=http://localhost:2121
+      - SITE=http://172.20.10.151:2121
       - BASE_URL=/
-      - REMOTE_ASSETS_BASE_URL=/assets
+      - REMOTE_ASSETS_BASE_URL=/assets`n      - SERVER_API_URL=http://backend:3000
     networks:
       - gelymar-network
     depends_on:
@@ -98,7 +131,7 @@ services:
 
   # Capa Cron Jobs
   cron:
-    image: nicetm/gelymar-platform:cron
+    image: nicetm/gelymar-platform:cron-prod
     container_name: gelymar-platform-cron
     restart: unless-stopped
     volumes:
@@ -107,6 +140,9 @@ services:
       - cron_pm2:/app/.pm2
     ports:
       - "9615:9615"
+    privileged: true
+    cap_add:
+      - SYS_ADMIN
     environment:
       - NODE_ENV=production
       - DB_HOST=mysql
@@ -114,9 +150,8 @@ services:
       - DB_USER=root
       - DB_PASS=root123456
       - DB_NAME=gelymar
-      - DB_SERVER=mysql
       - JWT_SECRET=gelymar_jwt_secret_key_2024
-      - FRONTEND_BASE_URL=http://localhost:2121
+      - FRONTEND_BASE_URL=http://172.20.10.151:2121
       - FILE_SERVER_URL=http://fileserver:80
       - FILE_SERVER_ROOT=/var/www/html
       - SMTP_HOST=smtp.resend.com
@@ -124,6 +159,10 @@ services:
       - SMTP_USER=resend
       - SMTP_PASS=
       - RESEND_KEY=re_fA1mA4H1_GJrLoZvz3Up3L8W7TwpcreAg
+      - NETWORK_USER=softkey
+      - NETWORK_PASSWORD=sK06.2025#
+      - NETWORK_SERVER=172.20.10.167
+      - NETWORK_SHARE_PATH=Users/above/Documents/BotArchivoWeb/archivos
     networks:
       - gelymar-network
     depends_on:
@@ -133,10 +172,12 @@ services:
         condition: service_started
       fileserver:
         condition: service_started
+      vpn:
+        condition: service_started
 
   # Capa Monitoring Dashboard
   monitoring:
-    image: nicetm/gelymar-platform:monitoring
+    image: nicetm/gelymar-platform:monitoring-prod
     container_name: gelymar-platform-monitoring
     restart: unless-stopped
     ports:
@@ -152,7 +193,7 @@ services:
 
   # Capa Terminal Web
   terminal:
-    image: nicetm/gelymar-platform:terminal
+    image: nicetm/gelymar-platform:terminal-prod
     container_name: gelymar-platform-terminal
     restart: unless-stopped
     ports:
@@ -171,7 +212,7 @@ services:
 
   # Capa phpMyAdmin
   phpmyadmin:
-    image: nicetm/gelymar-platform:phpmyadmin
+    image: nicetm/gelymar-platform:phpmyadmin-prod
     container_name: gelymar-platform-phpmyadmin
     restart: unless-stopped
     ports:
@@ -193,6 +234,7 @@ volumes:
   backend_logs:
   cron_logs:
   cron_pm2:
+  vpn_config:
 
 networks:
   gelymar-network:

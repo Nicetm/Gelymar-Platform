@@ -10,9 +10,9 @@ async function insertOrderDetail(orderDetailData) {
       order_id, fecha, tipo, incoterm, currency, direccion_destino, 
       direccion_alterna, puerto_embarque, puerto_destino, fecha_eta, 
       fecha_etd, certificados, estado_ov, medio_envio_factura, 
-      gasto_adicional_flete, localizacion, codigo_impuesto, 
+      gasto_adicional_flete, fecha_incoterm, localizacion, codigo_impuesto, 
       vendedor, nave, condicion_venta, csv_row_hash, csv_file_timestamp
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       orderDetailData.order_id,
       orderDetailData.fecha,
@@ -29,6 +29,7 @@ async function insertOrderDetail(orderDetailData) {
       orderDetailData.estado_ov,
       orderDetailData.medio_envio_factura,
       orderDetailData.gasto_adicional_flete,
+      orderDetailData.fecha_incoterm,
       orderDetailData.localizacion,
       orderDetailData.codigo_impuesto,
       orderDetailData.vendedor,
@@ -71,67 +72,20 @@ async function getAllOrderDetails() {
   return rows;
 }
 
-// Crear o actualizar order detail
-async function createOrUpdateOrderDetail(orderId, data) {
-  const pool = await poolPromise;
+// Crear order detail (solo insertar)
+async function createOrderDetail(orderId, data) {
+  // Crear uno nuevo
+  const insertId = await insertOrderDetail({
+    order_id: orderId,
+    ...data
+  });
   
-  // Verificar si ya existe un order detail para este order_id
-  const [existingRows] = await pool.query(
-    'SELECT id FROM order_detail WHERE order_id = ?',
-    [orderId]
-  );
-  
-  if (existingRows.length > 0) {
-    // Actualizar el existente
-    const [result] = await pool.query(
-      `UPDATE order_detail SET 
-        fecha = ?, tipo = ?, incoterm = ?, currency = ?, direccion_destino = ?,
-        direccion_alterna = ?, puerto_embarque = ?, puerto_destino = ?, fecha_eta = ?,
-        fecha_etd = ?, certificados = ?, estado_ov = ?, medio_envio_factura = ?,
-        gasto_adicional_flete = ?, localizacion = ?, codigo_impuesto = ?,
-        vendedor = ?, nave = ?, condicion_venta = ?, csv_row_hash = ?, csv_file_timestamp = ?
-      WHERE order_id = ?`,
-      [
-        data.fecha,
-        data.tipo,
-        data.incoterm,
-        data.currency,
-        data.direccion_destino,
-        data.direccion_alterna,
-        data.puerto_embarque,
-        data.puerto_destino,
-        data.fecha_eta,
-        data.fecha_etd,
-        data.certificados,
-        data.estado_ov,
-        data.medio_envio_factura,
-        data.gasto_adicional_flete,
-        data.localizacion,
-        data.codigo_impuesto,
-        data.vendedor,
-        data.nave,
-        data.condicion_venta,
-        data.csv_row_hash,
-        data.csv_file_timestamp,
-        orderId
-      ]
-    );
-    
-    return { created: false, updated: true, id: existingRows[0].id };
-  } else {
-    // Crear uno nuevo
-    const insertId = await insertOrderDetail({
-      order_id: orderId,
-      ...data
-    });
-    
-    return { created: true, updated: false, id: insertId };
-  }
+  return { created: true, id: insertId };
 }
 
 module.exports = {
   insertOrderDetail,
   getOrderDetailByOrderId,
   getAllOrderDetails,
-  createOrUpdateOrderDetail
+  createOrderDetail
 }; 

@@ -71,7 +71,6 @@ const createAuthMiddleware = (options = {}) => {
         twoFASecret: user.twoFASecret
       };
 
-      logger.info(`Usuario autenticado: ${user.email} (${user.role})`);
       next();
 
     } catch (error) {

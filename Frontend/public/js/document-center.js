@@ -1,3 +1,6 @@
+// Importar funciones desde utils.js
+import { showNotification as globalShowNotification, getValidToken } from './utils.js';
+
 // =============================================================================
 // DOCUMENT CENTER - LÓGICA PRINCIPAL
 // =============================================================================
@@ -9,20 +12,20 @@ let filteredDocuments = [];
 let currentPage = 1;
 const itemsPerPage = 4;
 
+// Variables globales para paginación de órdenes
+let currentOrderPage = 1;
+const ordersPerPage = 5;
+
+// Variables globales para búsqueda
+let allOrders = [];
+let filteredOrders = [];
+
 // ▸ Elementos del DOM
 const ordersGrid = document.getElementById('orders-grid');
-const documentsStats = document.getElementById('documents-stats');
 const documentsSection = document.getElementById('documents-section');
 const documentsContainer = document.getElementById('documents-container');
 const searchInput = document.querySelector('input[placeholder="Search documents..."]');
 const typeFilter = document.querySelector('select');
-
-// Verificar que los elementos críticos existan
-// console.log('🔍 DOM Elements check:');
-// console.log('ordersGrid:', ordersGrid);
-// console.log('documentsStats:', documentsStats);
-// console.log('documentsSection:', documentsSection);
-// console.log('documentsContainer:', documentsContainer);
 
 // ▸ Configuración de colores para estados
 const statusColors = {
@@ -39,16 +42,15 @@ const statusColors = {
  * Inicializa la aplicación
  */
 async function init() {
-
   try {
     // Mostrar loading state
     showLoadingState();
 
-    // Cargar órdenes desde la API si no están disponibles
+    // Usar órdenes del servidor si están disponibles, sino cargar desde API
     if (!window.orders || window.orders.length === 0) {
       await loadOrdersFromAPI();
+    } else {
     }
-    
     
     // Ocultar loading y mostrar contenido
     hideLoadingState();
@@ -144,54 +146,84 @@ async function loadOrdersFromAPI() {
 
 
 /**
- * Renderiza las órdenes en la grilla
+ * Renderiza las órdenes en formato tabla con paginación
  */
 function renderOrders() {
   if (!ordersGrid || !window.orders) return;
   
+  // Guardar todas las órdenes en la primera carga
+  if (allOrders.length === 0) {
+    allOrders = [...window.orders];
+    filteredOrders = [...window.orders];
+  }
+  
   ordersGrid.innerHTML = '';
   
-  window.orders.forEach(order => {
-    const orderCard = document.createElement('div');
-    orderCard.className = 'bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 cursor-pointer transition-all duration-200 hover:shadow-md';
-    orderCard.dataset.orderId = order.id.toString();
-    
-    const statusColors = {
-      'In Progress': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-      'Completed': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-      'Pending': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
-    };
-    
-    const priorityColors = {
-      'high': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
-      'medium': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
-      'low': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-    };
-    
-    orderCard.innerHTML = `
-      <div class="flex items-start justify-between mb-3">
-        <div>
-          <h4 class="font-semibold text-gray-900 dark:text-white">${order.orderNumber}</h4>
-          <p class="text-sm text-gray-600 dark:text-gray-400">${order.clientName}</p>
-        </div>
-        <div class="flex space-x-2">
-          <!-- <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColors[order.status]}">
-            ${order.status}
-          </span>
-          <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${priorityColors[order.priority]}">
-            ${order.priority}
-          </span> -->
-        </div>
-      </div>
-      <div class="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
-        <span>${order.documents} documents</span>
-        <span>Updated ${formatDate(order.lastUpdated)}</span>
-      </div>
+  if (filteredOrders.length === 0) {
+    ordersGrid.innerHTML = `
+      <tr>
+        <td colspan="5" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+          <div class="flex flex-col items-center">
+            <svg class="w-12 h-12 mb-4 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">No orders found</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400">No orders match your search criteria.</p>
+          </div>
+        </td>
+      </tr>
     `;
-    
-    orderCard.addEventListener('click', () => selectOrder(order.id));
-    ordersGrid.appendChild(orderCard);
+    return;
+  }
+
+  const startIndex = (currentOrderPage - 1) * ordersPerPage;
+  const endIndex = startIndex + ordersPerPage;
+  const pageOrders = filteredOrders.slice(startIndex, endIndex);
+
+  pageOrders.forEach(order => {
+    const row = document.createElement('tr');
+    row.className = 'hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors duration-200';
+    row.dataset.orderId = order.id.toString();
+    row.innerHTML = `
+      <td class="px-3 py-2">
+        <div class="flex items-center">
+          <div class="ml-3">
+            <p class="text-sm font-medium text-gray-900 dark:text-gray-200">${order.orderNumber}</p>
+          </div>
+        </div>
+      </td>
+      <td class="px-6 py-2">
+        <div class="flex items-center">
+          <span class="text-sm text-gray-900 dark:text-gray-200">${order.documents}</span>
+        </div>
+      </td>
+      <td class="px-6 py-2">
+        <p class="text-sm text-gray-900 dark:text-gray-200">${order.factura}</p>
+      </td>
+      <td class="px-6 py-2">
+        <p class="text-sm text-gray-900 dark:text-gray-200">${formatDateOnly(order.fecha_factura)}</p>
+      </td>
+      <td class="px-6 py-2">
+        <div class="flex items-center">
+          <span class="text-sm text-gray-900 dark:text-gray-200">${order.items_count}</span>
+        </div>
+      </td>
+      <td class="px-6 py-2 text-center">
+        <div class="flex items-center justify-center space-x-3">
+          <button class="view-items-btn p-2 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200" data-order-pc="${order.pc}" data-order-oc="${order.orderNumber}" data-factura="${order.factura}" title="View items">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+            </svg>
+          </button>
+        </div>
+      </td>
+    `;
+    row.addEventListener('click', () => selectOrder(order.id));
+    ordersGrid.appendChild(row);
   });
+
+  // Actualizar paginación
+  updateOrdersPagination();
 }
 
 /**
@@ -211,7 +243,7 @@ async function selectOrder(orderId) {
     // Cargar documentos desde la API
     await loadOrderDocumentsFromAPI(orderId);
   } catch (error) {
-    console.error('❌ Error cargando documentos:', error);
+    console.error('Error cargando documentos:', error);
     // Fallback a datos estáticos si hay error
     documents = window.docsByOrder[orderId] || [];
   }
@@ -244,7 +276,7 @@ async function selectOrder(orderId) {
   // Mostrar notificación
   const order = window.orders.find(o => o.id === orderId);
   if (order) {
-    showNotification(`Selected order: ${order.orderNumber} - ${order.clientName}`);
+    showNotification(`Selected order: ${order.orderNumber}`);
   }
 }
 
@@ -305,6 +337,8 @@ async function loadOrderDocumentsFromAPI(orderId) {
       size: doc.filesize || 0,
       status: doc.status || 'Unread',
       statusColor: doc.statusColor || 'gray',
+      factura: doc.factura,
+      fecha_factura: doc.fecha_factura,
       created: doc.created,
       updated: doc.updated,
       url: doc.filepath || '#'
@@ -313,19 +347,18 @@ async function loadOrderDocumentsFromAPI(orderId) {
     // Inicializar filteredDocuments con todos los documentos visibles
     filteredDocuments = [...documents];
   } catch (error) {
-    console.error('❌ Error cargando documentos desde API:', error);
+    console.error('Error cargando documentos desde API:', error);
     throw error;
   }
 }
 
 /**
- * Renderiza los documentos
+ * Renderiza los documentos en formato cards
  */
 function renderDocuments(docs, page) {
-  // console.log('🎨 Rendering documents:', docs.length, 'docs, page:', page);
   
   if (!documentsContainer) {
-    console.error('❌ documentsContainer not found');
+    console.error('documentsContainer not found');
     return;
   }
   
@@ -333,33 +366,44 @@ function renderDocuments(docs, page) {
   const endIndex = startIndex + itemsPerPage;
   const pageDocuments = docs.slice(startIndex, endIndex);
 
-  // console.log('📄 Page documents:', pageDocuments.length, 'docs');
-
   documentsContainer.innerHTML = '';
+
+  if (pageDocuments.length === 0) {
+    documentsContainer.innerHTML = `
+      <div class="col-span-full flex flex-col items-center justify-center py-12 text-gray-500 dark:text-gray-400">
+        <svg class="w-12 h-12 mb-4 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">No documents found</h3>
+        <p class="text-sm text-gray-500 dark:text-gray-400">There are no documents available for this order.</p>
+      </div>
+    `;
+    return;
+  }
 
   pageDocuments.forEach(doc => {
     const typeIcons = {
-      'pdf': `<svg class="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      'pdf': `<svg class="w-8 h-8 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
               </svg>`,
-      'doc': `<svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      'doc': `<svg class="w-8 h-8 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
               </svg>`,
-      'img': `<svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      'img': `<svg class="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
               </svg>`,
-      'xlsx': `<svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      'xlsx': `<svg class="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9h8M8 12h8M8 15h8M8 18h8"/>
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 9v9M14 9v9"/>
               </svg>`,
-      'ppt': `<svg class="w-6 h-6 text-red-500 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      'ppt': `<svg class="w-8 h-8 text-red-500 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
               </svg>`,
-      'zip': `<svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      'zip': `<svg class="w-8 h-8 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
               </svg>`,
-      'vid': `<svg class="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      'vid': `<svg class="w-8 h-8 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
               </svg>`
     };
@@ -374,83 +418,54 @@ function renderDocuments(docs, page) {
       'vid': 'bg-red-100 dark:bg-red-900/30'
     };
 
-    const documentDiv = document.createElement('div');
-    documentDiv.className = 'p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-200';
-    documentDiv.innerHTML = `
-      <div class="flex items-center justify-between">
-        <div class="flex items-center space-x-4">
-          <div class="flex-shrink-0">
-            <div class="w-12 h-12 ${iconBgColors[doc.type] || 'bg-gray-100 dark:bg-gray-900/30'} rounded-lg flex items-center justify-center">
-              ${typeIcons[doc.type] || typeIcons['pdf']}
+    const statusColors = {
+      'Pending': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
+      'In Progress': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+      'Completed': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
+      'Reviewed': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+    };
+
+    const fileType = doc.type || 'doc';
+    const icon = typeIcons[fileType] || typeIcons['doc'];
+    const bgColor = iconBgColors[fileType] || iconBgColors['doc'];
+    const statusColor = statusColors[doc.status] || statusColors['Pending'];
+
+    const card = document.createElement('div');
+    card.className = 'bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-1 hover:shadow-md transition-shadow duration-200 flex flex-col justify-between';
+    card.innerHTML = `
+      <div>
+        <div class="flex items-start justify-between my-4 mx-4">
+          <div class="flex items-center space-x-3">
+            <div class="p-2 rounded-lg ${bgColor}">
+              ${icon}
+            </div>
+            <div class="flex-1 min-w-0">
+              <h3 class="text-sm font-medium text-gray-900 dark:text-white truncate" title="${doc.name}">
+                ${doc.name}
+              </h3>
+              <p class="text-xs text-gray-500 dark:text-gray-400">Updated ${formatDate(doc.updated)}</p>
             </div>
           </div>
-          <div>
-            <h3 class="text-sm font-medium text-gray-900 dark:text-white">${doc.name || 'Unnamed Document'}</h3>
-            <p class="text-sm text-gray-500 dark:text-gray-400">${doc.category || 'Uncategorized'} • ${doc.size || 'Unknown size'} • Updated ${formatDate(doc.updated)}</p>
-          </div>
-        </div>
-        <div class="flex items-center space-x-3">
-          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[doc.status]}">
-            ${doc.status}
-          </span>
-          <button class="download-btn text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors duration-200" data-doc-id="${doc.id}" title="Download document">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-            </svg>
-          </button>
-          <button class="view-btn text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors duration-200" data-doc-id="${doc.id}" title="View document">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-            </svg>
-          </button>
-          <button class="email-btn text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200" data-doc-id="${doc.id}" title="Send document by email">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-            </svg>
-          </button>
-          ${doc.status !== 'Reviewed' ? `
-          <button class="review-btn text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors duration-200" data-doc-id="${doc.id}" title="Mark as reviewed">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-          </button>
-          ` : `
-          <button class="unreview-btn text-green-400 hover:text-red-600 dark:hover:text-red-400 transition-colors duration-200" data-doc-id="${doc.id}" title="Mark as not reviewed">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-          </button>
-          `}
         </div>
       </div>
+      <div class="flex items-center space-x-3 my-4 mx-4">
+        <p class="text-xs text-gray-500 dark:text-gray-400">Invoice: ${doc.factura}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400">Invoice Date: ${formatDateOnly(doc.fecha_factura)}</p>
+      </div>
+
+      <div class="flex items-center justify-end space-x-2 mt-auto dark:bg-gray-900">
+        <a href="${window.fileServer}/${doc.url}" class="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors duration-200" data-doc-id="${doc.id}" title="Download document" target="_blank">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+        </a>
+      </div>
     `;
-
-    // Agregar event listeners a los botones
-    const downloadBtn = documentDiv.querySelector('.download-btn');
-    const viewBtn = documentDiv.querySelector('.view-btn');
-    const emailBtn = documentDiv.querySelector('.email-btn');
-    const reviewBtn = documentDiv.querySelector('.review-btn');
-    const unreviewBtn = documentDiv.querySelector('.unreview-btn');
-
-    if (downloadBtn) {
-      downloadBtn.addEventListener('click', () => downloadDocument(doc.id));
-    }
-    if (viewBtn) {
-      viewBtn.addEventListener('click', () => viewDocument(doc.id));
-    }
-    if (emailBtn) {
-      emailBtn.addEventListener('click', () => openEmailModal(doc.id));
-    }
-    if (reviewBtn) {
-      reviewBtn.addEventListener('click', () => markAsReviewed(doc.id));
-    }
-    if (unreviewBtn) {
-      unreviewBtn.addEventListener('click', () => markAsNotReviewed(doc.id));
-    }
-
-    documentsContainer.appendChild(documentDiv);
+    documentsContainer.appendChild(card);
   });
+
+  // Agregar event listeners a los botones
+  addDocumentEventListeners();
 }
 
 /**
@@ -746,8 +761,52 @@ function formatDate(dateString) {
   }
 }
 
-// Importar funciones desde utils.js
-import { showNotification as globalShowNotification, getValidToken } from './utils.js';
+function formatDateShort(dateString) {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+  
+  const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  
+  if (diffInHours < 24) {
+    return date.toLocaleString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: userTimezone
+    });
+  } else if (diffInHours < 48) {
+    return date.toLocaleString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: userTimezone
+    });
+  } else if (diffInHours < 168) {
+    return date.toLocaleString('en-US', {
+      weekday: 'long',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: userTimezone
+    });
+  } else {
+    return date.toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: userTimezone
+    });
+  }
+}
+
+function formatDateOnly(dateString) {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+}
 
 function showNotification(message, type = 'success') {
   // Verificar si el modal está abierto
@@ -858,6 +917,18 @@ function setupEventListeners() {
       }
     });
   }
+
+  // Event listeners para botones de items
+  document.addEventListener('click', (e) => {
+    const viewItemsBtn = e.target.closest('.view-items-btn');
+    if (viewItemsBtn) {
+      e.preventDefault();
+      const orderPc = viewItemsBtn.dataset.orderPc;
+      const orderOc = viewItemsBtn.dataset.orderOc;
+      const factura = viewItemsBtn.dataset.factura;
+      openItemsModal(orderPc, orderOc, factura);
+    }
+  });
 }
 
 // =============================================================================
@@ -1557,6 +1628,58 @@ function setupModalEventListeners() {
   handleFileUpload();
 }
 
+/**
+ * Actualiza la paginación de órdenes
+ */
+function updateOrdersPagination() {
+  const totalPages = Math.ceil(filteredOrders.length / ordersPerPage);
+  const startItem = filteredOrders.length === 0 ? 0 : (currentOrderPage - 1) * ordersPerPage + 1;
+  const endItem = Math.min(currentOrderPage * ordersPerPage, filteredOrders.length);
+
+  // Actualizar información de paginación
+  const paginationInfo = document.getElementById('orders-pagination-info');
+  if (paginationInfo) {
+    paginationInfo.textContent = `Showing ${startItem}-${endItem} of ${filteredOrders.length} orders`;
+  }
+
+  // Generar botones de página dinámicamente
+  const pageNumbersContainer = document.getElementById('orders-page-numbers');
+  if (pageNumbersContainer) {
+    pageNumbersContainer.innerHTML = '';
+
+    // Solo mostrar "1 to 19" en lugar de todos los números
+    const pageInfo = document.createElement('span');
+    pageInfo.className = 'px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300';
+    pageInfo.textContent = `${currentOrderPage} to ${totalPages}`;
+    
+    pageNumbersContainer.appendChild(pageInfo);
+  }
+
+  // Actualizar botones Previous/Next
+  const prevBtn = document.getElementById('orders-prev-btn');
+  const nextBtn = document.getElementById('orders-next-btn');
+  
+  if (prevBtn) {
+    prevBtn.disabled = currentOrderPage === 1;
+    prevBtn.onclick = () => {
+      if (currentOrderPage > 1) {
+        currentOrderPage--;
+        renderOrders();
+      }
+    };
+  }
+  
+  if (nextBtn) {
+    nextBtn.disabled = currentOrderPage === totalPages;
+    nextBtn.onclick = () => {
+      if (currentOrderPage < totalPages) {
+        currentOrderPage++;
+        renderOrders();
+      }
+    };
+  }
+}
+
 // =============================================================================
 // INICIALIZACIÓN
 // =============================================================================
@@ -1565,4 +1688,255 @@ function setupModalEventListeners() {
 document.addEventListener('DOMContentLoaded', async () => {
   await init();
   setupModalEventListeners();
+});
+
+// Función para abrir el modal de items
+async function openItemsModal(orderPc, orderOc, factura) {
+  const itemsModal = document.getElementById('itemsModal');
+  const itemsOrderTitle = document.getElementById('itemsOrderTitle');
+  const itemsTableBody = document.getElementById('itemsTableBody');
+  const totalItems = document.getElementById('totalItems');
+  const totalQuantity = document.getElementById('totalQuantity');
+  const totalValue = document.getElementById('totalValue');
+
+  if (!itemsModal || !itemsOrderTitle || !itemsTableBody) return;
+
+  try {
+    // Cargar items de la orden
+    const token = localStorage.getItem('token');
+    const apiBase = window.apiBase;
+    
+    const response = await fetch(`${apiBase}/api/orders/${orderPc}/${factura}/items`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    if (!response.ok) {
+      throw new Error('Error al cargar los items de la orden');
+    }
+
+    const items = await response.json();
+    
+    // Actualizar header del modal
+    document.getElementById('itemsInitials').textContent = 'IT';
+    document.getElementById('itemsOrderTitle').textContent = `Order: ${orderOc}`;
+    document.getElementById('itemsOrderSubtitle').textContent = 'Items List';
+    
+    // Renderizar tabla de items
+    if (itemsTableBody) {
+      const currency = items[0]?.currency || 'CLP';
+      itemsTableBody.innerHTML = items.map(item => {
+        const quantity = parseFloat(item.kg_solicitados) || 0;
+        const unitPrice = parseFloat(item.unit_price) || 0;
+        const total = quantity * unitPrice;
+        const unit = item.unidad_medida || 'KG';
+        
+        return `
+          <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+            <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">${item.item_code || 'N/A'}</td>
+            <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">${item.item_name || 'N/A'}</td>
+            <td class="px-6 py-4 text-sm text-center text-gray-900 dark:text-gray-100">${formatQuantity(quantity, unit)}</td>
+            <td class="px-6 py-4 text-sm text-center text-gray-900 dark:text-gray-100">${formatUnitPrice(unitPrice)}</td>
+            <td class="px-6 py-4 text-sm text-center font-semibold text-gray-900 dark:text-gray-100">${formatTotal(total)}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Calcular y mostrar totales
+    const totalItemsCount = items.length;
+    
+    const totalQuantitySum = items.reduce((sum, item) => {
+      const quantity = parseFloat(item.kg_solicitados) || 0;
+      return sum + quantity;
+    }, 0);
+    
+    const totalValueSum = items.reduce((sum, item) => {
+      const quantity = parseFloat(item.kg_solicitados) || 0;
+      const price = parseFloat(item.unit_price) || 0;
+      const itemTotal = quantity * price;
+      return sum + itemTotal;
+    }, 0);
+
+    const currency = items[0]?.currency || 'CLP';
+    const unit = items[0]?.unidad_medida || 'KG';
+    totalItems.textContent = totalItemsCount;
+    totalQuantity.textContent = formatQuantity(totalQuantitySum, unit);
+    totalValue.textContent = formatCurrency(totalValueSum.toFixed(4), currency);
+
+    // Mostrar el modal
+    itemsModal.classList.remove('hidden');
+    itemsModal.classList.add('flex');
+
+  } catch (error) {
+    console.error('Error loading order items:', error);
+    showNotification('Error al cargar los items de la orden', 'error');
+  }
+}
+
+// Funciones de formateo
+function formatQuantity(quantity, unit) {
+  if (quantity === 0) return '0';
+  const unitMap = {
+    'KG': 'kg',
+    'KILOGRAMOS': 'kg',
+    'TON': 'ton',
+    'TONELADAS': 'ton',
+    'LITROS': 'L',
+    'L': 'L',
+    'UNIDADES': 'un',
+    'UN': 'un'
+  };
+  
+  const mappedUnit = unitMap[unit] || unit.toLowerCase();
+  return `${quantity.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${mappedUnit}`;
+}
+
+function formatUnitPrice(price) {
+  if (price === 0) return '$0,0000';
+  const parts = price.toFixed(4).split('.');
+  const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `$${integerPart},${parts[1]}`;
+}
+
+function formatTotal(total) {
+  if (total === 0) return '$0,0000';
+  const parts = total.toFixed(4).split('.');
+  const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `$${integerPart},${parts[1]}`;
+}
+
+function formatCurrency(amount, currency = 'CLP') {
+  const currencyMap = {
+    'USD': 'USD',
+    'US': 'USD',
+    'UF': 'CLF',
+    'CLP': 'CLP',
+    'PESO': 'CLP'
+  };
+  
+  const mappedCurrency = currencyMap[currency] || currency;
+  
+  const formatted = new Intl.NumberFormat('es-CL', {
+    style: 'currency',
+    currency: mappedCurrency,
+    minimumFractionDigits: 4,
+    maximumFractionDigits: 4
+  }).format(amount);
+  
+  // Agregar espacio después del código de moneda y asegurar USD
+  return formatted.replace(/([A-Z]{2,3})\$/, '$1 $').replace('US $', 'USD $');
+}
+
+// Event listeners para cerrar el modal
+document.addEventListener('DOMContentLoaded', () => {
+  const closeItemsModalBtn = document.getElementById('closeItemsModalBtn');
+  const itemsModal = document.getElementById('itemsModal');
+
+  if (closeItemsModalBtn) {
+    closeItemsModalBtn.addEventListener('click', () => {
+      itemsModal.classList.add('hidden');
+      itemsModal.classList.remove('flex');
+    });
+  }
+
+  if (itemsModal) {
+    itemsModal.addEventListener('click', (e) => {
+      if (e.target === itemsModal) {
+        itemsModal.classList.add('hidden');
+        itemsModal.classList.remove('flex');
+      }
+    });
+  }
+});
+
+/**
+ * Agrega event listeners a los botones de documentos
+ */
+function addDocumentEventListeners() {
+  // Event listeners para botones de descarga
+  document.addEventListener('click', (e) => {
+    const downloadBtn = e.target.closest('.download-btn');
+    if (downloadBtn) {
+      e.preventDefault();
+      const docId = downloadBtn.dataset.docId;
+      downloadDocument(docId);
+    }
+  });
+
+  // Event listeners para botones de vista
+  document.addEventListener('click', (e) => {
+    const viewBtn = e.target.closest('.view-btn');
+    if (viewBtn) {
+      e.preventDefault();
+      const docId = viewBtn.dataset.docId;
+      viewDocument(docId);
+    }
+  });
+
+  // Event listeners para botones de email
+  document.addEventListener('click', (e) => {
+    const emailBtn = e.target.closest('.email-btn');
+    if (emailBtn) {
+      e.preventDefault();
+      const docId = emailBtn.dataset.docId;
+      openEmailModal(docId);
+    }
+  });
+
+  // Event listeners para botones de revisar
+  document.addEventListener('click', (e) => {
+    const reviewBtn = e.target.closest('.review-btn');
+    if (reviewBtn) {
+      e.preventDefault();
+      const docId = reviewBtn.dataset.docId;
+      markAsReviewed(docId);
+    }
+  });
+
+  // Event listeners para botones de no revisar
+  document.addEventListener('click', (e) => {
+    const unreviewBtn = e.target.closest('.unreview-btn');
+    if (unreviewBtn) {
+      e.preventDefault();
+      const docId = unreviewBtn.dataset.docId;
+      markAsNotReviewed(docId);
+    }
+  });
+}
+
+// Función para filtrar órdenes
+function filterOrders(searchTerm) {
+  if (!searchTerm.trim()) {
+    filteredOrders = [...allOrders];
+  } else {
+    const term = searchTerm.toLowerCase();
+    filteredOrders = allOrders.filter(order => 
+      order.orderNumber?.toLowerCase().includes(term) ||
+      order.factura?.toLowerCase().includes(term) ||
+      order.clientName?.toLowerCase().includes(term) ||
+      order.documents?.toString().includes(term) ||
+      order.items_count?.toString().includes(term) ||
+      formatDateOnly(order.fecha_factura)?.toLowerCase().includes(term)
+    );
+  }
+  
+  // Resetear a página 1 cuando se filtra
+  currentOrderPage = 1;
+  renderOrders();
+}
+
+// Función para inicializar el buscador
+function initializeOrdersSearch() {
+  const searchInput = document.getElementById('orders-search-input');
+  
+  if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+      filterOrders(e.target.value);
+    });
+  }
+}
+
+// Inicializar el buscador cuando se carga la página
+document.addEventListener('DOMContentLoaded', () => {
+  initializeOrdersSearch();
 });

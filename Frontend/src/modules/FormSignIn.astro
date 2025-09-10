@@ -1,6 +1,7 @@
 ---
 // import { asset } from '../lib/data.js';
-const apiBase = import.meta.env.PUBLIC_API_URL;
+const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
+const apiPublic = import.meta.env.PUBLIC_API_URL;
 ---
 
 <div class="w-full max-w-md mx-auto mt-10 space-y-6 animate-fade-in">
@@ -66,7 +67,7 @@ const apiBase = import.meta.env.PUBLIC_API_URL;
   }
 </style>
 
-<script is:inline define:vars={{ apiBase }}>
+<script is:inline define:vars={{ apiPublic,apiBase }}>
   let otpShown = false;
 
   // Mostrar mensaje si viene de reseteo de contraseña
@@ -107,7 +108,7 @@ const apiBase = import.meta.env.PUBLIC_API_URL;
         msg.classList.add('text-blue-600');
 
         try {
-          const res = await fetch(`${apiBase}/api/auth/login`, {
+          const res = await fetch(`${apiPublic}/api/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password, otp })
@@ -120,12 +121,12 @@ const apiBase = import.meta.env.PUBLIC_API_URL;
               otpShown = true;
               document.getElementById('otpContainer').classList.remove('hidden');
 
-              const statusRes = await fetch(`${apiBase}/api/auth/2fa/status?username=${encodeURIComponent(username)}`);
+              const statusRes = await fetch(`${apiPublic}/api/auth/2fa/status?username=${encodeURIComponent(username)}`);
               const { twoFAEnabled } = await statusRes.json();
 
               if (!twoFAEnabled) {
                 document.getElementById('qrContainer').classList.remove('hidden');
-                const qrRes = await fetch(`${apiBase}/api/auth/2fa/setup?username=${encodeURIComponent(username)}`);
+                const qrRes = await fetch(`${apiPublic}/api/auth/2fa/setup?username=${encodeURIComponent(username)}`);
                 const { qr } = await qrRes.json();
                 document.getElementById('qrImage').src = qr;
               }
@@ -150,7 +151,7 @@ const apiBase = import.meta.env.PUBLIC_API_URL;
 
           // Obtener rol del usuario
           try {
-            const meRes = await fetch(`${apiBase}/api/auth/me`, {
+            const meRes = await fetch(`${apiPublic}/api/auth/me`, {
               headers: { Authorization: `Bearer ${data.token}` }
             });
 

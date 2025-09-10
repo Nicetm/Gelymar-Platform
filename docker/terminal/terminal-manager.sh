@@ -34,7 +34,11 @@ authenticate_user() {
     fi
     
     # Conectar a MySQL y verificar credenciales
-    result=$(docker exec gelymar-platform-mysql mysql -u root -proot123456 -D gelymar -e "
+    DB_USER=${DB_USER:-root}
+    DB_PASS=${DB_PASS:-root123456}
+    DB_NAME=${DB_NAME:-gelymar}
+    
+    result=$(docker exec gelymar-platform-mysql mysql -u "$DB_USER" -p"$DB_PASS" -D "$DB_NAME" -e "
         SELECT id, username, password, app_types, is_enabled 
         FROM monitoring 
         WHERE username = '$username' AND is_enabled = 1;

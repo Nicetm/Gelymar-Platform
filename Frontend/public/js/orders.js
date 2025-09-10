@@ -35,6 +35,15 @@ export async function initOrdersScript() {
     console.error('Elementos necesarios no encontrados para el paginador');
     return;
   }
+  
+  // Verificar que el botón de refresh exista
+  const refreshCacheBtn = qs('refreshCacheBtn');
+  const refreshBtnText = qs('refreshBtnText');
+  const cacheStatus = qs('cacheStatus');
+  if (!refreshCacheBtn || !refreshBtnText || !cacheStatus) {
+    console.error('Elementos del botón de refresh no encontrados');
+    return;
+  }
 
   // Variables de estado
   let allOrders = [];
@@ -78,12 +87,12 @@ export async function initOrdersScript() {
                 <polyline points="14 2 14 8 20 8"/>
               </svg>
             </a>
-            <a href="#" title="Ver lista de items de PC ${order.pc}" class="items-list-btn hover:text-indigo-500 transition" data-order-pc="${order.pc}" data-order-oc="${order.oc}">
+            <a href="#" title="Ver lista de items de PC ${order.pc}" class="items-list-btn hover:text-indigo-500 transition" data-order-pc="${order.pc}" data-order-oc="${order.oc}" data-factura="${order.factura}">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
               </svg>
             </a>
-            <a href="#" title="Expandir items de PC ${order.pc}" class="expand-items-btn hover:text-green-500 transition" data-order-pc="${order.pc}" data-order-oc="${order.oc}">
+            <a href="#" title="Expandir items de PC ${order.pc}" class="expand-items-btn hover:text-green-500 transition" data-order-pc="${order.pc}" data-order-oc="${order.oc}" data-factura="${order.factura}">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
               </svg>
@@ -428,6 +437,45 @@ export async function initOrdersScript() {
   if (exportBtn) {
     exportBtn.addEventListener('click', exportToExcel);
   }
+  
+  // Event listener para el botón de refresh
+  if (refreshCacheBtn) {
+    refreshCacheBtn.addEventListener('click', async () => {
+      // Guardar el texto original antes de cualquier operación
+      const originalText = refreshBtnText.textContent;
+      
+      try {
+        // Mostrar estado de loading en el botón
+        refreshBtnText.textContent = 'Refrescando...';
+        refreshCacheBtn.disabled = true;
+        
+        // Limpiar cache y recargar datos
+        clearCache();
+        allOrders = await loadOrdersWithCache();
+        filteredOrders = [...allOrders];
+        
+        // Resetear a la primera página
+        currentPage = 1;
+        
+        // Re-renderizar la tabla
+        renderTable();
+        
+        // Mostrar notificación de éxito
+        showNotification('Datos refrescados exitosamente', 'success');
+        
+        // Actualizar estado del cache en el botón
+        updateCacheStatus();
+        
+      } catch (error) {
+        console.error('Error refrescando datos:', error);
+        showNotification('Error al refrescar los datos', 'error');
+      } finally {
+        // Restaurar el botón
+        refreshBtnText.textContent = originalText;
+        refreshCacheBtn.disabled = false;
+      }
+    });
+  }
 
   // Event listener para búsqueda
   searchInput.addEventListener('input', filterRows);
@@ -444,8 +492,44 @@ export async function initOrdersScript() {
     });
   });
 
+  // Función para actualizar el estado del cache en el botón
+  function updateCacheStatus() {
+    try {
+      const cacheInfo = getCacheInfo();
+      if (cacheInfo.exists) {
+        const ageMinutes = Math.floor(cacheInfo.age / 60);
+        const ageSeconds = cacheInfo.age % 60;
+        let statusText = '';
+        
+        if (ageMinutes > 0) {
+          statusText = `${ageMinutes}m ${ageSeconds}s`;
+        } else {
+          statusText = `${ageSeconds}s`;
+        }
+        
+        if (cacheInfo.valid) {
+          cacheStatus.textContent = `(${statusText})`;
+          cacheStatus.className = 'text-xs opacity-75 text-green-400';
+        } else {
+          cacheStatus.textContent = `(${statusText} - expirado)`;
+          cacheStatus.className = 'text-xs opacity-75 text-yellow-400';
+        }
+      } else {
+        cacheStatus.textContent = '(sin cache)';
+        cacheStatus.className = 'text-xs opacity-75 text-gray-400';
+      }
+    } catch (error) {
+      console.error('Error actualizando estado del cache:', error);
+      cacheStatus.textContent = '(error)';
+      cacheStatus.className = 'text-xs opacity-75 text-red-400';
+    }
+  }
+  
   // Cargar y renderizar órdenes inicialmente
   loadAndRenderOrders();
+  
+  // Actualizar estado del cache inicialmente
+  updateCacheStatus();
 }
 
 // Función para configurar los event listeners de los modales
@@ -457,7 +541,8 @@ function setupModalEventListeners() {
       e.preventDefault();
       const orderPc = itemsBtn.dataset.orderPc;
       const orderOc = itemsBtn.dataset.orderOc;
-      openItemsModal(orderPc, orderOc);
+      const factura = itemsBtn.dataset.factura;
+      openItemsModal(orderPc, orderOc, factura);
     }
   });
 
@@ -468,7 +553,8 @@ function setupModalEventListeners() {
       e.preventDefault();
       const orderPc = expandBtn.dataset.orderPc;
       const orderOc = expandBtn.dataset.orderOc;
-      toggleItemsExpansion(orderPc, orderOc);
+      const factura = expandBtn.dataset.factura;
+      toggleItemsExpansion(orderPc, orderOc, factura);
     }
   });
 
@@ -532,7 +618,7 @@ function setupModalEventListeners() {
 }
 
 // Función para abrir el modal de items
-async function openItemsModal(orderPc, orderOc) {
+async function openItemsModal(orderPc, orderOc, factura) {
   const itemsModal = document.getElementById('itemsModal');
   const itemsOrderTitle = document.getElementById('itemsOrderTitle');
   const itemsTableBody = document.getElementById('itemsTableBody');
@@ -547,8 +633,7 @@ async function openItemsModal(orderPc, orderOc) {
     const token = localStorage.getItem('token');
     const apiBase = window.apiBase;
     
-    console.log(`${apiBase}/api/orders/${orderPc}/items`);
-    const response = await fetch(`${apiBase}/api/orders/${orderPc}/items`, {
+    const response = await fetch(`${apiBase}/api/orders/${orderPc}/${factura}/items`, {
       headers: { Authorization: `Bearer ${token}` }
     });
 
@@ -759,7 +844,7 @@ async function openOrderDetailModal(orderId, orderOc) {
 }
 
 // Función para expandir/contraer items de una orden
-async function toggleItemsExpansion(orderPc, orderOc) {
+async function toggleItemsExpansion(orderPc, orderOc, factura) {
   // Buscar la fila específica usando el botón que se hizo clic
   const expandBtn = event.target.closest('.expand-items-btn');
   const row = expandBtn.closest('tr');
@@ -780,7 +865,7 @@ async function toggleItemsExpansion(orderPc, orderOc) {
     const token = localStorage.getItem('token');
     const apiBase = window.apiBase;
     
-    const response = await fetch(`${apiBase}/api/orders/${orderPc}/items`, {
+    const response = await fetch(`${apiBase}/api/orders/${orderPc}/${factura}/items`, {
       headers: { Authorization: `Bearer ${token}` }
     });
 

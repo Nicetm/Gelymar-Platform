@@ -32,32 +32,28 @@ exports.getOrderDetail = async (req, res) => {
 
 /**
  * @route POST /api/order-detail/:orderId
- * @desc Crea o actualiza los detalles de una orden
+ * @desc Crea los detalles de una orden
  * @access Protegido (requiere JWT)
  */
-exports.createOrUpdateOrderDetail = async (req, res) => {
+exports.createOrderDetail = async (req, res) => {
   const { orderId } = req.params;
   const data = req.body;
   
   if (!orderId) {
-    logger.warn('ID de orden requerido en createOrUpdateOrderDetail');
+    logger.warn('ID de orden requerido en createOrderDetail');
     return res.status(400).json({ message: 'ID de orden requerido' });
   }
 
   try {
-    const result = await orderDetailService.createOrUpdateOrderDetail(orderId, data);
+    const result = await orderDetailService.createOrderDetail(orderId, data);
     
-    const message = result.created 
-      ? 'Detalles de orden creados exitosamente' 
-      : 'Detalles de orden actualizados exitosamente';
-    
-    logger.info(`${message} para orderId: ${orderId}`);
+    logger.info(`Detalles de orden creados exitosamente para orderId: ${orderId}`);
     res.status(200).json({ 
-      message, 
+      message: 'Detalles de orden creados exitosamente', 
       result 
     });
   } catch (err) {
-    logger.error(`Error al crear/actualizar detalles de orden: ${err.message}`);
+    logger.error(`Error al crear detalles de orden: ${err.message}`);
     res.status(500).json({ message: 'Error interno al procesar detalles de orden' });
   }
 }; 

@@ -1,18 +1,71 @@
 
 # 🚀 Gelymar Management Platform
 
-Plataforma de gestión integral para Gelymar con arquitectura de microservicios containerizada.
+Plataforma de gestión integral para Gelymar con arquitectura de microservicios containerizada y detección automática de entorno.
 
 ## 🏗️ Arquitectura
 
 La plataforma está dividida en 6 capas principales:
 
-1. **Frontend** (Astro) - Puerto 2121
-2. **Backend** (Node.js API) - Puerto 3000  
+1. **Frontend** (Astro) - Puerto 2121 - Detección automática de entorno
+2. **Backend** (Node.js API) - Puerto 3000 - Detección automática de entorno
 3. **File Server** (Apache + FTP) - Puerto 8080
 4. **Database** (MySQL + phpMyAdmin) - Puerto 3306/8081
-5. **Cron Jobs** (PM2) - Puerto 9615
+5. **Cron Jobs** (PM2) - Puerto 9615 - Variables dinámicas
 6. **Monitoring** (Dashboard + Terminal) - Puerto 8082/7681
+
+## ✨ Características Principales
+
+- **🔍 Detección automática de entorno**: Backend y Frontend detectan automáticamente si corren en local o servidor
+- **🔧 Variables dinámicas**: Configuración automática según la IP del servidor
+- **🐳 Docker optimizado**: Contenedores con variables de entorno flexibles
+- **📊 Monitoreo integrado**: Dashboard y terminal web para administración
+- **⏰ Cron jobs automatizados**: Sincronización de datos programada
+
+## 🔧 Variables de Entorno
+
+### Detección Automática
+El sistema detecta automáticamente el entorno según la IP:
+- **IP 172.20.10.151** → Carga configuración de servidor
+- **Cualquier otra IP** → Carga configuración local
+
+### Archivos de Configuración
+```
+Backend/env.local       # Configuración local (localhost)
+Backend/env.server      # Configuración servidor (172.20.10.151)
+Frontend/env.local      # Variables Frontend local
+Frontend/env.server     # Variables Frontend servidor
+docker/env.local        # Variables Docker local
+docker/env.server       # Variables Docker servidor
+```
+
+### Logs de Detección
+```bash
+🔧 [Backend] Entorno detectado: Desarrollo local
+🔧 [Frontend] Entorno detectado: Servidor Ubuntu (172.20.10.151)
+```
+
+## ⏰ Cron Jobs
+
+### Secuencia de Ejecución (Diaria)
+1. **5:00 AM** - `checkClients` - Procesa clientes desde red compartida
+2. **5:30 AM** - `checkItems` - Procesa productos 
+3. **6:00 AM** - `checkOrders` - Procesa órdenes
+4. **6:30 AM** - `checkOrderLines` - Procesa líneas de orden
+5. **6:45 AM** - `checkDefaultFiles` - Genera documentos PDF
+6. **7:00 AM** - `checkETD` - Actualiza fechas ETD
+
+### Gestión de Cron Jobs
+```bash
+# Ver estado
+docker exec gelymar-platform-cron pm2 status
+
+# Ver logs
+docker exec gelymar-platform-cron pm2 logs
+
+# Reiniciar un cron
+docker exec gelymar-platform-cron pm2 restart gelymar-client-fetcher
+```
 
 ## 🐳 Instalación con Docker (Recomendado)
 
@@ -27,21 +80,59 @@ La plataforma está dividida en 6 capas principales:
 # Clonar repositorio
 git clone https://github.com/Ssebv/gelymar-management-platform.git
 cd gelymar-management-platform
+```
 
-# Desarrollo local (build)
-cd docker
-docker-compose up -d
+### Desarrollo Local (Docker Desktop)
 
-# O producción (Docker Hub)
+#### Linux/macOS (Bash):
+```bash
 cd docker
-docker pull nicetm/gelymar-platform:mysql
-docker pull nicetm/gelymar-platform:fileserver
-docker pull nicetm/gelymar-platform:backend
-docker pull nicetm/gelymar-platform:frontend
-docker pull nicetm/gelymar-platform:cron
-docker pull nicetm/gelymar-platform:monitoring
-docker pull nicetm/gelymar-platform:terminal
+cp env.local .env
+docker-compose -f docker-compose-dev.yml up -d
+```
+
+#### Windows (PowerShell):
+```powershell
+cd docker
+Copy-Item env.local .env
+docker-compose -f docker-compose-dev.yml up -d
+```
+
+### Servidor Ubuntu (172.20.10.151)  
+```bash
+cd docker
+cp env.server .env
+docker-compose -f docker-compose-prod.yml up -d
+```
+
+### Docker Hub (Producción)
+```bash
+cd docker
 docker-compose -f docker-compose-hub.yml up -d
+```
+
+### Solo Backend/Frontend (Desarrollo)
+
+#### Linux/macOS:
+```bash
+# Contenedores (sin Frontend)
+cd docker && cp env.local .env
+docker-compose -f docker-compose-dev.yml up mysql fileserver backend cron
+
+# Frontend local (otra terminal)
+cd Frontend && npm run dev
+```
+
+#### Windows (PowerShell):
+```powershell
+# Contenedores (sin Frontend)
+cd docker
+Copy-Item env.local .env
+docker-compose -f docker-compose-dev.yml up mysql fileserver backend cron
+
+# Frontend local (otra terminal)
+cd Frontend
+npm run dev
 ```
 
 ### URLs de Acceso
@@ -172,119 +263,288 @@ gelymar-management-platform/
 │   ├── cron/               # Cron jobs
 │   └── ecosystem.config.js # Configuración PM2
 ├── docker/                  # Configuración Docker
-│   ├── docker-compose.yml
+│   ├── docker-compose-dev.yml
+│   ├── docker-compose-prod.yml
 │   ├── docker-compose-hub.yml
-│   └── README.md
 └── Archive/                 # Scripts SQL y documentación
 ```
 
-## 🔐 Credenciales
-
-### Base de Datos
-- **MySQL Root**: root / root123456
-- **phpMyAdmin**: root / root123456
-
-### File Server
-- **FTP**: ftpuser / gelymar123
-
-### Monitoring
-- **Dashboard**: admin / gelymar2024
-- **Terminal**: admin / gelymar2024
-
-## 📊 Monitoreo
-
-### Dashboard de Monitoreo
-- Estado de servicios
-- Logs en tiempo real
-- Métricas de rendimiento
-- Terminal web integrado
-
-### Logs
-- **Backend**: `Backend/logs/`
-- **Cron**: `Backend/logs/`
-- **Docker**: `docker-compose logs [servicio]`
-
-## 🚨 Troubleshooting
+## 🛠️ Troubleshooting
 
 ### Problemas Comunes
 
-1. **Puertos ocupados**:
-   ```bash
-   # Verificar puertos en uso
-   netstat -tulpn | grep :3000
-   ```
+#### 1. Error de Conexión a Base de Datos
 
-2. **Base de datos no conecta**:
-   ```bash
-   # Verificar MySQL
-   mysql -u root -p -h localhost
-   ```
-
-3. **Cron no ejecuta**:
-   ```bash
-   # Verificar PM2
-   pm2 status
-   pm2 logs
-   ```
-
-4. **Docker no inicia**:
-   ```bash
-   # Verificar Docker
-   docker ps
-   docker-compose logs
-   ```
-
-## 🔄 Actualizaciones
-
-### Docker
+##### Linux/macOS:
 ```bash
+# Verificar que MySQL esté corriendo
+docker ps | grep mysql
+
+# Verificar logs de MySQL
+docker logs gelymar-platform-mysql
+
+# Verificar conectividad desde phpMyAdmin
+docker exec gelymar-platform-phpmyadmin ping mysql
+```
+
+##### Windows (PowerShell):
+```powershell
+# Verificar que MySQL esté corriendo
+docker ps | Select-String "mysql"
+
+# Verificar logs de MySQL
+docker logs gelymar-platform-mysql
+
+# Verificar conectividad desde phpMyAdmin
+docker exec gelymar-platform-phpmyadmin ping mysql
+
+# Si MySQL no responde, reiniciar servicios
+docker-compose -f docker-compose-dev.yml restart mysql
+docker-compose -f docker-compose-dev.yml restart phpmyadmin
+```
+
+#### 2. Error de Variables de Entorno
+   ```bash
+# Verificar que el archivo .env existe
+ls -la docker/.env
+
+# Verificar logs de detección
+docker logs gelymar-platform-backend | grep "Entorno detectado"
+```
+
+#### 3. Problemas de Permisos de Archivos
+   ```bash
+# Verificar permisos del fileserver
+docker exec gelymar-platform-fileserver ls -la /var/www/html/uploads
+   ```
+
+#### 4. Cron Jobs No Funcionan
+   ```bash
+# Ver estado de PM2
+docker exec gelymar-platform-cron pm2 status
+
+# Ver logs de errores
+docker exec gelymar-platform-cron pm2 logs --err
+   ```
+
+## 🔐 Credenciales por Defecto
+
+### Base de Datos
+- **MySQL Root**: `root` / `root123456`
+- **phpMyAdmin**: `root` / `root123456`
+
+### File Server
+- **FTP**: `ftpuser` / `gelymar123`
+
+### Terminal Web
+- **Usuario**: `admin` / `admin123` (configurable con `TERMINAL_USER`/`TERMINAL_PASS`)
+
+## 📊 Monitoreo y Logs
+
+### URLs de Monitoreo
+- **Dashboard**: `http://localhost:8082`
+- **Terminal Web**: `http://localhost:7681`
+- **phpMyAdmin**: `http://localhost:8081`
+- **PM2 Web**: `http://localhost:9615`
+
+### Logs
+   ```bash
+# Logs de contenedores
+docker-compose logs backend
+docker-compose logs frontend
+docker-compose logs cron
+
+# Logs específicos
+docker logs gelymar-platform-backend
+docker exec gelymar-platform-cron pm2 logs
+   ```
+
+## 🔄 Actualizar Contenedores
+
+### Después de Cambios en el Código
+
+#### Linux/macOS (Bash):
+```bash
+cd docker
+docker-compose -f docker-compose-dev.yml down
+docker system prune -f
+cp env.local .env
+docker-compose -f docker-compose-dev.yml up --build -d
+docker ps
+```
+
+#### Windows (PowerShell):
+```powershell
+cd docker
+docker-compose -f docker-compose-dev.yml down
+docker system prune -f
+Copy-Item env.local .env
+docker-compose -f docker-compose-dev.yml up --build -d
+docker ps
+```
+
+### Ver Imágenes y Limpiar
+
+#### Linux/macOS:
+```bash
+# Ver imágenes de gelymar
+docker images | grep gelymar-platform
+
+# Eliminar imágenes específicas
+docker rmi $(docker images -q gelymar-platform*)
+```
+
+#### Windows (PowerShell):
+```powershell
+# Ver imágenes de gelymar
+docker images | Select-String "gelymar-platform"
+
+# Eliminar imágenes específicas
+docker images --format "table {{.Repository}}:{{.Tag}}" | Select-String "gelymar-platform" | ForEach-Object { docker rmi $_.ToString().Split()[0] }
+
+# Limpiar todo lo no usado
+docker system prune -a --force
+```
+
+## 🚀 Comandos Útiles
+
+### Gestión de Contenedores
+
+#### Linux/macOS:
+```bash
+# Ver estado de todos los servicios
+docker ps
+
+# Reiniciar un servicio específico
+docker-compose restart backend
+
+# Ver logs en tiempo real
+docker-compose logs -f backend
+
+# Acceder a un contenedor
+docker exec -it gelymar-platform-backend bash
+```
+
+#### Windows (PowerShell):
+```powershell
+# Ver estado de todos los servicios
+docker ps
+
+# Reiniciar un servicio específico
+docker-compose restart backend
+
+# Ver logs en tiempo real
+docker-compose logs -f backend
+
+# Acceder a un contenedor
+docker exec -it gelymar-platform-backend bash
+
+# Ver logs de detección de entorno
+docker logs gelymar-platform-backend | Select-String "Entorno detectado"
+```
+
+### Actualizaciones desde Docker Hub
+```bash
+# Actualizar imágenes Docker
 cd docker
 docker-compose pull
 docker-compose up -d --force-recreate
+
+# Actualizar solo un servicio
+docker-compose up -d --force-recreate backend
 ```
-
-### Manual
-```bash
-# Frontend
-cd Frontend
-git pull
-npm install
-npm run build
-
-# Backend
-cd Backend
-git pull
-npm install
-pm2 restart all
-```
-
-## 📦 Exportar/Importar
-
-### Exportar stack completo
-```bash
-docker save gelymar-platform-backend:latest gelymar-platform-frontend:latest gelymar-platform-fileserver:latest gelymar-platform-cron:latest gelymar-platform-terminal:latest gelymar-platform-monitoring:latest mysql:8.0 > gelymar-platform-complete.tar
-```
-
-### Importar stack
-```bash
-docker load < gelymar-platform-complete.tar
-```
-
-## 📚 Documentación Adicional
-
-- **Docker**: Ver `docker/README.md`
-- **API**: Ver `Backend/docs/`
-- **Frontend**: Ver `Frontend/docs/`
 
 ## 🆘 Soporte
 
-Para problemas técnicos:
-1. Revisar logs del servicio afectado
-2. Verificar configuración de variables de entorno
-3. Comprobar conectividad de red
-4. Revisar documentación específica del servicio
+### Información del Sistema
+- **Versión**: 2.19
+- **Arquitectura**: Microservicios con Docker
+- **Base de datos**: MySQL 8.0
+- **Frontend**: Astro + Tailwind CSS
+- **Backend**: Node.js + Express
+
+### Contacto
+Para problemas técnicos, revisar:
+1. Logs del servicio afectado
+2. Variables de entorno configuradas
+3. Conectividad de red entre servicios
 
 ---
+**Gelymar Management Platform** - Sistema de gestión integral containerizado
 
 **Desarrollado por Softkey** - Plataforma de gestión Gelymar v2.0
+
+## **🔧 Solución para el problema de phpMyAdmin:**
+
+### **📋 Comandos de diagnóstico (PowerShell):**
+
+```powershell
+# 1. Verificar estado de contenedores
+docker ps
+
+# 2. Verificar logs de MySQL
+docker logs gelymar-platform-mysql
+
+# 3. Verificar logs de phpMyAdmin
+docker logs gelymar-platform-phpmyadmin
+
+# 4. Verificar conectividad de red
+docker exec gelymar-platform-phpmyadmin ping mysql
+```
+
+### **🚨 Posibles causas y soluciones:**
+
+#### **Causa 1: MySQL no está completamente iniciado**
+```powershell
+# Esperar a que MySQL esté listo
+docker logs gelymar-platform-mysql | Select-String "ready for connections"
+
+# Si no está listo, esperar y reiniciar phpMyAdmin
+docker-compose -f docker-compose-dev.yml restart phpmyadmin
+```
+
+#### **Causa 2: Variables de entorno incorrectas**
+```powershell
+# Verificar variables de phpMyAdmin
+docker exec gelymar-platform-phpmyadmin env | Select-String "PMA_"
+```
+
+#### **Causa 3: Red Docker no configurada**
+```powershell
+# Verificar red
+docker network ls | Select-String "gelymar"
+
+# Verificar que ambos estén en la misma red
+docker inspect gelymar-platform-mysql | Select-String "gelymar-network"
+docker inspect gelymar-platform-phpmyadmin | Select-String "gelymar-network"
+```
+
+### **🔧 Solución rápida:**
+
+```powershell
+# Reiniciar servicios en orden
+cd docker
+docker-compose -f docker-compose-dev.yml restart mysql
+# Esperar 30 segundos
+Start-Sleep 30
+docker-compose -f docker-compose-dev.yml restart phpmyadmin
+```
+
+### **🔄 Solución completa (rebuild):**
+
+```powershell
+cd docker
+docker-compose -f docker-compose-dev.yml down
+docker system prune -f
+Copy-Item env.local .env
+docker-compose -f docker-compose-dev.yml up --build -d
+```
+
+## **🎯 ¿Qué comandos quieres ejecutar primero?**
+
+1. **Diagnóstico rápido** - Ver logs y estado
+2. **Reinicio de servicios** - Reiniciar MySQL y phpMyAdmin  
+3. **Rebuild completo** - Reconstruir todo desde cero
+
+¿Cuál prefieres probar primero? 🔍
 

@@ -21,8 +21,8 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
           </svg>
         </div>
         <div>
-          <h3 class="font-semibold text-gray-900 dark:text-white">Operador Gelymar</h3>
-          <p class="text-xs text-gray-500 dark:text-gray-400">En línea</p>
+          <h3 class="font-semibold text-gray-900 dark:text-white">Carla Torres</h3>
+          <p class="text-xs text-gray-500 dark:text-gray-400">On line</p>
         </div>
       </div>
       
@@ -40,7 +40,7 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
       <div class="flex justify-start">
         <div class="max-w-xs bg-gray-100 dark:bg-gray-700 rounded-lg p-3">
           <p class="text-sm text-gray-900 dark:text-white">
-            ¡Hola! Mi nombre es Carla Torres ¿En qué puedo ayudarte hoy?
+            Hello! My name is Carla Torres, how can I help you today?
           </p>
           <p class="text-xs text-gray-500 dark:text-gray-400 mt-1" style="font-size: 10px;">${new Date().toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
         </div>
@@ -55,9 +55,19 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
         <input 
           id="chat-input" 
           type="text" 
-          placeholder="Escribe tu mensaje..."
+          placeholder="Write your message..."
           class="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
+        <button 
+          id="emoji-btn"
+          type="button"
+          class="px-3 py-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+          title="Add emoji"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </button>
         <button 
           id="send-message-btn"
           class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -152,28 +162,65 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
   const chatMessagesDiv = document.getElementById('chat-messages');
   const chatInput = document.getElementById('chat-input');
   const sendMessageBtn = document.getElementById('send-message-btn');
+  const emojiBtn = document.getElementById('emoji-btn');
+  
+  // Emoticones disponibles
+  const emojis = ['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩', '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣', '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬', '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '😥', '😓', '🤗', '🤔', '🤭', '🤫', '🤥', '😶', '😐', '😑', '😬', '🙄', '😯', '😦', '😧', '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐', '🥴', '🤢', '🤮', '🤧', '😷', '🤒', '🤕', '🤑', '🤠', '😈', '👿', '👹', '👺', '🤡', '💩', '👻', '💀', '☠️', '👽', '👾', '🤖', '🎃', '😺', '😸', '😹', '😻', '😼', '😽', '', '😿', ''];
+  
+  // Función para mostrar/ocultar emoticones
+  function toggleEmojiPicker() {
+    let emojiPicker = document.getElementById('emoji-picker');
+    
+    if (emojiPicker) {
+      emojiPicker.remove();
+      return;
+    }
+    
+    // Crear el picker de emoticones
+    emojiPicker = document.createElement('div');
+    emojiPicker.id = 'emoji-picker';
+    emojiPicker.className = 'absolute bottom-full right-0 mb-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg p-3 max-w-xs grid grid-cols-8 gap-1 z-50';
+    
+    emojis.forEach(emoji => {
+      const emojiBtn = document.createElement('button');
+      emojiBtn.textContent = emoji;
+      emojiBtn.className = 'p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-lg';
+      emojiBtn.onclick = () => {
+        chatInput.value += emoji;
+        chatInput.focus();
+        emojiPicker.remove();
+      };
+      emojiPicker.appendChild(emojiBtn);
+    });
+    
+    // Posicionar el picker
+    emojiBtn.parentElement.style.position = 'relative';
+    emojiBtn.parentElement.appendChild(emojiPicker);
+  }
   
   let isTyping = false;
   let socket = null;
   
-  // Función para obtener el customerId del usuario
+  // Función para obtener el customer_id del usuario actual
   async function getCustomerId() {
     try {
       const token = localStorage.getItem('token');
-      if (!token) return null;
+      if (!token) {
+        return null;
+      }
       
       const response = await fetch(`${apiBase}/api/auth/me`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       
-      if (!response.ok) return null;
-      
-      const userData = await response.json();
-      return userData.customer_id;
+      if (response.ok) {
+        const userData = await response.json();
+        return userData.customer_id;
+      } else {
+        return null;
+      }
     } catch (error) {
-      console.error('Error obteniendo customerId:', error);
+      console.error('Error obteniendo customer_id:', error);
       return null;
     }
   }
@@ -243,6 +290,10 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
           'Authorization': `Bearer ${token}`
         }
       });
+      
+      // El mensaje ya se agregó al chat, no necesitamos agregarlo de nuevo
+      isTyping = false;
+      sendMessageBtn.disabled = false;
     } catch (error) {
       console.error('Error enviando mensaje:', error);
       addMessageToChat('Error enviando mensaje. Inténtalo de nuevo.', 'admin', new Date());
@@ -401,7 +452,7 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
     chatMessagesDiv.innerHTML = '';
     
     // Agregar mensaje de bienvenida
-    addMessageToChat('¡Hola! Mi nombre es Carla Torres ¿En qué puedo ayudarte hoy?', 'admin');
+    addMessageToChat('Hello! My name is Carla Torres, how can I help you today?', 'admin');
     
     // Agregar mensajes desde la API (filtrar mensajes de seguridad)
     messages.forEach((msg) => {
@@ -435,16 +486,38 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
       return;
     }
 
+    console.log('🔌 Inicializando Socket.io para cliente...');
     socket = socketService.connect(token);
+    
+    // Verificar que el socket esté funcionando
+    if (socket) {
+      socket.on('connect', () => {
+        // Verificar si el cliente se unió a su sala
+        getCustomerId().then(customerId => {
+          if (customerId) {
+            // Cliente conectado correctamente
+          }
+        });
+      });
+    }
     
     // Escuchar mensajes nuevos
     socketService.onNewMessage((messageData) => {
-      console.log('Nuevo mensaje recibido (chat modal):', messageData);
-      
-      // Solo mostrar mensajes del admin (no del propio cliente)
-      if (messageData.sender_role === 'admin') {
-        addMessageToChat(messageData.message, 'admin');
-      }
+      // Mostrar todos los mensajes nuevos (tanto del admin como del cliente)
+      getCustomerId().then(customerId => {
+        if (parseInt(messageData.customer_id) === parseInt(customerId)) {
+          // Solo mostrar mensajes del admin, no del propio cliente (evitar duplicados)
+          if (messageData.sender_role === 'admin') {
+            addMessageToChat(messageData.message, 'admin', new Date(), false);
+          }
+        }
+      });
+    });
+    
+    // Escuchar actualizaciones de notificaciones para actualizar check verdes
+    socketService.onUpdateNotifications(() => {
+      // Recargar mensajes para mostrar check verdes actualizados
+      loadChatMessages();
     });
   }
   
@@ -559,6 +632,22 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
     }
   }
   
+  // Función para abrir el modal
+  function openChatModal() {
+    if (chatModal && chatInput) {
+      chatModal.classList.remove('hidden');
+      chatInput.focus();
+      
+      // Inicializar Socket.io si no está inicializado
+      if (!socket) {
+        initializeChatSocket();
+      }
+      
+      // Cargar mensajes
+      loadChatMessages();
+    }
+  }
+  
   // Event listeners
   closeChatBtn?.addEventListener('click', closeChatModal);
   chatBackdrop?.addEventListener('click', closeChatModal);
@@ -585,13 +674,13 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
     }
   });
   
-  // Inicializar Socket.io cuando se carga la página
+  // Inicializar chat al cargar la página
   document.addEventListener('DOMContentLoaded', () => {
-    // Esperar un poco para asegurar que Socket.io esté cargado
-    setTimeout(() => {
-      initializeChatSocket();
-    }, 1000);
+    initializeChatSocket();
   });
+
+  // Event listeners for emojis
+  emojiBtn?.addEventListener('click', toggleEmojiPicker);
 </script>
 
 <style>

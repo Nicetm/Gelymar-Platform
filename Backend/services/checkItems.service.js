@@ -1,24 +1,17 @@
 const fs = require('fs-extra');
 const os = require('os');
 const path = require('path');
-const { execSync } = require('child_process');
 const { parse } = require('csv-parse/sync');
 const { stringify } = require('csv-stringify/sync');
 const { insertItem, getAllItemCodes } = require('./item.service');
-
-
+const { getNetworkFilePath } = require('./networkMount.service');
 
 async function fetchItemFilesFromNetwork() {
-  const inputPath = 'Z:\\PRODUCTOS_SOFTKEY.txt';
-  console.log('Ruta del archivo:', inputPath);
-
-  if (!fs.existsSync(inputPath)) {
-    console.error('Archivo no disponible en Z:\\PRODUCTOS_SOFTKEY.txt');
-    console.log('Conéctate manualmente a la red compartida antes de ejecutar el cron');
-    return;
-  }
-
   try {
+    // Usar el servicio centralizado para obtener la ruta del archivo
+    const inputPath = await getNetworkFilePath('PRODUCTOS_SOFTKEY.txt');
+    console.log('Ruta del archivo:', inputPath);
+    
     const content = fs.readFileSync(inputPath, 'latin1');
     console.log('Contenido leído (primeras líneas):');
     console.log(content.split('\n').slice(0, 3).join('\n'));
@@ -71,13 +64,13 @@ async function fetchItemFilesFromNetwork() {
         
         const codigo = record.Item?.trim();
         if (!codigo) {
-          console.log('Registro omitido sin código:', record);
+          console.log(`[${new Date().toISOString()}] -> Check Item Process -> Registro omitido sin código: ${record.Item || 'N/A'}`);
           omitidos++;
           continue;
         }
 
         if (existingItemCodes.includes(codigo)) {
-          console.log(`Item ya existe: ${codigo}`);
+          console.log(`[${new Date().toISOString()}] -> Check Item Process -> Item ya existe: ${codigo}`);
           omitidos++;
           continue;
         }
@@ -89,17 +82,18 @@ async function fetchItemFilesFromNetwork() {
           unidad_medida: record.Unidad_medida?.trim()
         });
 
-        console.log(`Item insertado: ${codigo}`);
+        console.log(`[${new Date().toISOString()}] -> Check Item Process -> insertando fila: Codigo=${codigo}, Nombre=${record.Descripcion_1?.trim() || 'N/A'}`);
         insertados++;
       } catch (error) {
-        console.error(`Error procesando item ${record.Item}:`, error.message);
+        console.error(`[${new Date().toISOString()}] -> Check Item Process -> Error procesando item ${record.Item}:`, error.message);
         errores++;
       }
     }
 
-    console.log(`Procesamiento completado. Procesados: ${procesados}, Insertados: ${insertados}, Omitidos: ${omitidos}, Errores: ${errores}`);
+    console.log(`[${new Date().toISOString()}] -> Check Item Process -> RESUMEN DEL PROCESAMIENTO: Procesados: ${procesados}, Insertados: ${insertados}, Omitidos: ${omitidos}, Errores: ${errores}`);
   } catch (error) {
-    console.error('Error procesando archivo de items:', error);
+    console.error(`[${new Date().toISOString()}] -> Check Item Process -> Error obteniendo archivo de red:`, error.message);
+    return;
   }
 }
 

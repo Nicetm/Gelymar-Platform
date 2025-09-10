@@ -16,6 +16,13 @@ COPY vsftpd.conf /etc/vsftpd/vsftpd.conf
 RUN a2enmod rewrite
 RUN a2enmod headers
 
+# Crear configuración personalizada para habilitar .htaccess
+RUN echo '<Directory /var/www/html>' > /etc/apache2/conf-available/htaccess.conf && \
+    echo '    AllowOverride All' >> /etc/apache2/conf-available/htaccess.conf && \
+    echo '    Require all granted' >> /etc/apache2/conf-available/htaccess.conf && \
+    echo '</Directory>' >> /etc/apache2/conf-available/htaccess.conf && \
+    a2enconf htaccess
+
 # Configurar PHP
 COPY php.ini /usr/local/etc/php/conf.d/custom.ini
 
@@ -23,16 +30,20 @@ COPY php.ini /usr/local/etc/php/conf.d/custom.ini
 COPY index.html /var/www/html/
 COPY file-manager.php /var/www/html/
 COPY style.css /var/www/html/
-COPY .htaccess /var/www/html/
-COPY uploads-htaccess /var/www/html/uploads/.htaccess
+# COPY .htaccess /var/www/html/
+# COPY uploads-htaccess /var/www/html/uploads/.htaccess
 
 # Verificar que los archivos se copiaron correctamente
 RUN ls -la /var/www/html/
+RUN ls -la /var/www/html/uploads/
 
 # Configurar permisos
 RUN chown -R www-data:www-data /var/www/html
 RUN chmod -R 755 /var/www/html
 RUN chmod -R 777 /var/www/html/uploads
+
+# Verificar que .htaccess existe en uploads
+# RUN test -f /var/www/html/uploads/.htaccess && echo " .htaccess existe en uploads" || echo " .htaccess NO existe en uploads"
 
 # Script de inicio
 COPY docker-entrypoint-fileserver.sh /entrypoint.sh

@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-require('dotenv').config(); // Esto debe estar al inicio de tu app principal (app.js), si no lo tienes ya
+// Las variables de entorno ya se cargan automáticamente en app.js
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,

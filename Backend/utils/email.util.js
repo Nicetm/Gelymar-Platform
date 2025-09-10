@@ -1,5 +1,5 @@
 const nodemailer = require('nodemailer');
-require('dotenv').config();
+// Las variables de entorno ya se cargan automáticamente en app.js
 
 
 async function sendEmail({ to, subject, html }) {

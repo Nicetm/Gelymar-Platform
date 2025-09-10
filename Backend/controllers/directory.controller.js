@@ -1,4 +1,4 @@
-require('dotenv').config();
+// Las variables de entorno ya se cargan automáticamente en app.js
 const fs = require('fs');
 const path = require('path');
 const customerService = require('../services/customer.service');

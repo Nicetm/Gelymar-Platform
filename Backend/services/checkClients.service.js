@@ -1,22 +1,17 @@
 const fs = require('fs-extra');
 const os = require('os');
 const path = require('path');
-const { execSync } = require('child_process');
 const { parse } = require('csv-parse/sync');
 const { stringify } = require('csv-stringify/sync');
 const { getAllCustomerRuts, insertCustomer } = require('./customer.service');
+const { getNetworkFilePath } = require('./networkMount.service');
 
 async function fetchClientFilesFromNetwork() {
-    const inputPath = 'Z:\\CLIENTES.txt';
-    console.log('Ruta del archivo:', inputPath);
-  
-    if (!fs.existsSync(inputPath)) {
-      console.error('Archivo no disponible en Z:\\CLIENTES.txt');
-      console.log('Conéctate manualmente a la red compartida antes de ejecutar el cron');
-      return;
-    }
-  
     try {
+      // Usar el servicio centralizado para obtener la ruta del archivo
+      const inputPath = await getNetworkFilePath('CLIENTES.txt');
+      console.log('Ruta del archivo:', inputPath);
+      
       const content = fs.readFileSync(inputPath, 'latin1');
       console.log('Contenido leído (primeras líneas):');
       console.log(content.split('\n').slice(0, 3).join('\n'));
@@ -46,23 +41,43 @@ async function fetchClientFilesFromNetwork() {
         console.log('Continuando con el procesamiento...');
       }
   
-      // Leer RUTs existentes en la BD
+            // Leer RUTs existentes en la BD
       const existingRuts = await getAllCustomerRuts();
       console.log(`RUTs ya existentes en BD: ${existingRuts.length}`);
-  
+
+      // Procesar todos los registros
+      const recordsToProcess = records;
+      
+      console.log(`[${new Date().toISOString()}] -> Check Client Process -> Procesando ${recordsToProcess.length} registros del CSV`);
+
       let nuevos = 0;
-  
-      for (const r of records) {
-        const rut = r.Rut?.trim();
+      let omitidos = 0;
+      const totalRecords = recordsToProcess.length;
+
+      // Procesar en lotes de 100 para evitar problemas de memoria y timeout
+      const batchSize = 100;
+      const totalBatches = Math.ceil(totalRecords / batchSize);
+      
+      for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+        const startIndex = batchIndex * batchSize;
+        const endIndex = Math.min(startIndex + batchSize, totalRecords);
+        const currentBatch = recordsToProcess.slice(startIndex, endIndex);
+        
+        console.log(`[${new Date().toISOString()}] -> Check Client Process -> Procesando lote ${batchIndex + 1}/${totalBatches} (registros ${startIndex + 1}-${endIndex})`);
+        
+        for (const r of currentBatch) {
+                const rut = r.Rut?.trim();
         if (!rut) {
-          console.log('Registro omitido sin RUT:', r);
+          console.log(`[${new Date().toISOString()}] -> Check Client Process -> Registro omitido: RUT=${r.Rut?.trim() || 'N/A'} - Motivo: Sin RUT`);
+          omitidos++;
           continue;
         }
         if (existingRuts.includes(rut)) {
-          console.log(`Cliente ya existe: ${rut}`);
+          console.log(`[${new Date().toISOString()}] -> Check Client Process -> Registro omitido: RUT=${rut} - Motivo: Cliente ya existe`);
+          omitidos++;
           continue;
         }
-  
+
         await insertCustomer({
           rut,
           name: r.Nombre?.trim(),
@@ -75,14 +90,22 @@ async function fetchClientFilesFromNetwork() {
           fax: r.Fax?.trim(),
           phone: r.Telefono?.trim()
         });
-  
-        console.log(`Cliente insertado: ${rut}`);
+
+        console.log(`[${new Date().toISOString()}] -> Check Client Process -> insertando fila: RUT=${rut}, Nombre=${r.Nombre?.trim() || 'N/A'}, Cuenta creada OK`);
         nuevos++;
       }
+      
+      // Log de progreso del lote
+      console.log(`[${new Date().toISOString()}] -> Check Client Process -> Lote ${batchIndex + 1}/${totalBatches} completado. Progreso: ${nuevos + omitidos}/${totalRecords} registros procesados`);
+    }
   
-      console.log(`Procesamiento completado. Nuevos clientes: ${nuevos}`);
+      console.log(`\n[${new Date().toISOString()}] -> Check Client Process -> RESUMEN DEL PROCESAMIENTO:`);
+      console.log(`   • Total procesados: ${recordsToProcess.length}`);
+      console.log(`   • Nuevos clientes: ${nuevos}`);
+      console.log(`   • Registros omitidos: ${omitidos}`);
+      console.log(`\n[${new Date().toISOString()}] -> Check Client Process -> Procesamiento de clientes completado exitosamente.`);
     } catch (error) {
-      console.error('Error procesando archivo de clientes:', error);
+      console.error(`[${new Date().toISOString()}] -> Check Client Process -> Error procesando archivo de clientes:`, error);
     }
 }
 

@@ -1,17 +1,21 @@
 FROM node:18-alpine
 
-# Instalar PM2 y dependencias del sistema
+# Instalar PM2 y dependencias del sistema (+ tzdata para zona horaria)
 RUN npm install -g pm2 && \
-    apk add --no-cache cifs-utils mount bash netcat-openbsd
+    apk add --no-cache tzdata cifs-utils bash netcat-openbsd mount
+
+# Zona horaria Chile
+ENV TZ=America/Santiago
+
 
 WORKDIR /app
 
 # Copiar package.json del Cronjob e instalar dependencias
-COPY Cronjob/package*.json ./
+COPY ../Cronjob/package*.json ./
 RUN npm ci --only=production
 
 # Copiar todo el código del Cronjob
-COPY Cronjob/ ./
+COPY ../Cronjob/ ./
 
 # Crear directorios necesarios
 RUN mkdir -p logs
@@ -24,5 +28,4 @@ ENV NODE_ENV=production
 ENV PM2_HOME=/app/.pm2
 
 EXPOSE 9615
-
-ENTRYPOINT ["docker-entrypoint-cron.sh"] 
+ENTRYPOINT ["docker-entrypoint-cron.sh"]

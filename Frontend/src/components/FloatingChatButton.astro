@@ -140,6 +140,27 @@ const { unreadCount = 0 } = Astro.props;
   const socketService = new SocketService();
   let socket = null;
   
+  // Función para obtener el customer_id del usuario actual
+  async function getCustomerId() {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return null;
+      
+      const response = await fetch(`${window.apiBase || 'http://localhost:3000'}/api/auth/me`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const userData = await response.json();
+        return userData.customer_id;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error obteniendo customer_id:', error);
+      return null;
+    }
+  }
+
   // Inicializar Socket.io para el cliente
   function initializeClientSocket() {
     // Verificar que Socket.io esté disponible
@@ -160,18 +181,23 @@ const { unreadCount = 0 } = Astro.props;
     socketService.onNewMessage((messageData) => {
       console.log('Nuevo mensaje recibido (cliente):', messageData);
       
-      // Actualizar contador de notificaciones
-      updateNotificationCount();
-      
-      // Si el chat está abierto, mostrar el mensaje
-      const chatModal = document.getElementById('chat-modal');
-      if (chatModal && !chatModal.classList.contains('hidden')) {
-        const addMessageToChat = window.addMessageToChat;
-        if (addMessageToChat) {
-          const sender = messageData.sender_role === 'admin' ? 'admin' : 'client';
-          addMessageToChat(messageData.message, sender);
+      // Verificar que el mensaje sea para este cliente
+      getCustomerId().then(customerId => {
+        if (messageData.customer_id === parseInt(customerId)) {
+          // Actualizar contador de notificaciones
+          updateNotificationCount();
+          
+          // Si el chat está abierto, mostrar el mensaje
+          const chatModal = document.getElementById('chat-modal');
+          if (chatModal && !chatModal.classList.contains('hidden')) {
+            const addMessageToChat = window.addMessageToChat;
+            if (addMessageToChat) {
+              const sender = messageData.sender_role === 'admin' ? 'admin' : 'client';
+              addMessageToChat(messageData.message, sender);
+            }
+          }
         }
-      }
+      });
     });
   }
   
@@ -238,12 +264,8 @@ const { unreadCount = 0 } = Astro.props;
     }
   });
   
-  // Inicializar Socket.io cuando se carga la página
+  // Inicializar botón flotante al cargar la página
   document.addEventListener('DOMContentLoaded', () => {
-    // Esperar un poco para asegurar que Socket.io esté cargado
-    setTimeout(() => {
-      initializeClientSocket();
-      updateNotificationCount();
-    }, 1000);
+    initializeClientSocket();
   });
 </script> 

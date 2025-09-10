@@ -49,6 +49,11 @@ async function getPDFData(file) {
     WHERE o.id = ?
   `, [file.order_id]);
 
+  // Obtener datos de la orden detalle
+  const[[orderDetail]] = await pool.query(`
+    SELECT * FROM order_detail WHERE order_id = ?
+  `, [file.order_id]);
+
   // Obtener items de la orden (usando order_items que relaciona items con órdenes)
   const [orderItems] = await pool.query(`
     SELECT oi.*, i.item_name, i.item_code, i.unidad_medida
@@ -70,8 +75,15 @@ async function getPDFData(file) {
     title: file.name,
     subtitle: `Documento generado para ${order?.customer_name || file.customer_name}`,
     customerName: order?.customer_name || file.customer_name,
-    orderNumber: order?.name || file.pc || 'N/A',
+    internalOrderNumber: order?.pc || 'N/A',
+    orderNumber: order?.oc,
     responsiblePerson: 'Sistema Gelymar',
+    destinationPort: orderDetail?.puerto_destino || 'N/A',
+    incoterm: orderDetail?.incoterm || 'N/A',
+    shippingMethod: orderDetail?.medio_envio_factura || 'N/A',
+    currency: orderDetail?.currency || 'N/A',
+    incotermDeliveryDate: orderDetail?.semana_42 || 'N/A',
+    paymentCondition: orderDetail?.condicion_venta || 'N/A',
     receptionDate,
     shipmentDate,
     estimatedDeparture,

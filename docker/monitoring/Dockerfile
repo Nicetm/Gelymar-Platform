@@ -1,7 +1,10 @@
 FROM httpd:2.4-alpine
 
-# Instalar dependencias
-RUN apk add --no-cache curl jq bash
+# Instalar dependencias + tzdata para zona horaria
+RUN apk add --no-cache curl jq bash tzdata
+
+# Configurar zona horaria Chile
+ENV TZ=America/Santiago
 
 # Crear directorio para el dashboard
 RUN mkdir -p /var/www/html
