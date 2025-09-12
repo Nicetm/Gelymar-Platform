@@ -5,12 +5,45 @@ import {
   confirmAction, 
   showSuccess, 
   showError,
-  showModal,
-  hideModal,
-  setupModalClose,
   clearContainer,
   isValidEmail
 } from './utils.js';
+
+// Funciones de modal que no están en utils.js
+function showModal(selector) {
+  const modal = document.querySelector(selector);
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+}
+
+function hideModal(selector) {
+  const modal = document.querySelector(selector);
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }
+}
+
+function setupModalClose(modalSelector, closeSelector) {
+  const modal = document.querySelector(modalSelector);
+  const closeBtn = document.querySelector(closeSelector);
+  
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+      hideModal(modalSelector);
+    });
+  }
+  
+  if (modal) {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        hideModal(modalSelector);
+      }
+    });
+  }
+}
 
 // ===== SISTEMA DE CACHÉ =====
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos en milisegundos
@@ -43,11 +76,9 @@ export async function loadCustomersWithCache() {
     if (isCacheValid()) {
       const cachedData = loadFromCache();
       if (cachedData) {
-        console.log('Usando datos del caché (válido)');
         return cachedData;
       }
     }
-    console.log('Cargando datos desde API...');
     const token = localStorage.getItem('token');
     const apiBase = window.apiBase;
     const response = await fetch(`${apiBase}/api/customers`, {
@@ -63,7 +94,6 @@ export async function loadCustomersWithCache() {
     console.error('Error cargando clientes:', error);
     const cachedData = loadFromCache();
     if (cachedData) {
-      console.log('Usando caché expirado debido a error en API');
       return cachedData;
     }
     throw error;
@@ -135,11 +165,14 @@ export async function initClientsScript() {
             <a href="/admin/clients/folders/view/${customer.uuid}?c=${customer.name}" title="Orders" class="hover:text-yellow-500 transition">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h18v4H3z"/><path d="M3 7h18v13H3z"/><path d="M16 3v4"/></svg>
             </a>
-            <a href="#" data-uuid="${customer.uuid}" title="Ver" class="hover:text-blue-500 transition">
+            <a href="#" data-uuid="${customer.uuid}" title="Ver información adicional" class="hover:text-blue-500 transition">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 20.5C6.753 20.5 2.5 16.247 2.5 11S6.753 1.5 12 1.5 21.5 5.753 21.5 11 17.247 20.5 12 20.5z"/></svg>
             </a>
             <a href="#" data-uuid="${customer.uuid}" data-name="${customer.name}" title="Gestionar contactos" class="hover:text-indigo-500 transition manage-contacts-btn">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+            </a>
+            <a href="#" data-uuid="${customer.uuid}" data-name="${customer.name}" title="Cambiar contraseña" class="hover:text-orange-500 transition change-password-btn">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
             </a>
           </div>
         </td>
@@ -152,7 +185,9 @@ export async function initClientsScript() {
     try {
       // Cargar datos usando el caché
       allCustomers = await loadCustomersWithCache();
-      filteredCustomers = [...allCustomers];
+      
+      // Aplicar filtros si están activos
+      filterCustomers();
       
       // Remover la fila de carga
       const loadingRow = document.getElementById('loadingRow');
@@ -304,12 +339,7 @@ export async function initClientsScript() {
     const customersToExport = filteredCustomers.length > 0 ? filteredCustomers : allCustomers;
     
     if (customersToExport.length === 0) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'No hay datos para exportar',
-        text: 'No hay clientes disponibles para exportar.',
-        confirmButtonText: 'OK'
-      });
+      showNotification('No hay clientes disponibles para exportar', 'warning');
       return;
     }
 
@@ -365,12 +395,7 @@ export async function initClientsScript() {
     window.URL.revokeObjectURL(url);
 
     // Mostrar notificación de éxito
-    Swal.fire({
-      icon: 'success',
-      title: 'Exportación exitosa',
-      text: `Se exportaron ${customersToExport.length} clientes a Excel.`,
-      confirmButtonText: window.translations?.comond?.understood || 'Entendido'
-    });
+    showSuccess(`Se exportaron ${customersToExport.length} clientes a Excel`);
   }
 
   // Event listeners para paginación
@@ -420,6 +445,606 @@ export async function initClientsScript() {
     });
   });
 
+  // ===== EVENT LISTENERS PARA MODALES =====
+  
+  // Event listener para el botón "Ver" (modal de perfil)
+  document.addEventListener('click', async (e) => {
+    const viewBtn = e.target.closest('a[data-uuid]:not(.manage-contacts-btn):not(.change-password-btn)');
+    if (!viewBtn || !viewBtn.dataset.uuid) return;
+    
+    e.preventDefault();
+    const customerUuid = viewBtn.dataset.uuid;
+    
+    try {
+      // Buscar el cliente en los datos cargados
+      const customer = allCustomers.find(c => c.uuid === customerUuid);
+      if (!customer) {
+        showError('Cliente no encontrado');
+        return;
+      }
+      
+      // Llenar el modal de perfil con los datos del cliente
+      openProfileModal(customer);
+      
+    } catch (error) {
+      console.error('Error abriendo modal de perfil:', error);
+      showError('Error al cargar información del cliente');
+    }
+  });
+
+  // Event listener para el botón "Gestionar contactos"
+  document.addEventListener('click', async (e) => {
+    const contactsBtn = e.target.closest('.manage-contacts-btn');
+    if (!contactsBtn || !contactsBtn.dataset.uuid) return;
+    
+    e.preventDefault();
+    const customerUuid = contactsBtn.dataset.uuid;
+    const customerName = contactsBtn.dataset.name;
+    
+    try {
+      // Buscar el cliente en los datos cargados
+      const customer = allCustomers.find(c => c.uuid === customerUuid);
+      if (!customer) {
+        showError('Cliente no encontrado');
+        return;
+      }
+      
+      // Abrir modal de contactos
+      openContactsModal(customer);
+      
+    } catch (error) {
+      console.error('Error abriendo modal de contactos:', error);
+      showError('Error al cargar contactos del cliente');
+    }
+  });
+
+  // ===== FUNCIONES DE MODALES =====
+  
+
+  function openContactsModal(customer) {
+    // Llenar datos del modal de contactos
+    const initials = customer.name ? customer.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'CL';
+    
+    document.getElementById('contactsInitials').textContent = initials;
+    document.getElementById('contactsClientName').textContent = customer.name || 'Sin nombre';
+    
+    // Limpiar formulario de contactos
+    clearContactsForm();
+    
+    // Cargar contactos existentes
+    loadExistingContacts(customer.uuid);
+    
+    // Mostrar modal
+    showModal('#contactsModal');
+  }
+
+  function clearContactsForm() {
+    const container = document.getElementById('contactsFormContainer');
+    if (container) {
+      container.innerHTML = '';
+    }
+  }
+
+  async function loadExistingContacts(customerUuid) {
+    try {
+      const token = localStorage.getItem('token');
+      const apiBase = window.apiBase;
+      
+      const response = await fetch(`${apiBase}/api/customers/${customerUuid}/contacts`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const contacts = await response.json();
+        renderExistingContacts(contacts);
+      } else {
+        // Si no hay contactos o hay error, mostrar tabla vacía
+        renderExistingContacts(null);
+      }
+    } catch (error) {
+      console.error('Error cargando contactos:', error);
+      renderExistingContacts(null);
+    }
+  }
+
+  function renderExistingContacts(contactData) {
+    const container = document.getElementById('existingContactsTable');
+    if (!container) return;
+    
+    // Verificar si hay datos de contacto
+    if (!contactData || (!contactData.primary_email && (!contactData.additional_contacts || contactData.additional_contacts.length === 0))) {
+      container.innerHTML = `
+        <div class="text-center py-8 text-gray-500 dark:text-gray-400">
+          <svg class="w-12 h-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+          </svg>
+          <p>No hay contactos registrados</p>
+        </div>
+      `;
+      return;
+    }
+    
+    const additionalContacts = contactData.additional_contacts || [];
+    
+    let primaryEmailHtml = '';
+    
+    // Mostrar contactos adicionales si existen
+    let additionalContactsHtml = '';
+    if (additionalContacts.length > 0) {
+      additionalContactsHtml = `
+        <div class="mb-4">
+          <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Contactos Adicionales</h3>
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead class="bg-gray-50 dark:bg-gray-800">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nombre</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Email</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Teléfono</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Acciones</th>
+                </tr>
+              </thead>
+              <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                ${additionalContacts.map(contact => `
+                  <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">${contact.nombre || '-'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">${contact.email || '-'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">${contact.telefono || '-'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <button class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 delete-contact-btn" data-contact-idx="${contact.idx}">
+                        Eliminar
+                      </button>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    } else {
+      // Mostrar mensaje cuando no hay contactos adicionales
+      additionalContactsHtml = `
+        <div class="mb-4">
+          <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Contactos Adicionales</h3>
+          <div class="text-center py-4 text-gray-500 dark:text-gray-400">
+            <p>No hay contactos adicionales registrados</p>
+          </div>
+        </div>
+      `;
+    }
+    
+    container.innerHTML = primaryEmailHtml + additionalContactsHtml;
+  }
+
+  // ===== FUNCIONALIDAD DEL MODAL DE CONTACTOS =====
+  
+  let currentCustomerUuid = null;
+  let contactRows = [];
+
+  // Event listener para agregar fila de contacto
+  document.addEventListener('click', (e) => {
+    if (e.target.id === 'addContactRowBtn') {
+      e.preventDefault();
+      addContactRow();
+    }
+  });
+
+  // Event listener para agregar contactos
+  document.addEventListener('click', async (e) => {
+    if (e.target.id === 'addContactBtn') {
+      e.preventDefault();
+      await saveContacts();
+    }
+  });
+
+  // Event listener para cancelar agregar contactos
+  document.addEventListener('click', (e) => {
+    if (e.target.id === 'cancelAddContactBtn') {
+      e.preventDefault();
+      clearContactsForm();
+      hideModal('#contactsModal');
+    }
+  });
+
+  // Event listener para eliminar contactos existentes
+  document.addEventListener('click', async (e) => {
+    if (e.target.classList.contains('delete-contact-btn')) {
+      e.preventDefault();
+      const contactIdx = e.target.dataset.contactIdx;
+      await deleteContact(contactIdx);
+    }
+  });
+
+  function addContactRow() {
+    const container = document.getElementById('contactsFormContainer');
+    if (!container) return;
+
+    const rowId = `contact-row-${Date.now()}`;
+    const rowHtml = `
+      <div id="${rowId}" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 p-4 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre</label>
+          <input type="text" class="contact-name w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Nombre del contacto">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+          <input type="email" class="contact-email w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="email@ejemplo.com">
+        </div>
+        <div class="flex items-end">
+          <div class="flex-1">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Teléfono</label>
+            <input type="tel" class="contact-phone w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="+56 9 1234 5678">
+          </div>
+          <button type="button" class="ml-2 p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 remove-contact-row" data-row-id="${rowId}">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    `;
+    
+    container.insertAdjacentHTML('beforeend', rowHtml);
+  }
+
+  // Event listener para remover filas de contacto
+  document.addEventListener('click', (e) => {
+    const removeBtn = e.target.closest('.remove-contact-row');
+    if (removeBtn) {
+      e.preventDefault();
+      const rowId = removeBtn.dataset.rowId;
+      const row = document.getElementById(rowId);
+      if (row) {
+        row.remove();
+      }
+    }
+  });
+
+  async function saveContacts() {
+    if (!currentCustomerUuid) {
+      showError('Error: No se ha seleccionado un cliente');
+      return;
+    }
+
+    // Verificar si el cliente tiene email principal
+    try {
+      const response = await fetch(`${apiBase}/api/customers/contacts/${currentCustomerUuid}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      if (response.ok) {
+        const contactData = await response.json();
+        if (!contactData.primary_email) {
+          showError('Para ingresar contactos adicionales debe ingresar el mail principal');
+          return;
+        }
+      }
+    } catch (error) {
+      console.error('Error verificando email principal:', error);
+      showError('Error al verificar email principal del cliente');
+      return;
+    }
+
+    const container = document.getElementById('contactsFormContainer');
+    if (!container) return;
+
+    const contactRows = container.querySelectorAll('[id^="contact-row-"]');
+    const contacts = [];
+
+    for (const row of contactRows) {
+      const name = row.querySelector('.contact-name')?.value?.trim();
+      const email = row.querySelector('.contact-email')?.value?.trim();
+      const phone = row.querySelector('.contact-phone')?.value?.trim();
+
+      if (name || email || phone) {
+        if (!name) {
+          showError('El nombre es obligatorio para todos los contactos');
+          return;
+        }
+        if (email && !isValidEmail(email)) {
+          showError('El email debe tener un formato válido');
+          return;
+        }
+
+        contacts.push({ name, email, phone });
+      }
+    }
+
+    if (contacts.length === 0) {
+      showError('Debe agregar al menos un contacto');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const apiBase = window.apiBase;
+
+      const response = await fetch(`${apiBase}/api/customers/contacts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          customer_uuid: currentCustomerUuid,
+          contacts: contacts
+        })
+      });
+
+      if (response.ok) {
+        showSuccess(`${contacts.length} contacto(s) agregado(s) exitosamente`);
+        clearContactsForm();
+        loadExistingContacts(currentCustomerUuid);
+      } else {
+        const error = await response.json();
+        showError(error.message || 'Error al agregar contactos');
+      }
+    } catch (error) {
+      console.error('Error agregando contactos:', error);
+      showError('Error de red al agregar contactos');
+    }
+  }
+
+  async function deleteContact(contactIdx) {
+    const confirmed = await confirmAction(
+      '¿Eliminar contacto?',
+      'Esta acción no se puede deshacer.',
+      'warning'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const apiBase = window.apiBase;
+
+      const response = await fetch(`${apiBase}/api/customers/contacts/${currentCustomerUuid}/${contactIdx}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        showSuccess('Contacto eliminado exitosamente');
+        loadExistingContacts(currentCustomerUuid);
+      } else {
+        const error = await response.json();
+        showError(error.message || 'Error al eliminar contacto');
+      }
+    } catch (error) {
+      console.error('Error eliminando contacto:', error);
+      showError('Error de red al eliminar contacto');
+    }
+  }
+
+  // Actualizar la función openContactsModal para guardar el UUID del cliente
+  function openContactsModal(customer) {
+    // Llenar datos del modal de contactos
+    const initials = customer.name ? customer.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'CL';
+    
+    document.getElementById('contactsInitials').textContent = initials;
+    document.getElementById('contactsClientName').textContent = customer.name || 'Sin nombre';
+    
+    // Guardar UUID del cliente actual
+    currentCustomerUuid = customer.uuid;
+    
+    // Limpiar formulario de contactos
+    clearContactsForm();
+    
+    // Cargar contactos existentes
+    loadExistingContacts(customer.uuid);
+    
+    // Mostrar modal
+    showModal('#contactsModal');
+  }
+
+  // ===== FUNCIONALIDAD DEL MODAL DE PERFIL =====
+  
+  let currentCustomerForUpdate = null;
+
+  // Event listener para actualizar cliente
+  document.addEventListener('click', async (e) => {
+    if (e.target.id === 'updateCustomerBtn') {
+      e.preventDefault();
+      await updateCustomer();
+    }
+  });
+
+  // Event listener para ver órdenes
+  document.addEventListener('click', (e) => {
+    if (e.target.id === 'viewOrdersBtn') {
+      e.preventDefault();
+      viewCustomerOrders();
+    }
+  });
+
+  async function updateCustomer() {
+    if (!currentCustomerForUpdate) {
+      showError('Error: No se ha seleccionado un cliente');
+      return;
+    }
+
+    const emailInput = document.getElementById('profileEmail');
+    const newEmail = emailInput?.value?.trim();
+
+    if (!newEmail) {
+      showError('El email no puede estar vacío');
+      return;
+    }
+
+    if (!isValidEmail(newEmail)) {
+      showError('El email debe tener un formato válido');
+      return;
+    }
+
+    const confirmed = await confirmAction(
+      '¿Actualizar cliente?',
+      'Se actualizará la información del cliente.',
+      'question'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const apiBase = window.apiBase;
+
+      const response = await fetch(`${apiBase}/api/customers/${currentCustomerForUpdate.uuid}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          email: newEmail
+        })
+      });
+
+      if (response.ok) {
+        showSuccess('Cliente actualizado exitosamente');
+        hideModal('#profileModal');
+        // Recargar la lista de clientes para reflejar los cambios
+        await forceReloadCustomers();
+        await loadAndRenderCustomers();
+      } else {
+        const error = await response.json();
+        showError(error.message || 'Error al actualizar cliente');
+      }
+    } catch (error) {
+      console.error('Error actualizando cliente:', error);
+      showError('Error de red al actualizar cliente');
+    }
+  }
+
+  function viewCustomerOrders() {
+    if (!currentCustomerForUpdate) {
+      showError('Error: No se ha seleccionado un cliente');
+      return;
+    }
+
+    // Redirigir a la página de órdenes del cliente
+    window.location.href = `/admin/clients/folders/view/${currentCustomerForUpdate.uuid}?c=${encodeURIComponent(currentCustomerForUpdate.name)}`;
+  }
+
+  // Actualizar la función openProfileModal para guardar el cliente actual
+  function openProfileModal(customer) {
+    // Llenar datos del modal de perfil
+    const initials = customer.name ? customer.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'CL';
+    
+    document.getElementById('profileInitials').textContent = initials;
+    document.getElementById('profileClientName').textContent = customer.name || 'Sin nombre';
+    document.getElementById('profileClientRut').textContent = customer.rut || 'Sin RUT';
+    document.getElementById('profileCountry').textContent = customer.country || 'Sin país';
+    document.getElementById('profileCity').textContent = customer.city || 'Sin ciudad';
+    document.getElementById('profilePhone').textContent = customer.phone || 'Sin teléfono';
+    document.getElementById('profileEmail').value = customer.email || '';
+    document.getElementById('profileOrderCount').textContent = customer.order_count || 0;
+    
+    // Guardar cliente actual para actualización
+    currentCustomerForUpdate = customer;
+    
+    // Mostrar modal
+    showModal('#profileModal');
+  }
+
+  // ===== MODAL DE CAMBIO DE CONTRASEÑA =====
+  
+  let currentPasswordCustomerUuid = null;
+
+  // Event listener para botones de cambio de contraseña
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.change-password-btn');
+    if (!btn) return;
+    
+    e.preventDefault();
+    e.stopPropagation(); // Evitar que se propague al event listener del botón "Ver"
+    const customerUuid = btn.dataset.uuid;
+    const customerName = btn.dataset.name;
+    
+    openChangePasswordModal(customerUuid, customerName);
+  });
+
+  function openChangePasswordModal(customerUuid, customerName) {
+    currentPasswordCustomerUuid = customerUuid;
+    document.getElementById('changePasswordCustomerName').textContent = customerName;
+    
+    // Limpiar formulario
+    document.getElementById('changePasswordForm').reset();
+    
+    // Mostrar modal
+    showModal('#changePasswordModal');
+  }
+
+  // Event listener para guardar contraseña
+  document.getElementById('savePasswordBtn').addEventListener('click', async () => {
+    const newPassword = document.getElementById('newPassword').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+    
+    // Validaciones
+    if (!newPassword || !confirmPassword) {
+      showNotification('Por favor complete todos los campos', 'error');
+      return;
+    }
+    
+    if (newPassword.length < 6) {
+      showNotification('La contraseña debe tener al menos 6 caracteres', 'error');
+      return;
+    }
+    
+    if (newPassword !== confirmPassword) {
+      showNotification('Las contraseñas no coinciden', 'error');
+      return;
+    }
+    
+    // Mostrar loading
+    const saveBtn = document.getElementById('savePasswordBtn');
+    const originalText = saveBtn.innerHTML;
+    saveBtn.innerHTML = '<svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Cambiando...';
+    saveBtn.disabled = true;
+    
+    try {
+      const token = localStorage.getItem('token');
+      const apiBase = window.apiBase;
+      
+      const response = await fetch(`${apiBase}/api/customers/change-password/${currentPasswordCustomerUuid}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ password: newPassword })
+      });
+      
+      if (response.ok) {
+        showNotification('Contraseña cambiada exitosamente', 'success');
+        hideModal('#changePasswordModal');
+      } else {
+        const error = await response.json();
+        showNotification(error.message || 'Error al cambiar la contraseña', 'error');
+      }
+    } catch (error) {
+      console.error('Error cambiando contraseña:', error);
+      showNotification('Error al cambiar la contraseña', 'error');
+    } finally {
+      // Restaurar botón
+      const saveBtn = document.getElementById('savePasswordBtn');
+      saveBtn.innerHTML = originalText;
+      saveBtn.disabled = false;
+    }
+  });
+
+  // ===== CONFIGURACIÓN DE MODALES =====
+  
+  // Configurar cierre de modales
+  setupModalClose('#profileModal', '#closeProfileModalBtn');
+  setupModalClose('#contactsModal', '#closeContactsModalBtn');
+  setupModalClose('#changePasswordModal', '#closeChangePasswordModalBtn');
+  setupModalClose('#changePasswordModal', '#cancelChangePasswordBtn');
+
   // Cargar y renderizar clientes inicialmente
-  loadAndRenderCustomers();
+  await loadAndRenderCustomers();
 } 

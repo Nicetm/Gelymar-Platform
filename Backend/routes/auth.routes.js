@@ -58,7 +58,7 @@ router.get('/me', authMiddleware, async (req, res) => {
     }
 });
 
-router.post('/refresh', authMiddleware, authController.refreshToken);
+router.post('/refresh', authMiddleware.createAuthMiddleware({ allowExpired: true }), authController.refreshToken);
 router.post('/change-password', authMiddleware, authValidations.changePassword, authController.changePassword);
 router.post('/recover', authValidations.recoverPassword, authController.recoverPassword);
 router.post('/reset-password', authValidations.resetPassword, authController.resetPassword);

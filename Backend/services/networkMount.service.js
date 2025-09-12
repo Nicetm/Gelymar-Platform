@@ -28,7 +28,7 @@ async function mountNetworkShare() {
   let inputPath;
   
   if (isDocker) {
-    // En Docker, montar la red compartida usando cifs-utils
+    // En Docker, montar la red compartida directamente
     inputPath = '/mnt/archivos';
     console.log('🐳 Docker: Montando red compartida en:', inputPath);
     
@@ -89,6 +89,7 @@ async function getNetworkFilePath(filename) {
   const basePath = await mountNetworkShare();
   const fullPath = os.platform() === 'win32' ? `${basePath}${filename}` : `${basePath}/${filename}`;
   
+  // Verificar que el archivo existe
   if (!fs.existsSync(fullPath)) {
     throw new Error(`Archivo no encontrado: ${fullPath}`);
   }

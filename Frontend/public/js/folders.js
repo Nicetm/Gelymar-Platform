@@ -149,11 +149,35 @@ async function openItemsModal(orderPc, orderOc, factura) {
   }
 }
 
-// Función para cargar traducciones
+// Función para cargar traducciones (usar las que vienen del servidor)
 async function loadTranslations(lang, section) {
   try {
-    const module = await import(`/src/i18n/${lang}/${section}.json`);
-    return module.default || {};
+    // Las traducciones ya vienen del servidor, no necesitamos cargarlas dinámicamente
+    // Si necesitamos traducciones específicas, usar las que están en window.t
+    if (window.t && window.t[section]) {
+      return window.t[section];
+    }
+    
+    // Fallback con traducciones básicas
+    const fallbackTranslations = {
+      messages: {
+        loading: 'Cargando...',
+        error: 'Error',
+        success: 'Éxito',
+        confirm: 'Confirmar',
+        cancel: 'Cancelar'
+      },
+      carpetas: {
+        title: 'Carpetas',
+        customers: 'Clientes',
+        name: 'Nombre',
+        created: 'Creado',
+        updated: 'Actualizado',
+        actions: 'Acciones'
+      }
+    };
+    
+    return fallbackTranslations[section] || {};
   } catch (err) {
     console.warn('Fallo carga traducción:', err);
     return {};
@@ -235,7 +259,7 @@ export async function initFoldersScript() {
       'oc': 1,
       'fecha': 2,
       'moneda': 3,
-      'medio_envio': 4,
+      'medio_envio_factura': 4,
       'factura': 5,
       'fecha_factura': 6
     };
@@ -296,9 +320,9 @@ export async function initFoldersScript() {
         <tr data-id="${folder.id}" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-sm min-h-[600px]">
           <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${folder.pc}</td>
           <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${folder.oc}</td>
-          <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">-</td>
+          <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(folder.fecha)}</td>
           <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${folder.currency || '-'}</td>
-          <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${folder.medio_envio || '-'}</td>
+          <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${folder.medio_envio_factura || '-'}</td>
           <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${folder.factura || '-'}</td>
           <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(folder.fecha_factura)}</td>
           <td class="w-[25%] px-6 py-4 text-sm border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">

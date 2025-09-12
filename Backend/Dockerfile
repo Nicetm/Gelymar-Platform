@@ -16,7 +16,7 @@ RUN npm ci --omit=dev && npm install -g pm2
 COPY . .
 
 # Crear directorios necesarios
-RUN mkdir -p uploads /mnt/red
+RUN mkdir -p uploads /mnt/red /mnt/archivos
 
 EXPOSE 3000
 CMD ["npm", "start"]

@@ -18,6 +18,15 @@ module.exports = {
         wait_ready: true,
         listen_timeout: 10000,
         kill_timeout: 5000
+      },
+      {
+        name: 'gelymar-order-reception',
+        script: './cron/sendOrderReception.js',
+        watch: false,
+        autorestart: true,
+        wait_ready: true,
+        listen_timeout: 10000,
+        kill_timeout: 5000
       }
     ]
   }; 

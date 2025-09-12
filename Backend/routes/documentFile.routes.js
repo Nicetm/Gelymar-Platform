@@ -121,5 +121,29 @@ router.put('/rename/:id', authMiddleware, authorizeRoles(['admin']), controller.
 
 router.delete('/delete/:id', authMiddleware, authorizeRoles(['admin']), controller.deleteFileById);
 
+/**
+ * @swagger
+ * /api/files/create-default/{orderId}:
+ *   post:
+ *     summary: Crea archivos por defecto para una orden específica
+ *     tags: [Archivos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID de la orden
+ *     responses:
+ *       201:
+ *         description: Archivos por defecto creados exitosamente
+ *       404:
+ *         description: Orden no encontrada
+ *       500:
+ *         description: Error interno del servidor
+ */
+router.post('/create-default/:orderId', authMiddleware, authorizeRoles(['admin']), controller.createDefaultFiles);
 
 module.exports = router;

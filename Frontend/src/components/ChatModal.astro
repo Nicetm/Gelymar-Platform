@@ -100,7 +100,6 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
       }
 
       const apiBase = window.apiBase || 'http://localhost:3000';
-      console.log('Socket.io conectando a:', apiBase);
       
       this.socket = io(apiBase, {
         auth: { token },
@@ -113,13 +112,11 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
       });
 
       this.socket.on('connect', () => {
-        console.log('Socket.io conectado');
         this.isConnected = true;
         this.reconnectAttempts = 0;
       });
 
       this.socket.on('disconnect', (reason) => {
-        console.log('Socket.io desconectado:', reason);
         this.isConnected = false;
       });
 
@@ -133,7 +130,6 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
       });
 
       this.socket.on('reconnect', (attemptNumber) => {
-        console.log(`Socket.io reconectado después de ${attemptNumber} intentos`);
         this.isConnected = true;
         this.reconnectAttempts = 0;
       });
@@ -469,8 +465,8 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
   // Hacer las funciones globales para que el botón flotante pueda acceder
   window.loadChatMessages = loadChatMessages;
   // Socket.io ya maneja las actualizaciones en tiempo real
-  window.startChatPolling = () => console.log('Socket.io maneja las actualizaciones automáticamente');
-  window.stopChatPolling = () => console.log('Socket.io maneja las actualizaciones automáticamente');
+  window.startChatPolling = () => {};
+  window.stopChatPolling = () => {};
   
   // Inicializar Socket.io para el chat del cliente
   function initializeChatSocket() {
@@ -486,7 +482,6 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
       return;
     }
 
-    console.log('🔌 Inicializando Socket.io para cliente...');
     socket = socketService.connect(token);
     
     // Verificar que el socket esté funcionando

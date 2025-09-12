@@ -55,6 +55,7 @@
 	"save": "Save",
 	"cancel": "Cancel",
 	"pcNumber": "N° PC",
-	"ocNumber": "N° OC"
+	"ocNumber": "N° OC",
+	"createDefaultFiles": "Create Files"
 	
 }

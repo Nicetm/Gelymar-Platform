@@ -189,8 +189,8 @@ const insertOrder = async (data) => {
     
     const query = `
       INSERT INTO orders (
-        customer_id, rut, pc, oc, factura, fecha_factura, csv_row_hash, csv_file_timestamp, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        customer_id, rut, pc, oc, factura, fecha_factura, fecha_ingreso, csv_row_hash, csv_file_timestamp, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
     `;
 
     const params = [
@@ -200,6 +200,7 @@ const insertOrder = async (data) => {
       data.oc,
       data.factura,
       data.fecha_factura,
+      data.fecha_ingreso,
       data.csv_row_hash || null,
       data.csv_file_timestamp || null
     ];

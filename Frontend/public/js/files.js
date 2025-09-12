@@ -127,25 +127,113 @@ function getValidToken() {
   }
 }
 
+// ===== MODAL DE CONFIRMACIÓN PERSONALIZADO =====
 function confirmAction(title, message, type = 'warning') {
   return new Promise((resolve) => {
-    if (typeof Swal !== 'undefined') {
-      Swal.fire({
-        title: title,
-        text: message,
-        icon: type,
-        showCancelButton: true,
-        confirmButtonColor: '#3085d6',
-        cancelButtonColor: '#d33',
-        confirmButtonText: 'Sí, continuar',
-        cancelButtonText: 'Cancelar'
-      }).then((result) => {
-        resolve(result.isConfirmed);
+    // Crear el modal
+    const modal = document.createElement('div');
+    modal.id = 'customConfirmModal';
+    modal.className = 'fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4';
+    
+    // Iconos según el tipo (con colores que funcionan en modo oscuro)
+    const icons = {
+      warning: `<svg class="w-12 h-12 text-amber-500 dark:text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+      </svg>`,
+      error: `<svg class="w-12 h-12 text-red-500 dark:text-red-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>`,
+      info: `<svg class="w-12 h-12 text-blue-500 dark:text-blue-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>`,
+      success: `<svg class="w-12 h-12 text-green-500 dark:text-green-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>`,
+      question: `<svg class="w-12 h-12 text-blue-500 dark:text-blue-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>`
+    };
+    
+    // Colores de botones según el tipo
+    const buttonColors = {
+      warning: 'bg-amber-600 hover:bg-amber-700 focus:ring-amber-500',
+      error: 'bg-red-600 hover:bg-red-700 focus:ring-red-500',
+      info: 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500',
+      success: 'bg-green-600 hover:bg-green-700 focus:ring-green-500',
+      question: 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500'
+    };
+    
+    modal.innerHTML = `
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all duration-300 scale-95 opacity-0" id="confirmModalContent">
+        <div class="p-6">
+          <div class="flex items-center justify-center mb-4">
+            ${icons[type] || icons.warning}
+          </div>
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white text-center mb-2">${title}</h3>
+          <p class="text-sm text-gray-600 dark:text-gray-300 text-center mb-6">${message}</p>
+          <div class="flex gap-3 justify-end">
+            <button id="confirmCancel" class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500">
+              Cancelar
+            </button>
+            <button id="confirmAccept" class="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${buttonColors[type] || buttonColors.warning}">
+              Sí, continuar
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    // Agregar al DOM
+    document.body.appendChild(modal);
+    
+    // Animar entrada
+    setTimeout(() => {
+      const content = document.getElementById('confirmModalContent');
+      content.classList.remove('scale-95', 'opacity-0');
+      content.classList.add('scale-100', 'opacity-100');
+    }, 10);
+    
+    // Event listeners
+    const handleCancel = () => {
+      animateOut(() => {
+        document.body.removeChild(modal);
+        resolve(false);
       });
-    } else {
-      const confirmed = confirm(`${title}\n\n${message}\n\n¿Continuar?`);
-      resolve(confirmed);
-    }
+    };
+    
+    const handleAccept = () => {
+      animateOut(() => {
+        document.body.removeChild(modal);
+        resolve(true);
+      });
+    };
+    
+    const animateOut = (callback) => {
+      const content = document.getElementById('confirmModalContent');
+      content.classList.remove('scale-100', 'opacity-100');
+      content.classList.add('scale-95', 'opacity-0');
+      setTimeout(callback, 300);
+    };
+    
+    // Event listeners
+    document.getElementById('confirmCancel').addEventListener('click', handleCancel);
+    document.getElementById('confirmAccept').addEventListener('click', handleAccept);
+    
+    // Cerrar con Escape
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') {
+        handleCancel();
+        document.removeEventListener('keydown', handleEscape);
+      }
+    };
+    document.addEventListener('keydown', handleEscape);
+    
+    // Cerrar clickeando fuera del modal
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        handleCancel();
+      }
+    });
   });
 }
 
@@ -238,6 +326,7 @@ export function initFilesScript() {
   const nextPageBtn = qs('#nextPageBtn');
   const pageIndicator = qs('#pageIndicator');
   const uploadFileBtn = qs('#uploadFileBtn');
+  const createDefaultFilesBtn = qs('#createDefaultFilesBtn');
   const addIcon = qs('#addIcon');
   const spinnerIcon = qs('#spinnerIcon');
   const uploadModal = qs('#uploadModal');
@@ -417,18 +506,34 @@ export function initFilesScript() {
             </a>`;
         }
 
+        // Definir archivos por defecto que no deben tener botón de eliminar
+        const defaultFiles = [
+          'Recepcion de orden',
+          'Aviso de Embarque', 
+          'Aviso de Recepcion de orden',
+          'Aviso de Disponibilidad de Orden'
+        ];
+        
+        const isDefaultFile = defaultFiles.includes(file.name);
+        
         actions += `
           <a href="#" class="edit-btn hover:text-blue-500 transition" data-file-id="${file.id}" title="Editar documento">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" />
             </svg>
-          </a>
-          <a href="#" class="delete-btn hover:text-red-500 transition" data-file-id="${file.id}" title="Eliminar documento">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12M10 11v6M14 11v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
-            </svg>
-          </a>
-        </div>`;
+          </a>`;
+          
+        // Solo mostrar botón de eliminar si NO es un archivo por defecto
+        if (!isDefaultFile) {
+          actions += `
+            <a href="#" class="delete-btn hover:text-red-500 transition" data-file-id="${file.id}" title="Eliminar documento">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12M10 11v6M14 11v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
+              </svg>
+            </a>`;
+        }
+        
+        actions += `</div>`;
 
         return `
           <tr data-id="${file.id}" class="transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-800 hover:shadow-[0_1px_3px_rgba(0,0,0,0.12)]">
@@ -458,10 +563,6 @@ export function initFilesScript() {
                   data-file-id="${file.id}"
                   ${file.is_visible_to_client ? 'checked' : ''} />
                 <div
-    } catch (error) {
-      console.error('DEBUG - refreshFiles - Error:', error);
-      showNotification('Error al cargar archivos', 'error');
-    }
                   class="w-9 h-5 bg-gray-200 rounded-full transition-colors
                     peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary-500
                     peer-checked:bg-primary-600 dark:bg-gray-700 dark:peer-checked:bg-primary-500"></div>
@@ -479,11 +580,20 @@ export function initFilesScript() {
       filteredRows = [...allRows];
       currentPage = 1;
       renderTable();
+      
+      // Actualizar estado del botón de crear archivos por defecto
+      updateCreateDefaultFilesButtonState(files.length);
     }
   } catch (error) {
     console.error('DEBUG - refreshFiles - Error:', error);
     showNotification('Error al cargar archivos', 'error');
   }
+}
+
+  function updateCreateDefaultFilesButtonState(filesCount) {
+    if (createDefaultFilesBtn) {
+      createDefaultFilesBtn.disabled = filesCount > 0;
+    }
   }
 
   async function sendDocument(fileId, orderNumber, customMessage, action) {
@@ -837,6 +947,55 @@ export function initFilesScript() {
   }
 
 
+  // Event listener para el botón de crear archivos por defecto
+  createDefaultFilesBtn?.addEventListener('click', async () => {
+    const confirmed = await confirmAction(
+      '¿Crear archivos por defecto?',
+      'Se crearán 4 archivos por defecto: Recepción de orden, Aviso de Embarque, Aviso de Recepción de orden y Aviso de Disponibilidad de Orden.',
+      'info'
+    );
+
+    if (confirmed) {
+      // Mostrar loading en el botón
+      const originalContent = createDefaultFilesBtn.innerHTML;
+      createDefaultFilesBtn.innerHTML = `
+        <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+        </svg>
+        <span>Creando...</span>
+      `;
+      createDefaultFilesBtn.disabled = true;
+
+      try {
+        const res = await fetch(`${apiBase}/api/files/create-default/${folderId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          }
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          showNotification(`Archivos por defecto creados exitosamente: ${data.filesCreated} archivos`, 'success');
+          await refreshFiles();
+          attachGenerateEvents();
+          attachSendResendEvents();
+        } else {
+          showNotification(data.message || 'Error al crear archivos por defecto', 'error');
+        }
+      } catch (err) {
+        showNotification('Error de red al crear archivos por defecto', 'error');
+      } finally {
+        // Restaurar botón
+        createDefaultFilesBtn.innerHTML = originalContent;
+        createDefaultFilesBtn.disabled = false;
+      }
+    }
+  });
+
   // Event listener para el botón de subir archivo
   uploadFileBtn?.addEventListener('click', () => {
     if (addIcon) addIcon.classList.add('hidden');
@@ -1002,6 +1161,10 @@ export function initFilesScript() {
   renderTable();
   attachGenerateEvents();
   attachSendResendEvents();
+  
+  // Inicializar estado del botón de crear archivos por defecto
+  const initialFilesCount = allRows.length;
+  updateCreateDefaultFilesButtonState(initialFilesCount);
 
   /* ---------- visibilidad (checkbox) ---------- */
   tableBody?.addEventListener('change', async (e) => {
@@ -1103,4 +1266,7 @@ export function initFilesScript() {
       window.currentMessageData = null;
     });
   }
+
+  // Cargar archivos al inicializar la página
+  refreshFiles();
 }

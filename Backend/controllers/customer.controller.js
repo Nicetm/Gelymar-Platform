@@ -1,5 +1,6 @@
 const customerService = require('../services/customer.service');
 const { logger } = require('../utils/logger');
+const bcrypt = require('bcrypt');
 
 /**
  * @route GET /api/customers
@@ -76,13 +77,13 @@ exports.getCustomerByUUID = async (req, res) => {
  * @access Protegido (requiere JWT)
  */
 exports.createCustomerContact = async (req, res) => {
-  const { customer_id, contacts } = req.body;
-  if (!customer_id || !Array.isArray(contacts) || contacts.length === 0) {
-    return res.status(400).json({ message: 'Debe enviar el customer_id y al menos un contacto' });
+  const { customer_uuid, contacts } = req.body;
+  if (!customer_uuid || !Array.isArray(contacts) || contacts.length === 0) {
+    return res.status(400).json({ message: 'Debe enviar el customer_uuid y al menos un contacto' });
   }
 
   try {
-    await customerService.createCustomerContacts(customer_id, contacts);
+    await customerService.createCustomerContacts(customer_uuid, contacts);
     res.status(201).json({ message: 'Contactos creados correctamente' });
   } catch (error) {
     logger.error(`Error al crear contactos: ${error.message}`);
@@ -98,6 +99,26 @@ exports.getCustomerContacts = async (req, res) => {
   } catch (error) {
     logger.error(`Error al obtener contactos: ${error.message}`);
     res.status(500).json({ message: 'Error al obtener contactos' });
+  }
+};
+
+/**
+ * @route DELETE /api/customers/contacts/:contactId
+ * @desc Elimina un contacto de un cliente
+ * @access Protegido (requiere JWT)
+ */
+exports.deleteCustomerContact = async (req, res) => {
+  const { customerUuid, contactIdx } = req.params;
+  
+  logger.info(`Petición recibida: eliminar contacto ${contactIdx} del cliente ${customerUuid}`);
+
+  try {
+    await customerService.deleteCustomerContact(customerUuid, contactIdx);
+    logger.info(`Contacto eliminado exitosamente: cliente ${customerUuid}, contacto ${contactIdx}`);
+    res.json({ message: 'Contacto eliminado correctamente' });
+  } catch (error) {
+    logger.error(`Error al eliminar contacto: ${error.message}`);
+    res.status(500).json({ message: error.message || 'Error al eliminar contacto' });
   }
 };
 
@@ -125,5 +146,67 @@ exports.updateCustomer = async (req, res) => {
   } catch (error) {
     logger.error(`Error al actualizar cliente: ${error.message}`);
     res.status(500).json({ message: 'Error al actualizar cliente' });
+  }
+};
+
+/**
+ * @route PATCH /api/customers/change-password/:uuid
+ * @desc Cambia la contraseña del usuario asociado al cliente
+ * @access Protegido (requiere JWT)
+ */
+exports.changeCustomerPassword = async (req, res) => {
+  const { uuid } = req.params;
+  const { password } = req.body;
+  
+  logger.info(`Petición recibida: cambiar contraseña para cliente UUID ${uuid}`);
+
+  try {
+    // Validar que se proporcione la contraseña
+    if (!password) {
+      return res.status(400).json({ message: 'La contraseña es requerida' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ message: 'La contraseña debe tener al menos 6 caracteres' });
+    }
+
+    // Obtener el cliente por UUID
+    const customer = await customerService.getCustomerByUUID(uuid);
+    if (!customer) {
+      logger.warn(`Cliente no encontrado con UUID: ${uuid}`);
+      return res.status(404).json({ message: 'Cliente no encontrado' });
+    }
+
+    // Buscar el usuario asociado (users.email = customers.rut)
+    const { poolPromise } = require('../config/db');
+    const pool = await poolPromise;
+    
+    const [users] = await pool.query(
+      'SELECT id, email FROM users WHERE email = ?',
+      [customer.rut]
+    );
+
+    if (users.length === 0) {
+      logger.warn(`Usuario no encontrado para RUT: ${customer.rut}`);
+      return res.status(404).json({ message: 'Usuario no encontrado para este cliente' });
+    }
+
+    const user = users[0];
+
+    // Hashear la nueva contraseña
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Actualizar la contraseña en la base de datos
+    await pool.query(
+      'UPDATE users SET password = ?, change_pw = 1 WHERE id = ?',
+      [hashedPassword, user.id]
+    );
+
+    logger.info(`Contraseña actualizada exitosamente para usuario ${user.email} (cliente UUID: ${uuid})`);
+    res.json({ message: 'Contraseña actualizada exitosamente' });
+
+  } catch (error) {
+    logger.error(`Error al cambiar contraseña del cliente: ${error.message}`);
+    res.status(500).json({ message: 'Error al cambiar contraseña' });
   }
 };

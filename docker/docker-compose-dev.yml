@@ -82,16 +82,16 @@ services:
       - fileserver_data:/var/www/html
     networks:
       - gelymar-network
-    privileged: true
-    cap_add:
-      - SYS_ADMIN
     depends_on:
       mysql:
         condition: service_healthy
-      fileserver:
-        condition: service_started
       vpn:
         condition: service_started
+      fileserver:
+        condition: service_started
+    privileged: true
+    cap_add:
+      - SYS_ADMIN
 
   # Capa Frontend
   frontend:
@@ -150,7 +150,6 @@ services:
       - fileserver_data:/var/www/html:rw
       - cron_logs:/app/logs
       - cron_pm2:/app/.pm2
-      - /mnt/red:/mnt/red:ro
     networks:
       - gelymar-network
     depends_on:
@@ -209,7 +208,13 @@ services:
         echo 'Configuración VPN:' &&
         cat /etc/openfortivpn/config &&
         echo 'Iniciando conexión VPN...' &&
-        openfortivpn -c /etc/openfortivpn/config -v
+        openfortivpn -c /etc/openfortivpn/config -v &
+        VPN_PID=$$! &&
+        echo 'Esperando conexión VPN...' &&
+        sleep 15 &&
+        echo 'VPN conectada. Manteniendo conexión...' &&
+        trap 'echo \"Recibida señal de terminación, cerrando VPN...\"; kill $$VPN_PID 2>/dev/null; exit 0' TERM INT &&
+        tail -f /dev/null
       "
 
   # phpMyAdmin

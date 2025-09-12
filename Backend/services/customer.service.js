@@ -12,15 +12,18 @@ async function getAllCustomers() {
   const [rows] = await pool.query(`
     SELECT 
       c.*, 
-      COUNT(o.id) AS order_count
+      COUNT(o.id) AS order_count,
+      cc.primary_email
     FROM customers c
     LEFT JOIN orders o ON o.customer_id = c.id
-    GROUP BY c.id
+    LEFT JOIN customer_contacts cc ON cc.customer_id = c.id
+    GROUP BY c.id, cc.primary_email
   `);
 
   return rows.map(row => {
     const customer = new Customer(row);
     customer.folder_count = row.folder_count;
+    customer.email = row.primary_email; // Usar el email principal de la nueva tabla
     return customer;
   });
 }
@@ -32,11 +35,20 @@ async function getAllCustomers() {
  */
 async function getCustomerById(id) {
   const pool = await poolPromise;
-  const [rows] = await pool.query('SELECT * FROM customers WHERE id = ?', [id]);
+  const [rows] = await pool.query(`
+    SELECT 
+      c.*,
+      cc.primary_email
+    FROM customers c
+    LEFT JOIN customer_contacts cc ON cc.customer_id = c.id
+    WHERE c.id = ?
+  `, [id]);
 
   if (rows.length === 0) return null;
 
-  return new Customer(rows[0]);
+  const customer = new Customer(rows[0]);
+  customer.email = rows[0].primary_email; // Usar el email principal de la nueva tabla
+  return customer;
 }
 
 /**
@@ -46,11 +58,20 @@ async function getCustomerById(id) {
  */
 async function getCustomerByUUID(uuid) {
   const pool = await poolPromise;
-  const [rows] = await pool.query('SELECT * FROM customers WHERE uuid = ?', [uuid]);
+  const [rows] = await pool.query(`
+    SELECT 
+      c.*,
+      cc.primary_email
+    FROM customers c
+    LEFT JOIN customer_contacts cc ON cc.customer_id = c.id
+    WHERE c.uuid = ?
+  `, [uuid]);
 
   if (rows.length === 0) return null;
 
-  return new Customer(rows[0]);
+  const customer = new Customer(rows[0]);
+  customer.email = rows[0].primary_email; // Usar el email principal de la nueva tabla
+  return customer;
 }
 
 /**
@@ -61,7 +82,14 @@ async function getCustomerByUUID(uuid) {
 async function getCustomerByRut(rut) {
   try {
     const pool = await poolPromise;
-    const query = 'SELECT * FROM customers WHERE rut = ?';
+    const query = `
+      SELECT 
+        c.*,
+        cc.primary_email
+      FROM customers c
+      LEFT JOIN customer_contacts cc ON cc.customer_id = c.id
+      WHERE c.rut = ?
+    `;
     const params = [rut];
     
     const [rows] = await pool.query(query, params);
@@ -72,6 +100,7 @@ async function getCustomerByRut(rut) {
     }
     
     const customer = new Customer(rows[0]);
+    customer.email = rows[0].primary_email; // Usar el email principal de la nueva tabla
     // Log simplificado solo para debugging cuando sea necesario
     // console.log(`Cliente encontrado: ${customer.name} (${customer.rut})`);
     
@@ -121,23 +150,204 @@ async function insertCustomer(data) {
 
 async function createCustomerContacts(customer_uuid, contacts) {
   const pool = await poolPromise;
-  // Buscar el ID numérico a partir del UUID
-  const [customer] = await pool.query('SELECT id FROM customers WHERE uuid = ?', [customer_uuid]);
+  
+  // Buscar el cliente por UUID
+  const [customer] = await pool.query('SELECT id, rut FROM customers WHERE uuid = ?', [customer_uuid]);
   if (!customer[0]) throw new Error('Cliente no encontrado');
+  
   const customer_id = customer[0].id;
-  const query = `INSERT INTO customer_contacts (customer_id, name, email) VALUES ?`;
-  const values = contacts.map(c => [customer_id, c.name, c.email]);
-  await pool.query(query, [values]);
+  const customer_rut = customer[0].rut;
+  
+  // Verificar si existe un registro en la tabla de contactos
+  const [existingContact] = await pool.query(
+    'SELECT id, primary_email, contact_email FROM customer_contacts WHERE customer_id = ?', 
+    [customer_id]
+  );
+  
+  if (!existingContact[0]) {
+    throw new Error('Para ingresar contactos adicionales debe ingresar el mail principal');
+  }
+  
+  if (!existingContact[0].primary_email) {
+    throw new Error('Para ingresar contactos adicionales debe ingresar el mail principal');
+  }
+  
+  // Obtener contactos existentes del JSON
+  let existingContacts = [];
+  if (existingContact[0].contact_email) {
+    try {
+      // Si ya es un objeto, usarlo directamente
+      if (typeof existingContact[0].contact_email === 'object') {
+        existingContacts = existingContact[0].contact_email;
+      } else {
+        // Si es string, parsearlo
+        existingContacts = JSON.parse(existingContact[0].contact_email);
+      }
+    } catch (error) {
+      existingContacts = [];
+    }
+  }
+  
+  // Agregar nuevos contactos con índice incremental
+  const maxIdx = existingContacts.length > 0 ? Math.max(...existingContacts.map(c => c.idx || 0)) : 0;
+  const newContacts = contacts.map((contact, index) => ({
+    idx: maxIdx + index + 1,
+    nombre: contact.name,
+    email: contact.email || '',
+    telefono: contact.phone || ''
+  }));
+  
+  // Combinar contactos existentes con nuevos
+  const allContacts = [...existingContacts, ...newContacts];
+  
+  // Actualizar el registro con los nuevos contactos
+  await pool.query(
+    'UPDATE customer_contacts SET contact_email = ? WHERE customer_id = ?',
+    [JSON.stringify(allContacts), customer_id]
+  );
 }
 
 async function getContactsByCustomerUUID(uuid) {
   const pool = await poolPromise;
-  // Suponiendo que tienes una relación entre customers y customer_contacts por customer_id
+  
+  // Buscar el cliente por UUID
   const [customer] = await pool.query('SELECT id FROM customers WHERE uuid = ?', [uuid]);
-  if (!customer[0]) return [];
+  if (!customer[0]) {
+    return {
+      id: null,
+      primary_email: null,
+      role: null,
+      additional_contacts: []
+    };
+  }
+  
   const customerId = customer[0].id;
-  const [contacts] = await pool.query('SELECT id, name, email FROM customer_contacts WHERE customer_id = ?', [customerId]);
-  return contacts;
+  
+  // Buscar en la tabla de contactos
+  const [contactRecord] = await pool.query(
+    'SELECT id, primary_email, contact_email, role FROM customer_contacts WHERE customer_id = ?', 
+    [customerId]
+  );
+  
+  if (!contactRecord[0]) {
+    return {
+      id: null,
+      primary_email: null,
+      role: null,
+      additional_contacts: []
+    };
+  }
+  
+  const result = {
+    id: contactRecord[0].id,
+    primary_email: contactRecord[0].primary_email,
+    role: contactRecord[0].role,
+    additional_contacts: []
+  };
+  
+  // Parsear contactos adicionales del JSON
+  if (contactRecord[0].contact_email) {
+    try {
+      // Si ya es un objeto, usarlo directamente
+      if (typeof contactRecord[0].contact_email === 'object') {
+        result.additional_contacts = contactRecord[0].contact_email;
+      } else {
+        // Si es string, parsearlo
+        result.additional_contacts = JSON.parse(contactRecord[0].contact_email);
+      }
+    } catch (error) {
+      result.additional_contacts = [];
+    }
+  }
+  
+  return result;
+}
+
+/**
+ * Crea o actualiza el registro principal de contactos cuando se actualiza el email principal
+ * @param {string} customer_uuid - UUID del cliente
+ * @param {string} primary_email - Email principal del cliente
+ * @returns {void}
+ */
+async function createOrUpdatePrimaryContact(customer_uuid, primary_email) {
+  const pool = await poolPromise;
+  
+  // Buscar el cliente por UUID
+  const [customer] = await pool.query('SELECT id, rut FROM customers WHERE uuid = ?', [customer_uuid]);
+  if (!customer[0]) throw new Error('Cliente no encontrado');
+  
+  const customer_id = customer[0].id;
+  const customer_rut = customer[0].rut;
+  
+  // Verificar si ya existe un registro
+  const [existingRecord] = await pool.query(
+    'SELECT id FROM customer_contacts WHERE customer_id = ?', 
+    [customer_id]
+  );
+  
+  if (existingRecord[0]) {
+    // Actualizar registro existente
+    await pool.query(
+      'UPDATE customer_contacts SET primary_email = ? WHERE customer_id = ?',
+      [primary_email, customer_id]
+    );
+  } else {
+    // Crear nuevo registro
+    await pool.query(
+      'INSERT INTO customer_contacts (customer_id, rut, primary_email, role) VALUES (?, ?, ?, ?)',
+      [customer_id, customer_rut, primary_email, '3']
+    );
+  }
+}
+
+/**
+ * Elimina un contacto de un cliente
+ * @param {number} contactId - ID del contacto a eliminar
+ * @returns {boolean} true si se eliminó, false si no se encontró
+ */
+async function deleteCustomerContact(customer_uuid, contactIdx) {
+  const pool = await poolPromise;
+  
+  // Buscar el cliente por UUID
+  const [customer] = await pool.query('SELECT id FROM customers WHERE uuid = ?', [customer_uuid]);
+  if (!customer[0]) throw new Error('Cliente no encontrado');
+  
+  const customer_id = customer[0].id;
+  
+  // Obtener el registro de contactos
+  const [contactRecord] = await pool.query(
+    'SELECT contact_email FROM customer_contacts WHERE customer_id = ?', 
+    [customer_id]
+  );
+  
+  if (!contactRecord[0] || !contactRecord[0].contact_email) {
+    throw new Error('No se encontraron contactos para eliminar');
+  }
+  
+  // Parsear contactos existentes
+  let contacts = [];
+  try {
+    // Si ya es un objeto, usarlo directamente
+    if (typeof contactRecord[0].contact_email === 'object') {
+      contacts = contactRecord[0].contact_email;
+    } else {
+      // Si es string, parsearlo
+      contacts = JSON.parse(contactRecord[0].contact_email);
+    }
+  } catch (error) {
+    throw new Error('Error al parsear contactos existentes');
+  }
+  
+  // Filtrar el contacto a eliminar
+  const updatedContacts = contacts.filter(contact => contact.idx !== parseInt(contactIdx));
+  
+  // Actualizar el registro
+  await pool.query(
+    'UPDATE customer_contacts SET contact_email = ? WHERE customer_id = ?',
+    [JSON.stringify(updatedContacts), customer_id]
+  );
+  
+  return true;
 }
 
 /**
@@ -152,8 +362,11 @@ async function updateCustomerByUUID(uuid, updateData) {
   // Verificar que el cliente existe
   const [existingCustomer] = await pool.query('SELECT * FROM customers WHERE uuid = ?', [uuid]);
   if (existingCustomer.length === 0) {
+    console.error(`Cliente no encontrado con UUID: ${uuid}`);
     return null;
   }
+
+  console.log(`Cliente encontrado: ${existingCustomer[0].name} (${existingCustomer[0].rut})`);
 
   // Construir la query de actualización dinámicamente
   const allowedFields = ['name', 'email', 'phone', 'country', 'city', 'address', 'address_alt', 'contact_name', 'contact_secondary', 'fax'];
@@ -180,10 +393,25 @@ async function updateCustomerByUUID(uuid, updateData) {
     WHERE uuid = ?
   `;
 
+  console.log(`Actualizando cliente con query: ${query}`);
+  console.log(`Valores: ${JSON.stringify(values)}`);
+
   await pool.query(query, values);
 
+  // Si se actualizó el email, crear o actualizar el registro de contactos
+  if (updateData.email) {
+    try {
+      console.log(`Creando/actualizando contacto principal para email: ${updateData.email}`);
+      await createOrUpdatePrimaryContact(uuid, updateData.email);
+    } catch (error) {
+      console.error('Error actualizando contacto principal:', error.message);
+    }
+  }
+
   // Retornar el cliente actualizado
-  return await getCustomerByUUID(uuid);
+  const updatedCustomer = await getCustomerByUUID(uuid);
+  console.log(`Cliente actualizado exitosamente: ${updatedCustomer ? updatedCustomer.name : 'null'}`);
+  return updatedCustomer;
 }
 
 module.exports = {
@@ -195,5 +423,7 @@ module.exports = {
   getCustomerByRut,
   createCustomerContacts,
   getContactsByCustomerUUID,
-  updateCustomerByUUID
+  deleteCustomerContact,
+  updateCustomerByUUID,
+  createOrUpdatePrimaryContact
 };

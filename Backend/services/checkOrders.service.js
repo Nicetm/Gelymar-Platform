@@ -159,6 +159,7 @@ async function fetchOrderFilesFromNetwork() {
           oc: oc,
           factura: normalizeValue(record.Factura?.trim()),
           fecha_factura: normalizeDate(record.Fecha_factura?.trim()),
+          fecha_ingreso: normalizeDate(record.Fecha?.trim()),
           created_at: new Date(),
           updated_at: new Date()
         });

@@ -83,7 +83,6 @@ const { unreadCount = 0 } = Astro.props;
       }
 
       const apiBase = window.apiBase || 'http://localhost:3000';
-      console.log('Socket.io conectando a:', apiBase);
       
       this.socket = io(apiBase, {
         auth: { token },
@@ -96,13 +95,11 @@ const { unreadCount = 0 } = Astro.props;
       });
 
       this.socket.on('connect', () => {
-        console.log('Socket.io conectado');
         this.isConnected = true;
         this.reconnectAttempts = 0;
       });
 
       this.socket.on('disconnect', (reason) => {
-        console.log('Socket.io desconectado:', reason);
         this.isConnected = false;
       });
 
@@ -116,7 +113,6 @@ const { unreadCount = 0 } = Astro.props;
       });
 
       this.socket.on('reconnect', (attemptNumber) => {
-        console.log(`Socket.io reconectado después de ${attemptNumber} intentos`);
         this.isConnected = true;
         this.reconnectAttempts = 0;
       });

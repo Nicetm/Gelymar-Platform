@@ -14,6 +14,7 @@ class Order {
     files_count = 0,
     factura = null,
     fecha_factura = null,
+    fecha_ingreso = null,
     fecha = null,
     fecha_etd = null,
     currency = null,
@@ -32,6 +33,7 @@ class Order {
     this.files_count = files_count;
     this.factura = factura;
     this.fecha_factura = fecha_factura;
+    this.fecha_ingreso = fecha_ingreso;
     this.fecha = fecha;
     this.fecha_etd = fecha_etd;
     this.currency = currency;

@@ -124,14 +124,16 @@ async function createSecureDirectory(dirPath, recursive = true) {
  */
 function validateFilePath(filePath, basePath) {
   try {
-    const normalizedPath = path.normalize(filePath);
-    const normalizedBase = path.normalize(basePath);
-    
     // Verificar que la ruta no contenga caracteres peligrosos
-    if (normalizedPath.includes('..') || normalizedPath.includes('~')) {
+    if (filePath.includes('..') || filePath.includes('~')) {
       logger.warn(`Ruta potencialmente peligrosa detectada: ${filePath}`);
       return false;
     }
+    
+    // Si filePath es relativa, construir la ruta completa
+    const fullPath = path.isAbsolute(filePath) ? filePath : path.join(basePath, filePath);
+    const normalizedPath = path.normalize(fullPath);
+    const normalizedBase = path.normalize(basePath);
     
     // Verificar que la ruta esté dentro del directorio base
     const relativePath = path.relative(normalizedBase, normalizedPath);

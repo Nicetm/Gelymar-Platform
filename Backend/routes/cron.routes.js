@@ -10,6 +10,7 @@ const { fetchOrderLineFilesFromNetwork } = require('../services/checkOrderLines.
 const { generateDefaultFiles } = require('../services/checkDefaultFiles.service');
 const { checkOrdersWithETD } = require('../services/checkETD.service');
 const { cleanDatabaseAndDirectories } = require('../services/cleanDatabase.service');
+const { sendOrderReceptionDocuments } = require('../services/checkOrderReception.service');
 
 // Endpoint para procesar clientes
 router.post('/check-clients', async (req, res) => {
@@ -116,6 +117,19 @@ router.post('/clean-database', async (req, res) => {
     res.json({ success: true, message: 'Base de datos limpiada correctamente' });
   } catch (error) {
     console.error('Error limpiando base de datos:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Endpoint para enviar documentos de recepción de orden
+router.post('/send-order-reception', async (req, res) => {
+  try {
+    console.log('Iniciando envío de documentos de recepción de orden...');
+    await sendOrderReceptionDocuments();
+    console.log('Envío de documentos de recepción completado');
+    res.json({ success: true, message: 'Documentos de recepción enviados correctamente' });
+  } catch (error) {
+    console.error('Error enviando documentos de recepción:', error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 });

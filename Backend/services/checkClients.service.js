@@ -9,7 +9,7 @@ const { getNetworkFilePath } = require('./networkMount.service');
 async function fetchClientFilesFromNetwork() {
     try {
       // Usar el servicio centralizado para obtener la ruta del archivo
-      const inputPath = await getNetworkFilePath('CLIENTES.txt');
+      const inputPath = await getNetworkFilePath('CLIENTES_SOFTKEY.txt');
       console.log('Ruta del archivo:', inputPath);
       
       const content = fs.readFileSync(inputPath, 'latin1');
@@ -17,13 +17,20 @@ async function fetchClientFilesFromNetwork() {
       console.log(content.split('\n').slice(0, 3).join('\n'));
   
       const records = parse(content, {
-        delimiter: '\t',
+        delimiter: ';',
         columns: true,
         skip_empty_lines: true,
-        relax_quotes: true
+        relax_quotes: true,
+        relax_column_count: true
       });
   
       console.log(`Total de registros parseados: ${records.length}`);
+      
+      // Debug: mostrar las columnas detectadas y el primer registro
+      if (records.length > 0) {
+        console.log('Columnas detectadas:', Object.keys(records[0]));
+        console.log('Primer registro:', records[0]);
+      }
   
       // Guardar CSV en disco
       const output = stringify(records, { header: true, delimiter: ';' });
@@ -31,7 +38,7 @@ async function fetchClientFilesFromNetwork() {
       
       // Usar timestamp para evitar conflictos de archivo
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const filename = `documentos/CLIENTES_${timestamp}.csv`;
+      const filename = `documentos/CLIENTES_SOFTKEY_${timestamp}.csv`;
       
       try {
         fs.writeFileSync(filename, output, 'utf8');
@@ -66,12 +73,18 @@ async function fetchClientFilesFromNetwork() {
         console.log(`[${new Date().toISOString()}] -> Check Client Process -> Procesando lote ${batchIndex + 1}/${totalBatches} (registros ${startIndex + 1}-${endIndex})`);
         
         for (const r of currentBatch) {
-                const rut = r.Rut?.trim();
+                let rut = r.Rut?.trim();
         if (!rut) {
           console.log(`[${new Date().toISOString()}] -> Check Client Process -> Registro omitido: RUT=${r.Rut?.trim() || 'N/A'} - Motivo: Sin RUT`);
           omitidos++;
           continue;
         }
+        
+        // Quitar la C final del RUT si existe
+        if (rut.endsWith('C') || rut.endsWith('c')) {
+          rut = rut.slice(0, -1);
+        }
+        
         if (existingRuts.includes(rut)) {
           console.log(`[${new Date().toISOString()}] -> Check Client Process -> Registro omitido: RUT=${rut} - Motivo: Cliente ya existe`);
           omitidos++;

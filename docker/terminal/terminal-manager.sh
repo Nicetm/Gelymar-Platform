@@ -179,13 +179,257 @@ show_container_menu() {
     
     # Procesar selección
     selected_container="${CONTAINER_NAMES[$selected]}"
+    selected_display="${CONTAINERS[$selected]}"
     
     if [ "$selected_container" = "exit" ]; then
         echo "Saliendo..."
         exit 0
     fi
     
-    connect_to_container "$selected_container"
+    show_container_actions "$selected_container" "$selected_display"
+}
+
+# Función para mostrar submenú de acciones del contenedor
+show_container_actions() {
+    local container_name="$1"
+    local container_display="$2"
+    
+    show_title
+    echo "📋 Acciones para: $container_display"
+    echo "═══════════════════════════════════"
+    echo ""
+    
+    # Verificar estado del contenedor
+    if docker ps | grep -q "$container_name"; then
+        echo "🟢 Estado: Corriendo"
+    else
+        echo "🔴 Estado: Detenido"
+    fi
+    echo ""
+    
+    # Opciones del submenú
+    ACTIONS=(
+        " Ingresar al contenedor"
+        " Reiniciar contenedor"
+        " Detener contenedor"
+        " Iniciar contenedor"
+        " Volver al menú principal"
+    )
+    
+    ACTION_CODES=(
+        "enter"
+        "restart"
+        "stop"
+        "start"
+        "back"
+    )
+    
+    echo "📋 Opciones disponibles:"
+    echo "═══════════════════════"
+    echo ""
+    
+    # Mostrar opciones
+    for i in "${!ACTIONS[@]}"; do
+        if [ $i -eq 0 ]; then
+            echo -e "  \033[7m▶     ${ACTIONS[$i]}\033[0m"
+        else
+            echo "     ${ACTIONS[$i]}"
+        fi
+    done
+    
+    echo ""
+    echo "💡 Usa las flechas ↑↓ para navegar y Enter para seleccionar"
+    echo "   Presiona 'q' para volver al menú principal"
+    echo ""
+    
+    # Variables para navegación
+    selected=0
+    total=${#ACTIONS[@]}
+    
+    # Bucle de navegación
+    while true; do
+        # Leer una tecla
+        read -rsn1 key
+        
+        case "$key" in
+            $'\x1b')  # ESC sequence
+                read -rsn2 key
+                case "$key" in
+                    "[A") # Flecha arriba
+                        if [ $selected -gt 0 ]; then
+                            selected=$((selected - 1))
+                        fi
+                        ;;
+                    "[B") # Flecha abajo
+                        if [ $selected -lt $((total - 1)) ]; then
+                            selected=$((selected + 1))
+                        fi
+                        ;;
+                esac
+                ;;
+            "") # Enter
+                break
+                ;;
+            "q"|"Q") # Salir
+                return 0
+                ;;
+        esac
+        
+        # Redibujar menú
+        show_title
+        echo "📋 Acciones para: $container_display"
+        echo "═══════════════════════════════════"
+        echo ""
+        
+        if docker ps | grep -q "$container_name"; then
+            echo "🟢 Estado: Corriendo"
+        else
+            echo "🔴 Estado: Detenido"
+        fi
+        echo ""
+        
+        echo "📋 Opciones disponibles:"
+        echo "═══════════════════════"
+        echo ""
+        
+        for i in "${!ACTIONS[@]}"; do
+            if [ $i -eq $selected ]; then
+                echo -e "  \033[7m▶     ${ACTIONS[$i]}\033[0m"
+            else
+                echo "     ${ACTIONS[$i]}"
+            fi
+        done
+        
+        echo ""
+        echo "💡 Usa las flechas ↑↓ para navegar y Enter para seleccionar"
+        echo "   Presiona 'q' para volver al menú principal"
+        echo ""
+    done
+    
+    # Procesar selección
+    selected_action="${ACTION_CODES[$selected]}"
+    
+    case "$selected_action" in
+        "enter")
+            connect_to_container "$container_name"
+            ;;
+        "restart")
+            restart_container "$container_name" "$container_display"
+            ;;
+        "stop")
+            stop_container "$container_name" "$container_display"
+            ;;
+        "start")
+            start_container "$container_name" "$container_display"
+            ;;
+        "back")
+            return 0
+            ;;
+    esac
+}
+
+# Función para reiniciar un contenedor
+restart_container() {
+    local container_name="$1"
+    local container_display="$2"
+    
+    show_title
+    echo "🔄 Reiniciando: $container_display"
+    echo "═══════════════════════════════════"
+    echo ""
+    
+    echo "⏳ Reiniciando contenedor..."
+    if docker restart "$container_name" >/dev/null 2>&1; then
+        echo "✅ Contenedor reiniciado exitosamente"
+        sleep 2
+        
+        # Verificar que esté corriendo
+        if docker ps | grep -q "$container_name"; then
+            echo "🟢 Estado: Corriendo"
+        else
+            echo "🔴 Estado: Detenido"
+        fi
+    else
+        echo "❌ Error al reiniciar el contenedor"
+    fi
+    
+    echo ""
+    read -p "Presiona Enter para continuar..."
+}
+
+# Función para detener un contenedor
+stop_container() {
+    local container_name="$1"
+    local container_display="$2"
+    
+    show_title
+    echo "⏹️ Deteniendo: $container_display"
+    echo "═══════════════════════════════════"
+    echo ""
+    
+    # Verificar si el contenedor está corriendo
+    if ! docker ps | grep -q "$container_name"; then
+        echo "⚠️ El contenedor ya está detenido"
+        echo ""
+        read -p "Presiona Enter para continuar..."
+        return 0
+    fi
+    
+    echo "⏳ Deteniendo contenedor..."
+    if docker stop "$container_name" >/dev/null 2>&1; then
+        echo "✅ Contenedor detenido exitosamente"
+        sleep 2
+        
+        # Verificar que esté detenido
+        if docker ps | grep -q "$container_name"; then
+            echo "🟢 Estado: Aún corriendo"
+        else
+            echo "🔴 Estado: Detenido"
+        fi
+    else
+        echo "❌ Error al detener el contenedor"
+    fi
+    
+    echo ""
+    read -p "Presiona Enter para continuar..."
+}
+
+# Función para iniciar un contenedor
+start_container() {
+    local container_name="$1"
+    local container_display="$2"
+    
+    show_title
+    echo "▶️ Iniciando: $container_display"
+    echo "═══════════════════════════════════"
+    echo ""
+    
+    # Verificar si el contenedor ya está corriendo
+    if docker ps | grep -q "$container_name"; then
+        echo "⚠️ El contenedor ya está corriendo"
+        echo ""
+        read -p "Presiona Enter para continuar..."
+        return 0
+    fi
+    
+    echo "⏳ Iniciando contenedor..."
+    if docker start "$container_name" >/dev/null 2>&1; then
+        echo "✅ Contenedor iniciado exitosamente"
+        sleep 2
+        
+        # Verificar que esté corriendo
+        if docker ps | grep -q "$container_name"; then
+            echo "🟢 Estado: Corriendo"
+        else
+            echo "🔴 Estado: Detenido"
+        fi
+    else
+        echo "❌ Error al iniciar el contenedor"
+        echo "💡 Verifica que el contenedor exista y esté configurado correctamente"
+    fi
+    
+    echo ""
+    read -p "Presiona Enter para continuar..."
 }
 
 # Función para conectar a un contenedor
@@ -226,11 +470,10 @@ connect_to_container() {
 
 # Función principal
 main() {
-    # Autenticar usuario
-    if ! authenticate_user; then
-        echo "❌ Autenticación fallida"
-        exit 1
-    fi
+    # Acceso directo sin autenticación
+    echo "✅ Acceso directo habilitado - Bienvenido"
+    echo ""
+    sleep 1
     
     # Bucle principal del menú
     while true; do

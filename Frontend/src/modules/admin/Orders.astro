@@ -7,12 +7,49 @@ const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL
 const apiPublic = import.meta.env.PUBLIC_API_URL;
 const lang = getServerLang(Astro.cookies);
 
-const t: any = {
-  documentos: await loadTranslations(lang, 'documentos'),
-  carpetas: await loadTranslations(lang, 'carpetas'),
-  clientes: await loadTranslations(lang, 'clientes'),
-  comond: await loadTranslations(lang, 'comond'),
-};
+// Cargar traducciones de manera estática
+let t: any = {};
+try {
+  t = {
+    documentos: await loadTranslations(lang, 'documentos'),
+    carpetas: await loadTranslations(lang, 'carpetas'),
+    clientes: await loadTranslations(lang, 'clientes'),
+    comond: await loadTranslations(lang, 'comond'),
+  };
+} catch (error) {
+  console.warn('Error cargando traducciones, usando fallback:', error);
+  // Fallback con traducciones básicas
+  t = {
+    documentos: {
+      title: 'Documentos',
+      name: 'Nombre',
+      status: 'Estado',
+      fechaETD: 'Fecha ETD',
+      fechaETA: 'Fecha ETA',
+      created: 'Creado',
+      updated: 'Actualizado',
+      actions: 'Acciones'
+    },
+    carpetas: {
+      title: 'Carpetas',
+      customers: 'Clientes'
+    },
+    clientes: {
+      title: 'Clientes',
+      name: 'Nombre',
+      email: 'Email'
+    },
+    comond: {
+      home: 'Inicio',
+      search: 'Buscar',
+      cancel: 'Cancelar',
+      confirm: 'Confirmar',
+      save: 'Guardar',
+      edit: 'Editar',
+      delete: 'Eliminar'
+    }
+  };
+}
 ---
 
 <section id="OrderSection" class="px-4 pt-20 pb-6 sm:px-6 lg:px-8">

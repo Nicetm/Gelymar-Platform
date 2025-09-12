@@ -1,5 +1,8 @@
 const { poolPromise } = require('../config/db');
 const File = require('../models/file');
+const fs = require('fs').promises;
+const path = require('path');
+const { cleanDirectoryName } = require('../utils/directoryUtils');
 
 /**
  * Inserta un nuevo archivo en la base de datos
@@ -255,6 +258,158 @@ const getFilesByFolderId = async (orderId) => {
   return rows;
 };
 
+/**
+ * Crea archivos por defecto para una orden específica
+ * @param {number} orderId - ID de la orden
+ * @param {string} customerName - Nombre del cliente
+ * @param {string} pc - Número PC
+ * @param {string} oc - Número OC
+ * @returns {Promise<Object>} Resultado de la operación
+ */
+const createDefaultFilesForOrder = async (orderId, customerName, pc, oc) => {
+  try {
+    // Verificar si ya existen archivos para esta orden
+    const existingFiles = await getFilesByFolderId(orderId);
+    if (existingFiles.length > 0) {
+      throw new Error('Ya existen archivos para esta orden');
+    }
+
+    // Crear directorio físico
+    const directoryPath = await createClientDirectory(customerName, pc);
+    if (!directoryPath) {
+      throw new Error('Error creando directorio físico');
+    }
+
+    // Definir los 4 archivos por defecto
+    const defaultDocuments = [
+      {
+        name: 'Recepcion de orden',
+        order_id: orderId,
+        pc: pc,
+        oc: oc,
+        path: directoryPath
+      },
+      {
+        name: 'Aviso de Embarque',
+        order_id: orderId,
+        pc: pc,
+        oc: oc,
+        path: directoryPath
+      },
+      {
+        name: 'Aviso de Recepcion de orden',
+        order_id: orderId,
+        pc: pc,
+        oc: oc,
+        path: directoryPath
+      },
+      {
+        name: 'Aviso de Disponibilidad de Orden',
+        order_id: orderId,
+        pc: pc,
+        oc: oc,
+        path: directoryPath
+      }
+    ];
+
+    // Insertar los archivos en la base de datos
+    const createdFiles = [];
+    for (const doc of defaultDocuments) {
+      const result = await insertDefaultFile(doc);
+      createdFiles.push({
+        id: result.insertId,
+        name: doc.name,
+        path: doc.path
+      });
+    }
+
+    return {
+      success: true,
+      message: 'Archivos por defecto creados exitosamente',
+      filesCreated: createdFiles.length,
+      directoryPath: directoryPath,
+      files: createdFiles
+    };
+
+  } catch (error) {
+    console.error(`Error creando archivos por defecto para orden ${orderId}:`, error.message);
+    throw error;
+  }
+};
+
+/**
+ * Inserta un archivo por defecto en la base de datos
+ * @param {Object} fileData - Datos del archivo
+ * @returns {Promise<Object>} Resultado de la inserción
+ */
+const insertDefaultFile = async (fileData) => {
+  const pool = await poolPromise;
+  
+  try {
+    const query = `
+      INSERT INTO files (
+        order_id, pc, oc, name, path, eta, etd, was_sent, 
+        document_type, file_type, status_id, is_visible_to_client, 
+        created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, 'PDF', 1, 0, NOW(), NOW())
+    `;
+
+    const params = [
+      fileData.order_id,
+      fileData.pc,
+      fileData.oc,
+      fileData.name,
+      fileData.path
+    ];
+
+    const [result] = await pool.query(query, params);
+    return result;
+    
+  } catch (error) {
+    console.error(`Error insertando archivo por defecto ${fileData.name}:`, error.message);
+    throw error;
+  }
+};
+
+/**
+ * Crea el directorio físico para el cliente y orden
+ * @param {string} customerName - Nombre del cliente
+ * @param {string} pc - Número PC de la orden
+ * @returns {Promise<string|null>} Ruta del directorio creado o null si hay error
+ */
+const createClientDirectory = async (customerName, pc) => {
+  try {
+    const fileServerRoot = process.env.FILE_SERVER_ROOT || '/var/www/html';
+    
+    if (!fileServerRoot) {
+      console.error('FILE_SERVER_ROOT no está configurado en .env');
+      return null;
+    }
+
+    // Limpiar nombre del cliente para usar como nombre de directorio
+    const cleanCustomerName = cleanDirectoryName(customerName);
+
+    // Crear ruta del directorio: /uploads/CLIENTE_NOMBRE/Numero PC
+    const directoryPath = path.join(fileServerRoot, 'uploads', cleanCustomerName, pc);
+    
+    // Verificar si el directorio ya existe
+    try {
+      await fs.access(directoryPath);
+      return directoryPath;
+    } catch (accessError) {
+      // El directorio no existe, crearlo
+    }
+    
+    // Crear directorio y subdirectorios si no existen
+    await fs.mkdir(directoryPath, { recursive: true });
+    return directoryPath;
+    
+  } catch (error) {
+    console.error(`Error creando directorio para cliente ${customerName}, PC ${pc}:`, error.message);
+    return null;
+  }
+};
+
 module.exports = {
   RenameFile,
   getFileById,
@@ -267,5 +422,8 @@ module.exports = {
   getAllOrdersGroupedByRut,
   getNextFolderId,
   getAllFiles,
-  getFilesByFolderId
+  getFilesByFolderId,
+  createDefaultFilesForOrder,
+  insertDefaultFile,
+  createClientDirectory
 };

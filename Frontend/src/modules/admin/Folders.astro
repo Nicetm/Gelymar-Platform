@@ -11,10 +11,39 @@ const url = new URL(Astro.url.href);
 const clientName = url.searchParams.get('c') ?? '';
 const decodedClientName = decodeURIComponent(clientName);
 const { id } = Astro.params;
-const t: any = {
-  carpetas: await loadTranslations(lang, 'carpetas'),
-  comond: await loadTranslations(lang, 'comond'),
-};
+
+// Cargar traducciones de manera estática
+let t: any = {};
+try {
+  t = {
+    carpetas: await loadTranslations(lang, 'carpetas'),
+    comond: await loadTranslations(lang, 'comond'),
+  };
+} catch (error) {
+  console.warn('Error cargando traducciones, usando fallback:', error);
+  // Fallback con traducciones básicas
+  t = {
+    carpetas: {
+      title: 'Carpetas',
+      customers: 'Clientes',
+      name: 'Nombre',
+      created: 'Creado',
+      updated: 'Actualizado',
+      actions: 'Acciones',
+      orders: 'Órdenes',
+      documents: 'Documentos'
+    },
+    comond: {
+      home: 'Inicio',
+      search: 'Buscar',
+      cancel: 'Cancelar',
+      confirm: 'Confirmar',
+      save: 'Guardar',
+      edit: 'Editar',
+      delete: 'Eliminar'
+    }
+  };
+}
 
 // Eliminar la carga de datos en el servidor
 // const token = Astro.cookies.get('token')?.value;
@@ -305,7 +334,7 @@ const t: any = {
   window.apiBase = apiPublic;
   window.fileServer = fileServer;
   window.lang = lang;
-  window.translations = t;
+  window.t = t;
 
   // Inicializar el script cuando el DOM esté completamente cargado
   if (document.readyState === 'loading') {

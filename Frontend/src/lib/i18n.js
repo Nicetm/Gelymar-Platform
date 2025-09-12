@@ -97,6 +97,38 @@ export function getLang() {
  */
 export async function loadTranslations(lang = 'es', section = 'clientes') {
   try {
+    // En el servidor (Astro SSR), usar import estático
+    if (typeof window === 'undefined') {
+      const translationsMap = {
+        es: {
+          comond: () => import('../i18n/es/comond.json'),
+          clientes: () => import('../i18n/es/clientes.json'),
+          carpetas: () => import('../i18n/es/carpetas.json'),
+          documentos: () => import('../i18n/es/documentos.json'),
+          support: () => import('../i18n/es/support.json'), 
+          sidebar: () => import('../i18n/es/sidebar.json'),
+          admin_settings: () => import('../i18n/es/admin_settings.json'),
+          usermenu: () => import('../i18n/es/usermenu.json'),
+          messages: () => import('../i18n/es/messages.json'),
+          footer: () => import('../i18n/es/footer.json'),
+        },
+        en: {
+          comond: () => import('../i18n/en/comond.json'),
+          clientes: () => import('../i18n/en/clientes.json'),
+          carpetas: () => import('../i18n/en/carpetas.json'),
+          documentos: () => import('../i18n/en/documentos.json'),
+          support: () => import('../i18n/en/support.json'), 
+          sidebar: () => import('../i18n/en/sidebar.json'),
+          admin_settings: () => import('../i18n/en/admin_settings.json'),
+          usermenu: () => import('../i18n/en/usermenu.json'),
+          messages: () => import('../i18n/en/messages.json'),
+          footer: () => import('../i18n/en/footer.json'),
+        }
+      };
+      return (await translationsMap[lang]?.[section]())?.default || {};
+    }
+    
+    // En el cliente, usar el mapa original
     return (await translationsMap[lang]?.[section]())?.default || {};
   } catch (err) {
     console.warn('Fallo carga traducción:', err);

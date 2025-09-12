@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
-const { insertFile, getFiles, RenameFile, deleteFileById } = require('../services/file.service');
+const { insertFile, getFiles, RenameFile, deleteFileById, createDefaultFilesForOrder } = require('../services/file.service');
 const { poolPromise } = require('../config/db');
 const { 
   generateRO, 
@@ -449,5 +449,48 @@ exports.resendFile = async (req, res) => {
   } catch (err) {
     logger.error(`Error al reenviar archivo: ${err.message}`);
     res.status(500).json({ message: 'Error al reenviar y enviar el documento' });
+  }
+};
+
+/**
+ * @route POST /api/files/create-default/:orderId
+ * @desc Crea archivos por defecto para una orden específica
+ * @access Protegido (requiere JWT)
+ */
+exports.createDefaultFiles = async (req, res) => {
+  const { orderId } = req.params;
+
+  try {
+    // Obtener información de la orden y cliente
+    const pool = await poolPromise;
+    const [[order]] = await pool.query(`
+      SELECT o.*, c.name as customer_name 
+      FROM orders o
+      JOIN customers c ON o.customer_id = c.id
+      WHERE o.id = ?
+    `, [orderId]);
+
+    if (!order) {
+      logger.warn(`Orden no encontrada ID: ${orderId}`);
+      return res.status(404).json({ message: 'Orden no encontrada' });
+    }
+
+    // Crear archivos por defecto
+    const result = await createDefaultFilesForOrder(
+      orderId,
+      order.customer_name,
+      order.pc,
+      order.oc
+    );
+
+    logger.info(`Archivos por defecto creados para orden ${orderId}: ${result.filesCreated} archivos`);
+    res.status(201).json(result);
+
+  } catch (error) {
+    logger.error(`Error creando archivos por defecto para orden ${orderId}: ${error.message}`);
+    res.status(500).json({ 
+      message: 'Error al crear archivos por defecto', 
+      error: error.message 
+    });
   }
 };

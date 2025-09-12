@@ -287,53 +287,120 @@ const checkToken = () => {
 };
 
 // ===== CONFIRMACIONES CON SWEETALERT2 =====
-const confirmAction = async (title, text, icon = 'warning') => {
-    if (typeof Swal === 'undefined') {
-        console.error('SweetAlert2 no está disponible');
-        return confirm(`${title}\n${text}`);
-    }
-    
-    const result = await Swal.fire({
-        title,
-        text,
-        icon,
-        showCancelButton: true,
-        confirmButtonColor: '#3085d6',
-        cancelButtonColor: '#d33',
-        confirmButtonText: 'Sí, continuar',
-        cancelButtonText: 'Cancelar'
+// ===== MODAL DE CONFIRMACIÓN PERSONALIZADO =====
+const confirmAction = async (title, message, type = 'warning') => {
+    return new Promise((resolve) => {
+        // Crear el modal
+        const modal = document.createElement('div');
+        modal.id = 'customConfirmModal';
+        modal.className = 'fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4';
+        
+        // Iconos según el tipo (con colores que funcionan en modo oscuro)
+        const icons = {
+            warning: `<svg class="w-12 h-12 text-amber-500 dark:text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>`,
+            error: `<svg class="w-12 h-12 text-red-500 dark:text-red-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>`,
+            info: `<svg class="w-12 h-12 text-blue-500 dark:text-blue-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>`,
+            success: `<svg class="w-12 h-12 text-green-500 dark:text-green-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>`
+        };
+        
+        // Colores de botones según el tipo
+        const buttonColors = {
+            warning: 'bg-amber-600 hover:bg-amber-700 focus:ring-amber-500',
+            error: 'bg-red-600 hover:bg-red-700 focus:ring-red-500',
+            info: 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500',
+            success: 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
+        };
+        
+        modal.innerHTML = `
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all duration-300 scale-95 opacity-0" id="confirmModalContent">
+                <div class="p-6">
+                    <div class="flex items-center justify-center mb-4">
+                        ${icons[type] || icons.warning}
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white text-center mb-2">${title}</h3>
+                    <p class="text-sm text-gray-600 dark:text-gray-300 text-center mb-6">${message}</p>
+                    <div class="flex gap-3 justify-end">
+                        <button id="confirmCancel" class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500">
+                            Cancelar
+                        </button>
+                        <button id="confirmAccept" class="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${buttonColors[type] || buttonColors.warning}">
+                            Sí, continuar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Agregar al DOM
+        document.body.appendChild(modal);
+        
+        // Animar entrada
+        setTimeout(() => {
+            const content = document.getElementById('confirmModalContent');
+            content.classList.remove('scale-95', 'opacity-0');
+            content.classList.add('scale-100', 'opacity-100');
+        }, 10);
+        
+        // Event listeners
+        const handleCancel = () => {
+            animateOut(() => {
+                document.body.removeChild(modal);
+                resolve(false);
+            });
+        };
+        
+        const handleAccept = () => {
+            animateOut(() => {
+                document.body.removeChild(modal);
+                resolve(true);
+            });
+        };
+        
+        const animateOut = (callback) => {
+            const content = document.getElementById('confirmModalContent');
+            content.classList.remove('scale-100', 'opacity-100');
+            content.classList.add('scale-95', 'opacity-0');
+            setTimeout(callback, 300);
+        };
+        
+        // Event listeners
+        document.getElementById('confirmCancel').addEventListener('click', handleCancel);
+        document.getElementById('confirmAccept').addEventListener('click', handleAccept);
+        
+        // Cerrar con Escape
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') {
+                handleCancel();
+                document.removeEventListener('keydown', handleEscape);
+            }
+        };
+        document.addEventListener('keydown', handleEscape);
+        
+        // Cerrar clickeando fuera del modal
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                handleCancel();
+            }
+        });
     });
-    return result.isConfirmed;
 };
 
 const showSuccess = (title, text = '') => {
-    if (typeof Swal === 'undefined') {
-        console.error('SweetAlert2 no está disponible');
-        alert(`${title}\n${text}`);
-        return;
-    }
-    
-    return Swal.fire({
-        title,
-        text,
-        icon: 'success',
-        timer: 2000,
-        showConfirmButton: false
-    });
+    const message = text ? `${title}\n${text}` : title;
+    showSuccessNotification(message);
 };
 
 const showError = (title, text = '') => {
-    if (typeof Swal === 'undefined') {
-        console.error('SweetAlert2 no está disponible');
-        alert(`${title}\n${text}`);
-        return;
-    }
-    
-    return Swal.fire({
-        title,
-        text,
-        icon: 'error'
-    });
+    const message = text ? `${title}\n${text}` : title;
+    showErrorNotification(message);
 };
 
 // ===== PAGINACIÓN =====

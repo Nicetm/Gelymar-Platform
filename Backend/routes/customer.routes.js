@@ -49,6 +49,30 @@ router.get('/:uuid/contacts', authMiddleware, authorizeRoles(['admin']), custome
 
 /**
  * @swagger
+ * /api/customers/contacts/{contactId}:
+ *   delete:
+ *     summary: Delete a customer contact
+ *     tags: [Customers]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: contactId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Contact deleted successfully
+ *       404:
+ *         description: Contact not found
+ *       500:
+ *         description: Server error
+ */
+router.delete('/contacts/:customerUuid/:contactIdx', authMiddleware, authorizeRoles(['admin']), customerController.deleteCustomerContact);
+
+/**
+ * @swagger
  * /api/customers/{uuid}:
  *   patch:
  *     summary: Update a customer by UUID
@@ -87,5 +111,43 @@ router.get('/:uuid/contacts', authMiddleware, authorizeRoles(['admin']), custome
  *         description: Server error
  */
 router.patch('/:uuid', authMiddleware, authorizeRoles(['admin']), customerController.updateCustomer);
+
+/**
+ * @swagger
+ * /api/customers/change-password/{uuid}:
+ *   patch:
+ *     summary: Change customer password
+ *     tags: [Customers]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: uuid
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               password:
+ *                 type: string
+ *                 minLength: 6
+ *             required:
+ *               - password
+ *     responses:
+ *       200:
+ *         description: Password changed successfully
+ *       400:
+ *         description: Invalid password
+ *       404:
+ *         description: Customer or user not found
+ *       500:
+ *         description: Server error
+ */
+router.patch('/change-password/:uuid', authMiddleware, authorizeRoles(['admin']), customerController.changeCustomerPassword);
 
 module.exports = router;
