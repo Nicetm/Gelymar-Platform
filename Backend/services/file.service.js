@@ -147,7 +147,7 @@ const getFileById = async(id) => {
       f.*, 
       c.name AS customer_name, 
       c.email AS customer_email,
-      GROUP_CONCAT(cc.email SEPARATOR ',') AS contact_emails
+      GROUP_CONCAT(cc.primary_email SEPARATOR ',') AS contact_emails
     FROM files f
     JOIN orders fd ON f.order_id = fd.id
     JOIN customers c ON fd.customer_id = c.id

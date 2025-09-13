@@ -3,7 +3,7 @@ name: gelymar-platform
 services:
   # Capa Base de Datos
   mysql:
-    image: nicetm/gelymar-platform:mysql-prod
+    image: mysql:8.0
     container_name: gelymar-platform-mysql
     restart: unless-stopped
     environment:
@@ -25,7 +25,9 @@ services:
 
   # Capa File Server
   fileserver:
-    image: nicetm/gelymar-platform:fileserver-prod
+    build:
+      context: ./fileserver
+      dockerfile: Dockerfile
     container_name: gelymar-platform-fileserver
     restart: unless-stopped
     ports:
@@ -44,7 +46,9 @@ services:
 
   # Capa Backend
   backend:
-    image: nicetm/gelymar-platform:backend-prod
+    build:
+      context: ../Backend
+      dockerfile: Dockerfile
     container_name: gelymar-platform-backend
     restart: unless-stopped
     ports:
@@ -93,7 +97,21 @@ services:
 
   # Capa Frontend
   frontend:
-    image: nicetm/gelymar-platform:frontend-prod
+    build:
+      context: ../Frontend
+      dockerfile: Dockerfile
+      args:
+        - NODE_ENV=${NODE_ENV}
+        - PUBLIC_API_URL=${PUBLIC_API_URL}
+        - PUBLIC_FILE_SERVER_URL=${PUBLIC_FILE_SERVER_URL}
+        - PUBLIC_API_BASE_URL=${PUBLIC_API_BASE_URL}
+        - PUBLIC_FRONTEND_BASE_URL=${PUBLIC_FRONTEND_BASE_URL}
+        - PUBLIC_LANG=${PUBLIC_LANG}
+        - SITE=${SITE}
+        - BASE_URL=${BASE_URL}
+        - REMOTE_ASSETS_BASE_URL=${REMOTE_ASSETS_BASE_URL}
+        - SERVER_API_URL=${SERVER_API_URL}
+        - CI=${CI}
     container_name: gelymar-platform-frontend
     restart: unless-stopped
     ports:
@@ -117,7 +135,9 @@ services:
 
   # Capa Cron (Separada)
   cron:
-    image: nicetm/gelymar-platform:cron-prod
+    build:
+      context: ..
+      dockerfile: docker/cron/Dockerfile
     container_name: gelymar-platform-cron
     restart: unless-stopped
     environment:
@@ -156,7 +176,7 @@ services:
 
   # phpMyAdmin
   phpmyadmin:
-    image: nicetm/gelymar-platform:phpmyadmin-prod
+    image: phpmyadmin/phpmyadmin:latest
     container_name: gelymar-platform-phpmyadmin
     restart: unless-stopped
     ports:
@@ -166,7 +186,7 @@ services:
       - PMA_HOST=${DB_HOST}
       - PMA_PORT=${DB_PORT}
       - PMA_ARBITRARY=1
-      - PMA_ABSOLUTE_URI=http://172.20.10.151:8081/
+      - PMA_ABSOLUTE_URI=http://localhost:8081/
     networks:
       - gelymar-network
     depends_on:
@@ -175,7 +195,9 @@ services:
 
   # Dashboard de Monitoreo
   monitoring:
-    image: nicetm/gelymar-platform:monitoring-prod
+    build:
+      context: ./monitoring
+      dockerfile: Dockerfile
     container_name: gelymar-platform-monitoring
     restart: unless-stopped
     ports:
@@ -194,7 +216,9 @@ services:
 
   # Terminal Real
   terminal:
-    image: nicetm/gelymar-platform:terminal-prod
+    build:
+      context: ./terminal
+      dockerfile: Dockerfile
     container_name: gelymar-platform-terminal
     restart: unless-stopped
     ports:

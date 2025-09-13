@@ -11,6 +11,7 @@ const { generateDefaultFiles } = require('../services/checkDefaultFiles.service'
 const { checkOrdersWithETD } = require('../services/checkETD.service');
 const { cleanDatabaseAndDirectories } = require('../services/cleanDatabase.service');
 const { sendOrderReceptionDocuments } = require('../services/checkOrderReception.service');
+const { getCronTasksConfig } = require('../services/cronConfig.service');
 
 // Endpoint para procesar clientes
 router.post('/check-clients', async (req, res) => {
@@ -118,6 +119,27 @@ router.post('/clean-database', async (req, res) => {
   } catch (error) {
     console.error('Error limpiando base de datos:', error.message);
     res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Endpoint para obtener configuración de tareas cron
+router.get('/tasks-config', async (req, res) => {
+  try {
+    const config = await getCronTasksConfig();
+    res.json({ success: true, config });
+  } catch (error) {
+    console.error('Error obteniendo configuración de tareas:', error.message);
+    // Fallback a configuración por defecto
+    const defaultConfig = {
+      clean_database: true,
+      check_clients: true,
+      check_client_access: true,
+      check_items: true,
+      check_orders: true,
+      check_order_lines: true,
+      check_default_files: true
+    };
+    res.json({ success: true, config: defaultConfig });
   }
 });
 

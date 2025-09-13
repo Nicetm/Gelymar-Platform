@@ -3,6 +3,7 @@ const cron = require('node-cron');
 const dotenv = require('dotenv');
 const os = require('os');
 const fs = require('fs');
+// mysql ya no se necesita, se usa endpoint del backend
 // El cron no necesita montar la VPN directamente, solo llama a endpoints del backend
 
 // Detectar entorno y cargar variables automáticamente
@@ -11,37 +12,98 @@ const isServer = Object.values(networkInterfaces)
   .flat()
   .some(iface => iface && iface.address === '172.20.10.151');
 
+console.log(`🔧 [Cronjob] Detección de entorno:`);
+console.log(`🔧 [Cronjob] - isServer: ${isServer}`);
+console.log(`🔧 [Cronjob] - networkInterfaces:`, Object.keys(networkInterfaces));
+
 // Cargar archivo de configuración según entorno
-const envFile = isServer ? './env.server' : './env.local';
+const envFile = isServer ? '../env.server' : '../env.local';
+console.log(`🔧 [Cronjob] Intentando cargar archivo: ${envFile}`);
+console.log(`🔧 [Cronjob] Archivo existe: ${fs.existsSync(envFile)}`);
+
 if (fs.existsSync(envFile)) {
   dotenv.config({ path: envFile });
   console.log(`🔧 [Cronjob] Entorno detectado: ${isServer ? 'Servidor Ubuntu (172.20.10.151)' : 'Desarrollo local'}`);
+  console.log(`🔧 [Cronjob] Archivo de configuración cargado: ${envFile}`);
 } else {
+  console.log(`⚠️ [Cronjob] Archivo de configuración no encontrado: ${envFile}`);
+  console.log(`⚠️ [Cronjob] Directorio actual: ${process.cwd()}`);
+  console.log(`⚠️ [Cronjob] Archivos en directorio:`, fs.readdirSync('.'));
   dotenv.config(); // Fallback a .env si existe
 }
 
 // Configuración de la API del backend
-const BACKEND_API_URL = process.env.BACKEND_API_URL || 'http://localhost:3000';
+let BACKEND_API_URL = process.env.BACKEND_API_URL || 'http://localhost:3000';
 
-// SWITCHES INDIVIDUALES PARA CADA TAREA
-const TASK_1_CLEAN_DB = true;       // Limpieza de BD
-const TASK_2_CLIENTS = true;        // checkClients
-const TASK_3_CLIENT_ACCESS = false;  // checkClientAccess  
-const TASK_4_ITEMS = true;          // checkItems
-const TASK_5_ORDERS = true;         // checkOrders
-const TASK_6_ORDER_LINES = true;    // checkOrderLines
-const TASK_7_DEFAULT_FILES = false;  // checkDefaultFiles
+// Si estamos en Docker y no se cargó la configuración, forzar la URL correcta
+if (isServer && BACKEND_API_URL === 'http://localhost:3000') {
+  console.log(`⚠️ [Cronjob] Forzando configuración para Docker...`);
+  BACKEND_API_URL = 'http://backend:3000';
+}
+
+// Verificación adicional: si detectamos que estamos en un contenedor Docker
+if (process.env.DOCKER_ENV === 'true' || fs.existsSync('/.dockerenv')) {
+  console.log(`🐳 [Cronjob] Detectado entorno Docker, usando backend:3000`);
+  BACKEND_API_URL = 'http://backend:3000';
+}
+
+console.log(`🔧 [Cronjob] BACKEND_API_URL configurado: ${BACKEND_API_URL}`);
+console.log(`🔧 [Cronjob] Variables de entorno disponibles:`, Object.keys(process.env).filter(key => key.includes('BACKEND')));
+
+// DB_CONFIG ya no se necesita, se usa endpoint del backend
+
+// Función para obtener configuración de tareas desde el backend
+async function getTaskConfig() {
+  try {
+    const response = await axios.get(`${BACKEND_API_URL}/api/cron/tasks-config`, {
+      timeout: 10000,
+      family: 4
+    });
+    
+    if (response.data.success) {
+      console.log(`🔧 [Cronjob] Configuración de tareas cargada desde backend:`, response.data.config);
+      return response.data.config;
+    } else {
+      throw new Error('Respuesta del backend no exitosa');
+    }
+  } catch (error) {
+    console.error(`⚠️ [Cronjob] Error cargando configuración desde backend:`, error.message);
+    console.log(`⚠️ [Cronjob] Usando configuración por defecto...`);
+    return {
+      clean_database: true,
+      check_clients: true,
+      check_client_access: true,
+      check_items: true,
+      check_orders: true,
+      check_order_lines: true,
+      check_default_files: true
+    };
+  }
+}
+
+// Variables globales para configuración de tareas (se cargarán desde BD)
+let taskConfig = {};
 
 async function cleanDatabase() {
   console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Iniciando limpieza de base de datos...`);
   
   try {
-    console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Llamando al endpoint de limpieza...`);
-    const response = await axios.post(`${BACKEND_API_URL}/api/cron/clean-database`);
+    const url = `${BACKEND_API_URL}/api/cron/clean-database`;
+    console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Llamando al endpoint: ${url}`);
+    console.log(`[${new Date().toISOString()}] -> Cron Master Process -> BACKEND_API_URL actual: ${BACKEND_API_URL}`);
+    
+    const response = await axios.post(url, {}, {
+      timeout: 300000, // 5 minutos
+      family: 4, // Forzar IPv4
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
     console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Limpieza de BD completada exitosamente`);
     
   } catch (error) {
     console.error(`[${new Date().toISOString()}] -> Cron Master Process -> Error durante la limpieza:`, error.message);
+    console.error(`[${new Date().toISOString()}] -> Cron Master Process -> URL usada: ${BACKEND_API_URL}/api/cron/clean-database`);
     throw error;
   }
 }
@@ -49,8 +111,15 @@ async function cleanDatabase() {
 async function checkClients() {
   console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Iniciando procesamiento de clientes...`);
   try {
-    console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Llamando al endpoint de clientes...`);
-    const response = await axios.post(`${BACKEND_API_URL}/api/cron/check-clients`);
+    const url = `${BACKEND_API_URL}/api/cron/check-clients`;
+    console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Llamando al endpoint: ${url}`);
+    const response = await axios.post(url, {}, {
+      timeout: 300000, // 5 minutos
+      family: 4, // Forzar IPv4
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
     console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Procesamiento de clientes completado exitosamente`);
   } catch (error) {
     console.error(`[${new Date().toISOString()}] -> Cron Master Process -> Error en checkClients:`, error.message);
@@ -61,8 +130,15 @@ async function checkClients() {
 async function checkClientAccess() {
   console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Iniciando verificación de acceso de clientes...`);
   try {
-    console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Llamando al endpoint de acceso de clientes...`);
-    const response = await axios.post(`${BACKEND_API_URL}/api/cron/check-client-access`);
+    const url = `${BACKEND_API_URL}/api/cron/check-client-access`;
+    console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Llamando al endpoint: ${url}`);
+    const response = await axios.post(url, {}, {
+      timeout: 300000, // 5 minutos
+      family: 4, // Forzar IPv4
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
     console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Verificación de acceso de clientes completada exitosamente`);
   } catch (error) {
     console.error(`[${new Date().toISOString()}] -> Cron Master Process -> Error en checkClientAccess:`, error.message);
@@ -73,8 +149,15 @@ async function checkClientAccess() {
 async function checkItems() {
   console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Iniciando procesamiento de items...`);
   try {
-    console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Llamando al endpoint de items...`);
-    const response = await axios.post(`${BACKEND_API_URL}/api/cron/check-items`);
+    const url = `${BACKEND_API_URL}/api/cron/check-items`;
+    console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Llamando al endpoint: ${url}`);
+    const response = await axios.post(url, {}, {
+      timeout: 300000, // 5 minutos
+      family: 4, // Forzar IPv4
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
     console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Procesamiento de items completado exitosamente`);
   } catch (error) {
     console.error(`[${new Date().toISOString()}] -> Cron Master Process -> Error en checkItems:`, error.message);
@@ -85,8 +168,15 @@ async function checkItems() {
 async function checkOrders() {
   console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Iniciando procesamiento de órdenes...`);
   try {
-    console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Llamando al endpoint de órdenes...`);
-    const response = await axios.post(`${BACKEND_API_URL}/api/cron/check-orders`);
+    const url = `${BACKEND_API_URL}/api/cron/check-orders`;
+    console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Llamando al endpoint: ${url}`);
+    const response = await axios.post(url, {}, {
+      timeout: 300000, // 5 minutos
+      family: 4, // Forzar IPv4
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
     console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Procesamiento de órdenes completado exitosamente`);
   } catch (error) {
     console.error(`[${new Date().toISOString()}] -> Cron Master Process -> Error en checkOrders:`, error.message);
@@ -97,8 +187,15 @@ async function checkOrders() {
 async function checkOrderLines() {
   console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Iniciando procesamiento de líneas de orden...`);
   try {
-    console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Llamando al endpoint de líneas de orden...`);
-    const response = await axios.post(`${BACKEND_API_URL}/api/cron/check-order-lines`);
+    const url = `${BACKEND_API_URL}/api/cron/check-order-lines`;
+    console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Llamando al endpoint: ${url}`);
+    const response = await axios.post(url, {}, {
+      timeout: 300000, // 5 minutos
+      family: 4, // Forzar IPv4
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
     console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Procesamiento de líneas de orden completado exitosamente`);
   } catch (error) {
     console.error(`[${new Date().toISOString()}] -> Cron Master Process -> Error en checkOrderLines:`, error.message);
@@ -109,8 +206,15 @@ async function checkOrderLines() {
 async function checkDefaultFiles() {
   console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Iniciando verificación de archivos por defecto...`);
   try {
-    console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Llamando al endpoint de archivos por defecto...`);
-    const response = await axios.post(`${BACKEND_API_URL}/api/cron/generate-default-files`);
+    const url = `${BACKEND_API_URL}/api/cron/generate-default-files`;
+    console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Llamando al endpoint: ${url}`);
+    const response = await axios.post(url, {}, {
+      timeout: 300000, // 5 minutos
+      family: 4, // Forzar IPv4
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
     console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Verificación de archivos por defecto completada exitosamente`);
   } catch (error) {
     console.error(`[${new Date().toISOString()}] -> Cron Master Process -> Error en checkDefaultFiles:`, error.message);
@@ -122,17 +226,20 @@ async function executeSequence() {
   const startTime = new Date();
   console.log(`[${startTime.toISOString()}] -> Cron Master Process -> Iniciando secuencia de tareas...`);
   
+  // Cargar configuración de tareas desde la base de datos
+  taskConfig = await getTaskConfig();
+  
   // El cron no monta la VPN, solo llama a endpoints del backend que ya tienen VPN
   console.log(`[${startTime.toISOString()}] -> Cron Master Process -> Iniciando tareas (VPN manejada por backend)...`);
   
   const tasks = [
-    { name: 'Limpieza de BD', enabled: TASK_1_CLEAN_DB, func: cleanDatabase },
-    { name: 'Check Clients', enabled: TASK_2_CLIENTS, func: checkClients },
-    { name: 'Check Client Access', enabled: TASK_3_CLIENT_ACCESS, func: checkClientAccess },
-    { name: 'Check Items', enabled: TASK_4_ITEMS, func: checkItems },
-    { name: 'Check Orders', enabled: TASK_5_ORDERS, func: checkOrders },
-    { name: 'Check Order Lines', enabled: TASK_6_ORDER_LINES, func: checkOrderLines },
-    { name: 'Check Default Files', enabled: TASK_7_DEFAULT_FILES, func: checkDefaultFiles }
+    { name: 'Limpieza de BD', enabled: taskConfig.clean_database, func: cleanDatabase },
+    { name: 'Check Clients', enabled: taskConfig.check_clients, func: checkClients },
+    { name: 'Check Client Access', enabled: taskConfig.check_client_access, func: checkClientAccess },
+    { name: 'Check Items', enabled: taskConfig.check_items, func: checkItems },
+    { name: 'Check Orders', enabled: taskConfig.check_orders, func: checkOrders },
+    { name: 'Check Order Lines', enabled: taskConfig.check_order_lines, func: checkOrderLines },
+    { name: 'Check Default Files', enabled: taskConfig.check_default_files, func: checkDefaultFiles }
   ];
 
   for (const task of tasks) {

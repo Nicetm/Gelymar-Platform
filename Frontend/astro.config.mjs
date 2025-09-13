@@ -11,7 +11,9 @@ import os from 'os';
 const networkInterfaces = os.networkInterfaces();
 const isServer = Object.values(networkInterfaces)
   .flat()
-  .some(iface => iface && iface.address === '172.20.10.151');
+  .some(iface => iface && iface.address === '172.20.10.151') || 
+  process.env.NODE_ENV === 'production' || 
+  process.env.DOCKER_ENV === 'true';
 
 // Cargar archivo de configuración según entorno
 const envFile = isServer ? './env.server' : './env.local';

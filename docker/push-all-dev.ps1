@@ -66,16 +66,10 @@ if ($LASTEXITCODE -eq 0) {
     exit 1
 }
 
-# 7. VPN
-Write-Host "📦 Subiendo VPN..." -ForegroundColor Yellow
-docker push nicetm/gelymar-platform:vpn
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "✅ VPN subido" -ForegroundColor Green
-} else {
-    Write-Host "❌ Error subiendo VPN" -ForegroundColor Red
-    exit 1
-}
 
 Write-Host "🎉 ¡Todas las imágenes han sido subidas exitosamente a DockerHub!" -ForegroundColor Green
 Write-Host ""
-Write-Host "📋 Repositorio: https://hub.docker.com/r/nicetm/gelymar-platform" -ForegroundColor Cyan 
+Write-Host "📋 Repositorio: https://hub.docker.com/r/nicetm/gelymar-platform" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "🚀 Para desplegar en desarrollo:" -ForegroundColor Yellow
+Write-Host "   docker-compose --env-file .env.local up -d" -ForegroundColor Gray 

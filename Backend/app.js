@@ -52,6 +52,7 @@ const documentFileRoutes = require('./routes/documentFile.routes');
 const documentTypeRoutes = require('./routes/documentType.routes');
 const chatRoutes = require('./routes/chat.routes');
 const cronRoutes = require('./routes/cron.routes');
+const cronConfigRoutes = require('./routes/cronConfig.routes');
 const monitoringRoutes = require('./routes/monitoring.routes');
 
 
@@ -141,6 +142,9 @@ app.use('/api/chat', chatRoutes);
 
 // Rutas de cron (sin autenticación para acceso interno)
 app.use('/api/cron', cronRoutes);
+
+// Rutas de configuración del cron (requieren autenticación de admin)
+app.use('/api/cron-config', cronConfigRoutes);
 
 
 

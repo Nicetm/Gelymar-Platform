@@ -392,12 +392,28 @@ export function initFilesScript() {
     const start = (currentPage - 1) * itemsPerPage;
     const pageData = filteredRows.slice(start, start + itemsPerPage);
 
-    allRows.forEach(row => row.style.display = 'none');
-    pageData.forEach(row => row.style.display = '');
+    // Limpiar tabla
+    tableBody.innerHTML = '';
+    
+    // Renderizar filas de la página actual
+    pageData.forEach(row => {
+      tableBody.appendChild(row);
+    });
+    
+    // Si no hay datos, mostrar mensaje
+    if (pageData.length === 0) {
+      tableBody.innerHTML = `
+        <tr class="bg-white dark:bg-gray-900">
+          <td colspan="8" class="px-6 py-8 text-center text-gray-500">
+            No se encontraron archivos
+          </td>
+        </tr>
+      `;
+    }
 
     const totalPages = Math.ceil(filteredRows.length / itemsPerPage);
     if (pageIndicator) {
-      pageIndicator.textContent = `Page ${currentPage} of ${totalPages}`;
+      pageIndicator.textContent = `Página ${currentPage} de ${totalPages}`;
     }
   }
 
@@ -424,7 +440,10 @@ export function initFilesScript() {
 
   searchInput?.addEventListener('input', () => {
     const query = searchInput.value.toLowerCase();
-    filteredRows = allRows.filter(row => row.textContent.toLowerCase().includes(query));
+    filteredRows = allRows.filter(row => {
+      const textContent = row.textContent.toLowerCase();
+      return textContent.includes(query);
+    });
     currentPage = 1;
     renderTable();
   });
@@ -445,6 +464,118 @@ export function initFilesScript() {
     }
   }
 
+  function renderFileRow(file) {
+    const statusColors = {
+      1: 'bg-red-500',
+      2: 'bg-yellow-400',
+      3: 'bg-green-500',
+      4: 'bg-blue-500'
+    };
+
+    let actions = `<div class="flex items-center gap-3 justify-center">`;
+
+    if (file.status_id === 1) {
+      actions += `
+        <a href="#" class="generate-btn" data-file-id="${file.id}" title="Generar documento">
+          <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7zm7.5-.5a7.49 7.49 0 0 1-1.035 3.743l1.432 1.432a1 1 0 1 1-1.414 1.414l-1.432-1.432A7.49 7.49 0 0 1 12.5 20.5v2a1 1 0 1 1-2 0v-2a7.49 7.49 0 0 1-3.743-1.035l-1.432 1.432a1 1 0 1 1-1.414-1.414l1.432-1.432A7.49 7.49 0 0 1 3.5 15.5h-2a1 1 0 1 1 0-2h2a7.49 7.49 0 0 1 1.035-3.743L3.103 8.325a1 1 0 1 1 1.414-1.414l1.432 1.432A7.49 7.49 0 0 1 11.5 3.5v-2a1 1 0 1 1 2 0v2a7.49 7.49 0 0 1 3.743 1.035l1.432-1.432a1 1 0 1 1 1.414 1.414l-1.432 1.432A7.49 7.49 0 0 1 20.5 11.5h2a1 1 0 1 1 0 2h-2z" />
+          </svg>
+        </a>`;
+    }
+
+    if (file.status_id === 2) {
+      actions += `
+        <a href="#" class="send-btn" data-file-id="${file.id}" data-file-name="${file.name}" data-order="${file.oc}" title="Enviar documento">
+          <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+        </a>`;
+    }
+
+    if ([3, 4].includes(file.status_id)) {
+      actions += `
+        <a href="#" class="resend-btn" data-file-id="${file.id}" data-file-name="${file.name}" data-order="${file.oc}" title="Reenviar documento">
+          <svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H7a4 4 0 010-8h1" />
+          </svg>
+        </a>`;
+    }
+
+    if ([2, 3, 4].includes(file.status_id)) {
+      actions += `
+        <a href="${fileServer}/${file.path}" target="_blank" class="hover:text-blue-500 transition" title="Ver documento">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+          </svg>
+        </a>`;
+    }
+
+    // Definir archivos por defecto que no deben tener botón de eliminar
+    const defaultFiles = [
+      'Recepcion de orden',
+      'Aviso de Embarque', 
+      'Aviso de Recepcion de orden',
+      'Aviso de Disponibilidad de Orden'
+    ];
+    
+    const isDefaultFile = defaultFiles.includes(file.name);
+    
+    actions += `
+      <a href="#" class="edit-btn hover:text-blue-500 transition" data-file-id="${file.id}" title="Editar documento">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" />
+        </svg>
+      </a>`;
+      
+    // Solo mostrar botón de eliminar si NO es un archivo por defecto
+    if (!isDefaultFile) {
+      actions += `
+        <a href="#" class="delete-btn hover:text-red-500 transition" data-file-id="${file.id}" title="Eliminar documento">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12M10 11v6M14 11v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
+          </svg>
+        </a>`;
+    }
+    
+    actions += `</div>`;
+
+    return `
+      <tr data-id="${file.id}" class="transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-800 hover:shadow-[0_1px_3px_rgba(0,0,0,0.12)]">
+        <td class="px-6 py-4 text-sm editable-filename group cursor-pointer" data-id="${file.id}" title="Doble clic para editar">
+          <div class="inline-flex items-center gap-1">
+            <span class="filename-text block truncate">${file.name}</span>
+            <svg class="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5 M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+          </div>
+        </td>
+        <td class="px-4 py-3">
+          <div class="flex items-center">
+            <span class="w-2.5 h-2.5 rounded-full mr-2 ${statusColors[file.status_id] || 'bg-gray-400'}"></span>
+            ${file.status_name || '-'}
+          </div>
+        </td>
+        <td class="px-6 py-4 items-center gap-3">${file.etd ? new Date(file.etd).toLocaleDateString("es-CL") : '-'}</td>
+        <td class="px-6 py-4 items-center gap-3">${file.eta ? new Date(file.eta).toLocaleDateString("es-CL") : '-'}</td>
+        <td class="px-6 py-4 items-center gap-3">${new Date(file.created_at).toLocaleString("es-CL")}</td>
+        <td class="px-6 py-4 items-center gap-3">${new Date(file.updated_at).toLocaleString("es-CL")}</td>
+        <td data-v="${file.is_visible_to_client}" class="px-6 py-4 text-center">
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              class="sr-only peer visibility-toggle"
+              data-file-id="${file.id}"
+              ${(file.is_visible_to_client == 1 || file.is_visible_to_client === true) ? 'checked' : ''} />
+            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+          </label>
+        </td>
+        <td class="px-6 py-4 items-center gap-3">${actions}</td>
+      </tr>
+    `;
+  }
+
   async function refreshFiles() {
     try {
       const res = await fetch(`${apiBase}/api/files/${uuid}?f=${folderId}`, {
@@ -457,138 +588,43 @@ export function initFilesScript() {
 
       const files = await res.json();
 
-    if (tableBody) {
-      tableBody.innerHTML = files.map(file => {
-        const statusColors = {
-          1: 'bg-red-500',
-          2: 'bg-yellow-400',
-          3: 'bg-green-500',
-          4: 'bg-blue-500'
-        };
-
-        let actions = `<div class="flex items-center gap-3 justify-center">`;
-
-        if (file.status_id === 1) {
-          actions += `
-            <a href="#" class="generate-btn" data-file-id="${file.id}" title="Generar documento">
-              <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7zm7.5-.5a7.49 7.49 0 0 1-1.035 3.743l1.432 1.432a1 1 0 1 1-1.414 1.414l-1.432-1.432A7.49 7.49 0 0 1 12.5 20.5v2a1 1 0 1 1-2 0v-2a7.49 7.49 0 0 1-3.743-1.035l-1.432 1.432a1 1 0 1 1-1.414-1.414l1.432-1.432A7.49 7.49 0 0 1 3.5 15.5h-2a1 1 0 1 1 0-2h2a7.49 7.49 0 0 1 1.035-3.743L3.103 8.325a1 1 0 1 1 1.414-1.414l1.432 1.432A7.49 7.49 0 0 1 11.5 3.5v-2a1 1 0 1 1 2 0v2a7.49 7.49 0 0 1 3.743 1.035l1.432-1.432a1 1 0 1 1 1.414 1.414l-1.432 1.432A7.49 7.49 0 0 1 20.5 11.5h2a1 1 0 1 1 0 2h-2z" />
-              </svg>
-            </a>`;
-        }
-
-        if (file.status_id === 2) {
-          actions += `
-            <a href="#" class="send-btn" data-file-id="${file.id}" data-file-name="${file.name}" data-order="${file.oc}" title="Enviar documento">
-              <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8" />
-                <path stroke-linecap="round" stroke-linejoin="round" d="M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            </a>`;
-        }
-
-        if ([3, 4].includes(file.status_id)) {
-          actions += `
-            <a href="#" class="resend-btn" data-file-id="${file.id}" data-file-name="${file.name}" data-order="${file.oc}" title="Reenviar documento">
-              <svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H7a4 4 0 010-8h1" />
-              </svg>
-            </a>`;
-        }
-
-        if ([2, 3, 4].includes(file.status_id)) {
-          actions += `
-            <a href="${fileServer}/${file.path}" target="_blank" class="hover:text-blue-500 transition" title="Ver documento">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
-              </svg>
-            </a>`;
-        }
-
-        // Definir archivos por defecto que no deben tener botón de eliminar
-        const defaultFiles = [
-          'Recepcion de orden',
-          'Aviso de Embarque', 
-          'Aviso de Recepcion de orden',
-          'Aviso de Disponibilidad de Orden'
-        ];
+      if (tableBody) {
+        // Limpiar tabla
+        tableBody.innerHTML = '';
         
-        const isDefaultFile = defaultFiles.includes(file.name);
+        // Renderizar filas
+        files.forEach(file => {
+          const rowHtml = renderFileRow(file);
+          tableBody.insertAdjacentHTML('beforeend', rowHtml);
+        });
         
-        actions += `
-          <a href="#" class="edit-btn hover:text-blue-500 transition" data-file-id="${file.id}" title="Editar documento">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" />
-            </svg>
-          </a>`;
-          
-        // Solo mostrar botón de eliminar si NO es un archivo por defecto
-        if (!isDefaultFile) {
-          actions += `
-            <a href="#" class="delete-btn hover:text-red-500 transition" data-file-id="${file.id}" title="Eliminar documento">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12M10 11v6M14 11v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
-              </svg>
-            </a>`;
+        // Si no hay datos, mostrar mensaje
+        if (files.length === 0) {
+          tableBody.innerHTML = `
+            <tr class="bg-white dark:bg-gray-900">
+              <td colspan="8" class="px-6 py-8 text-center text-gray-500">
+                No se encontraron archivos
+              </td>
+            </tr>
+          `;
         }
+
+        allRows.length = 0;
+        allRows.push(...Array.from(tableBody.querySelectorAll('tr')));
+        filteredRows = [...allRows];
+        currentPage = 1;
         
-        actions += `</div>`;
-
-        return `
-          <tr data-id="${file.id}" class="transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-800 hover:shadow-[0_1px_3px_rgba(0,0,0,0.12)]">
-            <td class="px-6 py-4 text-sm editable-filename group cursor-pointer" data-id="${file.id}" title="Doble clic para editar">
-              <div class="inline-flex items-center gap-1">
-                <span class="filename-text block truncate">${file.name}</span>
-                <svg class="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5 M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                </svg>
-              </div>
-            </td>
-            <td class="px-4 py-3">
-              <div class="flex items-center">
-                <span class="w-2.5 h-2.5 rounded-full mr-2 ${statusColors[file.status_id] || 'bg-gray-400'}"></span>
-                ${file.status_name || '-'}
-              </div>
-            </td>
-            <td class="px-6 py-4 items-center gap-3">${file.etd ? new Date(file.etd).toLocaleDateString("es-CL") : '-'}</td>
-            <td class="px-6 py-4 items-center gap-3">${file.eta ? new Date(file.eta).toLocaleDateString("es-CL") : '-'}</td>
-            <td class="px-6 py-4 items-center gap-3">${new Date(file.created_at).toLocaleString("es-CL")}</td>
-            <td class="px-6 py-4 items-center gap-3">${new Date(file.updated_at).toLocaleString("es-CL")}</td>
-            <td data-v="${file.is_visible_to_client}" class="px-6 py-4 text-center">
-              <label class="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  class="sr-only peer visibility-toggle"
-                  data-file-id="${file.id}"
-                  ${file.is_visible_to_client ? 'checked' : ''} />
-                <div
-                  class="w-9 h-5 bg-gray-200 rounded-full transition-colors
-                    peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary-500
-                    peer-checked:bg-primary-600 dark:bg-gray-700 dark:peer-checked:bg-primary-500"></div>
-                <div
-                  class="absolute left-1 top-1 w-3 h-3 bg-white rounded-full transition-transform
-                    peer-checked:translate-x-4"></div>
-              </label>
-            </td>
-            <td class="px-6 py-4 items-center gap-3">${actions}</td>
-          </tr>`;
-      }).join('');
-
-      allRows.length = 0;
-      allRows.push(...Array.from(tableBody.querySelectorAll('tr')));
-      filteredRows = [...allRows];
-      currentPage = 1;
-      renderTable();
-      
-      // Actualizar estado del botón de crear archivos por defecto
-      updateCreateDefaultFilesButtonState(files.length);
+        // Actualizar estado del botón de crear archivos por defecto
+        updateCreateDefaultFilesButtonState(files.length);
+        
+        // Adjuntar event listeners a los checkboxes de visibilidad
+        attachVisibilityEvents();
+      }
+    } catch (error) {
+      console.error('DEBUG - refreshFiles - Error:', error);
+      showNotification('Error al cargar archivos', 'error');
     }
-  } catch (error) {
-    console.error('DEBUG - refreshFiles - Error:', error);
-    showNotification('Error al cargar archivos', 'error');
   }
-}
 
   function updateCreateDefaultFilesButtonState(filesCount) {
     if (createDefaultFilesBtn) {
@@ -611,8 +647,6 @@ export function initFilesScript() {
     const message = action === 'send' ? 'Documento enviado correctamente' : 'Documento reenviado correctamente';
     showNotification(message, 'success');
     await refreshFiles();
-    attachGenerateEvents();
-    attachSendResendEvents();
   }
 
   function openMessageModal(fileId, fileName, order, action) {
@@ -630,58 +664,55 @@ export function initFilesScript() {
     showModal('#messageModal');
   }
 
-  function attachGenerateEvents() {
-    document.querySelectorAll('.generate-btn').forEach(btn => {
-      btn.addEventListener('click', async e => {
-        e.preventDefault();
-        const { fileId } = btn.dataset;
+  // Event delegation para botones de generar
+  document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.generate-btn');
+    if (!btn) return;
+    
+    e.preventDefault();
+    const { fileId } = btn.dataset;
 
-        const confirmed = await confirmAction(
-          '¿Generar documento?',
-          'Esto generará un nuevo documento PDF.',
-          'info'
-        );
+    const confirmed = await confirmAction(
+      '¿Generar documento?',
+      'Esto generará un nuevo documento PDF.',
+      'info'
+    );
 
-        if (confirmed) {
-          // Mostrar loading en el botón
-          const originalText = btn.innerHTML;
-          btn.innerHTML = '<svg class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>';
-          btn.disabled = true;
+    if (confirmed) {
+      // Mostrar loading en el botón
+      const originalText = btn.innerHTML;
+      btn.innerHTML = '<svg class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>';
+      btn.disabled = true;
 
-          try {
-            const res = await fetch(`${apiBase}/api/files/generate/${fileId}`, {
-              method: 'POST',
-              headers: { Authorization: `Bearer ${token}` }
-            });
+      try {
+        const res = await fetch(`${apiBase}/api/files/generate/${fileId}`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` }
+        });
 
-            if (!res.ok) throw new Error('Error al generar archivo');
-            showNotification('Documento generado correctamente', 'success');
-          } catch (err) {
-            showNotification('Error al generar documento', 'error');
-          } finally {
-            // Restaurar botón
-            btn.innerHTML = originalText;
-            btn.disabled = false;
-            await refreshFiles();
-            attachGenerateEvents();
-            attachSendResendEvents();
-          }
-        }
-      });
-    });
-  }
+        if (!res.ok) throw new Error('Error al generar archivo');
+        showNotification('Documento generado correctamente', 'success');
+      } catch (err) {
+        showNotification('Error al generar documento', 'error');
+      } finally {
+        // Restaurar botón
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        await refreshFiles();
+      }
+    }
+  });
 
-  function attachSendResendEvents() {
-    tableBody?.addEventListener('click', e => {
-      const btn = e.target.closest('.send-btn, .resend-btn');
-      if (!btn) return;
-      e.preventDefault();
+  // Event delegation para botones de enviar/reenviar
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.send-btn, .resend-btn');
+    if (!btn) return;
+    e.preventDefault();
 
-      const { fileId, fileName, order } = btn.dataset;
-      const action = btn.classList.contains('send-btn') ? 'send' : 'resend';
-      openMessageModal(fileId, fileName, order, action);
-    });
-  }
+    const { fileId, fileName, order } = btn.dataset;
+    const action = btn.classList.contains('send-btn') ? 'send' : 'resend';
+    openMessageModal(fileId, fileName, order, action);
+  });
 
 
 
@@ -738,6 +769,7 @@ export function initFilesScript() {
     nameInput.focus();
   }
 
+  // Event delegation para botones de editar
   document.addEventListener('click', async (e) => {
     const btn = e.target.closest('.edit-btn');
     if (!btn) return;
@@ -760,6 +792,7 @@ export function initFilesScript() {
     openEditFileModal(fileId, currentName, currentVisible);
   });
 
+  // Event delegation para doble clic en nombre de archivo
   document.addEventListener('dblclick', async (e) => {
     const span = e.target.closest('.filename-text');
     if (!span) return;
@@ -854,8 +887,6 @@ export function initFilesScript() {
             showNotification('Archivo actualizado correctamente', 'success');
             hideModal('#editFileModal');
             await refreshFiles();
-            attachGenerateEvents();
-            attachSendResendEvents();
           } else {
             showNotification(data.message || 'Error al actualizar archivo', 'error');
           }
@@ -981,8 +1012,6 @@ export function initFilesScript() {
         if (res.ok) {
           showNotification(`Archivos por defecto creados exitosamente: ${data.filesCreated} archivos`, 'success');
           await refreshFiles();
-          attachGenerateEvents();
-          attachSendResendEvents();
         } else {
           showNotification(data.message || 'Error al crear archivos por defecto', 'error');
         }
@@ -1116,8 +1145,6 @@ export function initFilesScript() {
         if (dropZoneText) dropZoneText.textContent = 'Arrastra el archivo aquí o haz click para seleccionar';
 
         await refreshFiles();
-        attachGenerateEvents();
-        attachSendResendEvents();
       } catch (err) {
         showNotification(err.message || 'Error al subir archivo', 'error');
       } finally {
@@ -1157,51 +1184,47 @@ export function initFilesScript() {
     });
   }
 
-  // Inicializar
-  renderTable();
-  attachGenerateEvents();
-  attachSendResendEvents();
+  // Inicializar - Los event listeners se manejan con event delegation
   
-  // Inicializar estado del botón de crear archivos por defecto
-  const initialFilesCount = allRows.length;
-  updateCreateDefaultFilesButtonState(initialFilesCount);
+  // Cargar archivos al inicializar la página
+  refreshFiles();
 
   /* ---------- visibilidad (checkbox) ---------- */
-  tableBody?.addEventListener('change', async (e) => {
-    const checkbox = e.target.closest('.visibility-toggle');
-    if (!checkbox) return;
+  // Event listener para checkbox de visibilidad (como en clients.js)
+  function attachVisibilityEvents() {
+    document.querySelectorAll('.visibility-toggle').forEach(checkbox => {
+      checkbox.addEventListener('change', async (e) => {
+        const fileId = e.target.dataset.fileId;
+        const newVisible = e.target.checked ? 1 : 0;
 
-    const fileId = checkbox.dataset.fileId;
-    const newVisible = checkbox.checked ? 1 : 0;
+        // Mantén el nombre actual para el endpoint de actualización
+        const row = e.target.closest('tr');
+        const currentName = row?.querySelector('.filename-text')?.textContent?.trim() || '';
 
-    // Mantén el nombre actual para el endpoint de actualización
-    const row = checkbox.closest('tr');
-    const currentName = row?.querySelector('.filename-text')?.textContent?.trim() || '';
+        try {
+          const res = await fetch(`${apiBase}/api/files/rename/${fileId}/`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              name: currentName,
+              visible: newVisible === 1
+            })
+          });
 
-    try {
-      const res = await fetch(`${apiBase}/api/files/rename/${fileId}/`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          name: currentName,
-          visible: newVisible === 1
-        })
+          if (!res.ok) throw new Error();
+
+          showNotification('Visibilidad actualizada correctamente', 'success');
+        } catch (err) {
+          // Revierte el estado si hay error
+          e.target.checked = !e.target.checked;
+          showNotification('Error al actualizar visibilidad', 'error');
+        }
       });
-
-      if (!res.ok) throw new Error();
-
-      // Actualiza el atributo data-v para reflejar el nuevo estado
-      row?.querySelector('[data-v]')?.setAttribute('data-v', String(newVisible));
-      showNotification('Visibilidad actualizada correctamente', 'success');
-    } catch (err) {
-      // Revierte el estado si hay error
-      checkbox.checked = !checkbox.checked;
-      showNotification('Error al actualizar visibilidad', 'error');
-    }
-  });
+    });
+  }
 
   // Configurar sombra en scroll usando función global
   const head = qs('filesHead');
@@ -1266,7 +1289,4 @@ export function initFilesScript() {
       window.currentMessageData = null;
     });
   }
-
-  // Cargar archivos al inicializar la página
-  refreshFiles();
 }

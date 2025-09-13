@@ -50,7 +50,7 @@ async function getPDFData(file) {
   `, [file.order_id]);
 
   // Obtener datos de la orden detalle
-  const[[orderDetail]] = await pool.query(`
+  const [[orderDetail]] = await pool.query(`
     SELECT * FROM order_detail WHERE order_id = ?
   `, [file.order_id]);
 

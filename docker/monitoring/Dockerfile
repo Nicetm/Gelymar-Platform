@@ -3,8 +3,12 @@ FROM httpd:2.4-alpine
 # Instalar dependencias + tzdata para zona horaria
 RUN apk add --no-cache curl jq bash tzdata
 
-# Configurar zona horaria Chile
+# Fijar la zona horaria de Chile
 ENV TZ=America/Santiago
+
+# Variables de entorno por defecto
+ENV MONITORING_PORT=80
+ENV MONITORING_HOST=0.0.0.0
 
 # Crear directorio para el dashboard
 RUN mkdir -p /var/www/html
