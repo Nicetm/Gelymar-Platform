@@ -9,7 +9,6 @@ const { logger } = require('../utils/logger');
 exports.getAllDocumentTypes = async (req, res) => {
   try {
     const documentTypes = await DocumentType.getAll();
-    logger.info(`Se obtuvieron ${documentTypes.length} tipos de documentos`);
     res.json(documentTypes);
   } catch (err) {
     logger.error(`Error al obtener tipos de documentos: ${err.message}`);

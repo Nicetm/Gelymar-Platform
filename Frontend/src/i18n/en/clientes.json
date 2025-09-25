@@ -57,5 +57,9 @@
   "customerUpdated": "Customer updated",
   "customerUpdatedSuccess": "The customer has been updated successfully in the database.",
   "updateError": "Could not update the customer. Please try again.",
-  "manageContacts": "Manage Contacts"
+  "manageContacts": "Manage Contacts",
+  "view_orders": "View orders",
+  "view_info": "View additional information",
+  "manage_contacts": "Manage contacts",
+  "change_password": "Change password"
 }

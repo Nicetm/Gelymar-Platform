@@ -1,10 +1,6 @@
 import { 
   qs, 
   showNotification, 
-  showModal,
-  hideModal,
-  setupModalClose,
-  formatDate,
   formatDateShort
 } from './utils.js';
 
@@ -73,7 +69,12 @@ async function openItemsModal(orderPc, orderOc, factura) {
     const token = localStorage.getItem('token');
     const apiBase = window.apiBase;
     
-    const response = await fetch(`${apiBase}/api/orders/${orderPc}/${factura}/items`, {
+    // Usar endpoint diferente según si tiene factura o no
+    const url = factura && factura !== 'null' 
+      ? `${apiBase}/api/orders/${orderPc}/${orderOc}/${factura}/items`
+      : `${apiBase}/api/orders/${orderPc}/${orderOc}/items`;
+    
+    const response = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` }
     });
 
@@ -153,9 +154,9 @@ async function openItemsModal(orderPc, orderOc, factura) {
 async function loadTranslations(lang, section) {
   try {
     // Las traducciones ya vienen del servidor, no necesitamos cargarlas dinámicamente
-    // Si necesitamos traducciones específicas, usar las que están en window.t
-    if (window.t && window.t[section]) {
-      return window.t[section];
+    // Si necesitamos traducciones específicas, usar las que están en window.translations
+    if (window.translations && window.translations[section]) {
+      return window.translations[section];
     }
     
     // Fallback con traducciones básicas
@@ -285,7 +286,7 @@ export async function initFoldersScript() {
   function updateSortIcons(activeColumn, direction) {
     // Resetear todos los iconos
     document.querySelectorAll('.sort-icon').forEach(icon => {
-      icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />';
+      icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />';
       icon.classList.remove('text-blue-600');
     });
     
@@ -326,25 +327,73 @@ export async function initFoldersScript() {
           <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${folder.factura || '-'}</td>
           <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(folder.fecha_factura)}</td>
           <td class="w-[25%] px-6 py-4 text-sm border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">
-            <div class="flex justify-center items-center gap-3 text-gray-900 dark:text-white">
-              <a href="/admin/clients/documents/view/${folder.customer_uuid}?f=${folder.id}&pc=${folder.pc}&c=${clientName}" title="Ver documentos de PC ${folder.pc}" class="hover:text-blue-500 transition">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-              </a>
-              <a href="#" title="Ver Lista de items de PC ${folder.pc}" class="items-list-btn hover:text-indigo-500 transition" data-order-pc="${folder.pc}" data-order-oc="${folder.oc}" data-factura="${folder.factura}">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
-                </svg>
-              </a>
-              <a href="#" title="Expandir items de PC ${folder.pc}" class="expand-items-btn hover:text-green-500 transition" data-order-pc="${folder.pc}" data-order-oc="${folder.oc}" data-factura="${folder.factura}">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
-                </svg>
-              </a>
-              <a href="#" title="Detalles de la Orden ${folder.pc}" class="order-detail-btn hover:text-blue-500 transition" data-order-id="${folder.id}" data-order-pc="${folder.pc}" data-order-oc="${folder.oc}">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
-              </a>
+            <div class="flex justify-center items-center gap-3">
+              
+              <!-- Ver documentos y archivos -->
+              <div class="relative group">
+                <a href="/admin/clients/documents/view/${folder.customer_uuid}?f=${folder.id}&pc=${folder.pc}&c=${clientName}"
+                   class="go-to-order-btn text-gray-900 dark:text-white hover:text-green-500 transition">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                  </svg>
+                </a>
+                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
+                            bg-green-600 text-white text-xs rounded px-2 py-1 shadow-lg
+                            opacity-0 group-hover:opacity-100 transition
+                            pointer-events-none whitespace-nowrap z-50">
+                  ${window.translations?.carpetas?.tooltipGoToOrder || 'Ver documentos y archivos'}
+                </div>
+              </div>
+
+              <!-- Ver lista de items -->
+              <div class="relative group">
+                <a href="#" class="items-list-btn text-gray-900 dark:text-white hover:text-green-500 transition"
+                   data-order-pc="${folder.pc}" data-order-oc="${folder.oc}" data-factura="${folder.factura}">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+                  </svg>
+                </a>
+                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
+                            bg-green-600 text-white text-xs rounded px-2 py-1 shadow-lg
+                            opacity-0 group-hover:opacity-100 transition
+                            pointer-events-none whitespace-nowrap z-50">
+                  ${window.translations?.carpetas?.tooltipViewItems || 'Ver lista de items'}
+                </div>
+              </div>
+
+              <!-- Expandir items -->
+              <div class="relative group">
+                <a href="#" class="expand-items-btn text-gray-900 dark:text-white hover:text-green-500 transition"
+                   data-order-pc="${folder.pc}" data-order-oc="${folder.oc}" data-factura="${folder.factura}">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+                  </svg>
+                </a>
+                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
+                            bg-green-600 text-white text-xs rounded px-2 py-1 shadow-lg
+                            opacity-0 group-hover:opacity-100 transition
+                            pointer-events-none whitespace-nowrap z-50">
+                  ${window.translations?.carpetas?.tooltipExpandItems || 'Expandir items en tabla'}
+                </div>
+              </div>
+
+              <!-- Ver detalles de orden -->
+              <div class="relative group">
+                <a href="#" class="order-detail-btn text-gray-900 dark:text-white hover:text-green-500 transition"
+                   data-order-id="${folder.id}" data-order-pc="${folder.pc}" data-order-oc="${folder.oc}">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                </a>
+                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
+                            bg-green-600 text-white text-xs rounded px-2 py-1 shadow-lg
+                            opacity-0 group-hover:opacity-100 transition
+                            pointer-events-none whitespace-nowrap z-50">
+                  ${window.translations?.carpetas?.tooltipOrderDetails || 'Ver detalles de orden'}
+                </div>
+              </div>
+
             </div>
           </td>
         </tr>
@@ -718,8 +767,8 @@ export async function initFoldersScript() {
   // Función para expandir/contraer items de una orden
   async function toggleItemsExpansion(orderPc, orderOc, factura) {
     // Buscar la fila específica usando el botón que se hizo clic
-    const expandBtn = event.target.closest('.expand-items-btn');
-    const row = expandBtn.closest('tr');
+    const expandBtn = document.querySelector(`[data-order-pc="${orderPc}"][data-order-oc="${orderOc}"].expand-items-btn`);
+    const row = expandBtn?.closest('tr');
     if (!row) return;
 
     // Verificar si ya está expandido
@@ -737,7 +786,12 @@ export async function initFoldersScript() {
       const token = localStorage.getItem('token');
       const apiBase = window.apiBase;
       
-      const response = await fetch(`${apiBase}/api/orders/${orderPc}/${factura}/items`, {
+      // Usar endpoint diferente según si tiene factura o no
+      const url = factura && factura !== 'null' 
+        ? `${apiBase}/api/orders/${orderPc}/${orderOc}/${factura}/items`
+        : `${apiBase}/api/orders/${orderPc}/${orderOc}/items`;
+      
+      const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -880,33 +934,6 @@ export async function initFoldersScript() {
     }
   });
 
-  /**
-   * Event listeners para botones de lista de items
-   */
-  document.addEventListener('click', (e) => {
-    const itemsBtn = e.target.closest('.items-list-btn');
-    if (itemsBtn) {
-      e.preventDefault();
-      const orderPc = itemsBtn.dataset.orderPc;
-      const orderOc = itemsBtn.dataset.orderOc;
-      const factura = itemsBtn.dataset.factura;
-      openItemsModal(orderPc, orderOc, factura);
-    }
-  });
-
-  /**
-   * Event listeners para botones de expansión de items
-   */
-  document.addEventListener('click', (e) => {
-    const expandBtn = e.target.closest('.expand-items-btn');
-    if (expandBtn) {
-      e.preventDefault();
-      const orderPc = expandBtn.dataset.orderPc;
-      const orderOc = expandBtn.dataset.orderOc;
-      const factura = expandBtn.dataset.factura;
-      toggleItemsExpansion(orderPc, orderOc, factura);
-    }
-  });
 
   /**
    * Event listeners para botones de cerrar expansión
@@ -1046,7 +1073,7 @@ export async function initFoldersScript() {
         const orderPc = expandBtn.dataset.orderPc;
         const orderOc = expandBtn.dataset.orderOc;
         const factura = expandBtn.dataset.factura;
-        // toggleItemsExpansion(orderPc, orderOc, factura); // Si necesitas esta función
+        toggleItemsExpansion(orderPc, orderOc, factura);
       }
     });
 

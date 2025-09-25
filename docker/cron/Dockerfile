@@ -10,17 +10,17 @@ ENV TZ=America/Santiago
 WORKDIR /app
 
 # Copiar package.json del Cronjob e instalar dependencias
-COPY package*.json ./
-RUN npm ci --only=production
+COPY Cronjob/package*.json ./
+RUN npm install --omit=dev
 
 # Copiar todo el código del Cronjob
-COPY . ./
+COPY Cronjob/ ./
 
 # Crear directorios necesarios
 RUN mkdir -p logs
 
 # Script de inicio
-COPY docker-entrypoint-cron.sh /usr/local/bin/
+COPY docker/cron/docker-entrypoint-cron.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint-cron.sh
 
 # Variables de entorno por defecto (se pueden sobrescribir en runtime)
@@ -40,7 +40,7 @@ ENV SMTP_HOST=smtp.office365.com
 ENV SMTP_PORT=587
 ENV SMTP_USER=logistics@gelymar.com
 ENV NETWORK_USER=softkey
-ENV NETWORK_PASSWORD=sK06.2025#
+ENV NETWORK_PASSWORD=sK06.2025$#
 ENV NETWORK_SERVER=172.20.10.167
 ENV NETWORK_SHARE_PATH=Users/above/Documents/BotArchivoWeb/archivos
 

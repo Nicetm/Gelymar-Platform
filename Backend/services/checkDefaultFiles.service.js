@@ -75,7 +75,7 @@ async function generateDefaultFiles() {
                 path: directoryPath
               },
               {
-                name: 'Aviso de Recepcion de orden',
+                name: 'Aviso de entrega',
                 order_id: order.id,
                 pc: order.pc,
                 oc: order.oc,

@@ -50,7 +50,6 @@ async function authenticateUser(username, password) {
       }
     }
 
-    logger.info(`Usuario de monitoreo autenticado: ${username}`);
     return {
       id: user.id,
       username: user.username,
@@ -80,7 +79,6 @@ function generateSessionToken(user) {
     createdAt: new Date()
   });
 
-  logger.info(`Sesión de monitoreo creada para usuario: ${user.username}`);
   return sessionToken;
 }
 
@@ -102,7 +100,6 @@ function verifySessionToken(token) {
   
   if (sessionAge > maxAge) {
     global.monitoringSessions.delete(token);
-    logger.info(`Sesión de monitoreo expirada para usuario: ${session.username}`);
     return null;
   }
 
@@ -118,7 +115,6 @@ function closeSession(token) {
   if (global.monitoringSessions.has(token)) {
     const session = global.monitoringSessions.get(token);
     global.monitoringSessions.delete(token);
-    logger.info(`Sesión de monitoreo cerrada para usuario: ${session.username}`);
     return true;
   }
   return false;
@@ -135,7 +131,6 @@ function cleanupExpiredSessions() {
     const sessionAge = now - session.createdAt.getTime();
     if (sessionAge > maxAge) {
       global.monitoringSessions.delete(token);
-      logger.debug(`Sesión expirada eliminada para usuario: ${session.username}`);
     }
   }
 }

@@ -1,114 +1,3 @@
-<?php
-session_start();
-
-// Configuración
-$uploadDir = '/var/www/html/uploads';
-$currentPath = isset($_GET['path']) ? $_GET['path'] : $uploadDir;
-$currentPath = realpath($currentPath);
-
-// Validar que esté dentro del directorio permitido
-if (strpos($currentPath, $uploadDir) !== 0) {
-    $currentPath = $uploadDir;
-}
-
-// Función para formatear tamaño de archivo
-function formatFileSize($bytes) {
-    if ($bytes >= 1073741824) {
-        return number_format($bytes / 1073741824, 2) . ' GB';
-    } elseif ($bytes >= 1048576) {
-        return number_format($bytes / 1048576, 2) . ' MB';
-    } elseif ($bytes >= 1024) {
-        return number_format($bytes / 1024, 2) . ' KB';
-    } else {
-        return $bytes . ' bytes';
-    }
-}
-
-// Función para obtener icono según tipo de archivo
-function getFileIcon($filename) {
-    $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-    $icons = [
-        'pdf' => '📄', 'doc' => '📝', 'docx' => '📝', 'txt' => '📄',
-        'jpg' => '🖼️', 'jpeg' => '🖼️', 'png' => '🖼️', 'gif' => '🖼️',
-        'zip' => '📦', 'rar' => '📦', '7z' => '📦',
-        'xls' => '📊', 'xlsx' => '📊', 'csv' => '📊',
-        'mp4' => '🎥', 'avi' => '🎥', 'mov' => '🎥',
-        'mp3' => '🎵', 'wav' => '🎵', 'flac' => '🎵'
-    ];
-    return isset($icons[$ext]) ? $icons[$ext] : '📄';
-}
-
-// Procesar acciones
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['action'])) {
-        switch ($_POST['action']) {
-            case 'delete':
-                $fileToDelete = $_POST['file'];
-                $fullPath = $currentPath . '/' . basename($fileToDelete);
-                if (file_exists($fullPath) && strpos(realpath($fullPath), $uploadDir) === 0) {
-                    if (is_dir($fullPath)) {
-                        rmdir($fullPath);
-                    } else {
-                        unlink($fullPath);
-                    }
-                    $_SESSION['message'] = 'Archivo eliminado correctamente';
-                }
-                break;
-                
-            case 'upload':
-                if (isset($_FILES['file'])) {
-                    $uploadFile = $currentPath . '/' . basename($_FILES['file']['name']);
-                    if (move_uploaded_file($_FILES['file']['tmp_name'], $uploadFile)) {
-                        $_SESSION['message'] = 'Archivo subido correctamente';
-                    } else {
-                        $_SESSION['error'] = 'Error al subir el archivo';
-                    }
-                }
-                break;
-                
-            case 'mkdir':
-                $newDir = $_POST['dirname'];
-                $newDirPath = $currentPath . '/' . basename($newDir);
-                if (!file_exists($newDirPath)) {
-                    mkdir($newDirPath, 0755, true);
-                    $_SESSION['message'] = 'Directorio creado correctamente';
-                } else {
-                    $_SESSION['error'] = 'El directorio ya existe';
-                }
-                break;
-        }
-        header('Location: ' . $_SERVER['REQUEST_URI']);
-        exit;
-    }
-}
-
-// Obtener contenido del directorio
-$items = [];
-if (is_dir($currentPath)) {
-    $files = scandir($currentPath);
-    foreach ($files as $file) {
-        if ($file !== '.' && $file !== '..') {
-            $fullPath = $currentPath . '/' . $file;
-            $items[] = [
-                'name' => $file,
-                'path' => $fullPath,
-                'is_dir' => is_dir($fullPath),
-                'size' => is_file($fullPath) ? filesize($fullPath) : 0,
-                'modified' => filemtime($fullPath),
-                'icon' => is_dir($fullPath) ? '📁' : getFileIcon($file)
-            ];
-        }
-    }
-}
-
-// Ordenar: directorios primero, luego archivos
-usort($items, function($a, $b) {
-    if ($a['is_dir'] && !$b['is_dir']) return -1;
-    if (!$a['is_dir'] && $b['is_dir']) return 1;
-    return strcasecmp($a['name'], $b['name']);
-});
-?>
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -116,6 +5,7 @@ usort($items, function($a, $b) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gelymar File Manager</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="config.js"></script>
     <style>
         * {
             margin: 0;
@@ -355,156 +245,270 @@ usort($items, function($a, $b) {
             color: #ddd;
         }
     </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1><i class="fas fa-folder-open"></i> Gelymar File Manager</h1>
-            <div>
-                <a href="/" class="btn btn-secondary">
-                    <i class="fas fa-home"></i> Inicio
-                </a>
-            </div>
-        </div>
+    <script>
+        // Debug completo del localStorage
+        console.log('=== DEBUG FILE MANAGER ===');
+        console.log('localStorage completo:', localStorage);
+        console.log('User Token:', localStorage.getItem('user_token'));
+        console.log('User Data:', localStorage.getItem('user_data'));
+        console.log('Authenticated:', localStorage.getItem('authenticated'));
         
-        <div class="breadcrumb">
-            <a href="?path=<?= urlencode($uploadDir) ?>">📁 Uploads</a>
-            <?php
-            $pathParts = explode('/', str_replace($uploadDir, '', $currentPath));
-            $currentBreadcrumb = $uploadDir;
-            foreach ($pathParts as $part) {
-                if ($part) {
-                    $currentBreadcrumb .= '/' . $part;
-                    echo ' / <a href="?path=' . urlencode($currentBreadcrumb) . '">' . htmlspecialchars($part) . '</a>';
-                }
+        // Verificar autenticación se hará en DOMContentLoaded
+        
+        let currentPath = '';
+        let files = [];
+        
+        // Función para formatear tamaño de archivo
+        function formatFileSize(bytes) {
+            if (bytes >= 1073741824) {
+                return (bytes / 1073741824).toFixed(2) + ' GB';
+            } else if (bytes >= 1048576) {
+                return (bytes / 1048576).toFixed(2) + ' MB';
+            } else if (bytes >= 1024) {
+                return (bytes / 1024).toFixed(2) + ' KB';
+            } else {
+                return bytes + ' bytes';
             }
-            ?>
-        </div>
+        }
         
-        <?php if (isset($_SESSION['message'])): ?>
-            <div class="alert alert-success">
-                <?= htmlspecialchars($_SESSION['message']) ?>
-            </div>
-            <?php unset($_SESSION['message']); ?>
-        <?php endif; ?>
+        // Función para obtener icono según tipo de archivo
+        function getFileIcon(filename) {
+            const ext = filename.split('.').pop().toLowerCase();
+            const icons = {
+                'pdf': '📄', 'doc': '📝', 'docx': '📝', 'txt': '📄',
+                'jpg': '🖼️', 'jpeg': '🖼️', 'png': '🖼️', 'gif': '🖼️',
+                'zip': '📦', 'rar': '📦', '7z': '📦',
+                'xls': '📊', 'xlsx': '📊', 'csv': '📊',
+                'mp4': '🎥', 'avi': '🎥', 'mov': '🎥',
+                'mp3': '🎵', 'wav': '🎵', 'flac': '🎵'
+            };
+            return icons[ext] || '📄';
+        }
         
-        <?php if (isset($_SESSION['error'])): ?>
-            <div class="alert alert-danger">
-                <?= htmlspecialchars($_SESSION['error']) ?>
-            </div>
-            <?php unset($_SESSION['error']); ?>
-        <?php endif; ?>
+        // Cargar archivos del directorio actual
+        async function loadFiles() {
+            try {
+                const token = localStorage.getItem('user_token');
+                console.log('🔑 Token encontrado:', token ? 'Sí' : 'No');
+                console.log('🔑 Token valor:', token);
+                
+                if (!token) {
+                    console.error('❌ No hay token, redirigiendo al login');
+                    window.location.href = 'login.html';
+                    return;
+                }
+                
+                // Saltar verificación de token, se validará en la petición real
+                
+                // Usar configuración desde variables de entorno
+                const backendUrl = window.APP_CONFIG?.BACKEND_BASE_URL || 'http://localhost:3000';
+                console.log('🌐 Backend URL:', backendUrl);
+                const response = await fetch(`${backendUrl}/api/fileserver/files?path=${encodeURIComponent(currentPath)}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    files = data.files || [];
+                    renderFiles();
+                    updateBreadcrumb();
+                } else if (response.status === 401) {
+                    console.error('❌ Token inválido, redirigiendo al login');
+                    localStorage.clear();
+                    window.location.href = 'login.html';
+                    return;
+                } else {
+                    console.error('Error al cargar archivos:', response.status);
+                }
+            } catch (error) {
+                console.error('Error de conexión:', error);
+            }
+        }
         
-        <div class="toolbar">
-            <button class="btn btn-primary" onclick="openUploadModal()">
-                <i class="fas fa-upload"></i> Subir Archivo
-            </button>
-            <button class="btn btn-success" onclick="openMkdirModal()">
-                <i class="fas fa-folder-plus"></i> Nueva Carpeta
-            </button>
-            <button class="btn btn-secondary" onclick="location.reload()">
-                <i class="fas fa-sync-alt"></i> Actualizar
-            </button>
-        </div>
-        
-        <div class="file-list">
-            <?php if (empty($items)): ?>
-                <div class="empty-state">
-                    <i class="fas fa-folder-open"></i>
-                    <h3>Directorio vacío</h3>
-                    <p>No hay archivos ni carpetas en este directorio.</p>
-                </div>
-            <?php else: ?>
-                <?php foreach ($items as $item): ?>
-                    <div class="file-item">
-                        <div class="file-icon">
-                            <?= $item['icon'] ?>
+        // Renderizar archivos en la interfaz
+        function renderFiles() {
+            const fileList = document.getElementById('fileList');
+            
+            if (files.length === 0) {
+                fileList.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-folder-open"></i>
+                        <h3>Directorio vacío</h3>
+                        <p>No hay archivos ni carpetas en este directorio.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            fileList.innerHTML = files.map(file => `
+                <div class="file-item">
+                    <div class="file-icon">
+                        ${file.isDirectory ? '📁' : getFileIcon(file.name)}
+                    </div>
+                    <div class="file-info">
+                        <div class="file-name">
+                            ${file.isDirectory ? 
+                                `<a href="#" onclick="navigateTo('${file.path}')" style="color: inherit; text-decoration: none;">${file.name}</a>` : 
+                                file.name
+                            }
                         </div>
-                        <div class="file-info">
-                            <?php if ($item['is_dir']): ?>
-                                <div class="file-name">
-                                    <a href="?path=<?= urlencode($item['path']) ?>" style="color: inherit; text-decoration: none;">
-                                        <?= htmlspecialchars($item['name']) ?>
-                                    </a>
-                                </div>
-                            <?php else: ?>
-                                <div class="file-name"><?= htmlspecialchars($item['name']) ?></div>
-                            <?php endif; ?>
-                            <div class="file-meta">
-                                <?php if ($item['is_dir']): ?>
-                                    Directorio
-                                <?php else: ?>
-                                    <?= formatFileSize($item['size']) ?> • 
-                                    <?= date('d/m/Y H:i', $item['modified']) ?>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                        <div class="file-actions">
-                            <?php if (!$item['is_dir']): ?>
-                                <a href="/uploads/<?= str_replace($uploadDir . '/', '', $item['path']) ?>" 
-                                   class="btn btn-primary" target="_blank">
-                                    <i class="fas fa-download"></i>
-                                </a>
-                            <?php endif; ?>
-                            <button class="btn btn-danger" onclick="deleteItem('<?= htmlspecialchars($item['name']) ?>')">
-                                <i class="fas fa-trash"></i>
-                            </button>
+                        <div class="file-meta">
+                            ${file.isDirectory ? 
+                                'Directorio' : 
+                                `${formatFileSize(file.size)} • ${new Date(file.modified).toLocaleString()}`
+                            }
                         </div>
                     </div>
-                <?php endforeach; ?>
-            <?php endif; ?>
-        </div>
-    </div>
-    
-    <!-- Modal para subir archivo -->
-    <div id="uploadModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3><i class="fas fa-upload"></i> Subir Archivo</h3>
-                <span class="close" onclick="closeModal('uploadModal')">&times;</span>
-            </div>
-            <form method="POST" enctype="multipart/form-data">
-                <input type="hidden" name="action" value="upload">
-                <div class="form-group">
-                    <label for="file">Seleccionar archivo:</label>
-                    <input type="file" id="file" name="file" required>
+                    <div class="file-actions">
+                        ${!file.isDirectory ? 
+                            `<a href="/uploads/${file.path}" class="btn btn-primary" target="_blank">
+                                <i class="fas fa-download"></i>
+                            </a>` : ''
+                        }
+                        <button class="btn btn-danger" onclick="deleteItem('${file.name}')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
                 </div>
-                <div style="display: flex; gap: 1rem;">
-                    <button type="submit" class="btn btn-primary">Subir</button>
-                    <button type="button" class="btn btn-secondary" onclick="closeModal('uploadModal')">Cancelar</button>
-                </div>
-            </form>
-        </div>
-    </div>
-    
-    <!-- Modal para crear directorio -->
-    <div id="mkdirModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3><i class="fas fa-folder-plus"></i> Nueva Carpeta</h3>
-                <span class="close" onclick="closeModal('mkdirModal')">&times;</span>
-            </div>
-            <form method="POST">
-                <input type="hidden" name="action" value="mkdir">
-                <div class="form-group">
-                    <label for="dirname">Nombre de la carpeta:</label>
-                    <input type="text" id="dirname" name="dirname" required>
-                </div>
-                <div style="display: flex; gap: 1rem;">
-                    <button type="submit" class="btn btn-success">Crear</button>
-                    <button type="button" class="btn btn-secondary" onclick="closeModal('mkdirModal')">Cancelar</button>
-                </div>
-            </form>
-        </div>
-    </div>
-    
-    <!-- Formulario para eliminar -->
-    <form id="deleteForm" method="POST" style="display: none;">
-        <input type="hidden" name="action" value="delete">
-        <input type="hidden" name="file" id="deleteFileName">
-    </form>
-    
-    <script>
+            `).join('');
+        }
+        
+        // Actualizar breadcrumb
+        function updateBreadcrumb() {
+            const breadcrumb = document.getElementById('breadcrumb');
+            const pathParts = currentPath.split('/').filter(part => part);
+            
+            let breadcrumbHTML = '<a href="#" onclick="navigateTo(\'\')">📁 Uploads</a>';
+            let currentPathAccumulator = '';
+            
+            pathParts.forEach((part, index) => {
+                currentPathAccumulator += (currentPathAccumulator ? '/' : '') + part;
+                breadcrumbHTML += ` / <a href="#" onclick="navigateTo('${currentPathAccumulator}')">${part}</a>`;
+            });
+            
+            breadcrumb.innerHTML = breadcrumbHTML;
+        }
+        
+        // Navegar a un directorio
+        function navigateTo(path) {
+            currentPath = path;
+            loadFiles();
+        }
+        
+        // Subir archivo
+        async function uploadFile() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Por favor selecciona un archivo');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('path', currentPath);
+            
+            try {
+                const token = localStorage.getItem('user_token');
+                // Usar configuración desde variables de entorno
+                const backendUrl = window.APP_CONFIG?.BACKEND_BASE_URL || 'http://localhost:3000';
+                const response = await fetch(`${backendUrl}/api/fileserver/upload`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    alert('Archivo subido correctamente');
+                    loadFiles();
+                    closeModal('uploadModal');
+                } else {
+                    alert('Error al subir el archivo');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error de conexión');
+            }
+        }
+        
+        // Crear directorio
+        async function createDirectory() {
+            const dirName = document.getElementById('dirName').value;
+            
+            if (!dirName) {
+                alert('Por favor ingresa un nombre para la carpeta');
+                return;
+            }
+            
+            try {
+                const token = localStorage.getItem('user_token');
+                // Usar configuración desde variables de entorno
+                const backendUrl = window.APP_CONFIG?.BACKEND_BASE_URL || 'http://localhost:3000';
+                const response = await fetch(`${backendUrl}/api/fileserver/mkdir`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        path: currentPath,
+                        name: dirName
+                    })
+                });
+                
+                if (response.ok) {
+                    alert('Directorio creado correctamente');
+                    loadFiles();
+                    closeModal('mkdirModal');
+                } else {
+                    alert('Error al crear el directorio');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error de conexión');
+            }
+        }
+        
+        // Eliminar archivo/directorio
+        async function deleteItem(fileName) {
+            if (!confirm(`¿Estás seguro de que quieres eliminar "${fileName}"?`)) {
+                return;
+            }
+            
+            try {
+                const token = localStorage.getItem('user_token');
+                // Usar configuración desde variables de entorno
+                const backendUrl = window.APP_CONFIG?.BACKEND_BASE_URL || 'http://localhost:3000';
+                const response = await fetch(`${backendUrl}/api/fileserver/delete`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        path: currentPath,
+                        name: fileName
+                    })
+                });
+                
+                if (response.ok) {
+                    alert('Archivo eliminado correctamente');
+                    loadFiles();
+                } else {
+                    alert('Error al eliminar el archivo');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error de conexión');
+            }
+        }
+        
+        // Funciones de modal
         function openUploadModal() {
             document.getElementById('uploadModal').style.display = 'block';
         }
@@ -517,19 +521,107 @@ usort($items, function($a, $b) {
             document.getElementById(modalId).style.display = 'none';
         }
         
-        function deleteItem(fileName) {
-            if (confirm('¿Estás seguro de que quieres eliminar "' + fileName + '"?')) {
-                document.getElementById('deleteFileName').value = fileName;
-                document.getElementById('deleteForm').submit();
-            }
-        }
-        
         // Cerrar modal al hacer clic fuera
         window.onclick = function(event) {
             if (event.target.classList.contains('modal')) {
                 event.target.style.display = 'none';
             }
         }
+        
+        // Función de logout
+        function logout() {
+            localStorage.removeItem('user_token');
+            localStorage.removeItem('user_data');
+            localStorage.removeItem('authenticated');
+            window.location.href = 'login.html';
+        }
+        
+        // Cargar archivos al iniciar
+        document.addEventListener('DOMContentLoaded', function() {
+            // Verificar autenticación una sola vez
+            const token = localStorage.getItem('user_token');
+            console.log('Verificando autenticación...');
+            
+            if (!token) {
+                console.log('No hay token, redirigiendo al login');
+                window.location.href = 'login.html';
+                return;
+            }
+            
+            console.log('Token válido, cargando archivos...');
+            loadFiles();
+        });
     </script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-folder-open"></i> Gelymar File Manager</h1>
+            <div>
+                <a href="login.html" class="btn btn-secondary">
+                    <i class="fas fa-home"></i> Inicio
+                </a>
+                <button class="btn btn-secondary" onclick="logout()">
+                    <i class="fas fa-sign-out-alt"></i> Salir
+                </button>
+            </div>
+        </div>
+        
+        <div class="breadcrumb" id="breadcrumb">
+            <a href="#" onclick="navigateTo('')">📁 Uploads</a>
+        </div>
+        
+        <div class="toolbar">
+            <button class="btn btn-primary" onclick="openUploadModal()">
+                <i class="fas fa-upload"></i> Subir Archivo
+            </button>
+            <button class="btn btn-success" onclick="openMkdirModal()">
+                <i class="fas fa-folder-plus"></i> Nueva Carpeta
+            </button>
+            <button class="btn btn-secondary" onclick="loadFiles()">
+                <i class="fas fa-sync-alt"></i> Actualizar
+            </button>
+        </div>
+        
+        <div class="file-list" id="fileList">
+            <!-- Los archivos se cargarán aquí dinámicamente -->
+        </div>
+    </div>
+    
+    <!-- Modal para subir archivo -->
+    <div id="uploadModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-upload"></i> Subir Archivo</h3>
+                <span class="close" onclick="closeModal('uploadModal')">&times;</span>
+            </div>
+            <div class="form-group">
+                <label for="fileInput">Seleccionar archivo:</label>
+                <input type="file" id="fileInput" required>
+            </div>
+            <div style="display: flex; gap: 1rem;">
+                <button type="button" class="btn btn-primary" onclick="uploadFile()">Subir</button>
+                <button type="button" class="btn btn-secondary" onclick="closeModal('uploadModal')">Cancelar</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal para crear directorio -->
+    <div id="mkdirModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-folder-plus"></i> Nueva Carpeta</h3>
+                <span class="close" onclick="closeModal('mkdirModal')">&times;</span>
+            </div>
+            <div class="form-group">
+                <label for="dirName">Nombre de la carpeta:</label>
+                <input type="text" id="dirName" required>
+            </div>
+            <div style="display: flex; gap: 1rem;">
+                <button type="button" class="btn btn-success" onclick="createDirectory()">Crear</button>
+                <button type="button" class="btn btn-secondary" onclick="closeModal('mkdirModal')">Cancelar</button>
+            </div>
+        </div>
+    </div>
 </body>
-</html> 
+</html>

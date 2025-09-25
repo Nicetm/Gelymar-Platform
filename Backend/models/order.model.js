@@ -17,8 +17,12 @@ class Order {
     fecha_ingreso = null,
     fecha = null,
     fecha_etd = null,
+    fecha_eta = null,
     currency = null,
-    medio_envio_factura = null
+    medio_envio_factura = null,
+    incoterm = null,
+    puerto_destino = null,
+    certificados = null
   }) {
     this.id = id;
     this.rut = rut;
@@ -36,8 +40,12 @@ class Order {
     this.fecha_ingreso = fecha_ingreso;
     this.fecha = fecha;
     this.fecha_etd = fecha_etd;
+    this.fecha_eta = fecha_eta;
     this.currency = currency;
     this.medio_envio_factura = medio_envio_factura;
+    this.incoterm = incoterm;
+    this.puerto_destino = puerto_destino;
+    this.certificados = certificados;
   }
 }
 

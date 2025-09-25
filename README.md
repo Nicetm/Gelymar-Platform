@@ -369,6 +369,176 @@ docker-compose logs --tail=100 | grep -i error
 docker-compose logs -f -t backend
 ```
 
+## 🛠️ Guía de Comandos Docker
+
+### Cuándo Usar Cada Comando
+
+#### **🔄 Reiniciar Servicios**
+```bash
+# Reiniciar un servicio específico (cambios en código sin rebuild)
+docker-compose --env-file .env.local restart backend
+docker-compose --env-file .env.local restart frontend
+docker-compose --env-file .env.local restart fileserver
+
+# Reiniciar todos los servicios
+docker-compose --env-file .env.local restart
+```
+**Usar cuando:** Cambios en variables de entorno, configuración, o código que no requiere rebuild
+
+#### **🏗️ Build y Rebuild**
+```bash
+# Build de un servicio específico (cambios en Dockerfile o código)
+docker-compose --env-file .env.local build backend
+docker-compose --env-file .env.local build frontend
+
+# Build sin cache (forzar reconstrucción completa)
+docker-compose --env-file .env.local build --no-cache backend
+
+# Build y up en un comando
+docker-compose --env-file .env.local up -d --build backend
+
+# Reconstruir frontend después de cambios en Dockerfile
+docker-compose --env-file .env.local build frontend
+docker-compose --env-file .env.local up -d frontend
+
+# Reconstruir frontend sin cache (forzar reconstrucción completa)
+docker-compose --env-file .env.local build --no-cache frontend
+docker-compose --env-file .env.local up -d frontend
+```
+**Usar cuando:** 
+- Cambios en `Dockerfile`
+- Cambios en código fuente
+- Cambios en dependencias (`package.json`)
+- Problemas de cache
+- **Cambios en variables de entorno del Dockerfile (como SERVER_API_URL)**
+
+#### **🚀 Levantar y Bajar Servicios**
+```bash
+# Levantar todos los servicios
+docker-compose --env-file .env.local up -d
+
+# Levantar un servicio específico
+docker-compose --env-file .env.local up -d backend
+
+# Parar todos los servicios
+docker-compose --env-file .env.local down
+
+# Parar y eliminar volúmenes (¡CUIDADO! Elimina datos)
+docker-compose --env-file .env.local down -v
+
+# Limpiar contenedores huérfanos (solo cuando aparezca mensaje de "orphan containers")
+docker-compose --env-file .env.local up -d backend frontend --remove-orphans
+
+# Parar y limpiar contenedores huérfanos (¡CUIDADO! Elimina TODOS los contenedores)
+docker-compose --env-file .env.local down --remove-orphans
+```
+
+#### **🧹 Limpieza de Imágenes**
+```bash
+# Ver imágenes del proyecto
+docker images | grep gelymar-platform
+
+# Eliminar imágenes no utilizadas
+docker image prune
+
+# Eliminar todas las imágenes no utilizadas (incluyendo las referenciadas)
+docker image prune -a
+
+# Eliminar imagen específica
+docker rmi nicetm/gelymar-platform:backend-dev
+```
+
+#### **📊 Monitoreo y Estado**
+```bash
+# Ver estado de contenedores
+docker-compose --env-file .env.local ps
+
+# Ver uso de recursos
+docker stats
+
+# Ver logs en tiempo real
+docker-compose --env-file .env.local logs -f backend
+```
+
+### 🔧 Comandos por Escenario
+
+#### **Desarrollo Diario**
+```bash
+# Cambios en código backend/frontend
+docker-compose --env-file .env.local restart backend
+
+# Cambios en configuración de servicios
+docker-compose --env-file .env.local restart
+
+# Cambios en Dockerfile
+docker-compose --env-file .env.local build --no-cache backend
+docker-compose --env-file .env.local up -d backend
+```
+
+#### **Problemas de Cache**
+```bash
+# Si hay problemas de cache o builds fallidos
+docker-compose --env-file .env.local build --no-cache backend
+docker-compose --env-file .env.local up -d backend
+```
+
+#### **Limpieza Completa**
+```bash
+# Parar todo
+docker-compose --env-file .env.local down
+
+# Limpiar imágenes
+docker image prune -a
+
+# Reconstruir todo
+docker-compose --env-file .env.local build --no-cache
+docker-compose --env-file .env.local up -d
+```
+
+#### **🔄 Actualización Completa en Producción**
+```bash
+# 1. Detener y eliminar contenedores existentes
+docker compose -f docker-compose-hub.yml down
+
+# 2. Eliminar todas las imágenes de gelymar-platform
+docker rmi $(docker images "nicetm/gelymar-platform*" -q)
+
+# 3. Limpiar imágenes huérfanas
+docker image prune -f
+
+# 4. Descargar las nuevas imágenes desde DockerHub
+docker compose -f docker-compose-hub.yml pull
+
+# 5. Levantar con las nuevas imágenes
+docker compose -f docker-compose-hub.yml --env-file .env.production up -d
+
+# 6. Verificar que todo esté funcionando
+docker compose -f docker-compose-hub.yml ps
+docker compose -f docker-compose-hub.yml logs
+```
+
+#### **🚀 Comando Todo-en-Uno para Producción**
+```bash
+# Ejecutar todo el proceso de actualización en una sola línea
+docker compose -f docker-compose-hub.yml down && \
+docker rmi $(docker images "nicetm/gelymar-platform*" -q) && \
+docker image prune -f && \
+docker compose -f docker-compose-hub.yml pull && \
+docker compose -f docker-compose-hub.yml --env-file .env.production up -d
+```
+
+#### **Debugging**
+```bash
+# Ver logs de error
+docker-compose --env-file .env.local logs backend | grep -i error
+
+# Acceder al contenedor
+docker-compose --env-file .env.local exec backend bash
+
+# Ver variables de entorno
+docker-compose --env-file .env.local exec backend env
+```
+
 ## 🆘 Soporte
 
 ### Información del Sistema

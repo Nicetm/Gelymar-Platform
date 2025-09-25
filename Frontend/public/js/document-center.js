@@ -454,7 +454,7 @@ function renderDocuments(docs, page) {
       </div>
 
       <div class="flex items-center justify-end space-x-2 mt-auto dark:bg-gray-900">
-        <a href="${window.fileServer}/${doc.url}" class="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors duration-200" data-doc-id="${doc.id}" title="Download document" target="_blank">
+        <a href="#" onclick="downloadFileClient(${doc.id})" class="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors duration-200" data-doc-id="${doc.id}" title="Download document">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
           </svg>
@@ -626,6 +626,178 @@ function filterDocuments() {
 // =============================================================================
 // FUNCIONES DE ACCIONES DE DOCUMENTOS
 // =============================================================================
+
+// Función para abrir archivos en modal de forma segura (lado cliente)
+window.downloadFileClient = async (fileId) => {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      showNotification('Debes iniciar sesión para ver archivos', 'error');
+      return;
+    }
+
+    // Usar el proxy del frontend en lugar del backend directamente
+    const response = await fetch(`/api/files/${fileId}?token=${token}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      if (response.status === 403) {
+        showNotification('No tienes permisos para acceder a este archivo', 'error');
+      } else if (response.status === 404) {
+        showNotification('Archivo no encontrado', 'error');
+      } else {
+        showNotification('Error al cargar archivo', 'error');
+      }
+      return;
+    }
+
+    // Obtener el nombre del archivo del header Content-Disposition
+    const contentDisposition = response.headers.get('Content-Disposition');
+    let filename = 'archivo.pdf';
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+      if (filenameMatch) {
+        filename = filenameMatch[1];
+      }
+    }
+
+    // Abrir archivo directamente en nueva pestaña usando URL del frontend
+    const fileUrl = `/files/${fileId}?token=${token}`;
+    window.open(fileUrl, '_blank');
+
+    // Marcar como visto si no lo está
+    const originalDoc = documents.find(d => d.id === fileId);
+    if (originalDoc && originalDoc.status === 'Unread') {
+      originalDoc.status = 'Viewed';
+      const filteredDoc = filteredDocuments.find(d => d.id === fileId);
+      if (filteredDoc) {
+        filteredDoc.status = 'Viewed';
+      }
+      renderDocuments(filteredDocuments, currentPage);
+      updateStatistics();
+    }
+
+  } catch (error) {
+    console.error('Error cargando archivo:', error);
+    showNotification('Error de conexión al cargar archivo', 'error');
+  }
+};
+
+  // Función para abrir modal con archivo (lado cliente)
+  function openFileModalClient(fileId, filename) {
+  // Crear modal si no existe
+  let modal = document.getElementById('file-viewer-modal-client');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'file-viewer-modal-client';
+    modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 hidden';
+    modal.innerHTML = `
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-6xl max-h-[90vh] w-full mx-4 flex flex-col">
+        <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white" id="file-modal-title-client">${filename}</h3>
+          <div class="flex items-center space-x-2">
+            <button id="download-file-btn-client" class="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+            </button>
+            <button id="close-file-modal-client" class="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="flex-1 p-4 overflow-hidden">
+          <iframe id="file-iframe-client" src="" class="w-full h-full border-0 rounded"></iframe>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    // Event listeners
+    document.getElementById('close-file-modal-client').addEventListener('click', closeFileModalClient);
+    document.getElementById('download-file-btn-client').addEventListener('click', () => {
+      const a = document.createElement('a');
+      a.href = fileUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    });
+    
+    // Cerrar con ESC
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+        closeFileModalClient();
+      }
+    });
+  }
+
+    // Configurar contenido
+    document.getElementById('file-modal-title-client').textContent = filename;
+    
+    // Mostrar modal
+    modal.classList.remove('hidden');
+    
+    // Cargar archivo con token temporal
+    loadFileWithTokenClient(fileId);
+}
+
+// Función para cargar archivo con token temporal (lado cliente)
+async function loadFileWithTokenClient(fileId) {
+  const fileContent = document.getElementById('file-content-client');
+  
+  try {
+    // Usar endpoint con token como parámetro de consulta
+    const token = localStorage.getItem('token');
+    const iframeUrl = `${window.apiBase}/api/files/view-with-token/${fileId}?token=${encodeURIComponent(token)}`;
+    
+    fileContent.innerHTML = `
+      <iframe id="file-iframe-client" src="${iframeUrl}" class="w-full h-full border-0 rounded" 
+              onload="this.style.display='block'" 
+              onerror="showFileErrorClient()"></iframe>
+    `;
+  } catch (error) {
+    console.error('Error cargando archivo:', error);
+    showFileErrorClient();
+  }
+}
+
+// Función para mostrar error de carga (lado cliente)
+function showFileErrorClient() {
+  const fileContent = document.getElementById('file-content-client');
+  fileContent.innerHTML = `
+    <div class="text-center">
+      <div class="inline-flex items-center justify-center w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full mb-4">
+        <svg class="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+      </div>
+      <p class="text-sm text-red-600 dark:text-red-400 mb-4">Error al cargar el archivo</p>
+      <button onclick="location.reload()" class="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors">
+        Recargar página
+      </button>
+    </div>
+  `;
+}
+
+// Función para cerrar modal (lado cliente)
+function closeFileModalClient() {
+  const modal = document.getElementById('file-viewer-modal-client');
+  if (modal) {
+    modal.classList.add('hidden');
+    // Limpiar iframe para liberar memoria
+    const iframe = document.getElementById('file-iframe-client');
+    if (iframe) {
+      iframe.src = '';
+    }
+  }
+}
 
 function downloadDocument(docId) {
   const originalDoc = documents.find(d => d.id === docId);
@@ -1706,7 +1878,12 @@ async function openItemsModal(orderPc, orderOc, factura) {
     const token = localStorage.getItem('token');
     const apiBase = window.apiBase;
     
-    const response = await fetch(`${apiBase}/api/orders/${orderPc}/${factura}/items`, {
+    // Usar endpoint diferente según si tiene factura o no
+    const url = factura && factura !== 'null' 
+      ? `${apiBase}/api/orders/${orderPc}/${orderOc}/${factura}/items`
+      : `${apiBase}/api/orders/${orderPc}/${orderOc}/items`;
+    
+    const response = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` }
     });
 

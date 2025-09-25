@@ -57,7 +57,6 @@ async function setSecureDirectoryPermissions(dirPath) {
     }
 
     await fs.promises.chmod(dirPath, FILE_PERMISSIONS.DIRECTORIES);
-    logger.info(`Permisos de directorio establecidos para ${dirPath}`);
     return true;
   } catch (error) {
     logger.error(`Error estableciendo permisos de directorio para ${dirPath}:`, error.message);
@@ -104,7 +103,6 @@ async function createSecureDirectory(dirPath, recursive = true) {
   try {
     if (!fs.existsSync(dirPath)) {
       await fs.promises.mkdir(dirPath, { recursive, mode: FILE_PERMISSIONS.DIRECTORIES });
-      logger.info(`Directorio creado con permisos seguros: ${dirPath}`);
     } else {
       // Verificar permisos del directorio existente
       await setSecureDirectoryPermissions(dirPath);
@@ -199,7 +197,6 @@ async function initializeSecureDirectories() {
     await createSecureDirectory(dir.path);
   }
 
-  logger.info('Directories del sistema inicializados con permisos seguros');
 }
 
 module.exports = {

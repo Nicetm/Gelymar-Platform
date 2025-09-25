@@ -158,10 +158,10 @@ exports.getClientOrderDocuments = async (req, res) => {
  */
 exports.getOrderItems = async (req, res) => {
   try {
-    const { orderPc, factura } = req.params;
+    const { orderPc, orderOc, factura } = req.params;
 
     // Obtener items de la orden
-    const items = await orderService.getOrderItems(orderPc, factura, req.user);
+    const items = await orderService.getOrderItems(orderPc, orderOc, factura, req.user);
 
     if (!items) {
       return res.status(404).json({ message: 'Orden no encontrada o no autorizada' });
@@ -170,6 +170,29 @@ exports.getOrderItems = async (req, res) => {
     res.json(items);
   } catch (err) {
     console.error('[getOrderItems] Error:', err.message);
+    res.status(500).json({ message: 'Error al obtener items de la orden' });
+  }
+};
+
+/**
+ * GET /api/orders/:orderPc/items
+ * Obtiene los items de una orden sin factura
+ * Accesible por admin y clientes (clientes solo pueden ver sus propias órdenes)
+ */
+exports.getOrderItemsWithoutFactura = async (req, res) => {
+  try {
+    const { orderPc, orderOc } = req.params;
+
+    // Obtener items de la orden sin factura
+    const items = await orderService.getOrderItemsWithoutFactura(orderPc, orderOc, req.user);
+
+    if (!items) {
+      return res.status(404).json({ message: 'Orden no encontrada o no autorizada' });
+    }
+
+    res.json(items);
+  } catch (err) {
+    console.error('[getOrderItemsWithoutFactura] Error:', err.message);
     res.status(500).json({ message: 'Error al obtener items de la orden' });
   }
 };

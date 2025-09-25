@@ -36,15 +36,6 @@ if ($LASTEXITCODE -eq 0) {
     exit 1
 }
 
-# 4. Monitoring
-Write-Host "📦 Subiendo Monitoring..." -ForegroundColor Yellow
-docker push nicetm/gelymar-platform:monitoring
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "✅ Monitoring subido" -ForegroundColor Green
-} else {
-    Write-Host "❌ Error subiendo Monitoring" -ForegroundColor Red
-    exit 1
-}
 
 # 5. Fileserver
 Write-Host "📦 Subiendo Fileserver..." -ForegroundColor Yellow
@@ -56,13 +47,13 @@ if ($LASTEXITCODE -eq 0) {
     exit 1
 }
 
-# 6. Terminal
-Write-Host "📦 Subiendo Terminal..." -ForegroundColor Yellow
-docker push nicetm/gelymar-platform:terminal
+# 6. Config Manager
+Write-Host "📦 Subiendo Config Manager..." -ForegroundColor Yellow
+docker push nicetm/gelymar-platform:config-manager
 if ($LASTEXITCODE -eq 0) {
-    Write-Host "✅ Terminal subido" -ForegroundColor Green
+    Write-Host "✅ Config Manager subido" -ForegroundColor Green
 } else {
-    Write-Host "❌ Error subiendo Terminal" -ForegroundColor Red
+    Write-Host "❌ Error subiendo Config Manager" -ForegroundColor Red
     exit 1
 }
 

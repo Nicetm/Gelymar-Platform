@@ -1,16 +1,5 @@
 // public/js/orders.js
-import { 
-  qs, 
-  showNotification, 
-  confirmAction, 
-  showSuccess, 
-  showError,
-  showModal,
-  hideModal,
-  setupModalClose,
-  clearContainer,
-  isValidEmail
-} from './utils.js';
+import { qs, showNotification } from './utils.js';
 
 export async function initOrdersScript() {
   // Obtener apiBase - usar localhost para JavaScript del cliente
@@ -67,6 +56,8 @@ export async function initOrdersScript() {
     }
   }
 
+
+
   // Función para renderizar una fila de orden
   function renderOrderRow(order) {
     return `
@@ -79,29 +70,79 @@ export async function initOrdersScript() {
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${order.medio_envio_factura || '-'}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${order.factura || '-'}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(order.fecha_factura)}</td>
-        <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">
-          <div class="flex justify-center items-center gap-3 text-gray-900 dark:text-white">
-            <a href="/admin/clients/documents/view/${order.customer_uuid}?f=${order.id}&pc=${order.pc}&c=${order.customer_name}" class="go-to-order-btn" title="Ir a la orden">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
-              </svg>
-            </a>
-            <a href="#" title="Ver lista de items de PC ${order.pc}" class="items-list-btn hover:text-indigo-500 transition" data-order-pc="${order.pc}" data-order-oc="${order.oc}" data-factura="${order.factura}">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
-              </svg>
-            </a>
-            <a href="#" title="Expandir items de PC ${order.pc}" class="expand-items-btn hover:text-green-500 transition" data-order-pc="${order.pc}" data-order-oc="${order.oc}" data-factura="${order.factura}">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
-              </svg>
-            </a>
-            <a href="#" title="Detalles de orden PC ${order.pc}" class="order-detail-btn hover:text-blue-500 transition" data-order-id="${order.id}" data-order-pc="${order.pc}" data-order-oc="${order.oc}">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-              </svg>
-            </a>
+        <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(order.fecha_etd)}</td>
+        <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(order.fecha_eta)}</td>
+        <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${order.incoterm || '-'}</td>
+        <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${order.puerto_destino || '-'}</td>
+        <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${order.certificados || '-'}</td>
+        <td class="sticky right-0 bg-gray-50 dark:bg-gray-700 z-10 px-6 py-4 min-w-[120px] overflow-visible">
+          <div class="flex justify-center gap-3 relative">
+            
+            <!-- Ver documentos y archivos -->
+            <div class="relative group">
+              <a href="/admin/clients/documents/view/${order.customer_uuid}?f=${order.id}&pc=${order.pc}&c=${order.customer_name}"
+                 class="go-to-order-btn text-gray-900 dark:text-white hover:text-green-500 transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                </svg>
+              </a>
+              <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
+                          bg-green-600 text-white text-xs rounded px-2 py-1 shadow-lg
+                          opacity-0 group-hover:opacity-100 transition
+                          pointer-events-none whitespace-nowrap z-50">
+                ${window.translations?.carpetas?.tooltipGoToOrder || 'Ver documentos y archivos'}
+              </div>
+            </div>
+
+            <!-- Ver lista de items -->
+            <div class="relative group">
+              <a href="#" class="items-list-btn text-gray-900 dark:text-white hover:text-green-500 transition"
+                 data-order-pc="${order.pc}" data-order-oc="${order.oc}" data-factura="${order.factura}">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+                </svg>
+              </a>
+              <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
+                          bg-green-600 text-white text-xs rounded px-2 py-1 shadow-lg
+                          opacity-0 group-hover:opacity-100 transition
+                          pointer-events-none whitespace-nowrap z-50">
+                ${window.translations?.carpetas?.tooltipViewItems || 'Ver lista de items'}
+              </div>
+            </div>
+
+            <!-- Expandir items -->
+            <div class="relative group">
+              <a href="#" class="expand-items-btn text-gray-900 dark:text-white hover:text-green-500 transition"
+                 data-order-pc="${order.pc}" data-order-oc="${order.oc}" data-factura="${order.factura}">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+                </svg>
+              </a>
+              <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
+                          bg-green-600 text-white text-xs rounded px-2 py-1 shadow-lg
+                          opacity-0 group-hover:opacity-100 transition
+                          pointer-events-none whitespace-nowrap z-50">
+                ${window.translations?.carpetas?.tooltipExpandItems || 'Expandir items en tabla'}
+              </div>
+            </div>
+
+            <!-- Ver detalles de orden -->
+            <div class="relative group">
+              <a href="#" class="order-detail-btn text-gray-900 dark:text-white hover:text-green-500 transition"
+                 data-order-id="${order.id}" data-order-pc="${order.pc}" data-order-oc="${order.oc}">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+              </a>
+              <div class="absolute bottom-full right-0 mb-2
+                          bg-green-600 text-white text-xs rounded px-2 py-1 shadow-lg
+                          opacity-0 group-hover:opacity-100 transition
+                          pointer-events-none whitespace-nowrap z-50">
+                ${window.translations?.carpetas?.tooltipOrderDetails || 'Ver detalles de orden'}
+              </div>
+            </div>
+
           </div>
         </td>
       </tr>
@@ -124,6 +165,11 @@ export async function initOrdersScript() {
       
       // Renderizar la tabla
       renderTable();
+      
+      // Aplicar filtro automáticamente si hay valor en el buscador
+      if (searchInput && searchInput.value.trim()) {
+        filterRows();
+      }
       
       // Configurar event listeners para los modales
       setupModalEventListeners();
@@ -165,6 +211,7 @@ export async function initOrdersScript() {
         lastRow.setAttribute('data-order-id', order.id);
       }
     });
+    
     
     // Si no hay datos, mostrar mensaje
     if (pageData.length === 0) {
@@ -254,16 +301,18 @@ export async function initOrdersScript() {
   function updateSortIcons(activeColumn, direction) {
     // Remover todos los iconos activos
     document.querySelectorAll('th[data-sort] .sort-icon').forEach(icon => {
-      icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />';
+      icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />';
     });
     
     // Agregar icono activo a la columna actual
     const activeHeader = document.querySelector(`th[data-sort="${activeColumn}"] .sort-icon`);
     if (activeHeader) {
       if (direction === 'asc') {
-        activeHeader.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M3 4h18M3 8h18M3 12h18" />';
+        // Flecha hacia arriba (ascendente)
+        activeHeader.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" />';
       } else {
-        activeHeader.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M3 4h18M3 8h18M3 12h18" />';
+        // Flecha hacia abajo (descendente)
+        activeHeader.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />';
       }
     }
   }
@@ -281,7 +330,10 @@ export async function initOrdersScript() {
         order.oc || '',
         order.customer_name || '',
         order.factura || '',
-        order.fecha_factura || ''
+        order.fecha_factura || '',
+        order.incoterm || '',
+        order.puerto_destino || '',
+        order.certificados || ''
       ].join(' ').toLowerCase();
       
       return searchableText.includes(query);
@@ -454,6 +506,9 @@ export async function initOrdersScript() {
         allOrders = await loadOrdersWithCache();
         filteredOrders = [...allOrders];
         
+        // Limpiar el campo de búsqueda
+        searchInput.value = '';
+        
         // Resetear a la primera página
         currentPage = 1;
         
@@ -479,18 +534,21 @@ export async function initOrdersScript() {
 
   // Event listener para búsqueda
   searchInput.addEventListener('input', filterRows);
-
-  // Event listeners para ordenamiento
-  document.querySelectorAll('[data-sort]').forEach(header => {
-    header.addEventListener('click', () => {
-      const column = header.dataset.sort;
-      const direction = currentSort.column === column && currentSort.direction === 'asc' ? 'desc' : 'asc';
-      
-      currentSort = { column, direction };
-      sortRows(column, direction);
-      renderTable();
-    });
+  
+  // Event listener para navegación (atrás/adelante)
+  window.addEventListener('popstate', () => {
+    if (searchInput && searchInput.value.trim()) {
+      filterRows();
+    }
   });
+  
+  // Event listener para recarga de página
+  window.addEventListener('pageshow', () => {
+    if (searchInput && searchInput.value.trim()) {
+      filterRows();
+    }
+  });
+
 
   // Función para actualizar el estado del cache en el botón
   function updateCacheStatus() {
@@ -508,10 +566,10 @@ export async function initOrdersScript() {
         }
         
         if (cacheInfo.valid) {
-          cacheStatus.textContent = `(${statusText})`;
+          cacheStatus.textContent = '(cache válido)';
           cacheStatus.className = 'text-xs opacity-75 text-green-400';
         } else {
-          cacheStatus.textContent = `(${statusText} - expirado)`;
+          cacheStatus.textContent = '(cache expirado)';
           cacheStatus.className = 'text-xs opacity-75 text-yellow-400';
         }
       } else {
@@ -530,6 +588,7 @@ export async function initOrdersScript() {
   
   // Actualizar estado del cache inicialmente
   updateCacheStatus();
+
 }
 
 // Función para configurar los event listeners de los modales
@@ -621,19 +680,26 @@ function setupModalEventListeners() {
 async function openItemsModal(orderPc, orderOc, factura) {
   const itemsModal = document.getElementById('itemsModal');
   const itemsOrderTitle = document.getElementById('itemsOrderTitle');
+  const itemsCustomerName = document.getElementById('itemsCustomerName');
   const itemsTableBody = document.getElementById('itemsTableBody');
   const totalItems = document.getElementById('totalItems');
   const totalQuantity = document.getElementById('totalQuantity');
   const totalValue = document.getElementById('totalValue');
+  const totalGastoAdicional = document.getElementById('totalGastoAdicional');
 
   if (!itemsModal || !itemsOrderTitle || !itemsTableBody) return;
 
   try {
-    // Cargar items de la orden usando la misma query que folders
+    // Cargar items de la orden usando endpoint diferente según si tiene factura o no
     const token = localStorage.getItem('token');
     const apiBase = window.apiBase;
     
-    const response = await fetch(`${apiBase}/api/orders/${orderPc}/${factura}/items`, {
+    // Usar endpoint diferente según si tiene factura o no
+    const url = factura && factura !== 'null' 
+      ? `${apiBase}/api/orders/${orderPc}/${orderOc}/${factura}/items`
+      : `${apiBase}/api/orders/${orderPc}/${orderOc}/items`;
+    
+    const response = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` }
     });
 
@@ -646,6 +712,7 @@ async function openItemsModal(orderPc, orderOc, factura) {
     // Actualizar header del modal
     document.getElementById('itemsInitials').textContent = 'IT';
     document.getElementById('itemsOrderTitle').textContent = `${window.translations?.carpetas?.order || 'Orden'}: ${orderOc}`;
+    document.getElementById('itemsCustomerName').textContent = `${window.translations?.carpetas?.cliente || 'Cliente'}: ${items[0]?.customer_name || '-'}`;
     document.getElementById('itemsOrderSubtitle').textContent = window.translations?.carpetas?.itemsList || 'Lista de Items';
     
     // Renderizar tabla de items
@@ -659,11 +726,11 @@ async function openItemsModal(orderPc, orderOc, factura) {
         
         return `
           <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition">
-            <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">${item.item_code || 'N/A'}</td>
-            <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">${item.item_name || 'N/A'}</td>
-            <td class="px-6 py-4 text-sm text-center text-gray-900 dark:text-gray-100">${formatQuantity(quantity, unit)}</td>
-            <td class="px-6 py-4 text-sm text-center text-gray-900 dark:text-gray-100">${formatUnitPrice(unitPrice)}</td>
-            <td class="px-6 py-4 text-sm text-center font-semibold text-gray-900 dark:text-gray-100">${formatTotal(total)}</td>
+            <td class="px-6 py-4 text-xs text-gray-900 dark:text-gray-100">${item.item_code || '-'}</td>
+            <td class="px-6 py-4 text-xs text-gray-900 dark:text-gray-100">${item.item_name || '-'}</td>
+            <td class="px-6 py-4 text-xs text-center text-gray-900 dark:text-gray-100">${formatQuantity(quantity, unit)}</td>
+            <td class="px-6 py-4 text-xs text-center text-gray-900 dark:text-gray-100">${formatUnitPrice(unitPrice)}</td>
+            <td class="px-6 py-4 text-xs text-center font-semibold text-gray-900 dark:text-gray-100">${formatTotal(total)}</td>
           </tr>
         `;
       }).join('');
@@ -686,9 +753,12 @@ async function openItemsModal(orderPc, orderOc, factura) {
 
           const currency = items[0]?.currency || 'CLP';
       const unit = items[0]?.unidad_medida || 'KG';
+      const gastoAdicional = parseFloat(items[0]?.gasto_adicional_flete) || 0;
+      
       totalItems.textContent = totalItemsCount;
       totalQuantity.textContent = formatQuantity(totalQuantitySum, unit);
       totalValue.textContent = formatCurrency(totalValueSum.toFixed(4), currency);
+      totalGastoAdicional.textContent = formatCurrency(gastoAdicional.toFixed(4), currency);
 
     // Mostrar el modal
     itemsModal.classList.remove('hidden');
@@ -758,10 +828,6 @@ async function openOrderDetailModal(orderId, orderOc) {
   const orderDetailTitle = document.getElementById('orderDetailTitle');
   const orderDetailPc = document.getElementById('orderDetailPc');
   const orderDetailOc = document.getElementById('orderDetailOc');
-  const orderDetailFechaEtd = document.getElementById('orderDetailFechaEtd');
-  const orderDetailFechaEta = document.getElementById('orderDetailFechaEta');
-  const orderDetailIncoterm = document.getElementById('orderDetailIncoterm');
-  const orderDetailCertificados = document.getElementById('orderDetailCertificados');
   const orderDetailDireccionDestino = document.getElementById('orderDetailDireccionDestino');
   const orderDetailPuertoDestino = document.getElementById('orderDetailPuertoDestino');
 
@@ -804,10 +870,6 @@ async function openOrderDetailModal(orderId, orderOc) {
     // Actualizar campos del modal
     orderDetailPc.textContent = orderDetail.pc || '-';
     orderDetailOc.textContent = orderDetail.oc || '-';
-    orderDetailFechaEtd.textContent = formatDateToDDMMYYYY(orderDetail.fecha_etd);
-    orderDetailFechaEta.textContent = formatDateToDDMMYYYY(orderDetail.fecha_eta);
-    orderDetailIncoterm.textContent = orderDetail.incoterm || '-';
-    orderDetailCertificados.textContent = orderDetail.certificados || '-';
     orderDetailDireccionDestino.textContent = orderDetail.direccion_destino || '-';
     orderDetailPuertoDestino.textContent = orderDetail.puerto_destino || '-';
     
@@ -826,10 +888,6 @@ async function openOrderDetailModal(orderId, orderOc) {
     // Mostrar valores por defecto en caso de error
     orderDetailPc.textContent = '-';
     orderDetailOc.textContent = '-';
-    orderDetailFechaEtd.textContent = '-';
-    orderDetailFechaEta.textContent = '-';
-    orderDetailIncoterm.textContent = '-';
-    orderDetailCertificados.textContent = '-';
     orderDetailDireccionDestino.textContent = '-';
     orderDetailPuertoDestino.textContent = '-';
     
@@ -865,7 +923,12 @@ async function toggleItemsExpansion(orderPc, orderOc, factura) {
     const token = localStorage.getItem('token');
     const apiBase = window.apiBase;
     
-    const response = await fetch(`${apiBase}/api/orders/${orderPc}/${factura}/items`, {
+    // Usar endpoint diferente según si tiene factura o no
+    const url = factura && factura !== 'null' 
+      ? `${apiBase}/api/orders/${orderPc}/${orderOc}/${factura}/items`
+      : `${apiBase}/api/orders/${orderPc}/${orderOc}/items`;
+    
+    const response = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` }
     });
 
@@ -880,7 +943,7 @@ async function toggleItemsExpansion(orderPc, orderOc, factura) {
     expandedRow.className = 'expanded-items-row bg-gray-50 dark:bg-gray-800';
     
     const expandedCell = document.createElement('td');
-    expandedCell.colSpan = 9; // Ajustar según el número de columnas de tu tabla
+    expandedCell.colSpan = 14; // Ajustar según el número de columnas de tu tabla
     expandedCell.className = 'px-6 py-4';
     
             // Crear tabla de items
@@ -889,7 +952,7 @@ async function toggleItemsExpansion(orderPc, orderOc, factura) {
           <div class="bg-white dark:bg-gray-700 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600">
             <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-600 flex justify-between items-center">
               <h4 class="text-sm font-medium text-gray-900 dark:text-gray-100">
-                Items de Orden ${orderOc}
+                Items de la Factura ${factura || '-'}
               </h4>
               <button class="close-expansion-btn text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition" data-order-pc="${orderPc}">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -908,6 +971,8 @@ async function toggleItemsExpansion(orderPc, orderOc, factura) {
                 <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">KG Solicitados</th>
                 <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">KG Despachados</th>
                 <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">KG Facturados</th>
+                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">ETD Date</th>
+                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">ETA Date</th>
                 <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Precio Unitario</th>
                 <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Total</th>
               </tr>
@@ -920,15 +985,17 @@ async function toggleItemsExpansion(orderPc, orderOc, factura) {
                  
                  return `
                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-600 transition">
-                     <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">${item.item_code || 'N/A'}</td>
-                     <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">${item.item_name || 'N/A'}</td>
-                     <td class="px-4 py-3 text-sm text-center text-gray-900 dark:text-gray-100">${item.tipo || 'N/A'}</td>
-                     <td class="px-4 py-3 text-sm text-center text-gray-900 dark:text-gray-100">${item.mercado || 'N/A'}</td>
-                     <td class="px-4 py-3 text-sm text-center text-gray-900 dark:text-gray-100">${formatQuantity(quantity, 'KG')}</td>
-                     <td class="px-4 py-3 text-sm text-center text-gray-900 dark:text-gray-100">${formatQuantity(parseFloat(item.kg_despachados) || 0, 'KG')}</td>
-                     <td class="px-4 py-3 text-sm text-center text-gray-900 dark:text-gray-100">${formatQuantity(parseFloat(item.kg_facturados) || 0, 'KG')}</td>
-                     <td class="px-4 py-3 text-sm text-center text-gray-900 dark:text-gray-100">${formatUnitPrice(unitPrice)}</td>
-                     <td class="px-4 py-3 text-sm text-center font-semibold text-gray-900 dark:text-gray-100">${formatTotal(total)}</td>
+                     <td class="px-4 py-3 text-xs text-gray-900 dark:text-gray-100">${item.item_code || '-'}</td>
+                     <td class="px-4 py-3 text-xs text-gray-900 dark:text-gray-100">${item.item_name || '-'}</td>
+                     <td class="px-4 py-3 text-xs text-center text-gray-900 dark:text-gray-100">${item.tipo || '-'}</td>
+                     <td class="px-4 py-3 text-xs text-center text-gray-900 dark:text-gray-100">${item.mercado || '-'}</td>
+                     <td class="px-4 py-3 text-xs text-center text-gray-900 dark:text-gray-100">${formatQuantity(quantity, 'KG')}</td>
+                     <td class="px-4 py-3 text-xs text-center text-gray-900 dark:text-gray-100">${formatQuantity(parseFloat(item.kg_despachados) || 0, 'KG')}</td>
+                     <td class="px-4 py-3 text-xs text-center text-gray-900 dark:text-gray-100">${formatQuantity(parseFloat(item.kg_facturados) || 0, 'KG')}</td>
+                     <td class="px-4 py-3 text-xs text-center text-gray-900 dark:text-gray-100">${item.fecha_etd ? new Date(item.fecha_etd).toLocaleDateString('es-CL') : '-'}</td>
+                     <td class="px-4 py-3 text-xs text-center text-gray-900 dark:text-gray-100">${item.fecha_eta ? new Date(item.fecha_eta).toLocaleDateString('es-CL') : '-'}</td>
+                     <td class="px-4 py-3 text-xs text-center text-gray-900 dark:text-gray-100">${formatUnitPrice(unitPrice)}</td>
+                     <td class="px-4 py-3 text-xs text-center font-semibold text-gray-900 dark:text-gray-100">${formatTotal(total)}</td>
                    </tr>
                  `;
                }).join('')}

@@ -14,11 +14,29 @@ async function getFoldersByCustomer(customerId) {
   const pool = await poolPromise;
 
   const [rows] = await pool.query(`
-    SELECT 
-      o.*, 
-      c.uuid AS customer_uuid 
+    SELECT DISTINCT
+      o.id,
+      o.rut,
+      o.oc,
+      o.pc,
+      o.created_at,
+      o.updated_at,
+      c.name AS customer_name,
+      c.uuid AS customer_uuid,
+      o.factura,
+      o.fecha_factura,
+      od.order_id,
+      od.fecha,
+      od.fecha_etd,
+      od.fecha_eta,
+      od.currency,
+      od.medio_envio_factura,
+      od.incoterm,
+      od.puerto_destino,
+      od.certificados
     FROM orders o
-    INNER JOIN customers c ON o.customer_id = c.id
+    JOIN customers c ON o.customer_id = c.id
+    LEFT JOIN order_detail od ON o.id = od.order_id
     WHERE o.customer_id = ?
     ORDER BY o.fecha_factura DESC
   `, [customerId]);
@@ -56,12 +74,12 @@ async function createFolder({ customer_id, name, path }) {
   const filesToInsert = [
     { name: 'Recepcion de orden' },
     { name: 'Aviso de Embarque' },
-    { name: 'Aviso de Recepcion de orden' }
+    { name: 'Aviso de entrega' }
   ];
 
   for (const file of filesToInsert) {
     await pool.query(
-      `INSERT INTO files (folder_id, name, path, eta, etd, was_sent, document_type, file_type, status_id)
+      `INSERT INTO files (folder_id, name, path, was_sent, document_type, file_type, status_id)
        VALUES (?, ?, NULL, NULL, NULL, NULL, NULL, NULL, 1)`,
       [folderId, file.name]
     );

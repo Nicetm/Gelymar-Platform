@@ -32,12 +32,12 @@ exports.login = async (req, res) => {
 
     if (user.twoFAEnabled) {
       if (!user.twoFASecret) {
-        logger.warn(`Usuario ${email} no enrolado en 2FA`);
+        logger.warn(`Usuario ${email || username} no enrolado en 2FA`);
         return res.status(401).json({ message: 'Cuenta no enrolada en 2FA. Escanee el QR y configure su autenticación.' });
       }
 
       if (!otp) {
-        logger.warn(`Código 2FA requerido para usuario ${email}`);
+        logger.warn(`Código 2FA requerido para usuario ${email || username}`);
         return res.status(401).json({ message: 'Código 2FA requerido' });
       }
 
@@ -49,7 +49,7 @@ exports.login = async (req, res) => {
       });
 
       if (!verified) {
-        logger.warn(`Código 2FA inválido para usuario ${email}`);
+        logger.warn(`Código 2FA inválido para usuario ${email || username}`);
         return res.status(401).json({ message: 'Código de autenticación inválido' });
       }
     }
@@ -110,21 +110,23 @@ exports.refreshToken = async (req, res) => {
 };
 
 /**
- * @route GET /api/auth/2fa/setup?email=xxx
+ * @route GET /api/auth/2fa/setup?email=xxx o ?username=xxx
  * @desc Genera código secreto + QR para apps 2FA y lo guarda si no existe
  * @access Público (en producción, requiere autenticación)
  */
 exports.setup2FA = async (req, res) => {
-  const { email } = req.query;
-  if (!email) {
-    logger.warn('Email requerido en setup2FA');
-    return res.status(400).json({ message: 'Email requerido' });
+  const { email, username } = req.query;
+  const identifier = email || username;
+  
+  if (!identifier) {
+    logger.warn('Email (RUT) o username requerido en setup2FA');
+    return res.status(400).json({ message: 'Email (RUT) o username requerido' });
   }
 
   try {
-    const user = await userService.findUserByEmailOrUsername(email);
+    const user = await userService.findUserByEmailOrUsername(identifier);
     if (!user) {
-      logger.warn(`Usuario no encontrado en setup2FA: ${email}`);
+      logger.warn(`Usuario no encontrado en setup2FA: ${identifier}`);
       return res.status(404).json({ message: 'Usuario no encontrado' });
     }
 
@@ -136,7 +138,7 @@ exports.setup2FA = async (req, res) => {
         encoding: 'base32'
       });
 
-      logger.info(`QR regenerado para usuario ${email}`);
+      logger.info(`QR regenerado para usuario ${identifier}`);
       return qrcode.toDataURL(otpauthUrl, (err, dataURL) => {
         if (err) {
           logger.error(`Error generando QR en setup2FA: ${err.message}`);
@@ -146,7 +148,7 @@ exports.setup2FA = async (req, res) => {
       });
     }
 
-    const secret = speakeasy.generateSecret({ name: `Gelymar:${email}`, length: 20 });
+    const secret = speakeasy.generateSecret({ name: `Gelymar:${user.email}`, length: 20 });
     await userService.updateUser2FASecret(user.id, secret.base32);
 
     qrcode.toDataURL(secret.otpauth_url, (err, dataURL) => {
@@ -154,7 +156,7 @@ exports.setup2FA = async (req, res) => {
         logger.error(`Error generando QR nuevo en setup2FA: ${err.message}`);
         return res.status(500).json({ message: 'Error generando QR' });
       }
-      logger.info(`Nuevo 2FA enrolado para usuario ${email}`);
+      logger.info(`Nuevo 2FA enrolado para usuario ${identifier}`);
       return res.json({ qr: dataURL, secret: secret.base32 });
     });
 
@@ -165,25 +167,31 @@ exports.setup2FA = async (req, res) => {
 };
 
 /**
- * @route GET /api/auth/2fa/status?email=xxx
+ * @route GET /api/auth/2fa/status?email=xxx o ?username=xxx
  * @desc Retorna si el usuario tiene 2FA activo
  */
 exports.check2FAStatus = async (req, res) => {
-  const { email } = req.query;
-  if (!email) {
-    logger.warn('Email requerido en check2FAStatus');
-    return res.status(400).json({ message: 'Email requerido' });
+  const { email, username } = req.query;
+  const identifier = email || username;
+  
+  if (!identifier) {
+    logger.warn('Email (RUT) o username requerido en check2FAStatus');
+    return res.status(400).json({ message: 'Email (RUT) o username requerido' });
   }
 
   try {
-    const user = await userService.findUserByEmailOrUsername(email);
+    const user = await userService.findUserByEmailOrUsername(identifier);
     if (!user) {
-      logger.warn(`Usuario no encontrado en check2FAStatus: ${email}`);
+      logger.warn(`Usuario no encontrado en check2FAStatus: ${identifier}`);
       return res.status(404).json({ message: 'Usuario no encontrado' });
     }
 
-    logger.info(`Consulta de 2FA para usuario ${email}`);
-    res.json({ twoFAEnabled: !!user.twoFASecret });
+    logger.info(`Consulta de 2FA para usuario ${identifier}`);
+    res.json({ 
+      twoFAEnabled: !!user.twoFASecret,
+      hasSecret: !!user.twoFASecret,
+      isEnrolled: !!user.twoFASecret
+    });
 
   } catch (err) {
     logger.error(`Error general en check2FAStatus: ${err.message}`);

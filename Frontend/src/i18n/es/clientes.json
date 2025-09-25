@@ -57,5 +57,9 @@
   "customerUpdated": "Cliente actualizado",
   "customerUpdatedSuccess": "El cliente se ha actualizado correctamente en la base de datos.",
   "updateError": "No se pudo actualizar el cliente. Inténtalo de nuevo.",
-  "manageContacts": "Gestionar Contactos"
+  "manageContacts": "Gestionar Contactos",
+  "view_orders": "Ver órdenes",
+  "view_info": "Ver información adicional",
+  "manage_contacts": "Gestionar contactos",
+  "change_password": "Cambiar contraseña"
 }

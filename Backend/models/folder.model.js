@@ -12,6 +12,8 @@ class Folder {
       fecha_cliente = null,
       currency = null,
       medio_envio = null,
+      medio_envio_factura = null,
+      fecha = null,
       fecha_factura = null
     }) {
       this.id = id;
@@ -26,6 +28,8 @@ class Folder {
       this.fecha_cliente = fecha_cliente;
       this.currency = currency;
       this.medio_envio = medio_envio;
+      this.medio_envio_factura = medio_envio_factura;
+      this.fecha = fecha;
       this.fecha_factura = fecha_factura
     }
   }

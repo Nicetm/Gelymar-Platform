@@ -19,7 +19,7 @@ async function mountNetworkShare() {
   const networkServer = process.env.NETWORK_SERVER || '172.20.10.167';
   const sharePath = process.env.NETWORK_SHARE_PATH || 'Users/above/Documents/BotArchivoWeb/archivos';
   const networkUser = process.env.NETWORK_USER || 'softkey';
-  const networkPassword = process.env.NETWORK_PASSWORD || 'sK06.2025#';
+  const networkPassword = process.env.NETWORK_PASSWORD || 'sK06.2025$#';
   
   // Detectar sistema operativo
   const isWindows = os.platform() === 'win32';

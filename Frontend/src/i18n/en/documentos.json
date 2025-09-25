@@ -14,6 +14,7 @@
 	"filesCount": "Number of files",
 	"dragAndDrop": "Drag and drop files here or click to select files",
 	"selectDocument": "Select Document",
+	"selectDocumentName": "Select document name",
 	"typeofDocument": "Type of Document",
 	"nameOfDocument": "Name of Document",
 	"dragTitle": "Upload new document",
@@ -56,6 +57,14 @@
 	"cancel": "Cancel",
 	"pcNumber": "N° PC",
 	"ocNumber": "N° OC",
-	"createDefaultFiles": "Create Files"
+	"createDefaultFiles": "Create Files",
+	"enable_client_visibility": "Enable document for client",
+	"generate_document": "Generate document",
+	"send_document": "Send document",
+	"resend_document": "Resend document",
+	"view_document": "View document",
+	"edit_document": "Edit document",
+	"delete_document": "Delete document",
+	"double_click_to_edit": "Double click to edit"
 	
 }

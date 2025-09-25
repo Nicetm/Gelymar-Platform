@@ -30,6 +30,7 @@ export interface Orders {
   fecha_factura?: string | null;
   fecha?: string | null;
   fecha_etd?: string | null;
+  fecha_eta?: string | null;
   currency?: string | null;
   medio_envio_factura?: string | null;
 }
@@ -89,6 +90,7 @@ export interface Folders {
   fecha?: string | null;
   currency?: string | null;
   medio_envio?: string | null;
+  medio_envio_factura?: string | null;
   fecha_factura?: string | null;
 }
 
@@ -99,8 +101,6 @@ export interface Files {
   folder_id: number;
   name: string;
   path: string | null;
-  eta: string | null;
-  etd: string | null;
   was_sent: number | null;
   document_type: string | null;
   file_type: string | null;

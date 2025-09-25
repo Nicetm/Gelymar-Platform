@@ -20,8 +20,21 @@ const transporter = nodemailer.createTransport({
 });
 
 async function sendFileToClient(file) {
-  if (!file || !file.customer_email || !file.path) {
+  if (!file) {
     throw new Error('Faltan datos para enviar el correo');
+  }
+  
+  if (!file.path) {
+    throw new Error('No hay emails disponibles para enviar el correo');
+  }
+
+  // Verificar que al menos haya un email disponible
+  const emails = [];
+  if (file.customer_email) emails.push(file.customer_email);
+  if (file.contact_emails) emails.push(...file.contact_emails.split(',').filter(email => email.trim()));
+  
+  if (emails.length === 0) {
+    throw new Error('No hay emails disponibles para enviar el correo');
   }
 
   // Normalizamos el path de DB (que viene con backslash de Windows)
@@ -37,7 +50,7 @@ async function sendFileToClient(file) {
 
   const mailOptions = {
     from: `Gelymar Documentos <${process.env.SMTP_USER}>`,
-    to: `${file.customer_email},${file.contact_emails}`,
+    to: emails.join(','),
     subject: `📄 Documento Gelymar: ${file.name}`,
     text: `Dear ${file.customer_name},
 

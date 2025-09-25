@@ -1,5 +1,8 @@
-const express = require('express');
+// Cargar variables de entorno PRIMERO
 const dotenv = require('dotenv');
+const os = require('os');
+const networkInterfaces = os.networkInterfaces();
+const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const cookieParser = require('cookie-parser');
@@ -11,6 +14,29 @@ const { createServer } = require('http');
 const { Server } = require('socket.io');
 require('module-alias/register');
 
+// Detectar si estamos en el servidor Ubuntu (172.20.10.151)
+const isServer = Object.values(networkInterfaces)
+  .flat()
+  .some(iface => iface && iface.address === '172.20.10.151');
+
+// Detectar si estamos en Docker
+const isDocker = process.env.DOCKER_ENV === 'true';
+
+// Cargar archivo de configuración según entorno
+if (isDocker) {
+  console.log('🔧 [Backend] Entorno detectado: Docker');  
+  console.log('🔧 [Backend] DB_HOST cargado:', process.env.DB_HOST);
+  console.log('🔧 [Backend] DB_USER cargado:', process.env.DB_USER);
+} else if (isServer) {
+  dotenv.config({ path: './env.server' });
+  console.log('🔧 [Backend] Entorno detectado: Servidor Ubuntu (172.20.10.151)');
+} else {
+  dotenv.config({ path: './.env.local' });
+  console.log('🔧 [Backend] Entorno detectado: Desarrollo local');
+  console.log('🔧 [Backend] DB_HOST cargado:', process.env.DB_HOST);
+  console.log('🔧 [Backend] DB_USER cargado:', process.env.DB_USER);
+}
+
 // Middlewares
 const { createAuthMiddleware } = require('./middleware/auth.middleware');
 const { authorizeRoles } = require('./middleware/role.middleware');
@@ -19,24 +45,6 @@ const { authorizeRoles } = require('./middleware/role.middleware');
 const authMiddleware = createAuthMiddleware();
 const authFromCookie = createAuthMiddleware({ tokenSource: 'cookie' });
 const authAllowExpired = createAuthMiddleware({ allowExpired: true });
-
-// Configurar variables de entorno según el entorno
-const os = require('os');
-const networkInterfaces = os.networkInterfaces();
-
-// Detectar si estamos en el servidor Ubuntu (172.20.10.151)
-const isServer = Object.values(networkInterfaces)
-  .flat()
-  .some(iface => iface && iface.address === '172.20.10.151');
-
-// Cargar archivo de configuración según entorno
-if (isServer) {
-  dotenv.config({ path: './env.server' });
-  console.log('🔧 [Backend] Entorno detectado: Servidor Ubuntu (172.20.10.151)');
-} else {
-  dotenv.config({ path: './env.local' });
-  console.log('🔧 [Backend] Entorno detectado: Desarrollo local');
-}
 
 const app = express();
 
@@ -54,6 +62,7 @@ const chatRoutes = require('./routes/chat.routes');
 const cronRoutes = require('./routes/cron.routes');
 const cronConfigRoutes = require('./routes/cronConfig.routes');
 const monitoringRoutes = require('./routes/monitoring.routes');
+const fileserverRoutes = require('./routes/fileserver.routes');
 
 
 // Configuración de rate limiting
@@ -94,6 +103,8 @@ app.use(cors({
     process.env.FRONTEND_BASE_URL || 'http://localhost:2121',
     'http://localhost:2122',
     'http://localhost:2123',
+    'http://localhost:3001', // React frontend
+    'http://localhost:8080',
     'http://localhost:8082',
     'http://localhost:9615',
     /^http:\/\/172\.20\.10\.151:\d+$/, // Permite cualquier puerto para 172.20.10.151
@@ -128,6 +139,7 @@ app.get('/api-docs', (req, res) => {
 // Rutas API públicas
 app.use('/api/auth', authRoutes);
 app.use('/api/monitoring', monitoringRoutes);
+app.use('/api/fileserver', fileserverRoutes);
 
 // Rutas protegidas (requieren token + rol adecuado)
 app.use('/api/customers', authMiddleware, authorizeRoles(['admin']), customerRoutes);
@@ -136,6 +148,10 @@ app.use('/api/orders', authMiddleware, authorizeRoles(['admin', 'client']), orde
 app.use('/api/order-detail', authMiddleware, authorizeRoles(['admin', 'client']), orderDetailRoutes);
 app.use('/api/items', authMiddleware, authorizeRoles(['admin']), itemRoutes);
 app.use('/api/directories', authMiddleware, authorizeRoles(['admin']), documentDirectoryRoutes);
+
+// Ruta especial para visualización de archivos (acceso para admin y client)
+app.use('/api/file-view', documentFileRoutes);
+
 app.use('/api/files', authMiddleware, authorizeRoles(['admin']), documentFileRoutes);
 app.use('/api/document-types', authMiddleware, authorizeRoles(['admin']), documentTypeRoutes);
 app.use('/api/chat', chatRoutes);
@@ -223,6 +239,7 @@ const io = new Server(server, {
       process.env.FRONTEND_BASE_URL || 'http://localhost:2121',
       'http://localhost:2122',
       'http://localhost:2123',
+      'http://localhost:3001', // React frontend
       'http://localhost:8082',
       'http://localhost:9615',
       /^http:\/\/172\.20\.10\.151:\d+$/, // Permite cualquier puerto para 172.20.10.151

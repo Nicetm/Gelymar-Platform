@@ -18,7 +18,7 @@ async function getAllUsers() {
   });
 }
 
-// Buscar por email o username con JOIN a roles
+// Buscar por email (que contiene el RUT/username) con JOIN a roles
 async function findUserByEmailOrUsername(emailOrUsername) {
   const pool = await poolPromise;
   

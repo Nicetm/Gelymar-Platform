@@ -4,7 +4,7 @@ const dotenv = require('dotenv');
 const os = require('os');
 const fs = require('fs');
 // mysql ya no se necesita, se usa endpoint del backend
-// El cron no necesita montar la VPN directamente, solo llama a endpoints del backend
+// El cron llama a endpoints del backend para procesar datos
 
 // Detectar entorno y cargar variables automáticamente
 const networkInterfaces = os.networkInterfaces();
@@ -72,11 +72,11 @@ async function getTaskConfig() {
     return {
       clean_database: true,
       check_clients: true,
-      check_client_access: true,
+      check_client_access: false,
       check_items: true,
       check_orders: true,
       check_order_lines: true,
-      check_default_files: true
+      check_default_files: false
     };
   }
 }
@@ -229,8 +229,8 @@ async function executeSequence() {
   // Cargar configuración de tareas desde la base de datos
   taskConfig = await getTaskConfig();
   
-  // El cron no monta la VPN, solo llama a endpoints del backend que ya tienen VPN
-  console.log(`[${startTime.toISOString()}] -> Cron Master Process -> Iniciando tareas (VPN manejada por backend)...`);
+  // El cron llama a endpoints del backend para procesar datos
+  console.log(`[${startTime.toISOString()}] -> Cron Master Process -> Iniciando tareas...`);
   
   const tasks = [
     { name: 'Limpieza de BD', enabled: taskConfig.clean_database, func: cleanDatabase },
@@ -273,8 +273,8 @@ async function executeSequence() {
   const totalDuration = endTime - startTime;
   console.log(`[${endTime.toISOString()}] -> Cron Master Process -> 🎉 Secuencia completada!`);
   
-  // El cron no maneja la VPN, solo llama a endpoints del backend
-  console.log(`[${endTime.toISOString()}] -> Cron Master Process -> Secuencia completada (VPN manejada por backend)`);
+  // El cron completa la secuencia de tareas
+  console.log(`[${endTime.toISOString()}] -> Cron Master Process -> Secuencia completada`);
 }
 
 // Función para emitir señal de ready

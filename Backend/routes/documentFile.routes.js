@@ -4,6 +4,8 @@ const controller = require('../controllers/documentFile.controller');
 const authMiddleware = require('../middleware/auth.middleware');
 const { authorizeRoles } = require('../middleware/role.middleware');
 
+console.log('🔧 [Routes] documentFile.routes.js cargado');
+
 /**
  * @swagger
  * /api/files/{customerUuid}:
@@ -37,6 +39,15 @@ const { authorizeRoles } = require('../middleware/role.middleware');
  */
 
 router.get('/:customerUuid', authMiddleware, authorizeRoles(['admin']), controller.getFilesByCustomerAndFolder);
+
+// Ruta para descarga segura de archivos
+router.get('/view/:id', authMiddleware, controller.viewFile);
+router.get('/temp-view/:token', controller.tempViewFile);
+router.get('/view-with-token/:id', (req, res, next) => {
+  console.log('🔍 [Routes] Ruta viewWithToken llamada:', req.originalUrl);
+  next();
+}, controller.viewWithToken);
+router.get('/download/:id', authMiddleware, controller.downloadFile);
 
 /**
  * @swagger

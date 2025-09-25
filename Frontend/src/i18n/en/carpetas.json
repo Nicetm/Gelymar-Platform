@@ -69,5 +69,11 @@
 	"direccionDestino": "Destination Address",
 	"puertoDestino": "Destination Port",
 	"observaciones": "Observations",
-	"certificados": "Certificates"
+	"certificados": "Certificates",
+	"tooltipGoToOrder": "View documents and files",
+	"tooltipViewItems": "View items list",
+	"tooltipExpandItems": "Expand items in table",
+	"tooltipOrderDetails": "View order details",
+	"gastoAdicional": "Additional Expense",
+	"cliente": "Customer"
 }

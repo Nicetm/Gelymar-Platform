@@ -80,7 +80,7 @@ async function processOrderReception(order) {
         f.oc,
         c.name AS customer_name,
         cc.primary_email AS customer_email,
-        GROUP_CONCAT(cc2.email SEPARATOR ',') AS contact_emails
+        GROUP_CONCAT(cc2.contact_email SEPARATOR ',') AS contact_emails
       FROM files f
       JOIN customers c ON f.customer_id = c.id
       LEFT JOIN customer_contacts cc ON c.id = cc.customer_id

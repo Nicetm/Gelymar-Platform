@@ -69,5 +69,11 @@
 	"direccionDestino": "Dirección Destino",
 	"puertoDestino": "Puerto Destino",
 	"observaciones": "Observaciones",
-	"certificados": "Certificados"
+	"certificados": "Certificados",
+	"tooltipGoToOrder": "Ver documentos y archivos",
+	"tooltipViewItems": "Ver lista de items",
+	"tooltipExpandItems": "Expandir items en tabla",
+	"tooltipOrderDetails": "Ver detalles de orden",
+	"gastoAdicional": "Gasto Adicional",
+	"cliente": "Cliente"
 }

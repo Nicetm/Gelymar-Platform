@@ -56,25 +56,16 @@ if ($LASTEXITCODE -eq 0) {
     exit 1
 }
 
-# 6. Monitoring
-Write-Host "📦 Subiendo Monitoring..." -ForegroundColor Yellow
-docker push nicetm/gelymar-platform:monitoring-prod
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "✅ Monitoring subido" -ForegroundColor Green
-} else {
-    Write-Host "❌ Error subiendo Monitoring" -ForegroundColor Red
-    exit 1
-}
 
-# 7. Terminal
-Write-Host "📦 Subiendo Terminal..." -ForegroundColor Yellow
-docker push nicetm/gelymar-platform:terminal-prod
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "✅ Terminal subido" -ForegroundColor Green
-} else {
-    Write-Host "❌ Error subiendo Terminal" -ForegroundColor Red
-    exit 1
-}
+# 7. Config Manager (Comentado - No se sube)
+# Write-Host "📦 Subiendo Config Manager..." -ForegroundColor Yellow
+# docker push nicetm/gelymar-platform:config-manager-prod
+# if ($LASTEXITCODE -eq 0) {
+#     Write-Host "✅ Config Manager subido" -ForegroundColor Green
+# } else {
+#     Write-Host "❌ Error subiendo Config Manager" -ForegroundColor Red
+#     exit 1
+# }
 
 # 8. phpMyAdmin
 Write-Host "📦 Subiendo phpMyAdmin..." -ForegroundColor Yellow
@@ -99,6 +90,5 @@ Write-Host "   Fileserver: docker push nicetm/gelymar-platform:fileserver-prod" 
 Write-Host "   Backend:    docker push nicetm/gelymar-platform:backend-prod" -ForegroundColor Gray
 Write-Host "   Frontend:   docker push nicetm/gelymar-platform:frontend-prod" -ForegroundColor Gray
 Write-Host "   Cron:       docker push nicetm/gelymar-platform:cron-prod" -ForegroundColor Gray
-Write-Host "   Monitoring: docker push nicetm/gelymar-platform:monitoring-prod" -ForegroundColor Gray
-Write-Host "   Terminal:   docker push nicetm/gelymar-platform:terminal-prod" -ForegroundColor Gray
+# Write-Host "   Config Manager: docker push nicetm/gelymar-platform:config-manager-prod" -ForegroundColor Gray
 Write-Host "   phpMyAdmin: docker push nicetm/gelymar-platform:phpmyadmin-prod" -ForegroundColor Gray

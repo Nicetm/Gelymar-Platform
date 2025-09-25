@@ -4,13 +4,13 @@ const { logger } = require('../utils/logger');
 const mysql = require('mysql2/promise');
 
 // Debug: Mostrar configuración de BD (solo en desarrollo)
-if (process.env.NODE_ENV === 'development') {
-  console.log(`[${new Date().toISOString()}] -> Database Config Process -> Configuración de BD:`);
-  console.log(`[${new Date().toISOString()}] -> Database Config Process -> Host: ${process.env.DB_HOST}`);
-  console.log(`[${new Date().toISOString()}] -> Database Config Process -> User: ${process.env.DB_USER}`);
-  console.log(`[${new Date().toISOString()}] -> Database Config Process -> Password: ${process.env.DB_PASS ? '***' : 'NO DEFINIDA'}`);
-  console.log(`[${new Date().toISOString()}] -> Database Config Process -> Database: ${process.env.DB_NAME}`);
-}
+// if (process.env.NODE_ENV === 'development') {
+//   console.log(`[${new Date().toISOString()}] -> Database Config Process -> Configuración de BD:`);
+//   console.log(`[${new Date().toISOString()}] -> Database Config Process -> Host: ${process.env.DB_HOST}`);
+//   console.log(`[${new Date().toISOString()}] -> Database Config Process -> User: ${process.env.DB_USER}`);
+//   console.log(`[${new Date().toISOString()}] -> Database Config Process -> Password: ${process.env.DB_PASS ? '***' : 'NO DEFINIDA'}`);
+//   console.log(`[${new Date().toISOString()}] -> Database Config Process -> Database: ${process.env.DB_NAME}`);
+// }
 
 const dbConfig = {
   host: process.env.DB_HOST,
@@ -27,26 +27,25 @@ async function connectWithRetry(retries = 5, delayMs = 5000) {
   let attempt = 0;
   while (attempt < retries) {
     try {
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`[${new Date().toISOString()}] -> Database Config Process -> Intentando conectar a MySQL (Intento ${attempt + 1} de ${retries})...`);
-      }
+      // if (process.env.NODE_ENV === 'development') {
+      //   console.log(`[${new Date().toISOString()}] -> Database Config Process -> Intentando conectar a MySQL (Intento ${attempt + 1} de ${retries})...`);
+      // }
       const connection = await mysql.createConnection(dbConfig);
 
       await connection.ping();
       await connection.end();
 
-      logger.info('Conexión a MySQL exitosa');
       return mysql.createPool(dbConfig);
     } catch (err) {
       logger.error(`Error conectando a MySQL: ${err.message}`);
       attempt++;
               if (attempt < retries) {
-          if (process.env.NODE_ENV === 'development') {
-            console.log(`[${new Date().toISOString()}] -> Database Config Process -> Reintentando en ${delayMs / 1000} segundos...`);
-          }
+          // if (process.env.NODE_ENV === 'development') {
+          //   console.log(`[${new Date().toISOString()}] -> Database Config Process -> Reintentando en ${delayMs / 1000} segundos...`);
+          // }
           await new Promise(res => setTimeout(res, delayMs));
         } else {
-          console.error(`[${new Date().toISOString()}] -> Database Config Process -> No se pudo conectar a MySQL después de múltiples intentos.`);
+          // console.error(`[${new Date().toISOString()}] -> Database Config Process -> No se pudo conectar a MySQL después de múltiples intentos.`);
           process.exit(1);
         }
     }

@@ -52,7 +52,6 @@ class ChatService {
       const recentChats = await ChatMessage.getRecentChats();
       const totalUnread = await ChatMessage.getAdminUnreadCount();
       
-      console.log('Chat Summary:', { totalUnread, totalChats: recentChats.length });
       
       return {
         recentChats,

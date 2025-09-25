@@ -16,6 +16,7 @@ const insertFile = async ({
   oc,
   name,
   path,
+  file_identifier = null,
   eta = null,
   etd = null,
   was_sent = false,
@@ -35,13 +36,13 @@ const insertFile = async ({
 
   const [result] = await pool.query(
     `INSERT INTO files (
-      order_id, pc, oc, name, path, 
-      created_at, updated_at, eta, etd, was_sent, 
+      order_id, pc, oc, name, path, file_identifier,
+      created_at, updated_at, was_sent, 
       document_type, file_type, status_id
-    ) VALUES (?, ?, ?, ?, ?, NOW(), NOW(), ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW(), ?, ?, ?, ?)`,
     [
-      order_id, pc, oc, name, path,
-      eta, etd, was_sent, document_type, file_type, status_id
+      order_id, pc, oc, name, path, file_identifier,
+      was_sent, document_type, file_type, status_id
     ]
   );
   return result;
@@ -103,9 +104,7 @@ const getFiles = async (customerId, folderId) => {
         os.id AS status_id, 
         os.name AS status_name,
         o.pc,
-        o.oc,
-        f.eta,
-        f.etd
+        o.oc
      FROM files f
      LEFT JOIN order_status os ON f.status_id = os.id
      JOIN orders o ON f.order_id = o.id
@@ -146,14 +145,14 @@ const getFileById = async(id) => {
     SELECT 
       f.*, 
       c.name AS customer_name, 
-      c.email AS customer_email,
-      GROUP_CONCAT(cc.primary_email SEPARATOR ',') AS contact_emails
+      cc.primary_email AS customer_email,
+      GROUP_CONCAT(cc.contact_email SEPARATOR ',') AS contact_emails
     FROM files f
     JOIN orders fd ON f.order_id = fd.id
     JOIN customers c ON fd.customer_id = c.id
     LEFT JOIN customer_contacts cc ON c.id = cc.customer_id
     WHERE f.id = ?
-    GROUP BY f.id
+    GROUP BY f.id, c.name, cc.primary_email
   `, [id]);
 
   if (rows.length === 0) return null;
@@ -186,7 +185,7 @@ const duplicateFile = async (fileId) => {
   const [result] = await pool.query(`
     INSERT INTO files (
       order_id, pc, oc, name, path, 
-      created_at, updated_at, eta, etd, was_sent, 
+      created_at, updated_at, was_sent, 
       document_type, file_type, status_id, is_visible_to_client
     ) VALUES (?, ?, ?, ?, ?, NOW(), NOW(), ?, ?, ?, ?, ?, ?, ?)`,
     [
@@ -274,8 +273,11 @@ const createDefaultFilesForOrder = async (orderId, customerName, pc, oc) => {
       throw new Error('Ya existen archivos para esta orden');
     }
 
+    // Generar identificador único para esta fila (incrementador)
+    const fileIdentifier = await getNextFileIdentifier(pc);
+
     // Crear directorio físico
-    const directoryPath = await createClientDirectory(customerName, pc);
+    const directoryPath = await createClientDirectory(customerName, pc, fileIdentifier);
     if (!directoryPath) {
       throw new Error('Error creando directorio físico');
     }
@@ -287,28 +289,32 @@ const createDefaultFilesForOrder = async (orderId, customerName, pc, oc) => {
         order_id: orderId,
         pc: pc,
         oc: oc,
-        path: directoryPath
+        path: directoryPath,
+        file_identifier: fileIdentifier
       },
       {
         name: 'Aviso de Embarque',
         order_id: orderId,
         pc: pc,
         oc: oc,
-        path: directoryPath
+        path: directoryPath,
+        file_identifier: fileIdentifier
       },
       {
-        name: 'Aviso de Recepcion de orden',
+        name: 'Aviso de entrega',
         order_id: orderId,
         pc: pc,
         oc: oc,
-        path: directoryPath
+        path: directoryPath,
+        file_identifier: fileIdentifier
       },
       {
         name: 'Aviso de Disponibilidad de Orden',
         order_id: orderId,
         pc: pc,
         oc: oc,
-        path: directoryPath
+        path: directoryPath,
+        file_identifier: fileIdentifier
       }
     ];
 
@@ -338,6 +344,40 @@ const createDefaultFilesForOrder = async (orderId, customerName, pc, oc) => {
 };
 
 /**
+ * Obtiene el siguiente identificador único para un PC
+ * @param {string} pc - Número PC
+ * @returns {Promise<number>} Identificador único (ej: 1, 2, 3)
+ */
+const getNextFileIdentifier = async (pc) => {
+  const pool = await poolPromise;
+  
+  try {
+    // Buscar el último identificador usado para este PC
+    const [rows] = await pool.query(`
+      SELECT file_identifier 
+      FROM files 
+      WHERE pc = ? AND file_identifier IS NOT NULL
+      ORDER BY file_identifier DESC 
+      LIMIT 1
+    `, [pc]);
+
+    if (rows.length === 0) {
+      // Si no hay archivos para este PC, empezar con 1
+      return 1;
+    }
+
+    // El último identificador es un número, solo incrementarlo
+    const lastIdentifier = rows[0].file_identifier;
+    return lastIdentifier + 1;
+    
+  } catch (error) {
+    console.error(`Error obteniendo siguiente identificador para PC ${pc}:`, error.message);
+    // En caso de error, usar 1 como fallback
+    return 1;
+  }
+};
+
+/**
  * Inserta un archivo por defecto en la base de datos
  * @param {Object} fileData - Datos del archivo
  * @returns {Promise<Object>} Resultado de la inserción
@@ -348,10 +388,10 @@ const insertDefaultFile = async (fileData) => {
   try {
     const query = `
       INSERT INTO files (
-        order_id, pc, oc, name, path, eta, etd, was_sent, 
+        order_id, pc, oc, name, path, file_identifier, was_sent, 
         document_type, file_type, status_id, is_visible_to_client, 
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, 'PDF', 1, 0, NOW(), NOW())
+      ) VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, 'PDF', 1, 0, NOW(), NOW())
     `;
 
     const params = [
@@ -359,7 +399,8 @@ const insertDefaultFile = async (fileData) => {
       fileData.pc,
       fileData.oc,
       fileData.name,
-      fileData.path
+      fileData.path,
+      fileData.file_identifier
     ];
 
     const [result] = await pool.query(query, params);
@@ -375,9 +416,10 @@ const insertDefaultFile = async (fileData) => {
  * Crea el directorio físico para el cliente y orden
  * @param {string} customerName - Nombre del cliente
  * @param {string} pc - Número PC de la orden
+ * @param {string} fileIdentifier - Identificador único para diferenciar filas
  * @returns {Promise<string|null>} Ruta del directorio creado o null si hay error
  */
-const createClientDirectory = async (customerName, pc) => {
+const createClientDirectory = async (customerName, pc, fileIdentifier) => {
   try {
     const fileServerRoot = process.env.FILE_SERVER_ROOT || '/var/www/html';
     
@@ -389,8 +431,8 @@ const createClientDirectory = async (customerName, pc) => {
     // Limpiar nombre del cliente para usar como nombre de directorio
     const cleanCustomerName = cleanDirectoryName(customerName);
 
-    // Crear ruta del directorio: /uploads/CLIENTE_NOMBRE/Numero PC
-    const directoryPath = path.join(fileServerRoot, 'uploads', cleanCustomerName, pc);
+    // Crear ruta del directorio: /uploads/CLIENTE_NOMBRE/Numero PC_Identificador
+    const directoryPath = path.join(fileServerRoot, 'uploads', cleanCustomerName, `${pc}_${fileIdentifier}`);
     
     // Verificar si el directorio ya existe
     try {
@@ -425,5 +467,6 @@ module.exports = {
   getFilesByFolderId,
   createDefaultFilesForOrder,
   insertDefaultFile,
-  createClientDirectory
+  createClientDirectory,
+  getNextFileIdentifier
 };

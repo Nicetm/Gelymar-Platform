@@ -1,11 +1,11 @@
-# Script para construir todas las imágenes Docker para producción con tags específicos en PowerShell
+# Script para construir todas las imágenes Docker para producción usando docker-compose
 # Ejecutar desde el directorio docker
 
 Write-Host "🚀 Iniciando construcción de todas las imágenes Docker para producción..." -ForegroundColor Green
 
 # Limpiar imágenes anteriores para forzar reconstrucción limpia
 Write-Host "🧹 Limpiando imágenes anteriores..." -ForegroundColor Yellow
-docker rmi nicetm/gelymar-platform:mysql-prod nicetm/gelymar-platform:fileserver-prod nicetm/gelymar-platform:backend-prod nicetm/gelymar-platform:frontend-prod nicetm/gelymar-platform:cron-prod nicetm/gelymar-platform:monitoring-prod nicetm/gelymar-platform:terminal-prod nicetm/gelymar-platform:phpmyadmin-prod 2>$null
+docker rmi nicetm/gelymar-platform:mysql-prod nicetm/gelymar-platform:fileserver-prod nicetm/gelymar-platform:backend-prod nicetm/gelymar-platform:frontend-prod nicetm/gelymar-platform:cron-prod nicetm/gelymar-platform:config-manager-prod nicetm/gelymar-platform:phpmyadmin-prod 2>$null
 
 # 1. MySQL (etiquetar imagen existente)
 Write-Host "📦 Etiquetando MySQL..." -ForegroundColor Yellow
@@ -17,67 +17,7 @@ if ($LASTEXITCODE -eq 0) {
     exit 1
 }
 
-# 2. Fileserver
-Write-Host "📦 Construyendo Fileserver..." -ForegroundColor Yellow
-docker build --no-cache -t nicetm/gelymar-platform:fileserver-prod -f fileserver/Dockerfile fileserver
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "✅ Fileserver construido" -ForegroundColor Green
-} else {
-    Write-Host "❌ Error construyendo Fileserver" -ForegroundColor Red
-    exit 1
-}
-
-# 3. Backend
-Write-Host "📦 Construyendo Backend..." -ForegroundColor Yellow
-docker build --no-cache -t nicetm/gelymar-platform:backend-prod -f ../Backend/Dockerfile ../Backend
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "✅ Backend construido" -ForegroundColor Green
-} else {
-    Write-Host "❌ Error construyendo Backend" -ForegroundColor Red
-    exit 1
-}
-
-# 4. Frontend
-Write-Host "📦 Construyendo Frontend..." -ForegroundColor Yellow
-docker build --no-cache -t nicetm/gelymar-platform:frontend-prod -f ../Frontend/Dockerfile ../Frontend
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "✅ Frontend construido" -ForegroundColor Green
-} else {
-    Write-Host "❌ Error construyendo Frontend" -ForegroundColor Red
-    exit 1
-}
-
-# 5. Cron
-Write-Host "📦 Construyendo Cron..." -ForegroundColor Yellow
-docker build --no-cache -t nicetm/gelymar-platform:cron-prod -f cron/Dockerfile ../Cronjob
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "✅ Cron construido" -ForegroundColor Green
-} else {
-    Write-Host "❌ Error construyendo Cron" -ForegroundColor Red
-    exit 1
-}
-
-# 6. Monitoring
-Write-Host "📦 Construyendo Monitoring..." -ForegroundColor Yellow
-docker build --no-cache -t nicetm/gelymar-platform:monitoring-prod -f monitoring/Dockerfile monitoring
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "✅ Monitoring construido" -ForegroundColor Green
-} else {
-    Write-Host "❌ Error construyendo Monitoring" -ForegroundColor Red
-    exit 1
-}
-
-# 7. Terminal
-Write-Host "📦 Construyendo Terminal..." -ForegroundColor Yellow
-docker build --no-cache -t nicetm/gelymar-platform:terminal-prod -f terminal/Dockerfile terminal
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "✅ Terminal construido" -ForegroundColor Green
-} else {
-    Write-Host "❌ Error construyendo Terminal" -ForegroundColor Red
-    exit 1
-}
-
-# 8. phpMyAdmin (etiquetar imagen existente)
+# 2. phpMyAdmin (etiquetar imagen existente)
 Write-Host "📦 Etiquetando phpMyAdmin..." -ForegroundColor Yellow
 docker tag phpmyadmin/phpmyadmin:latest nicetm/gelymar-platform:phpmyadmin-prod
 if ($LASTEXITCODE -eq 0) {
@@ -87,20 +27,29 @@ if ($LASTEXITCODE -eq 0) {
     exit 1
 }
 
+# Construir todas las imágenes usando docker-compose con archivo .env.production
+Write-Host "📦 Construyendo todas las imágenes con docker-compose..." -ForegroundColor Yellow
+docker-compose -f docker-compose-prod.yml --env-file .env.production build --no-cache
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "✅ Todas las imágenes construidas exitosamente" -ForegroundColor Green
+} else {
+    Write-Host "❌ Error construyendo las imágenes" -ForegroundColor Red
+    exit 1
+}
+
 Write-Host "🎉 ¡Todas las imágenes han sido construidas exitosamente!" -ForegroundColor Green
 Write-Host ""
 Write-Host "📋 Imágenes disponibles:" -ForegroundColor Cyan
 docker images | Select-String "nicetm/gelymar-platform.*prod"
 Write-Host ""
-Write-Host "🚀 Para probar en producción: docker compose --env-file .env.production up -d" -ForegroundColor Cyan
+Write-Host "🚀 Para probar en producción: docker compose -f docker-compose-prod.yml --env-file .env.production up -d" -ForegroundColor Cyan
 Write-Host "📤 Para subir a DockerHub: .\push-all-prod.ps1" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "🔧 Comandos para construir imágenes individuales:" -ForegroundColor Yellow
 Write-Host "   MySQL:      docker tag mysql:8.0 nicetm/gelymar-platform:mysql-prod" -ForegroundColor Gray
-Write-Host "   Fileserver: docker build --no-cache -t nicetm/gelymar-platform:fileserver-prod -f fileserver/Dockerfile fileserver" -ForegroundColor Gray
-Write-Host "   Backend:    docker build --no-cache -t nicetm/gelymar-platform:backend-prod -f ../Backend/Dockerfile ../Backend" -ForegroundColor Gray
-Write-Host "   Frontend:   docker build --no-cache -t nicetm/gelymar-platform:frontend-prod -f ../Frontend/Dockerfile ../Frontend" -ForegroundColor Gray
-Write-Host "   Cron:       docker build --no-cache -t nicetm/gelymar-platform:cron-prod -f cron/Dockerfile ../Cronjob" -ForegroundColor Gray
-Write-Host "   Monitoring: docker build --no-cache -t nicetm/gelymar-platform:monitoring-prod -f monitoring/Dockerfile monitoring" -ForegroundColor Gray
-Write-Host "   Terminal:   docker build --no-cache -t nicetm/gelymar-platform:terminal-prod -f terminal/Dockerfile terminal" -ForegroundColor Gray
+Write-Host "   Fileserver: docker-compose -f docker-compose-prod.yml --env-file .env.production build --no-cache fileserver" -ForegroundColor Gray
+Write-Host "   Backend:    docker-compose -f docker-compose-prod.yml --env-file .env.production build --no-cache backend" -ForegroundColor Gray
+Write-Host "   Frontend:   docker-compose -f docker-compose-prod.yml --env-file .env.production build --no-cache frontend" -ForegroundColor Gray
+Write-Host "   Cron:       docker-compose -f docker-compose-prod.yml --env-file .env.production build --no-cache cron" -ForegroundColor Gray
+Write-Host "   Config Manager: docker-compose -f docker-compose-prod.yml --env-file .env.production build --no-cache config-manager" -ForegroundColor Gray
 Write-Host "   phpMyAdmin: docker tag phpmyadmin/phpmyadmin:latest nicetm/gelymar-platform:phpmyadmin-prod" -ForegroundColor Gray

@@ -55,7 +55,7 @@ const users: Users[] = await fetch(`${apiBase}/api/users`, {
           <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Actions</th>
         </tr>
       </thead>
-      <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-sm">
+      <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-xs">
         {users.map(user => (
           <tr class="hover:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition">
 			<td class="px-6 py-4 flex items-center gap-3">

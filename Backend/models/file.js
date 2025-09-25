@@ -9,8 +9,6 @@ class File {
       this.path = row.path;
       this.created_at = row.created_at;
       this.updated_at = row.updated_at;
-      this.eta = row.eta;
-      this.etd = row.etd;
       this.was_sent = row.was_sent;
       this.status_id = row.status_id;
       this.document_type = row.document_type;
@@ -20,6 +18,7 @@ class File {
       this.is_visible_to_client = row.is_visible_to_client;
       this.pc = row.pc;
       this.oc = row.oc;
+      this.file_identifier = row.file_identifier;
     }
   }
   

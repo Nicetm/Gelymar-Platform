@@ -1,11 +1,13 @@
-# Configuración CORS
-Header always set Access-Control-Allow-Origin "*"
-Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
-Header always set Access-Control-Allow-Headers "Content-Type, Authorization"
-
-# Configuración de directorio
-Options Indexes FollowSymLinks
-Require all granted
-
-# Habilitar autoindex como respaldo
+Options -Indexes
 DirectoryIndex index.php index.html 
+
+# Permitir acceso a archivos
+<Files "*">
+    Require all granted
+</Files>
+
+# Configuración de tipos MIME
+AddType application/octet-stream .zip
+AddType application/octet-stream .rar
+AddType application/octet-stream .7z
+

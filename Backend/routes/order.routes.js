@@ -138,7 +138,8 @@ router.post('/search', authMiddleware, authorizeRoles(['admin', 'client']), orde
  *       404:
  *         description: Orden no encontrada
  */
-router.get('/:orderPc/:factura/items', authMiddleware, authorizeRoles(['admin', 'client']), orderController.getOrderItems);
+router.get('/:orderPc/:orderOc/:factura/items', authMiddleware, authorizeRoles(['admin', 'client']), orderController.getOrderItems);
+router.get('/:orderPc/:orderOc/items', authMiddleware, authorizeRoles(['admin', 'client']), orderController.getOrderItemsWithoutFactura);
 
 /**
  * @swagger

@@ -162,18 +162,50 @@ export async function initClientsScript() {
         <td class="px-6 py-4 text-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${customer.order_count || 0}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">
           <div class="flex justify-center items-center gap-3 text-gray-900 dark:text-white">
-            <a href="/admin/clients/folders/view/${customer.uuid}?c=${customer.name}" title="Orders" class="hover:text-yellow-500 transition">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h18v4H3z"/><path d="M3 7h18v13H3z"/><path d="M16 3v4"/></svg>
-            </a>
-            <a href="#" data-uuid="${customer.uuid}" title="Ver información adicional" class="hover:text-blue-500 transition">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 20.5C6.753 20.5 2.5 16.247 2.5 11S6.753 1.5 12 1.5 21.5 5.753 21.5 11 17.247 20.5 12 20.5z"/></svg>
-            </a>
-            <a href="#" data-uuid="${customer.uuid}" data-name="${customer.name}" title="Gestionar contactos" class="hover:text-indigo-500 transition manage-contacts-btn">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-            </a>
-            <a href="#" data-uuid="${customer.uuid}" data-name="${customer.name}" title="Cambiar contraseña" class="hover:text-orange-500 transition change-password-btn">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
-            </a>
+            <div class="relative group">
+              <a href="/admin/clients/folders/view/${customer.uuid}?c=${customer.name}" class="hover:text-yellow-500 transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h18v4H3z"/><path d="M3 7h18v13H3z"/><path d="M16 3v4"/></svg>
+              </a>
+              <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
+                          bg-orange-600 text-white text-xs rounded px-2 py-1 shadow-lg
+                          opacity-0 group-hover:opacity-100 transition
+                          pointer-events-none whitespace-nowrap z-50">
+                ${window.translations?.clientes?.view_orders || 'Ver órdenes'}
+              </div>
+            </div>
+            <div class="relative group">
+              <a href="#" data-uuid="${customer.uuid}" class="hover:text-blue-500 transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 20.5C6.753 20.5 2.5 16.247 2.5 11S6.753 1.5 12 1.5 21.5 5.753 21.5 11 17.247 20.5 12 20.5z"/></svg>
+              </a>
+              <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
+                          bg-orange-600 text-white text-xs rounded px-2 py-1 shadow-lg
+                          opacity-0 group-hover:opacity-100 transition
+                          pointer-events-none whitespace-nowrap z-50">
+                ${window.translations?.clientes?.view_info || 'Ver información adicional'}
+              </div>
+            </div>
+            <div class="relative group">
+              <a href="#" data-uuid="${customer.uuid}" data-name="${customer.name}" class="hover:text-indigo-500 transition manage-contacts-btn">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+              </a>
+              <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
+                          bg-orange-600 text-white text-xs rounded px-2 py-1 shadow-lg
+                          opacity-0 group-hover:opacity-100 transition
+                          pointer-events-none whitespace-nowrap z-50">
+                ${window.translations?.clientes?.manage_contacts || 'Gestionar contactos'}
+              </div>
+            </div>
+            <div class="relative group">
+              <a href="#" data-uuid="${customer.uuid}" data-name="${customer.name}" class="hover:text-orange-500 transition change-password-btn">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
+              </a>
+              <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
+                          bg-orange-600 text-white text-xs rounded px-2 py-1 shadow-lg
+                          opacity-0 group-hover:opacity-100 transition
+                          pointer-events-none whitespace-nowrap z-50">
+                ${window.translations?.clientes?.change_password || 'Cambiar contraseña'}
+              </div>
+            </div>
           </div>
         </td>
       </tr>
@@ -332,6 +364,28 @@ export async function initClientsScript() {
   }
 
   /**
+   * Función para actualizar los iconos de ordenamiento
+   */
+  function updateSortIcons(activeColumn, direction) {
+    // Remover todos los iconos activos
+    document.querySelectorAll('th[data-sort] .sort-icon').forEach(icon => {
+      icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />';
+    });
+    
+    // Agregar icono activo a la columna actual
+    const activeHeader = document.querySelector(`th[data-sort="${activeColumn}"] .sort-icon`);
+    if (activeHeader) {
+      if (direction === 'asc') {
+        // Flecha hacia arriba (ascendente)
+        activeHeader.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" />';
+      } else {
+        // Flecha hacia abajo (descendente)
+        activeHeader.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />';
+      }
+    }
+  }
+
+  /**
    * Función para exportar tabla a Excel
    */
   function exportToExcel() {
@@ -441,6 +495,7 @@ export async function initClientsScript() {
       
       currentSort = { column, direction };
       sortCustomers(column, direction);
+      updateSortIcons(column, direction);
       renderTable();
     });
   });
@@ -1044,6 +1099,7 @@ export async function initClientsScript() {
   setupModalClose('#contactsModal', '#closeContactsModalBtn');
   setupModalClose('#changePasswordModal', '#closeChangePasswordModalBtn');
   setupModalClose('#changePasswordModal', '#cancelChangePasswordBtn');
+
 
   // Cargar y renderizar clientes inicialmente
   await loadAndRenderCustomers();

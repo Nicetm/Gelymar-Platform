@@ -26,7 +26,7 @@ ARG PUBLIC_LANG=en
 ARG SITE=http://localhost:2121
 ARG BASE_URL=/
 ARG REMOTE_ASSETS_BASE_URL=/assets
-ARG SERVER_API_URL=http://localhost:3000
+ARG SERVER_API_URL=http://backend:3000
 ARG NODE_ENV=production
 ARG CI=false
 

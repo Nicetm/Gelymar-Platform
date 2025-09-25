@@ -11,6 +11,7 @@ const {
   generateAvisoEmbarque,
   generateAvisoRecepcionOrden
 } = require('../pdf-generator/generator');
+
 const fileService = require('../services/file.service');
 const emailService = require('../services/email.service');
 const PDFDocument = require('pdfkit');
@@ -27,7 +28,7 @@ function getDocumentGenerator(documentName) {
   const generators = {
     'Recepcion de orden': generateRecepcionOrden,
     'Aviso de Embarque': generateAvisoEmbarque,
-    'Aviso de Recepcion de orden': generateAvisoRecepcionOrden
+    'Aviso de entrega': generateAvisoRecepcionOrden
   };
   
   return generators[documentName] || generateRO; // Fallback a RO si no encuentra
@@ -36,9 +37,10 @@ function getDocumentGenerator(documentName) {
 /**
  * Obtiene datos reales de la BD para generar el PDF
  * @param {Object} file - Datos del archivo
+ * @param {string} lang - Idioma ('es' o 'en')
  * @returns {Object} Datos formateados para el template
  */
-async function getPDFData(file) {
+async function getPDFData(file, lang = 'es') {
   const pool = await poolPromise;
   
   // Obtener datos de la orden
@@ -54,13 +56,30 @@ async function getPDFData(file) {
     SELECT * FROM order_detail WHERE order_id = ?
   `, [file.order_id]);
 
-  // Obtener items de la orden (usando order_items que relaciona items con órdenes)
+  // Obtener items de la orden usando la misma query que order.service.js
   const [orderItems] = await pool.query(`
-    SELECT oi.*, i.item_name, i.item_code, i.unidad_medida
+    SELECT DISTINCT
+      oi.id,
+      oi.order_id,
+      oi.item_id,
+      oi.kg_solicitados,
+      oi.unit_price,
+      oi.volumen,
+      oi.tipo,
+      oi.mercado,
+      oi.kg_despachados,
+      oi.kg_facturados,
+      oi.fecha_etd,
+      oi.fecha_eta,
+      i.item_code,
+      i.item_name,
+      i.unidad_medida
     FROM order_items oi
     JOIN items i ON oi.item_id = i.id
-    WHERE oi.order_id = ?
-  `, [file.order_id]);
+    JOIN orders o ON oi.order_id = o.id
+    WHERE oi.pc = ? AND o.oc = ? AND (oi.factura = ? OR (oi.factura IS NULL AND ? IS NULL))
+    ORDER BY oi.id
+  `, [order.pc, order.oc, order.factura, order.factura]);
 
   // Fechas actuales
   const currentDate = new Date();
@@ -117,8 +136,9 @@ async function getPDFData(file) {
       totalVolume: orderItems.reduce((sum, item) => sum + (item.volumen || 0), 0),
       specialInstructions: 'Manejar con cuidado. Mercancía frágil.'
     },
-    'Aviso de Recepcion de orden': {
+    'Aviso de entrega': {
       ...baseData,
+      items: orderItems,
       processingStatus: 'Recibido y Validado',
       serviceType: 'Servicio Logístico Completo',
       origin: 'Chile',
@@ -132,44 +152,23 @@ async function getPDFData(file) {
     }
   };
 
-  return specificData[file.name] || baseData;
+  // Agregar traducciones
+  const { getDocumentTranslations } = require('../pdf-generator/i18n');
+  const translations = getDocumentTranslations('aviso_recepcion', lang);
+  
+  const result = specificData[file.name] || baseData;
+  return {
+    ...result,
+    translations,
+    lang
+  };
 }
 
 /**
  * Configuración de almacenamiento para Multer
- * Define el destino físico de los archivos en base al cliente y subcarpeta
+ * Usa memoryStorage para manejar la ruta correcta en handleUpload
  */
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const { client_name, subfolder } = req.body;
-    logger.info(`DEBUG - Multer destination: client_name=${client_name}, subfolder=${subfolder}`);
-    
-    if (!client_name || !subfolder) {
-      logger.error('DEBUG - Faltan parámetros en multer destination');
-      return cb(new Error('Faltan parámetros'), null);
-    }
-
-    // Limpiar nombres de directorios para evitar problemas con caracteres especiales
-    const cleanClientName = cleanDirectoryName(client_name);
-    const cleanSubfolder = cleanDirectoryName(subfolder);
-    
-    const dirPath = path.join(process.env.FILE_SERVER_ROOT || '/var/www/html', 'uploads', cleanClientName, cleanSubfolder);
-    logger.info(`DEBUG - Multer dirPath: ${dirPath}`);
-    
-    try {
-      fs.mkdirSync(dirPath, { recursive: true });
-      logger.info(`DEBUG - Directorio creado exitosamente: ${dirPath}`);
-      cb(null, dirPath);
-    } catch (error) {
-      logger.error(`DEBUG - Error creando directorio: ${error.message}`);
-      cb(error, null);
-    }
-  },
-  filename: function (req, file, cb) {
-    logger.info(`DEBUG - Multer filename: ${file.originalname}`);
-    cb(null, file.originalname);
-  }
-});
+const storage = multer.memoryStorage();
 
 /**
  * Filtro de archivos aceptados por extensión
@@ -218,21 +217,67 @@ exports.handleUpload = async (req, res) => {
       return res.status(404).json({ message: 'Orden no encontrada' });
     }
 
+    // Obtener el file_identifier para esta orden (el más reciente)
+    const [[latestFile]] = await pool.query(`
+      SELECT file_identifier 
+      FROM files 
+      WHERE order_id = ? AND file_identifier IS NOT NULL
+      ORDER BY file_identifier DESC 
+      LIMIT 1
+    `, [folder_id]);
+
     // Limpiar nombres de directorios para la ruta en la BD
     const cleanClientName = cleanDirectoryName(client_name);
     const cleanSubfolder = cleanDirectoryName(subfolder);
+    
+    // Si no hay file_identifier, generar uno nuevo
+    let fileIdentifier = latestFile?.file_identifier;
+    
+    if (!fileIdentifier) {
+      // Buscar el último identificador usado para este PC
+      const [[lastPCFile]] = await pool.query(`
+        SELECT file_identifier 
+        FROM files 
+        WHERE pc = ? AND file_identifier IS NOT NULL
+        ORDER BY file_identifier DESC 
+        LIMIT 1
+      `, [order.pc]);
+      
+      fileIdentifier = lastPCFile ? lastPCFile.file_identifier + 1 : 1;
+    }
+    
+    const folderName = `${cleanSubfolder}_${fileIdentifier}`;
+    
+    // Crear el directorio físico con la ruta correcta
+    const basePath = process.env.FILE_SERVER_ROOT || '/var/www/html';
+    const physicalDirPath = path.join(basePath, 'uploads', cleanClientName, folderName);
+    const filePath = path.join('uploads', cleanClientName, folderName, file.originalname);
 
-    const filePath = path.join('uploads', cleanClientName, cleanSubfolder, file.originalname);
+    // Crear directorio si no existe
+    try {
+      fs.mkdirSync(physicalDirPath, { recursive: true });
+    } catch (error) {
+      logger.error(`Error creando directorio: ${error.message}`);
+      return res.status(500).json({ message: 'Error creando directorio' });
+    }
 
     // Validar ruta de archivo para prevenir path traversal
-    const basePath = process.env.FILE_SERVER_ROOT || '/var/www/html';
     if (!validateFilePath(filePath, basePath)) {
       logger.warn(`Intento de upload con ruta insegura: ${filePath}`);
       return res.status(400).json({ message: 'Ruta de archivo inválida' });
     }
 
+    // Guardar el archivo desde el buffer de memoria
+    const physicalFilePath = path.join(physicalDirPath, file.originalname);
+    try {
+      fs.writeFileSync(physicalFilePath, file.buffer);
+    } catch (error) {
+      logger.error(`Error guardando archivo: ${error.message}`);
+      return res.status(500).json({ message: 'Error guardando archivo' });
+    }
+
     // Establecer permisos seguros para el archivo subido
-    await setSecureFilePermissions(file.path);
+    await setSecureFilePermissions(physicalFilePath);
 
     const fileData = {
       customer_id,
@@ -241,6 +286,7 @@ exports.handleUpload = async (req, res) => {
       oc: order.oc,
       name: name,
       path: filePath,
+      file_identifier: fileIdentifier,
       status_id: 2,
       is_visible_to_customer: is_visible_to_customer,
     };
@@ -252,6 +298,343 @@ exports.handleUpload = async (req, res) => {
   } catch (err) {
     logger.error(`Error al subir archivo: ${err.message}`);
     res.status(500).json({ message: 'Error interno del servidor', error: err.message });
+  }
+};
+
+/**
+ * @route GET /api/files/view/:id
+ * @desc Genera un token temporal para visualizar un archivo
+ * @access Protegido (requiere JWT)
+ */
+exports.viewFile = async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    const pool = await poolPromise;
+    
+    // Obtener información del archivo
+    const file = await fileService.getFileById(id);
+    if (!file) {
+      logger.warn(`Archivo no encontrado ID: ${id}`);
+      return res.status(404).json({ message: 'Archivo no encontrado' });
+    }
+
+    // Verificar que el usuario tenga acceso al archivo
+    const userId = req.user.id;
+    const userRole = req.user.role;
+    
+    // Si es admin, puede acceder a todos los archivos
+    if (userRole !== 'admin') {
+      // Verificar que el archivo pertenece a un cliente del usuario
+      const [[customerCheck]] = await pool.query(`
+        SELECT c.id 
+        FROM customers c
+        JOIN orders o ON c.id = o.customer_id
+        JOIN files f ON o.id = f.order_id
+        JOIN users u ON u.email = c.rut
+        WHERE f.id = ? AND u.id = ?
+      `, [id, userId]);
+      
+      if (!customerCheck) {
+        logger.warn(`Usuario ${userId} intentó acceder a archivo ${id} sin permisos`);
+        return res.status(403).json({ message: 'No tienes permisos para acceder a este archivo' });
+      }
+    }
+    
+    // Generar token temporal (válido por 5 minutos)
+    const crypto = require('crypto');
+    const tempToken = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutos
+    
+    // Guardar token temporal en memoria (en producción usar Redis)
+    if (!global.tempTokens) {
+      global.tempTokens = new Map();
+    }
+    global.tempTokens.set(tempToken, {
+      fileId: id,
+      userId: userId,
+      expiresAt: expiresAt
+    });
+    
+    // Limpiar tokens expirados
+    for (const [token, data] of global.tempTokens.entries()) {
+      if (data.expiresAt < new Date()) {
+        global.tempTokens.delete(token);
+      }
+    }
+    
+    const viewUrl = `/api/files/temp-view/${tempToken}`;
+    console.log(`🔍 [viewFile] Generando URL: ${viewUrl}`);
+    console.log(`🔍 [viewFile] Token generado: ${tempToken}`);
+    
+    res.json({ 
+      viewUrl: viewUrl,
+      filename: file.name,
+      token: tempToken
+    });
+
+  } catch (error) {
+    logger.error(`Error en viewFile ${id}: ${error.message}`);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
+
+/**
+ * @route GET /api/files/temp-view/:token
+ * @desc Visualiza un archivo usando token temporal
+ * @access Público (solo con token válido)
+ */
+exports.tempViewFile = async (req, res) => {
+  const { token } = req.params;
+  
+  console.log(`🔍 [tempViewFile] URL completa: ${req.originalUrl}`);
+  console.log(`🔍 [tempViewFile] Parámetros:`, req.params);
+  
+  try {
+    console.log(`🔍 [tempViewFile] Token recibido: ${token}`);
+    console.log(`🔍 [tempViewFile] Tokens disponibles:`, global.tempTokens ? Array.from(global.tempTokens.keys()) : 'No hay tokens');
+    
+    // Verificar token temporal
+    if (!global.tempTokens || !global.tempTokens.has(token)) {
+      console.log(`❌ [tempViewFile] Token no válido: ${token}`);
+      return res.status(404).json({ message: 'Token no válido o expirado' });
+    }
+    
+    const tokenData = global.tempTokens.get(token);
+    
+    // Verificar expiración
+    if (tokenData.expiresAt < new Date()) {
+      global.tempTokens.delete(token);
+      return res.status(404).json({ message: 'Token expirado' });
+    }
+    
+    // Obtener información del archivo
+    const file = await fileService.getFileById(tokenData.fileId);
+    if (!file) {
+      return res.status(404).json({ message: 'Archivo no encontrado' });
+    }
+    
+    const basePath = process.env.FILE_SERVER_ROOT || '/var/www/html';
+    const filePath = path.join(basePath, file.path);
+    
+    // Verificar que el archivo existe físicamente
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ message: 'Archivo no encontrado en el servidor' });
+    }
+
+    // Verificar que la ruta es segura
+    if (!validateFilePath(file.path, basePath)) {
+      return res.status(403).json({ message: 'Acceso denegado' });
+    }
+
+    // Establecer headers para visualización (no descarga)
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'inline; filename="' + file.name + '.pdf"');
+    
+    // Enviar el archivo
+    res.sendFile(filePath, (err) => {
+      if (err) {
+        logger.error(`Error enviando archivo ${tokenData.fileId}: ${err.message}`);
+        if (!res.headersSent) {
+          res.status(500).json({ message: 'Error al cargar archivo' });
+        }
+      }
+    });
+
+  } catch (error) {
+    logger.error(`Error en tempViewFile ${token}: ${error.message}`);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
+
+/**
+ * @route GET /api/files/view-with-token/:id
+ * @desc Visualiza un archivo usando token JWT como parámetro de consulta
+ * @access Público (solo con token válido)
+ */
+exports.viewWithToken = async (req, res) => {
+  console.log(`🔍 [viewWithToken] ENDPOINT LLAMADO - URL: ${req.originalUrl}`);
+  const { id } = req.params;
+  const { token } = req.query;
+  
+  console.log(`🔍 [viewWithToken] Iniciando - id: ${id}, token: ${token ? 'presente' : 'ausente'}`);
+  
+  try {
+    // Verificar token JWT
+    if (!token) {
+      console.log(`🔍 [viewWithToken] No hay token`);
+      return res.status(401).json({ message: 'Token requerido' });
+    }
+    
+    // Verificar token JWT
+    const jwt = require('jsonwebtoken');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log(`🔍 [viewWithToken] Token decodificado:`, decoded);
+    
+    // Obtener información del archivo
+    const file = await fileService.getFileById(id);
+    console.log(`🔍 [viewWithToken] Archivo encontrado:`, file ? 'Sí' : 'No');
+    if (!file) {
+      return res.status(404).json({ message: 'Archivo no encontrado' });
+    }
+
+    // Verificar que el usuario tenga acceso al archivo
+    const userId = decoded.id;
+    const userRole = decoded.role;
+    console.log(`🔍 [viewWithToken] userId: ${userId}, userRole: ${userRole}`);
+    
+    // Si es admin, puede acceder a todos los archivos
+    if (userRole !== 'admin') {
+      const pool = await poolPromise;
+      
+      console.log(`🔍 [viewWithToken] Debug - userId: ${userId}, userRole: ${userRole}, fileId: ${id}`);
+      
+             // Primero obtener el customer del usuario
+             const userCustomerQuery = `
+               SELECT c.id, c.rut, c.name 
+               FROM customers c
+               JOIN users u ON u.email = c.rut
+               WHERE u.id = ?
+             `;
+             console.log(`🔍 [viewWithToken] Query userCustomer:`, userCustomerQuery);
+             console.log(`🔍 [viewWithToken] Parámetros userCustomer:`, [userId]);
+             
+             const [[userCustomer]] = await pool.query(userCustomerQuery, [userId]);
+             
+             console.log(`🔍 [viewWithToken] userCustomer result:`, userCustomer);
+      
+      if (!userCustomer) {
+        console.log(`🔍 [viewWithToken] No se encontró customer para usuario ${userId}`);
+        return res.status(403).json({ message: 'No tienes permisos para acceder a este archivo' });
+      }
+      
+             // Verificar que el archivo pertenece a una orden del customer
+             const customerCheckQuery = `
+               SELECT f.id, f.name, o.id as order_id, c.id as customer_id
+               FROM files f
+               JOIN orders o ON f.order_id = o.id
+               JOIN customers c ON o.customer_id = c.id
+               WHERE f.id = ? AND c.id = ?
+             `;
+             console.log(`🔍 [viewWithToken] Query customerCheck:`, customerCheckQuery);
+             console.log(`🔍 [viewWithToken] Parámetros customerCheck:`, [id, userCustomer.id]);
+             
+             const [[customerCheck]] = await pool.query(customerCheckQuery, [id, userCustomer.id]);
+             
+             console.log(`🔍 [viewWithToken] customerCheck result:`, customerCheck);
+      
+      if (!customerCheck) {
+        return res.status(403).json({ message: 'No tienes permisos para acceder a este archivo' });
+      }
+    }
+    
+    const basePath = process.env.FILE_SERVER_ROOT || '/var/www/html';
+    const filePath = path.join(basePath, file.path);
+    
+    // Verificar que el archivo existe físicamente
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ message: 'Archivo no encontrado en el servidor' });
+    }
+
+    // Verificar que la ruta es segura
+    if (!validateFilePath(file.path, basePath)) {
+      return res.status(403).json({ message: 'Acceso denegado' });
+    }
+
+    // Establecer headers para visualización (no descarga)
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'inline; filename="' + file.name + '.pdf"');
+    
+    // Enviar el archivo
+    res.sendFile(filePath, (err) => {
+      if (err) {
+        logger.error(`Error enviando archivo ${id}: ${err.message}`);
+        if (!res.headersSent) {
+          res.status(500).json({ message: 'Error al cargar archivo' });
+        }
+      }
+    });
+
+  } catch (error) {
+    logger.error(`Error en viewWithToken ${id}: ${error.message}`);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
+
+/**
+ * @route GET /api/files/download/:id
+ * @desc Descarga un archivo de forma segura (requiere autenticación)
+ * @access Protegido (requiere JWT)
+ */
+exports.downloadFile = async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    const pool = await poolPromise;
+    
+    // Obtener información del archivo
+    const file = await fileService.getFileById(id);
+    if (!file) {
+      logger.warn(`Archivo no encontrado ID: ${id}`);
+      return res.status(404).json({ message: 'Archivo no encontrado' });
+    }
+
+    // Verificar que el usuario tenga acceso al archivo
+    // Obtener información del usuario autenticado
+    const userId = req.user.id;
+    const userRole = req.user.role;
+    
+    // Si es admin, puede acceder a todos los archivos
+    if (userRole !== 'admin') {
+      // Verificar que el archivo pertenece a un cliente del usuario
+      // La relación es: users.email = customers.rut
+      const [[customerCheck]] = await pool.query(`
+        SELECT c.id 
+        FROM customers c
+        JOIN orders o ON c.id = o.customer_id
+        JOIN files f ON o.id = f.order_id
+        JOIN users u ON u.email = c.rut
+        WHERE f.id = ? AND u.id = ?
+      `, [id, userId]);
+      
+      if (!customerCheck) {
+        logger.warn(`Usuario ${userId} intentó acceder a archivo ${id} sin permisos`);
+        return res.status(403).json({ message: 'No tienes permisos para acceder a este archivo' });
+      }
+    }
+    
+    const basePath = process.env.FILE_SERVER_ROOT || '/var/www/html';
+    const filePath = path.join(basePath, file.path);
+    
+    // Verificar que el archivo existe físicamente
+    if (!fs.existsSync(filePath)) {
+      logger.warn(`Archivo físico no encontrado: ${filePath}`);
+      return res.status(404).json({ message: 'Archivo no encontrado en el servidor' });
+    }
+
+    // Verificar que la ruta es segura
+    if (!validateFilePath(file.path, basePath)) {
+      logger.warn(`Intento de acceso a ruta insegura: ${file.path}`);
+      return res.status(403).json({ message: 'Acceso denegado' });
+    }
+
+    // Establecer headers para la descarga
+    res.setHeader('Content-Disposition', `attachment; filename="${file.name}.pdf"`);
+    res.setHeader('Content-Type', 'application/pdf');
+    
+    // Enviar el archivo
+    res.sendFile(filePath, (err) => {
+      if (err) {
+        logger.error(`Error enviando archivo ${id}: ${err.message}`);
+        if (!res.headersSent) {
+          res.status(500).json({ message: 'Error al descargar archivo' });
+        }
+      }
+    });
+
+  } catch (error) {
+    logger.error(`Error en downloadFile ${id}: ${error.message}`);
+    res.status(500).json({ message: 'Error interno del servidor' });
   }
 };
 
@@ -274,7 +657,6 @@ exports.getFilesByCustomerAndFolder = async (req, res) => {
     }
 
     const files = await getFiles(customer.id, folderId);
-    logger.info(`Se obtuvieron ${files.length} archivos para cliente ID ${customer.id}`);
     res.json(files);
   } catch (err) {
     logger.error(`Error al obtener archivos: ${err.message}`);
@@ -310,6 +692,7 @@ exports.RenameFile = async (req, res) => {
  */
 exports.generateFile = async (req, res) => {
   const { id } = req.params;
+  const { lang = 'es' } = req.body; // Recibir idioma del frontend
 
   try {
     const file = await fileService.getFileById(id);
@@ -322,10 +705,15 @@ exports.generateFile = async (req, res) => {
     // Limpiar nombres de directorios para evitar problemas con caracteres especiales
     const cleanCustomerName = cleanDirectoryName(file.customer_name);
     const cleanFolderName = cleanDirectoryName(file.pc);
-    const customerFolder = path.join(FILE_SERVER_ROOT, 'uploads', cleanCustomerName, cleanFolderName);
     
+    // Usar file_identifier si existe, sino usar solo PC
+    const folderName = file.file_identifier ? `${cleanFolderName}_${file.file_identifier}` : cleanFolderName;
+    const customerFolder = path.join(FILE_SERVER_ROOT, 'uploads', cleanCustomerName, folderName);
+    
+    // Crear directorio si no existe
     if (!fs.existsSync(customerFolder)) {
       fs.mkdirSync(customerFolder, { recursive: true });
+      logger.info(`Directorio creado: ${customerFolder}`);
     }
 
     const fileName = `${file.name}.pdf`;
@@ -335,7 +723,7 @@ exports.generateFile = async (req, res) => {
     const generator = getDocumentGenerator(file.name);
     
     // Obtener datos reales de la BD
-    const pdfData = await getPDFData(file);
+    const pdfData = await getPDFData(file, lang);
     
     // Generar el PDF con el generador y datos correspondientes
     await generator(filePath, pdfData);
@@ -368,6 +756,7 @@ exports.sendFile = async (req, res) => {
 
   try {
     const file = await fileService.getFileById(id);
+    
     if (!file) {
       logger.warn(`Archivo no encontrado para enviar: ${id}`);
       return res.status(404).json({ message: 'Archivo no encontrado' });
@@ -376,6 +765,21 @@ exports.sendFile = async (req, res) => {
     // Mostrar información del archivo en consola para depuración
     if (process.env.NODE_ENV === 'development') {
       console.log('Archivo a enviar:', file);
+    }
+
+    // Verificar que haya emails disponibles antes de intentar enviar
+    const emails = [];
+    if (file.customer_email) emails.push(file.customer_email);
+    if (file.contact_emails) emails.push(...file.contact_emails.split(',').filter(email => email.trim()));
+    
+    console.log('Emails encontrados:', emails);
+    
+    if (emails.length === 0) {
+      console.log('No hay emails disponibles, retornando error 400');
+      return res.status(400).json({ 
+        message: 'El cliente no tiene configurado una casilla de email',
+        error: 'NO_EMAIL_CONFIGURED'
+      });
     }
 
     await emailService.sendFileToClient(file);
@@ -391,6 +795,15 @@ exports.sendFile = async (req, res) => {
     res.json({ message: 'Documento enviado correctamente' });
   } catch (err) {
     logger.error(`Error al enviar archivo: ${err.message}`);
+    
+    // Si es error de emails no configurados, retornar mensaje específico
+    if (err.message.includes('No hay emails disponibles')) {
+      return res.status(400).json({ 
+        message: 'El cliente no tiene configurado una casilla de email',
+        error: 'NO_EMAIL_CONFIGURED'
+      });
+    }
+    
     res.status(500).json({ message: 'Error al enviar documento' });
   }
 };

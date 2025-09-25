@@ -1,0 +1,28 @@
+{
+  "aviso_recepcion": {
+    "title": "AVISO DE ENTREGA",
+    "introduction": "Por medio de la presente se comunica que se ha entregado de manera conforme su orden de compra.",
+    "info_section_title": "INFORMACIÓN DEL DOCUMENTO",
+    "client": "Cliente:",
+    "internal_order": "Número de pedido interno:",
+    "order_number": "Número de Orden:",
+    "destination_port": "Puerto de Destino:",
+    "incoterm_delivery": "Fecha de entrega Incoterm:",
+    "payment_condition": "Condición de Pago:",
+    "date": "Fecha:",
+    "currency": "Moneda:",
+    "incoterm": "Incoterm:",
+    "shipping_method": "Medio de envío:",
+    "products_detail": "DETALLE DE PRODUCTOS",
+    "product": "PRODUCTO",
+    "quantity": "CANTIDAD",
+    "price": "PRECIO",
+    "total": "TOTAL",
+    "total_general": "TOTAL GENERAL",
+    "consultas": "Para consultas adicionales, contactar al departamento de operaciones.",
+    "signature_title": "FIRMA AUTORIZADA",
+    "signature_name": "Carla Torres",
+    "signature_role": "Customer Service",
+    "footer": "GELYMAR S.A.  |  www.gelymar.com | carla.torres@gelymar.com  |  Página"
+  }
+}

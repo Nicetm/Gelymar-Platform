@@ -24,8 +24,12 @@ const getOrdersByFilters = async (filters = {}) => {
       od.order_id,
       od.fecha,
       od.fecha_etd,
+      od.fecha_eta,
       od.currency,
-      od.medio_envio_factura
+      od.medio_envio_factura,
+      od.incoterm,
+      od.puerto_destino,
+      od.certificados
     FROM orders o
     JOIN customers c ON o.customer_id = c.id
     LEFT JOIN order_detail od ON o.id = od.order_id
@@ -51,8 +55,12 @@ const getOrdersByFilters = async (filters = {}) => {
       fecha_factura: r.fecha_factura,
       fecha: r.fecha,
       fecha_etd: r.fecha_etd,
+      fecha_eta: r.fecha_eta,
       currency: r.currency,
-      medio_envio_factura: r.medio_envio_factura
+      medio_envio_factura: r.medio_envio_factura,
+      incoterm: r.incoterm,
+      puerto_destino: r.puerto_destino,
+      certificados: r.certificados
     });
 
     return order;
@@ -240,14 +248,13 @@ const getOrderIdByPcOnly = async (pc) => {
 };
 
 
-
 /**
  * Obtiene los items de una orden específica
  * @param {number} orderPc - PC de la orden
  * @param {object} user - Usuario autenticado
  * @returns {Promise<Array|null>} Array de items o null si no autorizado
  */
-const getOrderItems = async (orderPc, factura, user) => {
+const getOrderItems = async (orderPc, orderOc, factura, user) => {
   try {
     const pool = await poolPromise;
     
@@ -256,11 +263,11 @@ const getOrderItems = async (orderPc, factura, user) => {
       SELECT o.id, o.pc, o.oc, o.factura, c.uuid as customer_uuid
       FROM orders o
       JOIN customers c ON o.customer_id = c.id
-      WHERE o.pc = ? AND (o.factura = ? OR (o.factura IS NULL AND ? IS NULL))
+      WHERE o.pc = ? AND o.oc = ? AND (o.factura = ? OR (o.factura IS NULL AND ? = 'null'))
     `;
-    console.log('orderPc', orderPc, 'factura', factura);
+    console.log('orderPc', orderPc, 'orderOc', orderOc, 'factura', factura);
     
-    const [orderRows] = await pool.query(orderQuery, [orderPc, factura, factura]);
+    const [orderRows] = await pool.query(orderQuery, [orderPc, orderOc, factura, factura]);
     
     if (orderRows.length === 0) {
       return null; // Orden no encontrada
@@ -286,23 +293,32 @@ const getOrderItems = async (orderPc, factura, user) => {
         oi.mercado,
         oi.kg_despachados,
         oi.kg_facturados,
+        oi.fecha_etd,
+        oi.fecha_eta,
         i.item_code,
         i.item_name,
         i.unidad_medida
       FROM order_items oi
       JOIN items i ON oi.item_id = i.id
-      WHERE oi.pc = ? AND (oi.factura = ? OR (oi.factura IS NULL AND ? IS NULL))
+      JOIN orders o ON oi.order_id = o.id
+      WHERE oi.pc = ? AND o.oc = ? AND (oi.factura = ? OR (oi.factura IS NULL AND ? is null))
       ORDER BY oi.id
     `;
     
-    // Obtener currency por separado para evitar duplicados
+    // Obtener currency, gasto adicional y customer_name por separado para evitar duplicados
     const currencyQuery = `
-      SELECT currency FROM order_detail WHERE order_id = ? LIMIT 1
+      SELECT od.currency, od.gasto_adicional_flete, c.name as customer_name 
+      FROM order_detail od
+      JOIN orders o ON od.order_id = o.id
+      JOIN customers c ON o.customer_id = c.id
+      WHERE od.order_id = ? LIMIT 1
     `;
     
-    const [itemRows] = await pool.query(itemsQuery, [orderPc, factura, factura]);
+    const [itemRows] = await pool.query(itemsQuery, [orderPc, orderOc, factura, factura]);
     const [currencyRows] = await pool.query(currencyQuery, [order.id]);
     const currency = currencyRows[0]?.currency || 'CLP';
+    const gastoAdicional = currencyRows[0]?.gasto_adicional_flete || 0;
+    const customerName = currencyRows[0]?.customer_name || 'N/A';
     
     return itemRows.map(item => ({
       id: item.id,
@@ -318,7 +334,11 @@ const getOrderItems = async (orderPc, factura, user) => {
       mercado: item.mercado,
       kg_despachados: item.kg_despachados,
       kg_facturados: item.kg_facturados,
-      currency: currency
+      fecha_etd: item.fecha_etd,
+      fecha_eta: item.fecha_eta,
+      currency: currency,
+      gasto_adicional_flete: gastoAdicional,
+      customer_name: customerName
     }));
     
   } catch (error) {
@@ -467,6 +487,105 @@ const getOrderDetail = async (orderId, user) => {
   }
 };
 
+/**
+ * Obtiene los items de una orden sin factura
+ * @param {string} orderPc - PC de la orden
+ * @param {object} user - Usuario autenticado
+ * @returns {Promise<Array|null>} Items de la orden o null si no se encuentra
+ */
+const getOrderItemsWithoutFactura = async (orderPc, orderOc, user) => {
+  try {
+    const pool = await poolPromise;
+    
+    // Verificar que la orden existe y el usuario tiene acceso
+    let orderQuery = `
+      SELECT o.id, o.pc, o.oc, o.factura, c.uuid as customer_uuid
+      FROM orders o
+      JOIN customers c ON o.customer_id = c.id
+      WHERE o.pc = ? AND o.oc = ? AND o.factura IS NULL
+    `;
+    console.log('orderPc', orderPc, 'orderOc', orderOc);
+    
+    const [orderRows] = await pool.query(orderQuery, [orderPc, orderOc]);
+    
+    if (orderRows.length === 0) {
+      return null; // Orden no encontrada
+    }
+    
+    const order = orderRows[0];
+    
+    // Si es cliente, verificar que la orden pertenece a él
+    if (user.role === 'client' && user.uuid !== order.customer_uuid) {
+      return null; // No autorizado
+    }
+    
+    // Obtener los items de la orden sin duplicados
+    const itemsQuery = `
+      SELECT DISTINCT
+        oi.id,
+        oi.order_id,
+        oi.item_id,
+        oi.kg_solicitados,
+        oi.unit_price,
+        oi.volumen,
+        oi.tipo,
+        oi.mercado,
+        oi.kg_despachados,
+        oi.kg_facturados,
+        oi.fecha_etd,
+        oi.fecha_eta,
+        i.item_code,
+        i.item_name,
+        i.unidad_medida
+      FROM order_items oi
+      JOIN items i ON oi.item_id = i.id
+      JOIN orders o ON oi.order_id = o.id
+      WHERE oi.pc = ? AND o.oc = ? AND oi.factura = ''
+      ORDER BY oi.id
+    `;
+    
+    // Obtener currency, gasto adicional y customer_name por separado para evitar duplicados
+    const currencyQuery = `
+      SELECT od.currency, od.gasto_adicional_flete, c.name as customer_name 
+      FROM order_detail od
+      JOIN orders o ON od.order_id = o.id
+      JOIN customers c ON o.customer_id = c.id
+      WHERE od.order_id = ? LIMIT 1
+    `;
+    
+    const [itemRows] = await pool.query(itemsQuery, [orderPc, orderOc]);
+    const [currencyRows] = await pool.query(currencyQuery, [order.id]);
+    const currency = currencyRows[0]?.currency || 'CLP';
+    const gastoAdicional = currencyRows[0]?.gasto_adicional_flete || 0;
+    const customerName = currencyRows[0]?.customer_name || 'N/A';
+    
+    return itemRows.map(item => ({
+      id: item.id,
+      order_id: item.order_id,
+      item_id: item.item_id,
+      kg_solicitados: item.kg_solicitados,
+      unit_price: item.unit_price,
+      volumen: item.volumen,
+      tipo: item.tipo,
+      mercado: item.mercado,
+      kg_despachados: item.kg_despachados,
+      kg_facturados: item.kg_facturados,
+      fecha_etd: item.fecha_etd,
+      fecha_eta: item.fecha_eta,
+      item_code: item.item_code,
+      item_name: item.item_name,
+      unidad_medida: item.unidad_medida,
+      currency: currency,
+      gasto_adicional_flete: gastoAdicional,
+      customer_name: customerName
+    }));
+    
+  } catch (error) {
+    console.error('Error getting order items without factura:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   getOrdersByFilters,
   getClientDashboardOrders,
@@ -475,6 +594,7 @@ module.exports = {
   getOrderIdByPc,
   getOrderIdByPcOnly,
   getOrderItems,
+  getOrderItemsWithoutFactura,
   getOrderByRutAndOc,
   getOrderById,
   getOrderDetails,
