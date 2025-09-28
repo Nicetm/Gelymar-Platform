@@ -14,7 +14,7 @@ module.exports = {
         name: 'gelymar-etd-checker',
         script: './cron/checkETD.js',
         watch: false,
-        autorestart: true,
+        autorestart: false,
         wait_ready: true,
         listen_timeout: 10000,
         kill_timeout: 5000

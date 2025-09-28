@@ -4,7 +4,6 @@ const controller = require('../controllers/documentFile.controller');
 const authMiddleware = require('../middleware/auth.middleware');
 const { authorizeRoles } = require('../middleware/role.middleware');
 
-console.log('🔧 [Routes] documentFile.routes.js cargado');
 
 /**
  * @swagger
@@ -43,10 +42,7 @@ router.get('/:customerUuid', authMiddleware, authorizeRoles(['admin']), controll
 // Ruta para descarga segura de archivos
 router.get('/view/:id', authMiddleware, controller.viewFile);
 router.get('/temp-view/:token', controller.tempViewFile);
-router.get('/view-with-token/:id', (req, res, next) => {
-  console.log('🔍 [Routes] Ruta viewWithToken llamada:', req.originalUrl);
-  next();
-}, controller.viewWithToken);
+router.get('/view-with-token/:id', controller.viewWithToken);
 router.get('/download/:id', authMiddleware, controller.downloadFile);
 
 /**
@@ -156,5 +152,6 @@ router.delete('/delete/:id', authMiddleware, authorizeRoles(['admin']), controll
  *         description: Error interno del servidor
  */
 router.post('/create-default/:orderId', authMiddleware, authorizeRoles(['admin']), controller.createDefaultFiles);
+router.post('/process-new-orders', controller.processNewOrdersAndSendReception);
 
 module.exports = router;

@@ -13,7 +13,7 @@ class DocumentType {
   static async getAll() {
     const pool = await poolPromise;
     const [rows] = await pool.query(
-      'SELECT * FROM document_types WHERE is_active = TRUE ORDER BY name ASC'
+      'SELECT * FROM files WHERE is_active = TRUE ORDER BY name ASC'
     );
     return rows.map(row => new DocumentType(row));
   }
@@ -21,7 +21,7 @@ class DocumentType {
   static async getById(id) {
     const pool = await poolPromise;
     const [rows] = await pool.query(
-      'SELECT * FROM document_types WHERE id = ? AND is_active = TRUE',
+      'SELECT * FROM files WHERE id = ? AND is_active = TRUE',
       [id]
     );
     return rows.length > 0 ? new DocumentType(rows[0]) : null;
@@ -30,7 +30,7 @@ class DocumentType {
   static async create(data) {
     const pool = await poolPromise;
     const [result] = await pool.query(
-      'INSERT INTO document_types (name, description) VALUES (?, ?)',
+      'INSERT INTO files (name, description) VALUES (?, ?)',
       [data.name, data.description]
     );
     return result.insertId;
@@ -39,7 +39,7 @@ class DocumentType {
   static async update(id, data) {
     const pool = await poolPromise;
     const [result] = await pool.query(
-      'UPDATE document_types SET name = ?, description = ? WHERE id = ?',
+      'UPDATE files SET name = ?, description = ? WHERE id = ?',
       [data.name, data.description, id]
     );
     return result.affectedRows > 0;
@@ -48,7 +48,7 @@ class DocumentType {
   static async delete(id) {
     const pool = await poolPromise;
     const [result] = await pool.query(
-      'UPDATE document_types SET is_active = FALSE WHERE id = ?',
+      'UPDATE files SET is_active = FALSE WHERE id = ?',
       [id]
     );
     return result.affectedRows > 0;

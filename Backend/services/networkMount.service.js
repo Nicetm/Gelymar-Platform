@@ -39,12 +39,30 @@ async function mountNetworkShare() {
     
     // Montar la red compartida
     try {
-      const mountCommand = `mount -t cifs //${networkServer}/${sharePath} ${inputPath} -o username=${networkUser},password=${networkPassword},uid=1000,gid=1000,iocharset=utf8,file_mode=0777,dir_mode=0777`;
+      // Crear archivo temporal de credenciales para evitar problemas con caracteres especiales
+      const credentialsFile = '/tmp/cifs_credentials';
+      const credentialsContent = `username=${networkUser}\npassword=${networkPassword}\n`;
+      
+      fs.writeFileSync(credentialsFile, credentialsContent, { mode: 0o600 });
+      console.log('🔗 Archivo de credenciales creado');
+      
+      const mountCommand = `mount -t cifs //${networkServer}/${sharePath} ${inputPath} -o credentials=${credentialsFile},uid=1000,gid=1000,iocharset=utf8`;
       console.log('🔗 Ejecutando comando de montaje...');
       execSync(mountCommand, { stdio: 'inherit' });
+      
+      // Limpiar archivo de credenciales
+      fs.unlinkSync(credentialsFile);
       console.log('✅ Red compartida montada exitosamente');
     } catch (error) {
       console.error('❌ Error montando red compartida:', error.message);
+      // Intentar limpiar archivo de credenciales si existe
+      try {
+        if (fs.existsSync('/tmp/cifs_credentials')) {
+          fs.unlinkSync('/tmp/cifs_credentials');
+        }
+      } catch (cleanupError) {
+        console.warn('⚠️ No se pudo limpiar archivo de credenciales:', cleanupError.message);
+      }
       throw new Error(`No se pudo montar la red compartida: ${error.message}`);
     }
   } else if (isWindows) {

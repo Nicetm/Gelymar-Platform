@@ -11,12 +11,13 @@ const insertItem = async (data) => {
     
     const query = `
       INSERT INTO items (
-        item_code, item_name, item_name_extra, unidad_medida, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, NOW(), NOW())
+        item_code, unique_key, item_name, item_name_extra, unidad_medida, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, NOW(), NOW())
     `;
 
     const params = [
       data.item_code,
+      data.unique_key,
       data.item_name,
       data.item_name_extra,
       data.unidad_medida
@@ -97,10 +98,101 @@ async function getItemsByOrder(orderId, user) {
   }
 }
 
+/**
+ * Busca item por unique_key
+ * @param {string} uniqueKey - Unique key del item
+ * @returns {Promise<Object|null>}
+ */
+const getItemByUniqueKey = async (uniqueKey) => {
+  const pool = await poolPromise;
+  
+  try {
+    const [rows] = await pool.query(
+      'SELECT * FROM items WHERE unique_key = ?',
+      [uniqueKey]
+    );
+    return rows[0] || null;
+  } catch (error) {
+    console.error('Error buscando item por unique_key:', error);
+    return null;
+  }
+};
+
+/**
+ * Compara campos de item para detectar cambios
+ * @param {Object} existingItem - Item existente en BD
+ * @param {Object} newRecord - Nuevo registro del CSV
+ * @returns {Promise<boolean>} true si hay cambios
+ */
+// Función para normalizar valores existentes de la BD
+const normalizeExistingValue = (value) => {
+  if (!value || value === '' || value === 'null' || value === 'NULL') {
+    return null;
+  }
+  return value;
+};
+
+const compareItemFields = async (existingItem, newRecord) => {
+  const fieldsToCompare = [
+    'item_name', 'item_name_extra', 'unidad_medida'
+  ];
+  
+  for (const field of fieldsToCompare) {
+    const existingValue = existingItem[field];
+    let newValue;
+    
+    // Mapear campos del CSV a campos de BD
+    if (field === 'item_name') {
+      newValue = newRecord.Descripcion_1?.trim() || null;
+    } else if (field === 'item_name_extra') {
+      newValue = newRecord.Descripcion_2?.trim() || null;
+    } else if (field === 'unidad_medida') {
+      newValue = newRecord.Unidad_medida?.trim() || null;
+    }
+    
+    // Normalizar el valor existente también para comparación
+    const normalizedExistingValue = normalizeExistingValue(existingValue);
+    
+    if (normalizedExistingValue !== newValue) {
+      console.log(`Campo ${field} cambió: ${normalizedExistingValue} -> ${newValue}`);
+      return true;
+    }
+  }
+  
+  return false;
+};
+
+/**
+ * Actualiza un item existente
+ * @param {number} itemId - ID del item
+ * @param {Object} itemData - Datos a actualizar
+ * @returns {Promise<void>}
+ */
+const updateItem = async (itemId, itemData) => {
+  const pool = await poolPromise;
+  
+  try {
+    const fields = Object.keys(itemData).map(key => `${key} = ?`).join(', ');
+    const values = Object.values(itemData);
+    values.push(itemId);
+    
+    await pool.query(
+      `UPDATE items SET ${fields} WHERE id = ?`,
+      values
+    );
+  } catch (error) {
+    console.error('Error actualizando item:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   insertItem,
   getAllItems,
   getItemByCode,
   getAllItemCodes,
-  getItemsByOrder
+  getItemsByOrder,
+  getItemByUniqueKey,
+  compareItemFields,
+  updateItem
 }; 

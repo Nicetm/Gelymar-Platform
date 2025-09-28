@@ -3,7 +3,7 @@ const os = require('os');
 const path = require('path');
 const { parse } = require('csv-parse/sync');
 const { stringify } = require('csv-stringify/sync');
-const { insertItem, getAllItemCodes } = require('./item.service');
+const { insertItem, getAllItemCodes, getItemByUniqueKey, compareItemFields, updateItem } = require('./item.service');
 const { getNetworkFilePath } = require('./networkMount.service');
 
 async function fetchItemFilesFromNetwork() {
@@ -49,48 +49,94 @@ async function fetchItemFilesFromNetwork() {
       console.log('Continuando con el procesamiento...');
     }
 
-    // Obtener códigos de items existentes
-    const existingItemCodes = await getAllItemCodes();
-    console.log(`Items ya existentes en BD: ${existingItemCodes.length}`);
-
     let procesados = 0;
     let insertados = 0;
     let omitidos = 0;
     let errores = 0;
 
-    for (const record of records) {
-      try {
-        procesados++;
-        
-        const codigo = record.Item?.trim();
-        if (!codigo) {
-          console.log(`[${new Date().toISOString()}] -> Check Item Process -> Registro omitido sin código: ${record.Item || 'N/A'}`);
-          omitidos++;
-          continue;
+    // Procesar en lotes de 100 para evitar problemas de memoria y timeout
+    const batchSize = 100;
+    const totalBatches = Math.ceil(records.length / batchSize);
+    
+    console.log(`[${new Date().toISOString()}] -> Check Item Process -> Procesando ${records.length} registros del CSV`);
+    
+    for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+      const startIndex = batchIndex * batchSize;
+      const endIndex = Math.min(startIndex + batchSize, records.length);
+      const currentBatch = records.slice(startIndex, endIndex);
+      
+      console.log(`[${new Date().toISOString()}] -> Check Item Process -> Procesando lote ${batchIndex + 1}/${totalBatches} (registros ${startIndex + 1}-${endIndex})`);
+      
+      for (const record of currentBatch) {
+        try {
+          procesados++;
+          
+          // Validaciones para campos críticos
+          if (!record.Item?.trim()) {
+            console.log(`[${new Date().toISOString()}] -> Check Item Process -> Registro omitido: Item=${record.Item?.trim() || 'N/A'} - Motivo: Campo crítico faltante`);
+            omitidos++;
+            continue;
+          }
+
+          // Extraer campos para unique_key
+          const itemCode = record.Item.trim();
+          
+          // Generar unique_key para items (solo el código del item)
+          const uniqueKey = itemCode;
+          
+          // Buscar item existente por unique_key
+          const existingItem = await getItemByUniqueKey(uniqueKey);
+          
+          if (!existingItem) {
+            // NUEVO ITEM - Insertar
+            await insertItem({
+              item_code: itemCode,
+              unique_key: uniqueKey,
+              item_name: record.Descripcion_1?.trim(),
+              item_name_extra: record.Descripcion_2?.trim(),
+              unidad_medida: record.Unidad_medida?.trim()
+            });
+            
+            console.log(`[${new Date().toISOString()}] -> Check Item Process -> NUEVO ITEM insertado: Código=${itemCode}, unique_key=${uniqueKey}`);
+            insertados++;
+          } else {
+            // ITEM EXISTENTE - Verificar si hay cambios
+            const hasChanges = await compareItemFields(existingItem, record);
+            
+            if (hasChanges) {
+              // ACTUALIZAR item
+              await updateItem(existingItem.id, {
+                item_code: itemCode,
+                unique_key: uniqueKey,
+                item_name: record.Descripcion_1?.trim(),
+                item_name_extra: record.Descripcion_2?.trim(),
+                unidad_medida: record.Unidad_medida?.trim(),
+                updated_at: new Date()
+              });
+              
+              console.log(`[${new Date().toISOString()}] -> Check Item Process -> ITEM ACTUALIZADO: Código=${itemCode}, unique_key=${uniqueKey}`);
+              insertados++;
+            } else {
+              console.log(`[${new Date().toISOString()}] -> Check Item Process -> ITEM SIN CAMBIOS: Código=${itemCode}, unique_key=${uniqueKey}`);
+              omitidos++;
+            }
+          }
+        } catch (error) {
+          console.error(`[${new Date().toISOString()}] -> Check Item Process -> Error procesando item:`, error.message);
+          errores++;
         }
-
-        if (existingItemCodes.includes(codigo)) {
-          console.log(`[${new Date().toISOString()}] -> Check Item Process -> Item ya existe: ${codigo}`);
-          omitidos++;
-          continue;
-        }
-
-        await insertItem({
-          item_code: codigo,
-          item_name: record.Descripcion_1?.trim(),
-          item_name_extra: record.Descripcion_2?.trim(),
-          unidad_medida: record.Unidad_medida?.trim()
-        });
-
-        console.log(`[${new Date().toISOString()}] -> Check Item Process -> insertando fila: Codigo=${codigo}, Nombre=${record.Descripcion_1?.trim() || 'N/A'}`);
-        insertados++;
-      } catch (error) {
-        console.error(`[${new Date().toISOString()}] -> Check Item Process -> Error procesando item ${record.Item}:`, error.message);
-        errores++;
       }
+      
+      // Log de progreso del lote
+      console.log(`[${new Date().toISOString()}] -> Check Item Process -> Lote ${batchIndex + 1}/${totalBatches} completado. Progreso: ${procesados}/${records.length} registros procesados`);
     }
 
-    console.log(`[${new Date().toISOString()}] -> Check Item Process -> RESUMEN DEL PROCESAMIENTO: Procesados: ${procesados}, Insertados: ${insertados}, Omitidos: ${omitidos}, Errores: ${errores}`);
+    console.log(`\n[${new Date().toISOString()}] -> Check Item Process -> RESUMEN DEL PROCESAMIENTO:`);
+    console.log(`   • Total procesados: ${procesados}`);
+    console.log(`   • Nuevos registros: ${insertados}`);
+    console.log(`   • Registros omitidos: ${omitidos}`);
+    console.log(`   • Errores: ${errores}`);
+    console.log(`\n[${new Date().toISOString()}] -> Check Item Process -> Procesamiento completado exitosamente.`);
   } catch (error) {
     console.error(`[${new Date().toISOString()}] -> Check Item Process -> Error obteniendo archivo de red:`, error.message);
     return;

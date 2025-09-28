@@ -11,8 +11,8 @@ async function insertOrderDetail(orderDetailData) {
       direccion_alterna, puerto_embarque, puerto_destino, fecha_eta, 
       fecha_etd, certificados, estado_ov, medio_envio_factura, 
       gasto_adicional_flete, fecha_incoterm, localizacion, codigo_impuesto, 
-      vendedor, nave, condicion_venta, csv_row_hash, csv_file_timestamp
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      vendedor, nave, condicion_venta, linea, unique_key, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       orderDetailData.order_id,
       orderDetailData.fecha,
@@ -35,8 +35,10 @@ async function insertOrderDetail(orderDetailData) {
       orderDetailData.vendedor,
       orderDetailData.nave,
       orderDetailData.condicion_venta,
-      orderDetailData.csv_row_hash,
-      orderDetailData.csv_file_timestamp
+      orderDetailData.linea,
+      orderDetailData.unique_key,
+      orderDetailData.created_at,
+      orderDetailData.updated_at
     ]
   );
   

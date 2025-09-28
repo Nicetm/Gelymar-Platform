@@ -156,6 +156,10 @@ app.use('/api/files', authMiddleware, authorizeRoles(['admin']), documentFileRou
 app.use('/api/document-types', authMiddleware, authorizeRoles(['admin']), documentTypeRoutes);
 app.use('/api/chat', chatRoutes);
 
+// Ruta especial para procesamiento de órdenes nuevas (sin autenticación para cron)
+const { processNewOrdersAndSendReception } = require('./controllers/documentFile.controller');
+app.post('/api/cron/process-new-orders', processNewOrdersAndSendReception);
+
 // Rutas de cron (sin autenticación para acceso interno)
 app.use('/api/cron', cronRoutes);
 

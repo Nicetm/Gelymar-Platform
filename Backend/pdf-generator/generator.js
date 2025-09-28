@@ -69,16 +69,24 @@ async function generatePDF(filePath, templateName, data) {
           }
         }
         else if (/^#INFO_SECTION#/.test(trimmed)) {
-          drawInfoSection(doc, data);
-        }
-        else if (/^#ITEMS_TABLE#/.test(trimmed)) {
-          if (data.items && data.items.length > 0) {
-            if (doc.y > doc.page.height - 200) {
-              doc.addPage();
-            }
-            generateModernTable(doc, data.items, data);
+          if (templateName === 'aviso-embarque') {
+            drawInfoSectionEmbarque(doc, data);
+          } else {
+            drawInfoSection(doc, data);
           }
         }
+         else if (/^#ITEMS_TABLE#/.test(trimmed)) {
+           if (data.items && data.items.length > 0) {
+             if (doc.y > doc.page.height - 200) {
+               doc.addPage();
+             }
+             if (templateName === 'aviso-embarque') {
+               generateEmbarqueTable(doc, data.items, data);
+             } else {
+               generateModernTable(doc, data.items, data);
+             }
+           }
+         }
         else if (/^#SIGNATURE#/.test(trimmed)) {
           if (doc.y > doc.page.height - 120) {
             doc.addPage();
@@ -146,7 +154,7 @@ function drawInfoSection(doc, data) {
 
   doc.save();
   doc.roundedRect(sectionX, startY - 15, sectionWidth, boxHeight, 12)
-    .fillAndStroke('#f7fafc', STYLES.lineColor);
+    .fillAndStroke('#f3f4f6', STYLES.lineColor);
   doc.restore();
 
   const infoTitle = data.translations?.info_section_title || 'INFORMACIÓN DEL DOCUMENTO';
@@ -217,6 +225,79 @@ function drawInfoSection(doc, data) {
     .text(`${t.shipping_method || 'Medio de envío:'}`, rightColumn, row5Y, { continued: true })
     .font(STYLES.font).fillColor(STYLES.textSecondary)
     .text(` ${data.shippingMethod || 'N/A'}`, { width: 180 });
+
+  doc.y = row7Y + 5;
+}
+
+function drawInfoSectionEmbarque(doc, data) {
+  const startY = doc.y + 15;
+  const sectionWidth = 500;
+  const sectionX = (doc.page.width - sectionWidth) / 2;
+  const boxHeight = 180;
+
+  doc.save();
+  doc.roundedRect(sectionX, startY - 15, sectionWidth, boxHeight, 12)
+    .fillAndStroke('#f3f4f6', STYLES.lineColor);
+  doc.restore();
+
+  const infoTitle = data.translations?.info_section_title || 'INFORMACIÓN DEL DOCUMENTO';
+  doc.fontSize(13).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text(infoTitle, sectionX, startY - 5, { align: 'center', width: sectionWidth });
+
+  doc.y = startY + 35;
+
+  const leftColumn = sectionX + 35;
+  const rightColumn = sectionX + 290;
+  const row1Y = doc.y;
+  const row2Y = row1Y + 20;
+  const row3Y = row2Y + 20;
+  const row4Y = row3Y + 20;
+  const row5Y = row4Y + 20;
+  const row6Y = row5Y + 20;
+  const row7Y = row6Y + 20;
+  
+  const t = data.translations || {};
+  const dateFormat = data.lang === 'en' ? 'en-US' : 'es-CL';
+  
+  doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text(`${t.client || 'Cliente:'}`, leftColumn, row1Y, { continued: true })
+    .font(STYLES.font).fillColor(STYLES.textSecondary)
+    .text(` ${data.customerName}`, { width: 180 });
+  
+  doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text(`${t.internal_order || 'Número de pedido interno:'}`, leftColumn, row2Y, { continued: true })
+    .font(STYLES.font).fillColor(STYLES.textSecondary)
+    .text(` ${data.internalOrderNumber || 'N/A'}`, { width: 180 });
+  
+  doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text(`${t.order_number || 'Número de Orden:'}`, leftColumn, row3Y, { continued: true })
+    .font(STYLES.font).fillColor(STYLES.textSecondary)
+    .text(` ${data.orderNumber}`, { width: 180 });
+  
+  doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text(`${t.shipping_method || 'Medio de envío:'}`, leftColumn, row4Y, { continued: true })
+    .font(STYLES.font).fillColor(STYLES.textSecondary)
+    .text(` ${data.shippingMethod || 'N/A'}`, { width: 180 });
+  
+  doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text(`${t.destination_port || 'Puerto de Destino:'}`, leftColumn, row5Y, { continued: true })
+    .font(STYLES.font).fillColor(STYLES.textSecondary)
+    .text(` ${data.destinationPort || 'N/A'}`, { width: 180 });
+  
+  doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text(`${t.incoterm_delivery || 'Fecha de entrega Incoterm:'}`, leftColumn, row6Y, { continued: true })
+    .font(STYLES.font).fillColor(STYLES.textSecondary)
+    .text(` ${data.incotermDeliveryDate || ''}`, { width: 180 });
+
+  doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text(`${t.etd || 'ETD:'}`, rightColumn, row2Y, { continued: true })
+    .font(STYLES.font).fillColor(STYLES.textSecondary)
+    .text(` ${formatDateByLanguage(data.etd, data.lang)}`, { width: 180 });
+
+  doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text(`${t.eta || 'ETA:'}`, rightColumn, row3Y, { continued: true })
+    .font(STYLES.font).fillColor(STYLES.textSecondary)
+    .text(` ${formatDateByLanguage(data.eta, data.lang)}`, { width: 180 });
 
   doc.y = row7Y + 5;
 }
@@ -296,6 +377,50 @@ function generateModernTable(doc, items, data = {}) {
   doc.moveDown(3);
 }
 
+function generateEmbarqueTable(doc, items, data = {}) {
+  const tableTop = doc.y + 35;
+  const tableWidth = 500;
+  const tableX = (doc.page.width - tableWidth) / 2;
+  const itemX = tableX + 10;
+  const qtyX = tableX + 300;
+  const rowHeight = 28;
+
+  const t = data.translations || {};
+  doc.fontSize(10).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text(t.products_detail || 'DETALLE DE PRODUCTOS', 0, tableTop - 25, { align: 'center', width: doc.page.width });
+
+  doc.save();
+  doc.rect(tableX, tableTop, tableWidth, rowHeight).fill(STYLES.tableHeaderBg);
+  doc.restore();
+  doc.fontSize(9).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text(t.product || 'PRODUCTO', itemX, tableTop + 8, { width: 280 })
+    .text(t.quantity || 'CANTIDAD (kgs facturados)', qtyX, tableTop + 8, { width: 200, align: 'center' });
+  
+  doc.moveTo(tableX, tableTop + rowHeight).lineTo(tableX + tableWidth, tableTop + rowHeight)
+    .strokeColor(STYLES.lineColor).lineWidth(1).stroke();
+
+  items.forEach((item, i) => {
+    const y = tableTop + rowHeight * (i + 1);
+    if (i % 2 === 0) {
+      doc.save();
+      doc.rect(tableX, y, tableWidth, rowHeight).fill(STYLES.tableRowAlt);
+      doc.restore();
+    }
+    
+    const productName = item.item_name || '';
+    const quantity = item.kg_facturados || item.kg_solicitados || 0;
+    
+    doc.fontSize(9).font(STYLES.font).fillColor(STYLES.textPrimary)
+      .text(productName, itemX, y + 8, { width: 280 })
+      .text(`${quantity} kg`, qtyX, y + 8, { width: 200, align: 'center' });
+    
+    doc.moveTo(tableX, y + rowHeight).lineTo(tableX + tableWidth, y + rowHeight)
+      .strokeColor(STYLES.lineColor).lineWidth(0.7).stroke();
+  });
+
+  doc.moveDown(3);
+}
+
 function drawSignatureSection(doc, data) {
   doc.moveDown(4);
   
@@ -359,12 +484,37 @@ function drawFooter(doc, currentPage, totalPages, data = {}) {
 }
 
 
+function getWeekOfYear(dateString, lang = 'es') {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  const start = new Date(date.getFullYear(), 0, 1);
+  const diff = date - start;
+  const oneWeek = 1000 * 60 * 60 * 24 * 7;
+  const week = Math.floor(diff / oneWeek) + 1;
+  
+  if (lang === 'en') {
+    return `Week ${week}`;
+  } else {
+    return `Semana ${week}`;
+  }
+}
+
+function formatDateByLanguage(dateString, lang) {
+  if (!dateString) return 'N/A';
+  const date = new Date(dateString);
+  
+  if (lang === 'en') {
+    return date.toLocaleDateString('en-CA'); // yyyy/mm/dd
+  } else {
+    return date.toLocaleDateString('es-CL'); // dd/mm/yyyy
+  }
+}
+
 module.exports = {
-  generateRO: (filePath, data) => generatePDF(filePath, 'ro', data),
-  generateAVRO: (filePath, data) => generatePDF(filePath, 'avro', data),
-  generateInvoice: (filePath, data) => generatePDF(filePath, 'invoice', data),
-  generateBL: (filePath, data) => generatePDF(filePath, 'bl', data),
-  generateRecepcionOrden: (filePath, data) => generatePDF(filePath, 'recepcion-orden', data),
+  generateRecepcionOrden: (filePath, data) => generatePDF(filePath, 'aviso-recepcion-orden', data),
   generateAvisoEmbarque: (filePath, data) => generatePDF(filePath, 'aviso-embarque', data),
-  generateAvisoRecepcionOrden: (filePath, data) => generatePDF(filePath, 'aviso-recepcion-orden', data)
+  generateAvisoEntrega: (filePath, data) => generatePDF(filePath, 'aviso-entrega', data),
+  generateAvisoDisponibilidad: (filePath, data) => generatePDF(filePath, 'aviso-disponibilidad', data),
+  getWeekOfYear,
+  formatDateByLanguage
 };

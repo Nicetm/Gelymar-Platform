@@ -3,6 +3,79 @@ const { sendFileToClient } = require('./email.service');
 const { logger } = require('../utils/logger');
 
 /**
+ * Obtiene todos los order_id de la tabla new_orders que no han sido enviadas
+ * @returns {Promise<Array>} Array de order_ids
+ */
+async function getNewOrders() {
+  const pool = await poolPromise;
+  try {
+    const [rows] = await pool.query('SELECT order_id FROM new_orders WHERE has_sent = 0 ORDER BY id ASC');
+    return rows.map(row => row.order_id);
+  } catch (error) {
+    logger.error(`Error obteniendo nuevas órdenes: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * Obtiene datos de una orden específica
+ * @param {number} orderId - ID de la orden
+ * @returns {Promise<Object|null>} Datos de la orden (rut, customer_id)
+ */
+async function getOrderData(orderId) {
+  const pool = await poolPromise;
+  try {
+    const [rows] = await pool.query(
+      'SELECT rut, customer_id FROM orders WHERE id = ?',
+      [orderId]
+    );
+    return rows.length > 0 ? rows[0] : null;
+  } catch (error) {
+    logger.error(`Error obteniendo datos de orden ${orderId}: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * Obtiene el archivo de recepción de orden
+ * @param {number} orderId - ID de la orden
+ * @returns {Promise<Object|null>} Datos del archivo de recepción
+ */
+async function getReceptionFile(orderId) {
+  const pool = await poolPromise;
+  try {
+    const [rows] = await pool.query(
+      'SELECT id, path FROM order_files WHERE order_id = ? AND name = ?',
+      [orderId, 'Recepcion de orden']
+    );
+    return rows.length > 0 ? rows[0] : null;
+  } catch (error) {
+    logger.error(`Error obteniendo archivo de recepción para orden ${orderId}: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * Obtiene el email del cliente
+ * @param {number} customerId - ID del cliente
+ * @param {string} rut - RUT del cliente
+ * @returns {Promise<Object|null>} Datos del cliente (email, country, lang)
+ */
+async function getCustomerEmail(customerId, rut) {
+  const pool = await poolPromise;
+  try {
+    const [rows] = await pool.query(
+      'SELECT c.email, c.country, cl.lang FROM customers c INNER JOIN country_lang cl ON c.country = cl.country WHERE c.id = ? AND c.rut = ?',
+      [customerId, rut]
+    );
+    return rows.length > 0 ? rows[0] : null;
+  } catch (error) {
+    logger.error(`Error obteniendo email del cliente ${customerId}: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
  * Servicio para enviar documentos de recepción de orden por email
  * Se ejecuta diariamente a las 8 AM para enviar documentos de órdenes del día anterior
  */
@@ -81,7 +154,7 @@ async function processOrderReception(order) {
         c.name AS customer_name,
         cc.primary_email AS customer_email,
         GROUP_CONCAT(cc2.contact_email SEPARATOR ',') AS contact_emails
-      FROM files f
+      FROM order_files f
       JOIN customers c ON f.customer_id = c.id
       LEFT JOIN customer_contacts cc ON c.id = cc.customer_id
       LEFT JOIN customer_contacts cc2 ON c.id = cc2.customer_id AND cc2.contact_email IS NOT NULL
@@ -114,7 +187,7 @@ async function processOrderReception(order) {
         
         // Marcar archivo como enviado
         await pool.query(
-          'UPDATE files SET was_sent = 1 WHERE id = ?',
+          'UPDATE order_files SET was_sent = 1 WHERE id = ?',
           [file.id]
         );
         
@@ -132,6 +205,30 @@ async function processOrderReception(order) {
   }
 }
 
+/**
+ * Marca una orden como enviada en new_orders
+ * @param {number} orderId - ID de la orden
+ * @returns {Promise<boolean>} True si se marcó correctamente
+ */
+async function markOrderAsSent(orderId) {
+  const pool = await poolPromise;
+  try {
+    const [result] = await pool.query(
+      'UPDATE new_orders SET has_sent = 1 WHERE order_id = ?',
+      [orderId]
+    );
+    return result.affectedRows > 0;
+  } catch (error) {
+    logger.error(`Error marcando orden ${orderId} como enviada: ${error.message}`);
+    throw error;
+  }
+}
+
 module.exports = {
-  sendOrderReceptionDocuments
+  sendOrderReceptionDocuments,
+  getNewOrders,
+  getOrderData,
+  getReceptionFile,
+  getCustomerEmail,
+  markOrderAsSent
 };

@@ -1,20 +1,18 @@
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
-const { insertFile, getFiles, RenameFile, deleteFileById, createDefaultFilesForOrder } = require('../services/file.service');
+const { insertFile, getFiles, RenameFile, createDefaultFilesForOrder } = require('../services/file.service');
 const { poolPromise } = require('../config/db');
 const { 
-  generateRO, 
-  generateInvoice, 
-  generateBL,
   generateRecepcionOrden,
   generateAvisoEmbarque,
-  generateAvisoRecepcionOrden
+  generateAvisoEntrega,
+  getWeekOfYear,
+  formatDateByLanguage
 } = require('../pdf-generator/generator');
 
 const fileService = require('../services/file.service');
 const emailService = require('../services/email.service');
-const PDFDocument = require('pdfkit');
 const { logger } = require('../utils/logger');
 const { cleanDirectoryName } = require('../utils/directoryUtils');
 const { validateFilePath, setSecureFilePermissions } = require('../utils/filePermissions');
@@ -26,12 +24,12 @@ const { validateFilePath, setSecureFilePermissions } = require('../utils/filePer
  */
 function getDocumentGenerator(documentName) {
   const generators = {
-    'Recepcion de orden': generateRecepcionOrden,
+    'Aviso de Recepcion de Orden': generateRecepcionOrden,
     'Aviso de Embarque': generateAvisoEmbarque,
-    'Aviso de entrega': generateAvisoRecepcionOrden
+    'Aviso de Entrega': generateAvisoEntrega
   };
   
-  return generators[documentName] || generateRO; // Fallback a RO si no encuentra
+  return generators[documentName] || generateAvisoEntrega; // Fallback si no encuentra
 }
 
 /**
@@ -100,24 +98,24 @@ async function getPDFData(file, lang = 'es') {
     destinationPort: orderDetail?.puerto_destino || 'N/A',
     incoterm: orderDetail?.incoterm || 'N/A',
     shippingMethod: orderDetail?.medio_envio_factura || 'N/A',
-    currency: orderDetail?.currency || 'N/A',
+    etd: orderDetail?.fecha_etd || 'N/A',
+    eta: orderDetail?.fecha_eta || 'N/A',
     incotermDeliveryDate: orderDetail?.semana_42 || 'N/A',
-    paymentCondition: orderDetail?.condicion_venta || 'N/A',
     receptionDate,
     shipmentDate,
     estimatedDeparture,
     estimatedArrival,
     estimatedDelivery,
     items: orderItems.map(item => ({
-      product: item.item_name || 'Producto',
-      quantity: item.kg_solicitados || 1,
-      price: item.unit_price || 0
+      item_name: item.item_name || 'Producto',
+      kg_solicitados: item.kg_solicitados || 1,
+      unit_price: item.unit_price || 0
     }))
   };
 
   // Datos específicos según el tipo de documento
   const specificData = {
-    'Recepcion de orden': {
+    'Aviso de Recepcion de Orden': {
       ...baseData,
       processingStatus: 'En Proceso',
       serviceType: 'Logística Integral',
@@ -127,6 +125,9 @@ async function getPDFData(file, lang = 'es') {
     },
     'Aviso de Embarque': {
       ...baseData,
+      incotermDeliveryDate: getWeekOfYear(orderDetail?.fecha_eta, lang),
+      etd: orderDetail?.fecha_etd,
+      eta: orderDetail?.fecha_eta,
       portOfShipment: 'Puerto de Valparaíso',
       vesselName: 'M/V Gelymar Express',
       containerNumber: `GEL-${Math.floor(Math.random() * 900000) + 100000}`,
@@ -136,7 +137,7 @@ async function getPDFData(file, lang = 'es') {
       totalVolume: orderItems.reduce((sum, item) => sum + (item.volumen || 0), 0),
       specialInstructions: 'Manejar con cuidado. Mercancía frágil.'
     },
-    'Aviso de entrega': {
+    'Aviso de Entrega': {
       ...baseData,
       items: orderItems,
       processingStatus: 'Recibido y Validado',
@@ -149,12 +150,18 @@ async function getPDFData(file, lang = 'es') {
       estimatedVolume: orderItems.reduce((sum, item) => sum + (item.volumen || 0), 0),
       packageCount: orderItems.length,
       dimensions: 'Variable según producto'
-    }
+    },
   };
 
-  // Agregar traducciones
+  // Agregar traducciones según el tipo de documento
   const { getDocumentTranslations } = require('../pdf-generator/i18n');
-  const translations = getDocumentTranslations('aviso_recepcion', lang);
+  let translationKey = 'aviso_recepcion'; // Default
+  
+  if (file.name === 'Aviso de Embarque') {
+    translationKey = 'aviso_embarque';
+  }
+  
+  const translations = getDocumentTranslations(translationKey, lang);
   
   const result = specificData[file.name] || baseData;
   return {
@@ -220,7 +227,7 @@ exports.handleUpload = async (req, res) => {
     // Obtener el file_identifier para esta orden (el más reciente)
     const [[latestFile]] = await pool.query(`
       SELECT file_identifier 
-      FROM files 
+      FROM order_files 
       WHERE order_id = ? AND file_identifier IS NOT NULL
       ORDER BY file_identifier DESC 
       LIMIT 1
@@ -237,7 +244,7 @@ exports.handleUpload = async (req, res) => {
       // Buscar el último identificador usado para este PC
       const [[lastPCFile]] = await pool.query(`
         SELECT file_identifier 
-        FROM files 
+        FROM order_files 
         WHERE pc = ? AND file_identifier IS NOT NULL
         ORDER BY file_identifier DESC 
         LIMIT 1
@@ -453,27 +460,21 @@ exports.tempViewFile = async (req, res) => {
  * @access Público (solo con token válido)
  */
 exports.viewWithToken = async (req, res) => {
-  console.log(`🔍 [viewWithToken] ENDPOINT LLAMADO - URL: ${req.originalUrl}`);
   const { id } = req.params;
   const { token } = req.query;
-  
-  console.log(`🔍 [viewWithToken] Iniciando - id: ${id}, token: ${token ? 'presente' : 'ausente'}`);
   
   try {
     // Verificar token JWT
     if (!token) {
-      console.log(`🔍 [viewWithToken] No hay token`);
       return res.status(401).json({ message: 'Token requerido' });
     }
     
     // Verificar token JWT
     const jwt = require('jsonwebtoken');
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log(`🔍 [viewWithToken] Token decodificado:`, decoded);
     
     // Obtener información del archivo
     const file = await fileService.getFileById(id);
-    console.log(`🔍 [viewWithToken] Archivo encontrado:`, file ? 'Sí' : 'No');
     if (!file) {
       return res.status(404).json({ message: 'Archivo no encontrado' });
     }
@@ -481,47 +482,31 @@ exports.viewWithToken = async (req, res) => {
     // Verificar que el usuario tenga acceso al archivo
     const userId = decoded.id;
     const userRole = decoded.role;
-    console.log(`🔍 [viewWithToken] userId: ${userId}, userRole: ${userRole}`);
     
     // Si es admin, puede acceder a todos los archivos
     if (userRole !== 'admin') {
       const pool = await poolPromise;
       
-      console.log(`🔍 [viewWithToken] Debug - userId: ${userId}, userRole: ${userRole}, fileId: ${id}`);
-      
-             // Primero obtener el customer del usuario
-             const userCustomerQuery = `
-               SELECT c.id, c.rut, c.name 
-               FROM customers c
-               JOIN users u ON u.email = c.rut
-               WHERE u.id = ?
-             `;
-             console.log(`🔍 [viewWithToken] Query userCustomer:`, userCustomerQuery);
-             console.log(`🔍 [viewWithToken] Parámetros userCustomer:`, [userId]);
-             
-             const [[userCustomer]] = await pool.query(userCustomerQuery, [userId]);
-             
-             console.log(`🔍 [viewWithToken] userCustomer result:`, userCustomer);
+      // Primero obtener el customer del usuario
+      const [[userCustomer]] = await pool.query(`
+        SELECT c.id, c.rut, c.name 
+        FROM customers c
+        JOIN users u ON u.email = c.rut
+        WHERE u.id = ?
+      `, [userId]);
       
       if (!userCustomer) {
-        console.log(`🔍 [viewWithToken] No se encontró customer para usuario ${userId}`);
         return res.status(403).json({ message: 'No tienes permisos para acceder a este archivo' });
       }
       
-             // Verificar que el archivo pertenece a una orden del customer
-             const customerCheckQuery = `
-               SELECT f.id, f.name, o.id as order_id, c.id as customer_id
-               FROM files f
-               JOIN orders o ON f.order_id = o.id
-               JOIN customers c ON o.customer_id = c.id
-               WHERE f.id = ? AND c.id = ?
-             `;
-             console.log(`🔍 [viewWithToken] Query customerCheck:`, customerCheckQuery);
-             console.log(`🔍 [viewWithToken] Parámetros customerCheck:`, [id, userCustomer.id]);
-             
-             const [[customerCheck]] = await pool.query(customerCheckQuery, [id, userCustomer.id]);
-             
-             console.log(`🔍 [viewWithToken] customerCheck result:`, customerCheck);
+      // Verificar que el archivo pertenece a una orden del customer
+      const [[customerCheck]] = await pool.query(`
+        SELECT f.id, f.name, o.id as order_id, c.id as customer_id
+        FROM order_files f
+        JOIN orders o ON f.order_id = o.id
+        JOIN customers c ON o.customer_id = c.id
+        WHERE f.id = ? AND c.id = ?
+      `, [id, userCustomer.id]);
       
       if (!customerCheck) {
         return res.status(403).json({ message: 'No tienes permisos para acceder a este archivo' });
@@ -903,6 +888,223 @@ exports.createDefaultFiles = async (req, res) => {
     logger.error(`Error creando archivos por defecto para orden ${orderId}: ${error.message}`);
     res.status(500).json({ 
       message: 'Error al crear archivos por defecto', 
+      error: error.message 
+    });
+  }
+};
+
+// Nuevo endpoint para procesar órdenes nuevas y enviar recepción de orden
+exports.processNewOrdersAndSendReception = async (req, res) => {
+  try {
+    const { poolPromise } = require('../config/db');
+    const {
+      getNewOrders,
+      getOrderData,
+      getReceptionFile,
+      getCustomerEmail,
+      markOrderAsSent
+    } = require('../services/checkOrderReception.service');
+    const { getOrderDataForPDF } = require('../services/file.service');
+    const { generateRecepcionOrden } = require('../pdf-generator/generator');
+    const { sendFileToClient } = require('../services/email.service');
+    const fs = require('fs');
+    const path = require('path');
+
+    console.log('Iniciando procesamiento de órdenes nuevas...');
+    
+    // 1. Obtener order_ids de new_orders
+    const orderIds = await getNewOrders();
+    
+    if (orderIds.length === 0) {
+      return res.status(200).json({ 
+        message: 'No hay órdenes nuevas para procesar',
+        processed: 0 
+      });
+    }
+    
+    console.log(`Se encontraron ${orderIds.length} órdenes nuevas`);
+    
+    let processed = 0;
+    let errors = 0;
+    
+    // 2. Procesar cada orden
+    for (const orderId of orderIds) {
+      try {
+        console.log(`Procesando orden ${orderId}...`);
+        
+        // 3. Obtener datos de la orden (rut, customer_id)
+        const orderData = await getOrderData(orderId);
+        if (!orderData) {
+          console.error(`No se encontraron datos para orden ${orderId}`);
+          errors++;
+          continue;
+        }
+        
+        // 4. Verificar si existen archivos por defecto, si no, crearlos
+        console.log(`Verificando archivos por defecto para orden ${orderId}...`);
+        const existingFiles = await fileService.getFilesByFolderId(orderId);
+        
+        if (existingFiles.length === 0) {
+          console.log(`No hay archivos para orden ${orderId}, creando archivos por defecto...`);
+          
+          // Obtener datos completos de la orden para crear archivos
+          const pool = await poolPromise;
+          const [[fullOrderData]] = await pool.query(`
+            SELECT o.*, c.name as customer_name 
+            FROM orders o
+            JOIN customers c ON o.customer_id = c.id
+            WHERE o.id = ?
+          `, [orderId]);
+          
+          if (!fullOrderData) {
+            console.error(`No se encontraron datos completos para orden ${orderId}`);
+            errors++;
+            continue;
+          }
+          
+          // Crear archivos por defecto
+          await fileService.createDefaultFilesForOrder(
+            orderId,
+            fullOrderData.customer_name,
+            fullOrderData.pc,
+            fullOrderData.oc
+          );
+          console.log(`Archivos por defecto creados para orden ${orderId}`);
+        } else {
+          console.log(`Ya existen ${existingFiles.length} archivos para orden ${orderId}`);
+        }
+        
+        // 5. Obtener archivo de recepción (id, path)
+        const receptionFile = await getReceptionFile(orderId);
+        if (!receptionFile) {
+          console.error(`No se encontró archivo de recepción para orden ${orderId}`);
+          errors++;
+          continue;
+        }
+        
+        console.log(`Archivo de recepción encontrado:`, {
+          id: receptionFile.id,
+          path: receptionFile.path
+        });
+        
+        // 6. Obtener email del cliente
+        const customerData = await getCustomerEmail(orderData.customer_id, orderData.rut);
+        if (!customerData || !customerData.email) {
+          console.error(`No se encontró email para cliente ${orderData.customer_id}`);
+          errors++;
+          continue;
+        }
+        const customerEmail = customerData.email;
+        const customerLang = customerData.lang || 'en'; // Usar idioma del cliente o inglés por defecto
+
+        // 7. Generar archivo PDF usando el mismo flujo que el botón
+        console.log(`Generando archivo PDF para orden ${orderId}...`);
+        
+        // Obtener el archivo completo (como lo hace el botón)
+        console.log(`Buscando archivo con ID: ${receptionFile.id}`);
+        const file = await fileService.getFileById(receptionFile.id);
+        if (!file) {
+          console.error(`No se encontró archivo con ID ${receptionFile.id} para orden ${orderId}`);
+          errors++;
+          continue;
+        }
+        
+        console.log(`Archivo encontrado:`, {
+          id: file.id,
+          name: file.name,
+          order_id: file.order_id,
+          pc: file.pc,
+          oc: file.oc,
+          customer_name: file.customer_name
+        });
+        
+        // Usar el mismo flujo que generateFile
+        const FILE_SERVER_ROOT = process.env.FILE_SERVER_ROOT || '/var/www/html';
+        const cleanCustomerName = cleanDirectoryName(file.customer_name);
+        const cleanFolderName = cleanDirectoryName(file.pc);
+        
+        // Usar file_identifier si existe, sino usar solo PC
+        const folderName = file.file_identifier ? `${cleanFolderName}_${file.file_identifier}` : cleanFolderName;
+        const customerFolder = path.join(FILE_SERVER_ROOT, 'uploads', cleanCustomerName, folderName);
+        
+        // Crear directorio si no existe
+        if (!fs.existsSync(customerFolder)) {
+          fs.mkdirSync(customerFolder, { recursive: true });
+          console.log(`Directorio creado: ${customerFolder}`);
+        }
+
+        const fileName = `${file.name}.pdf`;
+        const filePath = path.join(customerFolder, fileName);
+
+        // Obtener el generador correspondiente según el nombre del documento
+        const generator = getDocumentGenerator(file.name);
+        
+        // Obtener datos reales de la BD usando getPDFData
+        const pdfData = await getPDFData(file, customerLang); // Usar idioma del cliente
+        
+        let updateData;
+        
+        try {
+          // Generar el PDF con el generador y datos correspondientes
+          await generator(filePath, pdfData);
+          console.log(`PDF generado: ${filePath}`);
+          
+          // Actualizar el archivo en la BD
+          updateData = {
+            id: file.id,
+            status_id: 2,
+            updated_at: new Date(),
+            path: path.relative(FILE_SERVER_ROOT, filePath)
+          };
+          await fileService.updateFile(updateData);
+          
+        } catch (pdfError) {
+          console.error(`Error generando PDF para orden ${orderId}:`, pdfError.message);
+          console.error(`Stack trace:`, pdfError.stack);
+          errors++;
+          continue;
+        }
+        
+        // 8. Preparar datos para envío
+        const fileData = {
+          id: file.id,
+          name: file.name,
+          path: updateData.path, // Usar la ruta del PDF generado desde updateData
+          customer_email: customerEmail,
+          customer_name: file.customer_name
+        };
+        
+        // 9. Enviar correo
+        console.log(`Enviando correo a ${customerEmail} para orden ${orderId}`);
+        await sendFileToClient(fileData);
+        
+        // 10. Marcar orden como enviada
+        await markOrderAsSent(orderId);
+        console.log(`Orden ${orderId} marcada como enviada`);
+        
+        console.log(`Orden ${orderId} procesada exitosamente`);
+        processed++;
+        
+      } catch (error) {
+        console.error(`Error procesando orden ${orderId}:`, error.message);
+        errors++;
+        // Continuar con la siguiente orden
+      }
+    }
+    
+    console.log('Procesamiento de órdenes nuevas completado');
+    
+    res.status(200).json({
+      message: 'Procesamiento de órdenes nuevas completado',
+      processed,
+      errors,
+      total: orderIds.length
+    });
+
+  } catch (error) {
+    console.error('Error en processNewOrdersAndSendReception:', error);
+    res.status(500).json({ 
+      message: 'Error al procesar órdenes nuevas', 
       error: error.message 
     });
   }

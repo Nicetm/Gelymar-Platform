@@ -123,7 +123,7 @@ async function checkExistingFiles(orderId, pc) {
   
   try {
     const [rows] = await pool.query(`
-      SELECT f.* FROM files f 
+      SELECT f.* FROM order_files f 
       WHERE f.order_id = ? AND f.pc = ?
     `, [orderId, pc]);
     
@@ -142,7 +142,7 @@ async function insertDefaultFile(fileData) {
   
   try {
     const query = `
-      INSERT INTO files (
+      INSERT INTO order_files (
         order_id, pc, oc, name, path, eta, etd, was_sent, 
         document_type, file_type, status_id, is_visible_to_client, 
         created_at, updated_at

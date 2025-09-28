@@ -79,7 +79,7 @@ async function createFolder({ customer_id, name, path }) {
 
   for (const file of filesToInsert) {
     await pool.query(
-      `INSERT INTO files (folder_id, name, path, was_sent, document_type, file_type, status_id)
+      `INSERT INTO order_files (folder_id, name, path, was_sent, document_type, file_type, status_id)
        VALUES (?, ?, NULL, NULL, NULL, NULL, NULL, NULL, 1)`,
       [folderId, file.name]
     );

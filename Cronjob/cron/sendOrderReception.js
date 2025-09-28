@@ -11,15 +11,38 @@ const emitReady = () => {
   }
 };
 
+// Función para procesar órdenes nuevas y enviar correos
+async function processNewOrdersAndSendEmails() {
+  try {
+    console.log('Iniciando procesamiento de órdenes nuevas...');
+    
+    // Llamar al endpoint del backend que ya tiene toda la lógica
+    const url = `${BACKEND_API_URL}/api/cron/process-new-orders`;
+    console.log(`Llamando al endpoint: ${url}`);
+    
+    const response = await axios.post(url, {}, {
+      timeout: 300000, // 5 minutos
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    console.log('Procesamiento de órdenes nuevas completado:', response.data);
+    
+  } catch (error) {
+    console.error('Error en procesamiento de órdenes nuevas:', error.message);
+    if (error.response) {
+      console.error('Respuesta del servidor:', error.response.data);
+    }
+  }
+}
+
 // Función para ejecutar con manejo de errores
 async function executeWithErrorHandling() {
   try {
-    console.log('Llamando al endpoint de envío de documentos de recepción...');
-    const response = await axios.post(`${BACKEND_API_URL}/api/cron/send-order-reception`);
-    console.log('Envío de documentos de recepción completado');
+    await processNewOrdersAndSendEmails();
   } catch (error) {
-    console.error('Error en envío de documentos de recepción:', error.message);
-    console.log('Continuando con el siguiente proceso...');
+    console.error('Error en procesamiento:', error.message);
   } finally {
     emitReady();
   }
@@ -30,7 +53,7 @@ const arg = process.argv[2];
 console.log('Argumento recibido:', arg);
 
 if (arg === 'execute-now') {
-  console.log('👉 Ejecutando envío de documentos de recepción inmediatamente...');
+  console.log('👉 Ejecutando procesamiento de órdenes nuevas inmediatamente...');
   executeWithErrorHandling();
 } else {
   console.log('👉 Modo normal (ejecución programada o sin argumentos)');
@@ -38,13 +61,12 @@ if (arg === 'execute-now') {
 }
 
 // Cron independiente - se ejecuta diariamente a las 8 AM
-cron.schedule('0 8 * * *', async () => {
-  console.log(`[${new Date().toISOString()}] Iniciando envío de documentos de recepción...`);
+cron.schedule('36 14 * * *', async () => {
+  console.log(`[${new Date().toISOString()}] Iniciando procesamiento de órdenes nuevas...`);
   try {
-    console.log('Llamando al endpoint de envío de documentos de recepción...');
-    const response = await axios.post(`${BACKEND_API_URL}/api/cron/send-order-reception`);
-    console.log(`[${new Date().toISOString()}] Envío de documentos de recepción completado.`);
+    await processNewOrdersAndSendEmails();
+    console.log(`[${new Date().toISOString()}] Procesamiento de órdenes nuevas completado`);
   } catch (error) {
-    console.error(`[${new Date().toISOString()}] Error en envío de documentos de recepción:`, error.message);
+    console.error(`[${new Date().toISOString()}] Error en procesamiento de órdenes nuevas:`, error.message);
   }
 });

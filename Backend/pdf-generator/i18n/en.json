@@ -24,5 +24,31 @@
     "signature_name": "Carla Torres",
     "signature_role": "Customer Service",
     "footer": "GELYMAR S.A.  |  www.gelymar.com | carla.torres@gelymar.com  |  Page"
+  },
+  "aviso_embarque": {
+    "title": "SHIPMENT NOTICE",
+    "introduction": "Through this document, we inform you that your purchase order will be dispatched under the following conditions:",
+    "info_section_title": "DOCUMENT INFORMATION",
+    "client": "Client:",
+    "internal_order": "Internal order number:",
+    "order_number": "Order Number:",
+    "destination_port": "Destination Port:",
+    "incoterm_delivery": "Incoterm delivery date:",
+    "etd": "ETD:",
+    "eta": "ETA:",
+    "date": "Date:",
+    "incoterm": "Incoterm:",
+    "shipping_method": "Shipping method:",
+    "products_detail": "PRODUCT DETAILS",
+    "product": "PRODUCT",
+    "quantity": "QUANTITY (billed kgs)",
+    "price": "PRICE",
+    "total": "TOTAL",
+    "total_general": "GENERAL TOTAL",
+    "consultas": "For additional inquiries, please contact the operations department.",
+    "signature_title": "AUTHORIZED SIGNATURE",
+    "signature_name": "Carla Torres",
+    "signature_role": "Customer Service",
+    "footer": "GELYMAR S.A.  |  www.gelymar.com | carla.torres@gelymar.com  |  Page"
   }
 }

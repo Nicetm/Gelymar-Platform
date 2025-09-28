@@ -150,7 +150,7 @@ const getClientOrderDocuments = async (orderId, customerUUID) => {
       o.factura,
       o.fecha_factura,
       s.name AS status
-    FROM files f
+    FROM order_files f
     LEFT JOIN order_status s ON f.status_id = s.id
     LEFT JOIN orders o ON f.order_id = o.id
     WHERE f.order_id = ? AND f.is_visible_to_client = 1
@@ -197,7 +197,7 @@ const insertOrder = async (data) => {
     
     const query = `
       INSERT INTO orders (
-        customer_id, rut, pc, oc, factura, fecha_factura, fecha_ingreso, csv_row_hash, csv_file_timestamp, created_at, updated_at
+        customer_id, rut, pc, oc, factura, fecha_factura, fecha_ingreso, linea, unique_key, created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
     `;
 
@@ -209,8 +209,8 @@ const insertOrder = async (data) => {
       data.factura,
       data.fecha_factura,
       data.fecha_ingreso,
-      data.csv_row_hash || null,
-      data.csv_file_timestamp || null
+      data.linea,
+      data.unique_key
     ];
 
     const [result] = await pool.query(query, params);
@@ -265,7 +265,6 @@ const getOrderItems = async (orderPc, orderOc, factura, user) => {
       JOIN customers c ON o.customer_id = c.id
       WHERE o.pc = ? AND o.oc = ? AND (o.factura = ? OR (o.factura IS NULL AND ? = 'null'))
     `;
-    console.log('orderPc', orderPc, 'orderOc', orderOc, 'factura', factura);
     
     const [orderRows] = await pool.query(orderQuery, [orderPc, orderOc, factura, factura]);
     

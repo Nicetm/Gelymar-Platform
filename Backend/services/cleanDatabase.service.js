@@ -5,33 +5,19 @@ const path = require('path');
 
 async function cleanDatabaseAndDirectories() {
   try {
-    console.log('Iniciando limpieza de base de datos y directorios...');
+    console.log('Iniciando limpieza de base de datos...');
     
     const pool = await poolPromise;
-    
-    // 1. Limpiar directorios físicos
-    console.log('Limpiando directorios físicos...');
-    const uploadsPath = process.env.FILE_SERVER_ROOT || 'C:\\xampp\\htdocs\\gelymar\\uploads';
-    
-    if (fs.existsSync(uploadsPath)) {
-      try {
-        await fs.emptyDir(uploadsPath);
-        console.log(`Directorio ${uploadsPath} limpiado correctamente`);
-      } catch (error) {
-        console.error(`Error limpiando directorio ${uploadsPath}:`, error.message);
-      }
-    } else {
-      console.log(`Directorio ${uploadsPath} no existe, se creará automáticamente`);
-    }
-    
-    // 2. Limpiar base de datos en orden correcto (por foreign keys)
+       
+    // Limpiar base de datos en orden correcto (por foreign keys)
     console.log('Limpiando base de datos...');
     
     // Deshabilitar verificación de foreign keys temporalmente
     await pool.query('SET FOREIGN_KEY_CHECKS = 0');
     
     // Limpiar tablas en orden
-    const tablesToClean = ['order_items', 'order_detail', 'orders', 'customers'];
+    //const tablesToClean = ['order_items', 'order_detail', 'orders', 'customers', 'items'];
+    const tablesToClean = [];
     
     for (const table of tablesToClean) {
       try {
@@ -63,10 +49,10 @@ async function cleanDatabaseAndDirectories() {
     // Habilitar verificación de foreign keys
     await pool.query('SET FOREIGN_KEY_CHECKS = 1');
     
-    console.log('Limpieza completada exitosamente');
+    console.log('Limpieza de base de datos completada exitosamente');
     
   } catch (error) {
-    console.error('Error en limpieza de base de datos y directorios:', error.message);
+    console.error('Error en limpieza de base de datos:', error.message);
   }
 }
 

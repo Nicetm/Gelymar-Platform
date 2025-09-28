@@ -35,7 +35,7 @@ const insertFile = async ({
   const realCustomerId = rows[0].id;
 
   const [result] = await pool.query(
-    `INSERT INTO files (
+    `INSERT INTO order_files (
       order_id, pc, oc, name, path, file_identifier,
       created_at, updated_at, was_sent, 
       document_type, file_type, status_id
@@ -57,7 +57,7 @@ const insertFile = async ({
 const RenameFile = async (id, newName, visible) => {
   const pool = await poolPromise;
 
-  let sql = 'UPDATE files SET name = ?, updated_at = NOW()';
+  let sql = 'UPDATE order_files SET name = ?, updated_at = NOW()';
   const params = [newName];
 
   if (visible !== undefined && visible !== null && visible !== '') {
@@ -81,11 +81,11 @@ const deleteFileById = async (id) => {
   const pool = await poolPromise;
 
   // Obtener la ruta del archivo antes de eliminar
-  const [rows] = await pool.query('SELECT path FROM files WHERE id = ?', [id]);
+  const [rows] = await pool.query('SELECT path FROM order_files WHERE id = ?', [id]);
   if (rows.length === 0) return false;
 
   // Eliminar de la BD
-  await pool.query('DELETE FROM files WHERE id = ?', [id]);
+  await pool.query('DELETE FROM order_files WHERE id = ?', [id]);
 
   return true;
 };
@@ -105,7 +105,7 @@ const getFiles = async (customerId, folderId) => {
         os.name AS status_name,
         o.pc,
         o.oc
-     FROM files f
+     FROM order_files f
      LEFT JOIN order_status os ON f.status_id = os.id
      JOIN orders o ON f.order_id = o.id
      WHERE f.order_id = ?
@@ -125,7 +125,7 @@ const getFileCountByCustomer = async (customerId) => {
 
   const [rows] = await pool.query(`
     SELECT f.order_id, COUNT(*) AS fileCount
-    FROM files f
+    FROM order_files f
     INNER JOIN orders o ON f.order_id = o.id
     WHERE o.customer_id = ?
     GROUP BY f.order_id
@@ -147,7 +147,7 @@ const getFileById = async(id) => {
       c.name AS customer_name, 
       cc.primary_email AS customer_email,
       GROUP_CONCAT(cc.contact_email SEPARATOR ',') AS contact_emails
-    FROM files f
+    FROM order_files f
     JOIN orders fd ON f.order_id = fd.id
     JOIN customers c ON fd.customer_id = c.id
     LEFT JOIN customer_contacts cc ON c.id = cc.customer_id
@@ -163,7 +163,7 @@ const getFileById = async(id) => {
 const updateFile = async(data) => {
   const pool = await poolPromise;
   await pool.query(`
-    UPDATE files 
+    UPDATE order_files 
     SET status_id = ?, updated_at = ?, path = ?, file_type = 'PDF'
     WHERE id = ?
   `, [data.status_id, data.updated_at, data.path, data.id]);
@@ -176,14 +176,14 @@ const duplicateFile = async (fileId) => {
   console.log('Duplicando archivo con ID:', fileId);
 
   // Leer el registro original
-  const [rows] = await pool.query(`SELECT * FROM files WHERE id = ?`, [fileId]);
+  const [rows] = await pool.query(`SELECT * FROM order_files WHERE id = ?`, [fileId]);
   if (rows.length === 0) throw new Error('Archivo original no encontrado');
 
   const file = rows[0];
 
   // Insertar el nuevo registro duplicado
   const [result] = await pool.query(`
-    INSERT INTO files (
+    INSERT INTO order_files (
       order_id, pc, oc, name, path, 
       created_at, updated_at, was_sent, 
       document_type, file_type, status_id, is_visible_to_client
@@ -230,7 +230,7 @@ const getNextFolderId = async () => {
   const pool = await poolPromise;
   
   // Obtener el máximo order_id actual
-  const [rows] = await pool.query('SELECT MAX(order_id) as max_order_id FROM files');
+  const [rows] = await pool.query('SELECT MAX(order_id) as max_order_id FROM order_files');
   const maxOrderId = rows[0].max_order_id || 4800; // Si no hay registros, empezar en 4800
   
   return maxOrderId + 1;
@@ -242,7 +242,7 @@ const getNextFolderId = async () => {
  */
 const getAllFiles = async () => {
   const pool = await poolPromise;
-  const [rows] = await pool.query('SELECT * FROM files ORDER BY created_at DESC');
+  const [rows] = await pool.query('SELECT * FROM order_files ORDER BY created_at DESC');
   return rows;
 };
 
@@ -253,7 +253,7 @@ const getAllFiles = async () => {
  */
 const getFilesByFolderId = async (orderId) => {
   const pool = await poolPromise;
-  const [rows] = await pool.query('SELECT * FROM files WHERE order_id = ?', [orderId]);
+  const [rows] = await pool.query('SELECT * FROM order_files WHERE order_id = ?', [orderId]);
   return rows;
 };
 
@@ -355,7 +355,7 @@ const getNextFileIdentifier = async (pc) => {
     // Buscar el último identificador usado para este PC
     const [rows] = await pool.query(`
       SELECT file_identifier 
-      FROM files 
+      FROM order_files 
       WHERE pc = ? AND file_identifier IS NOT NULL
       ORDER BY file_identifier DESC 
       LIMIT 1
@@ -387,7 +387,7 @@ const insertDefaultFile = async (fileData) => {
   
   try {
     const query = `
-      INSERT INTO files (
+      INSERT INTO order_files (
         order_id, pc, oc, name, path, file_identifier, was_sent, 
         document_type, file_type, status_id, is_visible_to_client, 
         created_at, updated_at
@@ -421,18 +421,11 @@ const insertDefaultFile = async (fileData) => {
  */
 const createClientDirectory = async (customerName, pc, fileIdentifier) => {
   try {
-    const fileServerRoot = process.env.FILE_SERVER_ROOT || '/var/www/html';
-    
-    if (!fileServerRoot) {
-      console.error('FILE_SERVER_ROOT no está configurado en .env');
-      return null;
-    }
-
     // Limpiar nombre del cliente para usar como nombre de directorio
     const cleanCustomerName = cleanDirectoryName(customerName);
 
-    // Crear ruta del directorio: /uploads/CLIENTE_NOMBRE/Numero PC_Identificador
-    const directoryPath = path.join(fileServerRoot, 'uploads', cleanCustomerName, `${pc}_${fileIdentifier}`);
+    // Crear ruta del directorio: uploads/CLIENTE_NOMBRE/Numero PC_Identificador
+    const directoryPath = path.join('uploads', cleanCustomerName, `${pc}_${fileIdentifier}`);
     
     // Verificar si el directorio ya existe
     try {
@@ -452,6 +445,105 @@ const createClientDirectory = async (customerName, pc, fileIdentifier) => {
   }
 };
 
+// Función para obtener email del cliente por order_id
+const getCustomerEmailByOrderId = async (orderId) => {
+  try {
+    const pool = await poolPromise;
+    const [rows] = await pool.query(`
+      SELECT c.email 
+      FROM customers c
+      JOIN orders o ON c.id = o.customer_id
+      WHERE o.id = ?
+    `, [orderId]);
+    
+    return rows[0]?.email || null;
+  } catch (error) {
+    console.error('Error obteniendo email del cliente:', error);
+    return null;
+  }
+};
+
+// Función para marcar archivo como visible al cliente
+const markFileAsVisibleToClient = async (fileId) => {
+  try {
+    const pool = await poolPromise;
+    await pool.query(
+      'UPDATE order_files SET is_visible_to_client = 1 WHERE id = ?',
+      [fileId]
+    );
+    console.log(`Archivo ${fileId} marcado como visible al cliente`);
+  } catch (error) {
+    console.error('Error marcando archivo como visible:', error);
+    throw error;
+  }
+};
+
+// Función para obtener datos completos de la orden para PDF
+const getOrderDataForPDF = async (orderId) => {
+  try {
+    const pool = await poolPromise;
+    const [rows] = await pool.query(`
+      SELECT 
+        o.*,
+        c.name as customer_name,
+        c.email as customer_email,
+        c.rut as customer_rut,
+        c.address as customer_address,
+        c.city as customer_city,
+        c.country as customer_country,
+        od.*
+      FROM orders o
+      JOIN customers c ON o.customer_id = c.id
+      LEFT JOIN order_detail od ON o.id = od.order_id
+      WHERE o.id = ?
+    `, [orderId]);
+    
+    return rows[0] || null;
+  } catch (error) {
+    console.error('Error obteniendo datos de la orden para PDF:', error);
+    return null;
+  }
+};
+
+// Función para crear archivos por defecto si no existen
+const createDefaultFilesIfNotExist = async (orderId) => {
+  try {
+    // Verificar si ya existen archivos para esta orden
+    const existingFiles = await getFilesByFolderId(orderId);
+    if (existingFiles.length > 0) {
+      console.log(`Archivos ya existen para orden ${orderId}`);
+      return existingFiles;
+    }
+
+    // Obtener información de la orden y cliente
+    const pool = await poolPromise;
+    const [[order]] = await pool.query(`
+      SELECT o.*, c.name as customer_name 
+      FROM orders o
+      JOIN customers c ON o.customer_id = c.id
+      WHERE o.id = ?
+    `, [orderId]);
+
+    if (!order) {
+      throw new Error('Orden no encontrada');
+    }
+
+    // Crear archivos por defecto usando la función existente
+    const result = await createDefaultFilesForOrder(
+      orderId,
+      order.customer_name,
+      order.pc,
+      order.oc
+    );
+
+    console.log(`Archivos por defecto creados para orden ${orderId}: ${result.filesCreated} archivos`);
+    return result.files;
+  } catch (error) {
+    console.error(`Error creando archivos por defecto para orden ${orderId}:`, error.message);
+    throw error;
+  }
+};
+
 module.exports = {
   RenameFile,
   getFileById,
@@ -468,5 +560,9 @@ module.exports = {
   createDefaultFilesForOrder,
   insertDefaultFile,
   createClientDirectory,
-  getNextFileIdentifier
+  getNextFileIdentifier,
+  getCustomerEmailByOrderId,
+  markFileAsVisibleToClient,
+  getOrderDataForPDF,
+  createDefaultFilesIfNotExist
 };

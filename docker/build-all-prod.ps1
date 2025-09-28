@@ -19,7 +19,7 @@ if ($LASTEXITCODE -eq 0) {
 
 # 2. phpMyAdmin (etiquetar imagen existente)
 Write-Host "📦 Etiquetando phpMyAdmin..." -ForegroundColor Yellow
-docker tag phpmyadmin/phpmyadmin:latest nicetm/gelymar-platform:phpmyadmin-prod
+docker tag phpmyadmin:5.2.1 nicetm/gelymar-platform:phpmyadmin-prod
 if ($LASTEXITCODE -eq 0) {
     Write-Host "✅ phpMyAdmin etiquetado" -ForegroundColor Green
 } else {

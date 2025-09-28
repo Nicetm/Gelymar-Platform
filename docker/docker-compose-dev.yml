@@ -10,6 +10,8 @@ services:
       - TZ=America/Santiago
       - MYSQL_ROOT_PASSWORD=${DB_PASS}
       - MYSQL_DATABASE=${DB_NAME}
+      - MYSQL_USER=${DB_USER}
+      - MYSQL_PASSWORD=${DB_PASS}
     command: ["--default-time-zone=America/Santiago"]
     ports:
       - "${DB_PORT}:3306"
@@ -19,9 +21,10 @@ services:
     networks:
       - gelymar-network-dev
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      timeout: 20s
-      retries: 10
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "--password=${DB_PASS}"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
 
   # Capa File Server
   fileserver:
@@ -177,7 +180,7 @@ services:
 
   # phpMyAdmin
   phpmyadmin:
-    image: phpmyadmin/phpmyadmin:latest
+    image: phpmyadmin:5.2.1
     container_name: gelymar-platform-phpmyadmin-dev
     restart: unless-stopped
     ports:

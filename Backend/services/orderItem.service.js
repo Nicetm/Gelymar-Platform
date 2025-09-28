@@ -12,18 +12,19 @@ const insertOrderLine = async (data) => {
     
     const query = `
       INSERT INTO order_items (
-        order_id, pc, linea, factura, localizacion, item_id, descripcion, 
+        order_id, pc, linea, sublinea, factura, localizacion, item_id, descripcion, 
         kg_solicitados, kg_despachados, unit_price, observacion, 
         mercado, embalaje, volumen, etiqueta, kto_etiqueta5, 
-        tipo, fecha_etd, fecha_eta, kg_facturados,
+        tipo, fecha_etd, fecha_eta, kg_facturados, unique_key,
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
     `;
 
     const params = [
       data.order_id,
       data.pc,
       data.linea,
+      data.sublinea,
       data.factura,
       data.localizacion,
       data.item_id,
@@ -40,7 +41,8 @@ const insertOrderLine = async (data) => {
       data.tipo,
       data.fecha_etd,
       data.fecha_eta,
-      data.kg_facturados
+      data.kg_facturados,
+      data.unique_key
     ];
 
     const [result] = await pool.query(query, params);
