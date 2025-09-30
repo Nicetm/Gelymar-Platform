@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="{{lang}}">
+<head>
+  <meta charset="UTF-8" />
+  <title>{{subject}}</title>
+</head>
+<body style="font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;color:#333;max-width:600px;margin:0 auto;padding:20px">
+
+  <!-- Logo -->
+  <div style="text-align:center;margin-bottom:20px">
+    <img src="{{logoUrl}}" alt="Gelymar Logo" style="max-width:200px;height:auto">
+  </div>
+
+  <!-- Header -->
+  <div style="background:#F4940C;padding:20px;border-radius:8px 8px 0 0;text-align:center">
+    <h1 style="color:white;margin:0;font-size:24px">{{title}}</h1>
+  </div>
+  
+  <!-- Content -->
+  <div style="background:#f8fafc;padding:30px;border-radius:0 0 8px 8px;border:1px solid #e2e8f0">
+    
+    <p style="font-size:16px;line-height:1.6;margin-bottom:20px">
+      {{dear}} <strong style="color:#163F6F">{{customerName}}</strong>,
+    </p>
+    
+     <p style="font-size:16px;line-height:1.6;margin-bottom:20px">
+       {{introMessage}}
+     </p>
+     
+     <!-- Highlight box -->
+     <div style="background:white;padding:20px;border-radius:6px;border-left:4px solid #F4940C;margin:20px 0">
+       <p style="font-size:16px;line-height:1.6;margin:0">
+         {{pleaseFindAttached}} <strong style="color:#163F6F">"{{documentName}}"</strong>
+         {{correspondingTo}} {{logisticsManagement}} <strong style="color:#163F6F">{{gelymar}}</strong>.
+       </p>
+     </div>
+     
+     <p style="font-size:16px;line-height:1.6;margin-bottom:20px">
+       {{documentContains}}
+     </p>
+     
+     <p style="font-size:16px;line-height:1.6;margin-bottom:30px">
+       {{questionsContact}}
+     </p>
+     
+     <!-- Signature -->
+     <div style="border-top:2px solid #e2e8f0;padding-top:20px">
+       <p style="font-size:16px;line-height:1.6;margin-bottom:5px">
+         <strong style="color:#163F6F">{{bestRegards}}</strong>
+       </p>
+       <p style="font-size:18px;font-weight:bold;color:#F4940C;margin:5px 0">
+         {{gelymarTeam}}
+       </p>
+       <p style="font-size:14px;color:#64748b;margin:5px 0">
+         {{internationalLogisticsServices}}
+       </p>
+     </div>
+    
+    <!-- Contact box -->
+    <div style="background:#f1f5f9;padding:15px;border-radius:6px;margin-top:20px;text-align:center">
+      <!-- Correo -->
+      <p style="margin:6px 0;font-size:14px; color:#5C5C60">
+        <span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#F4940C;font-weight:bold">e:</span>
+        <a href="mailto:{{contactEmail}}" style="color:#5C5C60;text-decoration:none">{{contactEmail}}</a>
+      </p>
+
+      <!-- Web -->
+      <p style="margin:6px 0;font-size:14px; color:#5C5C60">
+        <span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#F4940C;font-weight:bold">w:</span>
+        <a href="{{contactWebsite}}" style="color:#5C5C60;text-decoration:none">{{contactWebsite}}</a>
+      </p>
+
+      <!-- Teléfono móvil -->
+      <p style="margin:6px 0;font-size:14px; color:#5C5C60">
+        <span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#F4940C;font-weight:bold">t:</span>
+        <a href="tel:{{contactPhone}}" style="color:#5C5C60;text-decoration:none">{{contactPhone}}</a>
+      </p>
+    </div>
+    
+     <!-- Footer -->
+     <div style="border-top:1px solid #e2e8f0;padding-top:15px;margin-top:20px;text-align:center">
+       <p style="font-size:12px;color:#94a3b8;margin:0;font-style:italic">
+         {{disclaimer}}
+       </p>
+     </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,16 @@
+{
+    "mail": {
+        "dear": "Estimados/as",
+        "gelymar": "Gelymar",
+        "gelymarTeam": "Equipo de Gelymar",
+        "internationalLogisticsServices": "Servicios de Logística Internacional",
+        "introMessage": "Confiamos en que al recibir este mensaje se encuentre bien.",
+        "pleaseFindAttached": "Adjunto a este correo encontrarán el documento",
+        "correspondingTo": "correspondiente a su",
+        "logisticsManagement": "proceso logístico con",
+        "documentContains": "Este documento contiene información importante sobre su embarque, por lo que les recomendamos revisarlo con especial atención.",
+        "questionsContact": "Si tienen alguna consulta o requieren información adicional, no duden en comunicarse con nosotros.",
+        "bestRegards": "Saludos cordiales,",
+        "disclaimer": "Este es un correo electrónico automático, por lo que agradeceremos no responder directamente a este mensaje."
+      }
+}

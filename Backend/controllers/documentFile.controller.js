@@ -689,7 +689,7 @@ exports.RenameFile = async (req, res) => {
  */
 exports.generateFile = async (req, res) => {
   const { id } = req.params;
-  const { lang = 'es' } = req.body; // Recibir idioma del frontend
+  const { lang: frontendLang = 'es' } = req.body; // Recibir idioma del frontend como fallback
 
   try {
     const file = await fileService.getFileById(id);
@@ -697,6 +697,9 @@ exports.generateFile = async (req, res) => {
       logger.warn(`Archivo no encontrado ID: ${id}`);
       return res.status(404).json({ message: 'Archivo no encontrado' });
     }
+
+    // Usar el idioma de la BD (country_lang) o el del frontend como fallback
+    const lang = file.lang || frontendLang;
 
     const FILE_SERVER_ROOT = process.env.FILE_SERVER_ROOT || '/var/www/html';
     // Limpiar nombres de directorios para evitar problemas con caracteres especiales

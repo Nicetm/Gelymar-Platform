@@ -145,14 +145,17 @@ const getFileById = async(id) => {
     SELECT 
       f.*, 
       c.name AS customer_name, 
+      c.country,
       cc.primary_email AS customer_email,
+      cl.lang,
       GROUP_CONCAT(cc.contact_email SEPARATOR ',') AS contact_emails
     FROM order_files f
     JOIN orders fd ON f.order_id = fd.id
     JOIN customers c ON fd.customer_id = c.id
+    JOIN country_lang cl on c.country = cl.country
     LEFT JOIN customer_contacts cc ON c.id = cc.customer_id
     WHERE f.id = ?
-    GROUP BY f.id, c.name, cc.primary_email
+    GROUP BY f.id, c.name, cc.primary_email, cl.lang, c.country
   `, [id]);
 
   if (rows.length === 0) return null;
