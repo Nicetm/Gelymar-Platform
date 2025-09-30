@@ -1101,6 +1101,19 @@ export async function initClientsScript() {
   setupModalClose('#changePasswordModal', '#cancelChangePasswordBtn');
 
 
+  // Verificar si hay un filtro guardado desde orders.js
+  const savedFilter = localStorage.getItem('clientSearchFilter');
+  if (savedFilter && searchInput) {
+    searchInput.value = savedFilter;
+    // Limpiar el filtro del localStorage después de usarlo
+    localStorage.removeItem('clientSearchFilter');
+  }
+
   // Cargar y renderizar clientes inicialmente
   await loadAndRenderCustomers();
+  
+  // Aplicar filtro automáticamente si hay uno guardado
+  if (savedFilter && searchInput.value) {
+    filterCustomers();
+  }
 } 

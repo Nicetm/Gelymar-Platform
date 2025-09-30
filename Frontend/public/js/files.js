@@ -471,7 +471,7 @@ export function initFilesScript() {
     const defaultFiles = [
       'Recepcion de orden',
       'Aviso de Embarque', 
-      'Aviso de entrega',
+      'Aviso de Entrega',
       'Aviso de Disponibilidad de Orden'
     ];
     

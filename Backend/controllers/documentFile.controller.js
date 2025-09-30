@@ -7,6 +7,7 @@ const {
   generateRecepcionOrden,
   generateAvisoEmbarque,
   generateAvisoEntrega,
+  generateAvisoDisponibilidad,
   getWeekOfYear,
   formatDateByLanguage
 } = require('../pdf-generator/generator');
@@ -24,12 +25,13 @@ const { validateFilePath, setSecureFilePermissions } = require('../utils/filePer
  */
 function getDocumentGenerator(documentName) {
   const generators = {
-    'Aviso de Recepcion de Orden': generateRecepcionOrden,
+    'Recepcion de orden': generateRecepcionOrden,
     'Aviso de Embarque': generateAvisoEmbarque,
-    'Aviso de Entrega': generateAvisoEntrega
+    'Aviso de Entrega': generateAvisoEntrega,
+    'Aviso de Disponibilidad de Orden': generateAvisoDisponibilidad
   };
   
-  return generators[documentName] || generateAvisoEntrega; // Fallback si no encuentra
+  return generators[documentName] || generateRecepcionOrden; // Fallback si no encuentra
 }
 
 /**
@@ -71,7 +73,8 @@ async function getPDFData(file, lang = 'es') {
       oi.fecha_eta,
       i.item_code,
       i.item_name,
-      i.unidad_medida
+      i.unidad_medida,
+      oi.factura
     FROM order_items oi
     JOIN items i ON oi.item_id = i.id
     JOIN orders o ON oi.order_id = o.id
@@ -92,15 +95,17 @@ async function getPDFData(file, lang = 'es') {
     title: file.name,
     subtitle: `Documento generado para ${order?.customer_name || file.customer_name}`,
     customerName: order?.customer_name || file.customer_name,
-    internalOrderNumber: order?.pc || 'N/A',
+    internalOrderNumber: order?.pc || '-',
     orderNumber: order?.oc,
     responsiblePerson: 'Sistema Gelymar',
-    destinationPort: orderDetail?.puerto_destino || 'N/A',
-    incoterm: orderDetail?.incoterm || 'N/A',
-    shippingMethod: orderDetail?.medio_envio_factura || 'N/A',
-    etd: orderDetail?.fecha_etd || 'N/A',
-    eta: orderDetail?.fecha_eta || 'N/A',
-    incotermDeliveryDate: orderDetail?.semana_42 || 'N/A',
+    destinationPort: orderDetail?.puerto_destino || '-',
+    incoterm: orderDetail?.incoterm || '-',
+    shippingMethod: orderDetail?.medio_envio_factura || '-',
+    etd: orderDetail?.fecha_etd || '-',
+    eta: orderDetail?.fecha_eta || '-',
+    currency: orderDetail?.currency || 'USD',
+    paymentCondition: orderDetail?.condicion_venta || '-',
+    incotermDeliveryDate: getWeekOfYear(orderDetail?.fecha_eta, lang),
     receptionDate,
     shipmentDate,
     estimatedDeparture,
@@ -109,13 +114,14 @@ async function getPDFData(file, lang = 'es') {
     items: orderItems.map(item => ({
       item_name: item.item_name || 'Producto',
       kg_solicitados: item.kg_solicitados || 1,
-      unit_price: item.unit_price || 0
+      unit_price: item.unit_price || 0,
+      factura: item.factura || '-'
     }))
   };
 
   // Datos específicos según el tipo de documento
   const specificData = {
-    'Aviso de Recepcion de Orden': {
+    'Recepcion de orden': {
       ...baseData,
       processingStatus: 'En Proceso',
       serviceType: 'Logística Integral',
@@ -125,7 +131,6 @@ async function getPDFData(file, lang = 'es') {
     },
     'Aviso de Embarque': {
       ...baseData,
-      incotermDeliveryDate: getWeekOfYear(orderDetail?.fecha_eta, lang),
       etd: orderDetail?.fecha_etd,
       eta: orderDetail?.fecha_eta,
       portOfShipment: 'Puerto de Valparaíso',
@@ -140,17 +145,20 @@ async function getPDFData(file, lang = 'es') {
     'Aviso de Entrega': {
       ...baseData,
       items: orderItems,
-      processingStatus: 'Recibido y Validado',
+      processingStatus: 'Entregado',
+      serviceType: 'Servicio Logístico Completo',
+      dimensions: 'Variable según producto',
+      factura: orderDetail?.factura || '-'
+    },
+    'Aviso de Disponibilidad de Orden': {
+      ...baseData,
+      items: orderItems,
+      processingStatus: 'Disponible',
       serviceType: 'Servicio Logístico Completo',
       origin: 'Chile',
       destination: 'Internacional',
-      priority: 'Normal',
-      cargoType: 'Mercancía General',
-      estimatedWeight: orderItems.reduce((sum, item) => sum + (item.kg_solicitados || 0), 0),
-      estimatedVolume: orderItems.reduce((sum, item) => sum + (item.volumen || 0), 0),
-      packageCount: orderItems.length,
-      dimensions: 'Variable según producto'
-    },
+      priority: 'Normal'
+    }
   };
 
   // Agregar traducciones según el tipo de documento
@@ -159,6 +167,10 @@ async function getPDFData(file, lang = 'es') {
   
   if (file.name === 'Aviso de Embarque') {
     translationKey = 'aviso_embarque';
+  } else if (file.name === 'Aviso de Entrega') {
+    translationKey = 'aviso_entrega';
+  } else if (file.name === 'Aviso de Disponibilidad de Orden') {
+    translationKey = 'aviso_disponibilidad';
   }
   
   const translations = getDocumentTranslations(translationKey, lang);

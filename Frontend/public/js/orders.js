@@ -64,9 +64,13 @@ export async function initOrdersScript() {
       <tr data-id="${order.id}" class="hover:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition bg-white dark:bg-gray-900">
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${order.pc || '-'}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${order.oc || '-'}</td>
-        <td class="px-4 py-3 break-all text-blue-600 dark:text-blue-400 border-b border-gray-200 dark:border-gray-800">${order.customer_name || '-'}</td>
+        <td class="px-4 py-3 break-all border-b border-gray-200 dark:border-gray-800">
+          <button class="customer-name-btn text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline transition-colors cursor-pointer" 
+                  data-customer-name="${order.customer_name || ''}">
+            ${order.customer_name || '-'}
+          </button>
+        </td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(order.fecha)}</td>
-        <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${order.currency || '-'}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${order.medio_envio_factura || '-'}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${order.factura || '-'}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(order.fecha_factura)}</td>
@@ -181,7 +185,7 @@ export async function initOrdersScript() {
       const loadingRow = document.getElementById('loadingRow');
       if (loadingRow) {
         loadingRow.innerHTML = `
-          <td colspan="9" class="px-6 py-8 text-center text-red-500">
+          <td colspan="13" class="px-6 py-8 text-center text-red-500">
             Error al cargar las órdenes. <button onclick="location.reload()" class="text-blue-500 hover:underline">Reintentar</button>
           </td>
         `;
@@ -217,7 +221,7 @@ export async function initOrdersScript() {
     if (pageData.length === 0) {
       tableBody.innerHTML = `
         <tr class="bg-white dark:bg-gray-900">
-          <td colspan="9" class="px-6 py-8 text-center text-gray-500">
+          <td colspan="13" class="px-6 py-8 text-center text-gray-500">
             No se encontraron órdenes
           </td>
         </tr>
@@ -266,10 +270,6 @@ export async function initOrdersScript() {
         case 'fecha':
           aValue = a.fecha || '';
           bValue = b.fecha || '';
-          break;
-        case 'currency':
-          aValue = (a.currency || '').toLowerCase();
-          bValue = (b.currency || '').toLowerCase();
           break;
         case 'medio_envio_factura':
           aValue = (a.medio_envio_factura || '').toLowerCase();
@@ -329,6 +329,7 @@ export async function initOrdersScript() {
         order.pc || '',
         order.oc || '',
         order.customer_name || '',
+        order.medio_envio_factura || '',
         order.factura || '',
         order.fecha_factura || '',
         order.incoterm || '',
@@ -390,12 +391,7 @@ export async function initOrdersScript() {
     const ordersToExport = filteredOrders.length > 0 ? filteredOrders : allOrders;
     
     if (ordersToExport.length === 0) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'No hay datos para exportar',
-        text: 'No hay órdenes disponibles para exportar.',
-        confirmButtonText: window.translations?.comond?.understood || 'Entendido'
-      });
+      showNotification('No hay órdenes disponibles para exportar', 'warning');
       return;
     }
 
@@ -403,12 +399,11 @@ export async function initOrdersScript() {
     const headers = [
       'PC',
       'OC',
-      'Cliente',
-      'Date',
-      'Currency',
-      'Shipping Method',
-      'Factura',
-      'Fecha Factura'
+      window.translations?.clientes?.client_name || 'Cliente',
+      window.translations?.carpetas?.fechaIngreso || 'Fecha Ingreso',
+      window.translations?.carpetas?.shippingMethod || 'Shipping Method',
+      window.translations?.carpetas?.factura || 'Factura',
+      window.translations?.carpetas?.fechaFactura || 'Fecha Factura'
     ];
 
     // Preparar los datos para exportar
@@ -417,7 +412,6 @@ export async function initOrdersScript() {
       order.oc || '', // OC
       order.customer_name || '', // Cliente
       formatDateShort(order.fecha) || '', // Date (fecha)
-      order.currency || '', // Currency
       order.medio_envio_factura || '', // Shipping Method (medio_envio_factura)
       order.factura || '', // Factura
       formatDateShort(order.fecha_factura) || ''  // Fecha Factura
@@ -453,15 +447,8 @@ export async function initOrdersScript() {
     window.URL.revokeObjectURL(url);
 
     // Mostrar notificación de éxito
-    Swal.fire({
-      icon: 'success',
-      title: 'Exportación exitosa',
-      text: `Se exportaron ${ordersToExport.length} órdenes a Excel.`,
-      confirmButtonText: window.translations?.comond?.understood || 'Entendido'
-    });
+    showNotification(`Se exportaron ${ordersToExport.length} órdenes a Excel`, 'success');
   }
-
-
 
   // Event listeners para paginación
   itemsPerPageSelect.addEventListener('change', () => {
@@ -593,6 +580,18 @@ export async function initOrdersScript() {
 
 // Función para configurar los event listeners de los modales
 function setupModalEventListeners() {
+  // Event listener para nombre del cliente
+  document.addEventListener('click', (e) => {
+    const customerNameBtn = e.target.closest('.customer-name-btn');
+    if (customerNameBtn) {
+      e.preventDefault();
+      const customerName = customerNameBtn.dataset.customerName;
+      if (customerName && customerName !== '-') {
+        navigateToClientsWithFilter(customerName);
+      }
+    }
+  });
+
   // Event listeners para botones de items
   document.addEventListener('click', (e) => {
     const itemsBtn = e.target.closest('.items-list-btn');
@@ -729,8 +728,8 @@ async function openItemsModal(orderPc, orderOc, factura) {
             <td class="px-6 py-4 text-xs text-gray-900 dark:text-gray-100">${item.item_code || '-'}</td>
             <td class="px-6 py-4 text-xs text-gray-900 dark:text-gray-100">${item.item_name || '-'}</td>
             <td class="px-6 py-4 text-xs text-center text-gray-900 dark:text-gray-100">${formatQuantity(quantity, unit)}</td>
-            <td class="px-6 py-4 text-xs text-center text-gray-900 dark:text-gray-100">${formatUnitPrice(unitPrice)}</td>
-            <td class="px-6 py-4 text-xs text-center font-semibold text-gray-900 dark:text-gray-100">${formatTotal(total)}</td>
+            <td class="px-6 py-4 text-xs text-center text-gray-900 dark:text-gray-100">${formatUnitPrice(unitPrice, currency)}</td>
+            <td class="px-6 py-4 text-xs text-center font-semibold text-gray-900 dark:text-gray-100">${formatTotal(total, currency)}</td>
           </tr>
         `;
       }).join('');
@@ -782,15 +781,13 @@ function formatCurrency(amount, currency = 'CLP') {
   
   const mappedCurrency = currencyMap[currency] || currency;
   
-  const formatted = new Intl.NumberFormat('es-CL', {
-    style: 'currency',
-    currency: mappedCurrency,
-    minimumFractionDigits: 4,
-    maximumFractionDigits: 4
-  }).format(amount);
+  // Formatear el número sin símbolo de moneda
+  const parts = parseFloat(amount).toFixed(4).split('.');
+  const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const formattedAmount = `${integerPart},${parts[1]}`;
   
-  // Agregar espacio después del código de moneda y asegurar USD
-  return formatted.replace(/([A-Z]{2,3})\$/, '$1 $').replace('US $', 'USD $');
+  // Devolver con la moneda correcta
+  return `${mappedCurrency} ${formattedAmount}`;
 }
 
 // Función para formatear cantidad con unidad
@@ -811,15 +808,17 @@ function formatQuantity(amount, unit = 'KG') {
 }
 
 // Función para formatear precio unitario
-function formatUnitPrice(amount) {
-  return `$${amount.toFixed(4).replace(',', '.')}`;
+function formatUnitPrice(amount, currency = 'CLP') {
+  const parts = amount.toFixed(4).split('.');
+  const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `${currency} ${integerPart},${parts[1]}`;
 }
 
 // Función para formatear total
-function formatTotal(amount) {
+function formatTotal(amount, currency = 'CLP') {
   const parts = amount.toFixed(4).split('.');
   const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  return `$${integerPart},${parts[1]}`;
+  return `${currency} ${integerPart},${parts[1]}`;
 }
 
 // Función para abrir el modal de detalles de orden
@@ -943,7 +942,7 @@ async function toggleItemsExpansion(orderPc, orderOc, factura) {
     expandedRow.className = 'expanded-items-row bg-gray-50 dark:bg-gray-800';
     
     const expandedCell = document.createElement('td');
-    expandedCell.colSpan = 14; // Ajustar según el número de columnas de tu tabla
+    expandedCell.colSpan = 13; // Ajustar según el número de columnas de tu tabla
     expandedCell.className = 'px-6 py-4';
     
             // Crear tabla de items
@@ -994,8 +993,8 @@ async function toggleItemsExpansion(orderPc, orderOc, factura) {
                      <td class="px-4 py-3 text-xs text-center text-gray-900 dark:text-gray-100">${formatQuantity(parseFloat(item.kg_facturados) || 0, 'KG')}</td>
                      <td class="px-4 py-3 text-xs text-center text-gray-900 dark:text-gray-100">${item.fecha_etd ? new Date(item.fecha_etd).toLocaleDateString('es-CL') : '-'}</td>
                      <td class="px-4 py-3 text-xs text-center text-gray-900 dark:text-gray-100">${item.fecha_eta ? new Date(item.fecha_eta).toLocaleDateString('es-CL') : '-'}</td>
-                     <td class="px-4 py-3 text-xs text-center text-gray-900 dark:text-gray-100">${formatUnitPrice(unitPrice)}</td>
-                     <td class="px-4 py-3 text-xs text-center font-semibold text-gray-900 dark:text-gray-100">${formatTotal(total)}</td>
+                     <td class="px-4 py-3 text-xs text-center text-gray-900 dark:text-gray-100">${formatUnitPrice(unitPrice, currency)}</td>
+                     <td class="px-4 py-3 text-xs text-center font-semibold text-gray-900 dark:text-gray-100">${formatTotal(total, currency)}</td>
                    </tr>
                  `;
                }).join('')}
@@ -1155,4 +1154,19 @@ export function getCacheInfo() {
     age: Math.floor(age / 1000), // en segundos
     valid: valid
   };
+}
+
+// Función para navegar a clientes con filtro aplicado
+function navigateToClientsWithFilter(customerName) {
+  try {
+    // Guardar el nombre del cliente en localStorage para que clients.js lo pueda leer
+    localStorage.setItem('clientSearchFilter', customerName);
+    
+    // Navegar a la página de clientes
+    window.location.href = '/admin/clients';
+    
+  } catch (error) {
+    console.error('Error navegando a clientes:', error);
+    showNotification('Error al navegar a la página de clientes', 'error');
+  }
 }

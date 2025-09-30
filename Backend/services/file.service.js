@@ -301,7 +301,7 @@ const createDefaultFilesForOrder = async (orderId, customerName, pc, oc) => {
         file_identifier: fileIdentifier
       },
       {
-        name: 'Aviso de entrega',
+        name: 'Aviso de Entrega',
         order_id: orderId,
         pc: pc,
         oc: oc,

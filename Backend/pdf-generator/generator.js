@@ -71,8 +71,12 @@ async function generatePDF(filePath, templateName, data) {
         else if (/^#INFO_SECTION#/.test(trimmed)) {
           if (templateName === 'aviso-embarque') {
             drawInfoSectionEmbarque(doc, data);
+          } else if (templateName === 'aviso-entrega') {
+            drawInfoSectionEntrega(doc, data);
+          } else if (templateName === 'aviso-disponibilidad') {
+            drawInfoSectionDisponibilidad(doc, data);
           } else {
-            drawInfoSection(doc, data);
+            drawInfoSectionReception(doc, data);
           }
         }
          else if (/^#ITEMS_TABLE#/.test(trimmed)) {
@@ -82,6 +86,10 @@ async function generatePDF(filePath, templateName, data) {
              }
              if (templateName === 'aviso-embarque') {
                generateEmbarqueTable(doc, data.items, data);
+             } else if (templateName === 'aviso-entrega') {
+               generateEntregaTable(doc, data.items, data);
+             } else if (templateName === 'aviso-disponibilidad') {
+               generateDisponibilidadTable(doc, data.items, data);
              } else {
                generateModernTable(doc, data.items, data);
              }
@@ -146,7 +154,8 @@ function drawHeader(doc, logoPath, data) {
   doc.moveDown(0.2);
 }
 
-function drawInfoSection(doc, data) {
+// Aviso de Recepcion de Orden
+function drawInfoSectionReception(doc, data) {
   const startY = doc.y + 15;
   const sectionWidth = 500;
   const sectionX = (doc.page.width - sectionWidth) / 2;
@@ -176,6 +185,7 @@ function drawInfoSection(doc, data) {
   const t = data.translations || {};
   const dateFormat = data.lang === 'en' ? 'en-US' : 'es-CL';
   
+  // Lista izquierda
   doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
     .text(`${t.client || 'Cliente:'}`, leftColumn, row1Y, { continued: true })
     .font(STYLES.font).fillColor(STYLES.textSecondary)
@@ -184,7 +194,7 @@ function drawInfoSection(doc, data) {
   doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
     .text(`${t.internal_order || 'Número de pedido interno:'}`, leftColumn, row2Y, { continued: true })
     .font(STYLES.font).fillColor(STYLES.textSecondary)
-    .text(` ${data.internalOrderNumber || 'N/A'}`, { width: 180 });
+    .text(` ${data.internalOrderNumber || '-'}`, { width: 180 });
   
   doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
     .text(`${t.order_number || 'Número de Orden:'}`, leftColumn, row3Y, { continued: true })
@@ -194,7 +204,7 @@ function drawInfoSection(doc, data) {
   doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
     .text(`${t.destination_port || 'Puerto de Destino:'}`, leftColumn, row4Y, { continued: true })
     .font(STYLES.font).fillColor(STYLES.textSecondary)
-    .text(` ${data.destinationPort || 'N/A'}`, { width: 180 });
+    .text(` ${data.destinationPort || '-'}`, { width: 180 });
   
   doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
     .text(`${t.incoterm_delivery || 'Fecha de entrega Incoterm:'}`, leftColumn, row5Y, { continued: true })
@@ -204,27 +214,23 @@ function drawInfoSection(doc, data) {
   doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
     .text(`${t.payment_condition || 'Condición de Pago:'}`, leftColumn, row6Y, { continued: true })
     .font(STYLES.font).fillColor(STYLES.textSecondary)
-    .text(` ${data.paymentCondition || 'N/A'}`, { width: 180 });
+    .text(` ${data.paymentCondition || '-'}`, { width: 180 });
 
+  // Lista derecha
   doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
-    .text(`${t.date || 'Fecha:'}`, rightColumn, row2Y, { continued: true })
+    .text(`${t.currency || 'Moneda:'}`, rightColumn, row2Y, { continued: true })
     .font(STYLES.font).fillColor(STYLES.textSecondary)
-    .text(` ${new Date().toLocaleDateString(dateFormat)}`, { width: 180 });
+    .text(` ${data.currency || '-'}`, { width: 180 });
   
   doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
-    .text(`${t.currency || 'Moneda:'}`, rightColumn, row3Y, { continued: true })
+    .text(`${t.incoterm || 'Incoterm:'}`, rightColumn, row3Y, { continued: true })
     .font(STYLES.font).fillColor(STYLES.textSecondary)
-    .text(` ${data.currency || 'N/A'}`, { width: 180 });
+    .text(` ${data.incoterm || '-'}`, { width: 180 });
   
   doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
-    .text(`${t.incoterm || 'Incoterm:'}`, rightColumn, row4Y, { continued: true })
+    .text(`${t.shipping_method || 'Medio de envío:'}`, rightColumn, row4Y, { continued: true })
     .font(STYLES.font).fillColor(STYLES.textSecondary)
-    .text(` ${data.incoterm || 'N/A'}`, { width: 180 });
-  
-  doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
-    .text(`${t.shipping_method || 'Medio de envío:'}`, rightColumn, row5Y, { continued: true })
-    .font(STYLES.font).fillColor(STYLES.textSecondary)
-    .text(` ${data.shippingMethod || 'N/A'}`, { width: 180 });
+    .text(` ${data.shippingMethod || '-'}`, { width: 180 });
 
   doc.y = row7Y + 5;
 }
@@ -267,7 +273,7 @@ function drawInfoSectionEmbarque(doc, data) {
   doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
     .text(`${t.internal_order || 'Número de pedido interno:'}`, leftColumn, row2Y, { continued: true })
     .font(STYLES.font).fillColor(STYLES.textSecondary)
-    .text(` ${data.internalOrderNumber || 'N/A'}`, { width: 180 });
+    .text(` ${data.internalOrderNumber || '-'}`, { width: 180 });
   
   doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
     .text(`${t.order_number || 'Número de Orden:'}`, leftColumn, row3Y, { continued: true })
@@ -277,12 +283,12 @@ function drawInfoSectionEmbarque(doc, data) {
   doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
     .text(`${t.shipping_method || 'Medio de envío:'}`, leftColumn, row4Y, { continued: true })
     .font(STYLES.font).fillColor(STYLES.textSecondary)
-    .text(` ${data.shippingMethod || 'N/A'}`, { width: 180 });
+    .text(` ${data.shippingMethod || '-'}`, { width: 180 });
   
   doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
     .text(`${t.destination_port || 'Puerto de Destino:'}`, leftColumn, row5Y, { continued: true })
     .font(STYLES.font).fillColor(STYLES.textSecondary)
-    .text(` ${data.destinationPort || 'N/A'}`, { width: 180 });
+    .text(` ${data.destinationPort || '-'}`, { width: 180 });
   
   doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
     .text(`${t.incoterm_delivery || 'Fecha de entrega Incoterm:'}`, leftColumn, row6Y, { continued: true })
@@ -345,13 +351,13 @@ function generateModernTable(doc, items, data = {}) {
     
     doc.fontSize(9).font(STYLES.font).fillColor(STYLES.textPrimary)
       .text(productName, itemX, y + 8, { width: 210 })
-      .text(`${quantity} kg`, qtyX, y + 8, { width: 60, align: 'center' })
-      .text(`$${unitPrice.toLocaleString('es-CL')}`, priceX, y + 8, { width: 70, align: 'center' });
+      .text(`${formatNumber(quantity, data.lang)} kg`, qtyX, y + 8, { width: 60, align: 'center' })
+      .text(`${formatCurrency(unitPrice, data.currency)}`, priceX, y + 8, { width: 70, align: 'center' });
     
     if (total > 0) {
       grandTotal += total;
       doc.font(STYLES.fontBold)
-        .text(`$${total.toLocaleString('es-CL')}`, totalX, y + 8, { width: 90, align: 'center' });
+        .text(`${formatCurrency(total, data.currency)}`, totalX, y + 8, { width: 90, align: 'center' });
     }
     
     doc.moveTo(tableX, y + rowHeight).lineTo(tableX + tableWidth, y + rowHeight)
@@ -369,7 +375,7 @@ function generateModernTable(doc, items, data = {}) {
     
     doc.fontSize(9).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
       .text(t.total_general || 'TOTAL GENERAL', priceX - 40, totalY + 12, { width: 110, align: 'right' })
-      .text(`$${grandTotal.toLocaleString('es-CL')}`, totalX, totalY + 12, { width: 90, align: 'center' });
+      .text(`${formatCurrency(grandTotal, data.currency)}`, totalX, totalY + 12, { width: 90, align: 'center' });
     
     doc.moveTo(tableX, totalY + rowHeight).lineTo(tableX + tableWidth, totalY + rowHeight)
       .strokeColor(STYLES.lineColor).lineWidth(1).stroke();
@@ -399,6 +405,8 @@ function generateEmbarqueTable(doc, items, data = {}) {
   doc.moveTo(tableX, tableTop + rowHeight).lineTo(tableX + tableWidth, tableTop + rowHeight)
     .strokeColor(STYLES.lineColor).lineWidth(1).stroke();
 
+  let totalQuantity = 0;
+
   items.forEach((item, i) => {
     const y = tableTop + rowHeight * (i + 1);
     if (i % 2 === 0) {
@@ -408,15 +416,327 @@ function generateEmbarqueTable(doc, items, data = {}) {
     }
     
     const productName = item.item_name || '';
-    const quantity = item.kg_facturados || item.kg_solicitados || 0;
+    const quantity = parseFloat(item.kg_facturados || item.kg_solicitados || 0);
+    totalQuantity += quantity;
     
     doc.fontSize(9).font(STYLES.font).fillColor(STYLES.textPrimary)
       .text(productName, itemX, y + 8, { width: 280 })
-      .text(`${quantity} kg`, qtyX, y + 8, { width: 200, align: 'center' });
+      .text(`${formatNumber(quantity, data.lang)} kg`, qtyX, y + 8, { width: 200, align: 'center' });
     
     doc.moveTo(tableX, y + rowHeight).lineTo(tableX + tableWidth, y + rowHeight)
       .strokeColor(STYLES.lineColor).lineWidth(0.7).stroke();
   });
+
+  // Fila de total
+  if (totalQuantity > 0) {
+    const totalY = tableTop + rowHeight * (items.length + 1);
+    doc.save();
+    doc.rect(tableX, totalY, tableWidth, rowHeight).fill('#e5e7eb');
+    doc.restore();
+    
+    doc.moveTo(tableX, totalY).lineTo(tableX + tableWidth, totalY)
+      .strokeColor('#9ca3af').lineWidth(1.2).stroke();
+    
+    doc.fontSize(9).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+      .text(t.total_general || 'TOTAL GENERAL', itemX + 30, totalY + 12, { width: 320, align: 'right' })
+      .text(`${formatNumber(totalQuantity, data.lang)} kg`, qtyX, totalY + 12, { width: 200, align: 'center' });
+    
+    doc.moveTo(tableX, totalY + rowHeight).lineTo(tableX + tableWidth, totalY + rowHeight)
+      .strokeColor(STYLES.lineColor).lineWidth(1).stroke();
+  }
+
+  doc.moveDown(3);
+}
+
+function drawInfoSectionEntrega(doc, data) {
+  const startY = doc.y + 15;
+  const sectionWidth = 500;
+  const sectionX = (doc.page.width - sectionWidth) / 2;
+  const boxHeight = 180;
+
+  doc.save();
+  doc.roundedRect(sectionX, startY - 15, sectionWidth, boxHeight, 12)
+    .fillAndStroke('#f3f4f6', STYLES.lineColor);
+  doc.restore();
+
+  const infoTitle = data.translations?.info_section_title || 'INFORMACIÓN DEL DOCUMENTO';
+  doc.fontSize(13).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text(infoTitle, sectionX, startY - 5, { align: 'center', width: sectionWidth });
+
+  doc.y = startY + 35;
+
+  const leftColumn = sectionX + 35;
+  const rightColumn = sectionX + 290;
+  const row1Y = doc.y;
+  const row2Y = row1Y + 20;
+  const row3Y = row2Y + 20;
+  const row4Y = row3Y + 20;
+  const row5Y = row4Y + 20;
+  const row6Y = row5Y + 20;
+  const row7Y = row6Y + 20;
+  
+  const t = data.translations || {};
+  const dateFormat = data.lang === 'en' ? 'en-US' : 'es-CL';
+  
+  // Lista izquierda
+  doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text(`${t.client || 'Cliente:'}`, leftColumn, row1Y, { continued: true })
+    .font(STYLES.font).fillColor(STYLES.textSecondary)
+    .text(` ${data.customerName}`, { width: 180 });
+  
+  doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text(`${t.internal_order || 'Número de pedido interno:'}`, leftColumn, row2Y, { continued: true })
+    .font(STYLES.font).fillColor(STYLES.textSecondary)
+    .text(` ${data.internalOrderNumber || '-'}`, { width: 180 });
+  
+  doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text(`${t.order_number || 'Número de Orden:'}`, leftColumn, row3Y, { continued: true })
+    .font(STYLES.font).fillColor(STYLES.textSecondary)
+    .text(` ${data.orderNumber}`, { width: 180 });
+  
+  doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text(`${t.destination_port || 'Puerto de Destino:'}`, leftColumn, row4Y, { continued: true })
+    .font(STYLES.font).fillColor(STYLES.textSecondary)
+    .text(` ${data.destinationPort || '-'}`, { width: 180 });
+  
+  doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text(`${t.incoterm_delivery || 'Fecha de entrega Incoterm:'}`, leftColumn, row5Y, { continued: true })
+    .font(STYLES.font).fillColor(STYLES.textSecondary)
+    .text(` ${data.incotermDeliveryDate || 'Semana 42'}`, { width: 180 });
+
+  doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text(`${t.payment_condition || 'Condición de Pago:'}`, leftColumn, row6Y, { continued: true })
+    .font(STYLES.font).fillColor(STYLES.textSecondary)
+    .text(` ${data.paymentCondition || '-'}`, { width: 180 });
+
+  // Lista derecha
+  doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text(`${t.currency || 'Moneda:'}`, rightColumn, row2Y, { continued: true })
+    .font(STYLES.font).fillColor(STYLES.textSecondary)
+    .text(` ${data.currency || '-'}`, { width: 180 });
+  
+  doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text(`${t.incoterm || 'Incoterm:'}`, rightColumn, row3Y, { continued: true })
+    .font(STYLES.font).fillColor(STYLES.textSecondary)
+    .text(` ${data.incoterm || '-'}`, { width: 180 });
+  
+  doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text(`${t.shipping_method || 'Medio de envío:'}`, rightColumn, row4Y, { continued: true })
+    .font(STYLES.font).fillColor(STYLES.textSecondary)
+    .text(` ${data.shippingMethod || '-'}`, { width: 180 });
+
+  doc.y = row7Y + 5;
+}
+
+function generateEntregaTable(doc, items, data = {}) {
+  const tableTop = doc.y + 35;
+  const tableWidth = 500;
+  const tableX = (doc.page.width - tableWidth) / 2;
+  const itemX = tableX + 10;
+  const facturaX = tableX + 250;
+  const qtyX = tableX + 340;
+  const rowHeight = 28;
+
+  const t = data.translations || {};
+  doc.fontSize(10).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text(t.products_detail || 'DETALLE DE PRODUCTOS', 0, tableTop - 25, { align: 'center', width: doc.page.width });
+
+  doc.save();
+  doc.rect(tableX, tableTop, tableWidth, rowHeight).fill(STYLES.tableHeaderBg);
+  doc.restore();
+  doc.fontSize(9).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text(t.product || 'PRODUCTO', itemX, tableTop + 8, { width: 280 })
+    .text(t.invoice || 'FACTURA', facturaX, tableTop + 8, { width: 200, align: 'center' })
+    .text(t.quantity || 'CANTIDAD', qtyX, tableTop + 8, { width: 200, align: 'center' });
+  
+  doc.moveTo(tableX, tableTop + rowHeight).lineTo(tableX + tableWidth, tableTop + rowHeight)
+    .strokeColor(STYLES.lineColor).lineWidth(1).stroke();
+
+  let totalQuantity = 0;
+
+  items.forEach((item, i) => {
+    const y = tableTop + rowHeight * (i + 1);
+    if (i % 2 === 0) {
+      doc.save();
+      doc.rect(tableX, y, tableWidth, rowHeight).fill(STYLES.tableRowAlt);
+      doc.restore();
+    }
+    
+    const productName = item.item_name || '';
+    const quantity = parseFloat(item.kg_solicitados || 0);
+    totalQuantity += quantity;
+    const factura = item.factura || '-';
+
+
+    doc.fontSize(9).font(STYLES.font).fillColor(STYLES.textPrimary)
+      .text(productName, itemX, y + 8, { width: 280 })
+      .text(factura, facturaX, y + 8, { width: 200, align: 'center' })
+      .text(`${formatNumber(quantity, data.lang)} kg`, qtyX, y + 8, { width: 200, align: 'center' });
+    
+    doc.moveTo(tableX, y + rowHeight).lineTo(tableX + tableWidth, y + rowHeight)
+      .strokeColor(STYLES.lineColor).lineWidth(0.7).stroke();
+  });
+
+  // Fila de total
+  if (totalQuantity > 0) {
+    const totalY = tableTop + rowHeight * (items.length + 1);
+    doc.save();
+    doc.rect(tableX, totalY, tableWidth, rowHeight).fill('#e5e7eb');
+    doc.restore();
+    
+    doc.moveTo(tableX, totalY).lineTo(tableX + tableWidth, totalY)
+      .strokeColor('#9ca3af').lineWidth(1.2).stroke();
+    
+    doc.fontSize(9).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+      .text(t.total_general || 'TOTAL GENERAL', facturaX - 170, totalY + 12, { width: 320, align: 'right' })
+      .text(`${formatNumber(totalQuantity, data.lang)} kg`, qtyX, totalY + 12, { width: 200, align: 'center' });
+    
+    doc.moveTo(tableX, totalY + rowHeight).lineTo(tableX + tableWidth, totalY + rowHeight)
+      .strokeColor(STYLES.lineColor).lineWidth(1).stroke();
+  }
+
+  doc.moveDown(3);
+}
+
+function drawInfoSectionDisponibilidad(doc, data) {
+  const startY = doc.y + 15;
+  const sectionWidth = 500;
+  const sectionX = (doc.page.width - sectionWidth) / 2;
+  const boxHeight = 180;
+
+  doc.save();
+  doc.roundedRect(sectionX, startY - 15, sectionWidth, boxHeight, 12)
+    .fillAndStroke('#f3f4f6', STYLES.lineColor);
+  doc.restore();
+
+  const infoTitle = data.translations?.info_section_title || 'INFORMACIÓN DEL DOCUMENTO';
+  doc.fontSize(13).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text(infoTitle, sectionX, startY - 5, { align: 'center', width: sectionWidth });
+
+  doc.y = startY + 35;
+
+  const leftColumn = sectionX + 35;
+  const rightColumn = sectionX + 290;
+  const row1Y = doc.y;
+  const row2Y = row1Y + 20;
+  const row3Y = row2Y + 20;
+  const row4Y = row3Y + 20;
+  const row5Y = row4Y + 20;
+  const row6Y = row5Y + 20;
+  const row7Y = row6Y + 20;
+  
+  const t = data.translations || {};
+  const dateFormat = data.lang === 'en' ? 'en-US' : 'es-CL';
+  
+  doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text(`${t.client || 'Cliente:'}`, leftColumn, row1Y, { continued: true })
+    .font(STYLES.font).fillColor(STYLES.textSecondary)
+    .text(` ${data.customerName}`, { width: 180 });
+  
+  doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text(`${t.internal_order || 'Número de pedido interno:'}`, leftColumn, row2Y, { continued: true })
+    .font(STYLES.font).fillColor(STYLES.textSecondary)
+    .text(` ${data.internalOrderNumber || '-'}`, { width: 180 });
+  
+  doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text(`${t.order_number || 'Número de Orden:'}`, leftColumn, row3Y, { continued: true })
+    .font(STYLES.font).fillColor(STYLES.textSecondary)
+    .text(` ${data.orderNumber}`, { width: 180 });
+  
+  doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text(`${t.shipping_method || 'Medio de envío:'}`, leftColumn, row4Y, { continued: true })
+    .font(STYLES.font).fillColor(STYLES.textSecondary)
+    .text(` ${data.shippingMethod || '-'}`, { width: 180 });
+  
+  doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text(`${t.destination_port || 'Puerto de Destino:'}`, leftColumn, row5Y, { continued: true })
+    .font(STYLES.font).fillColor(STYLES.textSecondary)
+    .text(` ${data.destinationPort || '-'}`, { width: 180 });
+  
+  doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text(`${t.incoterm_delivery || 'Fecha de entrega Incoterm:'}`, leftColumn, row6Y, { continued: true })
+    .font(STYLES.font).fillColor(STYLES.textSecondary)
+    .text(` ${data.incotermDeliveryDate || ''}`, { width: 180 });
+
+  doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text(`${t.incoterm || 'Incoterm:'}`, rightColumn, row2Y, { continued: true })
+    .font(STYLES.font).fillColor(STYLES.textSecondary)
+    .text(` ${data.incoterm || '-'}`, { width: 180 });
+  
+  doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text(`${t.etd || 'ETD:'}`, rightColumn, row3Y, { continued: true })
+    .font(STYLES.font).fillColor(STYLES.textSecondary)
+    .text(` ${formatDateByLanguage(data.etd, data.lang)}`, { width: 180 });
+
+  doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text(`${t.eta || 'ETA:'}`, rightColumn, row4Y, { continued: true })
+    .font(STYLES.font).fillColor(STYLES.textSecondary)
+    .text(` ${formatDateByLanguage(data.eta, data.lang)}`, { width: 180 });
+
+  doc.y = row7Y + 5;
+}
+
+function generateDisponibilidadTable(doc, items, data = {}) {
+  const tableTop = doc.y + 35;
+  const tableWidth = 500;
+  const tableX = (doc.page.width - tableWidth) / 2;
+  const itemX = tableX + 10;
+  const qtyX = tableX + 300;
+  const rowHeight = 28;
+
+  const t = data.translations || {};
+  doc.fontSize(10).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text(t.products_detail || 'DETALLE DE PRODUCTOS', 0, tableTop - 25, { align: 'center', width: doc.page.width });
+
+  doc.save();
+  doc.rect(tableX, tableTop, tableWidth, rowHeight).fill(STYLES.tableHeaderBg);
+  doc.restore();
+  doc.fontSize(9).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text(t.product || 'PRODUCTO', itemX, tableTop + 8, { width: 280 })
+    .text(t.quantity || 'CANTIDAD (kgs facturados)', qtyX, tableTop + 8, { width: 200, align: 'center' });
+  
+  doc.moveTo(tableX, tableTop + rowHeight).lineTo(tableX + tableWidth, tableTop + rowHeight)
+    .strokeColor(STYLES.lineColor).lineWidth(1).stroke();
+
+  let totalQuantity = 0;
+
+  items.forEach((item, i) => {
+    const y = tableTop + rowHeight * (i + 1);
+    if (i % 2 === 0) {
+      doc.save();
+      doc.rect(tableX, y, tableWidth, rowHeight).fill(STYLES.tableRowAlt);
+      doc.restore();
+    }
+    
+    const productName = item.item_name || '';
+    const quantity = parseFloat(item.kg_facturados || item.kg_solicitados || 0);
+    totalQuantity += quantity;
+    
+    doc.fontSize(9).font(STYLES.font).fillColor(STYLES.textPrimary)
+      .text(productName, itemX, y + 8, { width: 280 })
+      .text(`${formatNumber(quantity, data.lang)} kg`, qtyX, y + 8, { width: 200, align: 'center' });
+    
+    doc.moveTo(tableX, y + rowHeight).lineTo(tableX + tableWidth, y + rowHeight)
+      .strokeColor(STYLES.lineColor).lineWidth(0.7).stroke();
+  });
+
+  // Fila de total
+  if (totalQuantity > 0) {
+    const totalY = tableTop + rowHeight * (items.length + 1);
+    doc.save();
+    doc.rect(tableX, totalY, tableWidth, rowHeight).fill('#e5e7eb');
+    doc.restore();
+    
+    doc.moveTo(tableX, totalY).lineTo(tableX + tableWidth, totalY)
+      .strokeColor('#9ca3af').lineWidth(1.2).stroke();
+    
+    doc.fontSize(9).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+      .text(t.total_general || 'TOTAL GENERAL', itemX + 30, totalY + 12, { width: 320, align: 'right' })
+      .text(`${formatNumber(totalQuantity, data.lang)} kg`, qtyX, totalY + 12, { width: 200, align: 'center' });
+    
+    doc.moveTo(tableX, totalY + rowHeight).lineTo(tableX + tableWidth, totalY + rowHeight)
+      .strokeColor(STYLES.lineColor).lineWidth(1).stroke();
+  }
 
   doc.moveDown(3);
 }
@@ -436,8 +756,8 @@ function drawSignatureSection(doc, data) {
   doc.restore();
 
   const t = data.translations || {};
-  doc.fontSize(9).font(STYLES.font).fillColor(STYLES.textSecondary)
-    .text(t.signature_title || 'FIRMA AUTORIZADA', signX + 10, signY + 2);
+  //doc.fontSize(9).font(STYLES.font).fillColor(STYLES.textSecondary)
+  // .text(t.signature_title || 'FIRMA AUTORIZADA', signX + 10, signY + 2);
 
   doc.moveTo(signX + 20, signY + 30).lineTo(signX + signWidth - 20, signY + 30)
     .strokeColor(STYLES.lineColor).lineWidth(0.7).stroke();
@@ -483,6 +803,52 @@ function drawFooter(doc, currentPage, totalPages, data = {}) {
   doc.restore();
 }
 
+function formatCurrency(value, currency) {
+  let locales;
+
+  switch (currency) {
+    case 'USD':
+      locales = 'en-US'; // separador con coma, punto decimal
+      break;
+    case 'EUR':
+      locales = 'de-DE'; // ejemplo con formato europeo
+      break;
+    case 'CLP':
+      locales = 'es-CL'; // pesos chilenos
+      break;
+    default:
+      locales = 'en-US';
+  }
+  return new Intl.NumberFormat(locales, {
+    style: 'currency',
+    currency: currency,
+    currencyDisplay: 'code',
+    minimumFractionDigits: 4, 
+    maximumFractionDigits: 4
+  }).format(value);
+}
+
+function formatNumber(value, lang = 'es') {
+  if (value === null || value === undefined || isNaN(value)) return '-';
+
+  let locales;
+  switch (lang) {
+    case 'en':
+      locales = 'en-US'; // separador con coma, punto decimal
+      break;
+    case 'de':
+      locales = 'de-DE'; // estilo europeo
+      break;
+    case 'es':
+    default:
+      locales = 'es-CL'; // estilo chileno/español
+  }
+
+  return new Intl.NumberFormat(locales, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(value);
+}
 
 function getWeekOfYear(dateString, lang = 'es') {
   if (!dateString) return '';
@@ -500,13 +866,21 @@ function getWeekOfYear(dateString, lang = 'es') {
 }
 
 function formatDateByLanguage(dateString, lang) {
-  if (!dateString) return 'N/A';
+  if (!dateString) return '-';
   const date = new Date(dateString);
-  
+
+  const options = {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  };
+
   if (lang === 'en') {
-    return date.toLocaleDateString('en-CA'); // yyyy/mm/dd
+    // Ejemplo: September 4, 2025
+    return date.toLocaleDateString('en-US', options);
   } else {
-    return date.toLocaleDateString('es-CL'); // dd/mm/yyyy
+    // Ejemplo: 4 septiembre, 2025
+    return date.toLocaleDateString('es-CL', options);
   }
 }
 

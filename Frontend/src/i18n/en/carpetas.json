@@ -29,8 +29,10 @@
 	"createdAt": "Created At",
 	"updatedAt": "Updated At",
 	"fecha": "Date",
+	"fechaIngreso": "Entry Date",
 	"moneda": "Currency",
 	"medioEnvio": "Shipping Method",
+	"shippingMethod": "Shipping Method",
 	"fechaFactura": "Invoice Date",
 	"dateEta": "ETA Date",
 	"dateEtd": "ETD Date",
@@ -75,5 +77,7 @@
 	"tooltipExpandItems": "Expand items in table",
 	"tooltipOrderDetails": "View order details",
 	"gastoAdicional": "Additional Expense",
-	"cliente": "Customer"
+	"cliente": "Customer",
+	"cantidad": "Quantity",
+	"precioUnitario": "Unit Price"
 }
