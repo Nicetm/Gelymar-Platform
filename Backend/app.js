@@ -63,6 +63,7 @@ const cronRoutes = require('./routes/cron.routes');
 const cronConfigRoutes = require('./routes/cronConfig.routes');
 const monitoringRoutes = require('./routes/monitoring.routes');
 const fileserverRoutes = require('./routes/fileserver.routes');
+const configRoutes = require('./routes/config.routes');
 
 
 // Configuración de rate limiting
@@ -166,6 +167,8 @@ app.use('/api/cron', cronRoutes);
 // Rutas de configuración del cron (requieren autenticación de admin)
 app.use('/api/cron-config', cronConfigRoutes);
 
+// Rutas de configuración general (requieren autenticación de admin)
+app.use('/api/config', configRoutes);
 
 
 // Sirve archivos estáticos desde la carpeta 'uploads'

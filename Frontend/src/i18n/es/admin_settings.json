@@ -10,5 +10,13 @@
   "save_changes": "Guardar cambios",
   "name_and_phone_required": "Nombre y teléfono son obligatorios",
   "data_updated_successfully": "Datos actualizados correctamente",
-  "error_saving_changes": "Error al guardar los cambios"
+  "error_saving_changes": "Error al guardar los cambios",
+  "name": "Nombre",
+  "email": "Email",
+  "add": "Agregar",
+  "save": "Guardar",
+  "delete": "Eliminar",
+  "subtitle": "Gestionar lista de correos para PDFs",
+  "add_email": "Agregar Email",
+  "actions": "Acciones"
 }

@@ -245,6 +245,41 @@ export async function initClientsScript() {
     }
   }
 
+  // Función para refrescar datos
+  async function refreshData() {
+    try {
+      // Limpiar cache y recargar datos
+      clearCache();
+      allCustomers = await loadCustomersWithCache();
+      
+      // Aplicar filtros si están activos
+      filterCustomers();
+      
+      // Re-renderizar la tabla
+      renderTable();
+      
+      // Mostrar notificación de éxito
+      showNotification('Datos refrescados automáticamente', 'success');
+      
+    } catch (error) {
+      console.error('Error refrescando datos:', error);
+      showNotification('Error al refrescar los datos', 'error');
+    }
+  }
+
+  // Auto-refresh cuando el caché expire
+  function setupAutoRefresh() {
+    const checkCacheExpiry = () => {
+      if (!isCacheValid()) {
+        console.log('Caché expirado, refrescando automáticamente...');
+        refreshData();
+      }
+    };
+
+    // Verificar cada minuto si el caché ha expirado
+    setInterval(checkCacheExpiry, 60 * 1000);
+  }
+
   /**
    * Función principal de render de la tabla según búsqueda y paginación.
    * Renderiza las filas correspondientes a la página actual.
@@ -1111,6 +1146,9 @@ export async function initClientsScript() {
 
   // Cargar y renderizar clientes inicialmente
   await loadAndRenderCustomers();
+  
+  // Inicializar auto-refresh
+  setupAutoRefresh();
   
   // Aplicar filtro automáticamente si hay uno guardado
   if (savedFilter && searchInput.value) {

@@ -187,13 +187,13 @@ const duplicateFile = async (fileId) => {
   // Insertar el nuevo registro duplicado
   const [result] = await pool.query(`
     INSERT INTO order_files (
-      order_id, pc, oc, name, path, 
+      order_id, pc, oc, name, path, file_identifier,
       created_at, updated_at, was_sent, 
       document_type, file_type, status_id, is_visible_to_client
-    ) VALUES (?, ?, ?, ?, ?, NOW(), NOW(), ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW(), ?, ?, ?, ?, ?)`,
     [
-      file.order_id, file.pc, file.oc, file.name, file.path,
-      file.eta, file.etd, true, file.document_type, file.file_type, 4, file.is_visible_to_client
+      file.order_id, file.pc, file.oc, file.name, file.path, file.file_identifier,
+      true, file.document_type, file.file_type, 4, file.is_visible_to_client
     ]
   );
 

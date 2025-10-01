@@ -10,5 +10,13 @@
   "save_changes": "Save Changes",
   "name_and_phone_required": "Name and phone are required",
   "data_updated_successfully": "Data updated successfully",
-  "error_saving_changes": "Error saving changes"
+  "error_saving_changes": "Error saving changes",
+  "name": "Name",
+  "email": "Email",
+  "add": "Add",
+  "save": "Save",
+  "delete": "Delete",
+  "subtitle": "Manage email list for PDFs",
+  "add_email": "Add Email",
+  "actions": "Actions"
 }

@@ -25,14 +25,8 @@ export async function initOrdersScript() {
     return;
   }
   
-  // Verificar que el botón de refresh exista
-  const refreshCacheBtn = qs('refreshCacheBtn');
-  const refreshBtnText = qs('refreshBtnText');
+  // Verificar elementos necesarios (sin botón de refresh)
   const cacheStatus = qs('cacheStatus');
-  if (!refreshCacheBtn || !refreshBtnText || !cacheStatus) {
-    console.error('Elementos del botón de refresh no encontrados');
-    return;
-  }
 
   // Variables de estado
   let allOrders = [];
@@ -158,7 +152,6 @@ export async function initOrdersScript() {
     try {
       // Cargar datos usando el caché
       allOrders = await loadOrdersWithCache();
-      console.log('Órdenes cargadas:', allOrders.length);
       filteredOrders = [...allOrders];
       
       // Remover la fila de carga
@@ -477,47 +470,50 @@ export async function initOrdersScript() {
     exportBtn.addEventListener('click', exportToExcel);
   }
   
-  // Event listener para el botón de refresh
-  if (refreshCacheBtn) {
-    refreshCacheBtn.addEventListener('click', async () => {
-      // Guardar el texto original antes de cualquier operación
-      const originalText = refreshBtnText.textContent;
+  // Auto-refresh sin botón manual
+
+  // Función para refrescar datos
+  async function refreshData() {
+    try {
+      // Limpiar cache y recargar datos
+      clearCache();
+      allOrders = await loadOrdersWithCache();
+      filteredOrders = [...allOrders];
       
-      try {
-        // Mostrar estado de loading en el botón
-        refreshBtnText.textContent = 'Refrescando...';
-        refreshCacheBtn.disabled = true;
-        
-        // Limpiar cache y recargar datos
-        clearCache();
-        allOrders = await loadOrdersWithCache();
-        filteredOrders = [...allOrders];
-        
-        // Limpiar el campo de búsqueda
-        searchInput.value = '';
-        
-        // Resetear a la primera página
-        currentPage = 1;
-        
-        // Re-renderizar la tabla
-        renderTable();
-        
-        // Mostrar notificación de éxito
-        showNotification('Datos refrescados exitosamente', 'success');
-        
-        // Actualizar estado del cache en el botón
-        updateCacheStatus();
-        
-      } catch (error) {
-        console.error('Error refrescando datos:', error);
-        showNotification('Error al refrescar los datos', 'error');
-      } finally {
-        // Restaurar el botón
-        refreshBtnText.textContent = originalText;
-        refreshCacheBtn.disabled = false;
-      }
-    });
+      // Limpiar el campo de búsqueda
+      searchInput.value = '';
+      
+      // Resetear a la primera página
+      currentPage = 1;
+      
+      // Re-renderizar la tabla
+      renderTable();
+      
+      // Mostrar notificación de éxito
+      showNotification('Datos refrescados automáticamente', 'success');
+      
+      // Cache actualizado automáticamente
+      
+    } catch (error) {
+      console.error('Error refrescando datos:', error);
+      showNotification('Error al refrescar los datos', 'error');
+    }
   }
+
+  // Auto-refresh cuando el caché expire
+  function setupAutoRefresh() {
+    const checkCacheExpiry = () => {
+      if (!isCacheValid()) {
+        refreshData();
+      }
+    };
+
+    // Verificar cada minuto si el caché ha expirado
+    setInterval(checkCacheExpiry, 60 * 1000);
+  }
+
+  // Inicializar auto-refresh
+  setupAutoRefresh();
 
   // Event listener para búsqueda
   searchInput.addEventListener('input', filterRows);
@@ -537,44 +533,12 @@ export async function initOrdersScript() {
   });
 
 
-  // Función para actualizar el estado del cache en el botón
-  function updateCacheStatus() {
-    try {
-      const cacheInfo = getCacheInfo();
-      if (cacheInfo.exists) {
-        const ageMinutes = Math.floor(cacheInfo.age / 60);
-        const ageSeconds = cacheInfo.age % 60;
-        let statusText = '';
-        
-        if (ageMinutes > 0) {
-          statusText = `${ageMinutes}m ${ageSeconds}s`;
-        } else {
-          statusText = `${ageSeconds}s`;
-        }
-        
-        if (cacheInfo.valid) {
-          cacheStatus.textContent = '(cache válido)';
-          cacheStatus.className = 'text-xs opacity-75 text-green-400';
-        } else {
-          cacheStatus.textContent = '(cache expirado)';
-          cacheStatus.className = 'text-xs opacity-75 text-yellow-400';
-        }
-      } else {
-        cacheStatus.textContent = '(sin cache)';
-        cacheStatus.className = 'text-xs opacity-75 text-gray-400';
-      }
-    } catch (error) {
-      console.error('Error actualizando estado del cache:', error);
-      cacheStatus.textContent = '(error)';
-      cacheStatus.className = 'text-xs opacity-75 text-red-400';
-    }
-  }
+  // Función eliminada - ya no se necesita mostrar estado del cache
   
   // Cargar y renderizar órdenes inicialmente
   loadAndRenderOrders();
   
-  // Actualizar estado del cache inicialmente
-  updateCacheStatus();
+  // Cache inicializado automáticamente
 
 }
 
@@ -1083,7 +1047,6 @@ function loadFromCache() {
 function clearCache() {
   localStorage.removeItem(CACHE_KEY);
   localStorage.removeItem(CACHE_TIMESTAMP_KEY);
-  console.log('Caché limpiado');
 }
 
 // Función para cargar datos desde la API con caché
@@ -1093,7 +1056,6 @@ export async function loadOrdersWithCache() {
     if (isCacheValid()) {
       const cachedData = loadFromCache();
       if (cachedData) {
-        console.log('Usando datos del caché (válido)');
         return cachedData;
       }
     }
