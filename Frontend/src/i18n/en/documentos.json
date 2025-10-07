@@ -65,6 +65,26 @@
 	"view_document": "View document",
 	"edit_document": "Edit document",
 	"delete_document": "Delete document",
-	"double_click_to_edit": "Double click to edit"
-	
+	"double_click_to_edit": "Double click to edit",
+	"downloadDocument": "Download document",
+	"selectOrder": "Select Order",
+	"chooseOrderDescription": "Choose an order to view its documents",
+	"searchOrders": "Search orders...",
+	"documentsCount": "Documents Count",
+	"invoice": "Invoice",
+	"invoiceDate": "Invoice Date",
+	"itemsCount": "Items Count",
+	"actions": "Actions",
+	"showingOrders": "Showing 0-0 of 0 orders",
+	"previous": "Previous",
+	"next": "Next",
+	"orderItems": "Order Items",
+	"itemsList": "Items List",
+	"sharedDocuments": "Shared Documents",
+	"sharedDocumentsDescription": "View, download, and manage all documents shared with you by the company",
+	"allTypes": "All types",
+	"documents": "Documents",
+	"images": "Images",
+	"others": "Others",
+	"searchDocuments": "Search documents..."
 }

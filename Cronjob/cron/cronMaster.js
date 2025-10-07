@@ -70,12 +70,12 @@ async function getTaskConfig() {
     console.error(`⚠️ [Cronjob] Error cargando configuración desde backend:`, error.message);
     console.log(`⚠️ [Cronjob] Usando configuración por defecto...`);
     return {
-      clean_database: true,
-      check_clients: true,
+      clean_database: false,
+      check_clients: false,
       check_client_access: false,
-      check_items: true,
-      check_orders: true,
-      check_order_lines: true,
+      check_items: false,
+      check_orders: false,
+      check_order_lines: false,
       check_default_files: false
     };
   }

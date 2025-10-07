@@ -1,7 +1,21 @@
 ---
 // Modal de chat para el admin
-//const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
+import { loadTranslations, getServerLang } from '../lib/i18n.js';
+
+const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
 const apiPublic = import.meta.env.PUBLIC_API_URL;
+const lang = getServerLang(Astro.cookies);
+
+let t: any = {};
+try {
+  t = {
+      messages: await loadTranslations(lang, 'messages'),
+      comond: await loadTranslations(lang, 'comond')
+    };
+} catch (error) {
+  console.warn('Error cargando traducciones:', error);
+  t = {};
+}
 ---
 
 <div id="admin-chat-modal" class="fixed bottom-6 right-6 z-50 hidden">
@@ -15,8 +29,11 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
             </svg>
           </div>
           <div>
-            <div id="admin-chat-customer-name" class="font-semibold text-gray-900 dark:text-white">Chat con Cliente</div>
-            <div id="admin-chat-customer-company" class="text-sm text-gray-500 dark:text-gray-400">Empresa</div>
+            <div id="admin-chat-customer-name" class="font-semibold text-sm text-gray-900 dark:text-white"></div>
+            <div id="admin-chat-customer-company" class="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+              <span class="inline-block w-2 h-2 rounded-full bg-gray-400"></span>
+              <span>{t.messages?.chat?.offline || "Off line"}</span>
+            </div>
           </div>
         </div>
         <button id="admin-chat-close" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
@@ -29,7 +46,7 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
       <!-- Messages area -->
       <div id="admin-chat-messages" class="flex-1 p-4 overflow-y-auto space-y-3">
         <div class="text-center text-gray-500 dark:text-gray-400">
-          <p>Selecciona un cliente para comenzar el chat</p>
+          <p>{t.messages?.chat?.select_client || "Selecciona un cliente para comenzar el chat"}</p>
         </div>
       </div>
       
@@ -39,9 +56,19 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
           <input 
             id="admin-chat-input" 
             type="text" 
-            placeholder="Escribe tu mensaje..." 
+            placeholder={t.messages?.chat?.write_message || "Escribe tu mensaje..."} 
             class="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
+          <button 
+            id="admin-emoji-btn"
+            type="button"
+            class="px-3 py-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+            title="Add emoji"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </button>
           <button 
             id="admin-chat-send" 
             class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -57,7 +84,7 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
   </div>
 </div>
 
-<script is:inline define:vars={{ apiPublic }}>
+<script is:inline define:vars={{ apiPublic, apiBase, lang, t }}>
   window.apiBase = apiPublic;
   
   // Socket.io service (inline)
@@ -129,6 +156,7 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
   let currentCustomerId = null;
   let isTyping = false;
   let socket = null;
+  let customerStatusInterval = null;
 
   // Elementos del DOM
   const chatModal = document.getElementById('admin-chat-modal');
@@ -138,30 +166,255 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
   const closeButton = document.getElementById('admin-chat-close');
   const customerName = document.getElementById('admin-chat-customer-name');
   const customerCompany = document.getElementById('admin-chat-customer-company');
+  const emojiBtn = document.getElementById('admin-emoji-btn');
+
+  // Emoticones disponibles
+  const emojis = ['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩', '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣', '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬', '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '😥', '😓', '🤗', '🤔', '🤭', '🤫', '🤥', '😶', '😐', '😑', '😬', '🙄', '😯', '😦', '😧', '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐', '🥴', '🤢', '🤮', '🤧', '😷', '🤒', '🤕', '🤑', '🤠', '😈', '👿', '👹', '👺', '🤡', '💩', '👻', '💀', '☠️', '👽', '👾', '🤖', '🎃', '😺', '😸', '😹', '😻', '😼', '😽', '', '😿', ''];
+  
+  // Función para mostrar/ocultar emoticones
+  function toggleEmojiPicker() {
+    let emojiPicker = document.getElementById('admin-emoji-picker');
+    
+    if (emojiPicker) {
+      emojiPicker.remove();
+      return;
+    }
+    
+    // Crear el picker de emoticones
+    emojiPicker = document.createElement('div');
+    emojiPicker.id = 'admin-emoji-picker';
+    emojiPicker.className = 'absolute bottom-full right-0 mb-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg p-3 max-w-xs grid grid-cols-8 gap-1 z-50';
+    
+    emojis.forEach(emoji => {
+      const emojiBtn = document.createElement('button');
+      emojiBtn.textContent = emoji;
+      emojiBtn.className = 'p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-lg';
+      emojiBtn.onclick = () => {
+        chatInput.value += emoji;
+        chatInput.focus();
+        emojiPicker.remove();
+      };
+      emojiPicker.appendChild(emojiBtn);
+    });
+    
+    // Posicionar el picker
+    emojiBtn.parentElement.style.position = 'relative';
+    emojiBtn.parentElement.appendChild(emojiPicker);
+  }
+
+  let currentCustomerOnline = null;
+
+  function updateCustomerPresence(isOnline) {
+    if (!customerCompany) return;
+
+    const normalized = typeof isOnline === 'boolean' ? isOnline : Boolean(isOnline);
+    currentCustomerOnline = normalized;
+
+    const colorClasses = ['text-green-500', 'dark:text-green-400', 'text-gray-500', 'dark:text-gray-400'];
+    customerCompany.classList.remove(...colorClasses);
+
+    const dot = customerCompany.querySelector('span:first-child');
+    const statusText = customerCompany.querySelector('span:last-child');
+
+    if (normalized) {
+      if (dot) dot.className = 'inline-block w-2 h-2 rounded-full bg-green-500';
+      if (statusText) statusText.textContent = 'On line';
+      customerCompany.classList.add('text-green-500', 'dark:text-green-400');
+    } else {
+      if (dot) dot.className = 'inline-block w-2 h-2 rounded-full bg-gray-400';
+      if (statusText) statusText.textContent = 'Offline';
+      customerCompany.classList.add('text-gray-500', 'dark:text-gray-400');
+    }
+  }
+
+  async function refreshCustomerStatus(customerId) {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token || !customerId) return;
+
+      const response = await fetch(`${apiBase}/api/customers/${customerId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!response.ok) {
+        updateCustomerPresence(false);
+        return;
+      }
+
+      const data = await response.json();
+      if (typeof data?.online !== 'undefined') {
+        updateCustomerPresence(data.online === 1);
+      }
+    } catch (error) {
+      console.error('Error obteniendo estado del cliente:', error);
+      updateCustomerPresence(false);
+    }
+  }
+  function startCustomerStatusPolling() {
+    if (customerStatusInterval) return;
+    customerStatusInterval = setInterval(() => {
+      if (currentCustomerId) {
+        refreshCustomerStatus(currentCustomerId);
+      }
+    }, 10000);
+  }
+
+  function stopCustomerStatusPolling() {
+    if (customerStatusInterval) {
+      clearInterval(customerStatusInterval);
+      customerStatusInterval = null;
+    }
+  }
+
+
+
+  updateCustomerPresence(false);
+
+  // Obtener el ID del admin actual
+  async function getCurrentAdminId() {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return null;
+
+      const response = await fetch(`${apiBase}/api/auth/me`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!response.ok) return null;
+
+      const userData = await response.json();
+      return userData.id;
+    } catch (error) {
+      console.error('Error obteniendo admin ID:', error);
+      return null;
+    }
+  }
+
+  // Establecer el admin ID al cargar
+  getCurrentAdminId().then(adminId => {
+    window.currentAdminId = adminId;
+  });
 
   // Cerrar modal
   function closeAdminChatModal() {
     chatModal.classList.add('hidden');
     currentCustomerId = null;
     chatInput.value = '';
+    stopCustomerStatusPolling();
+    updateCustomerPresence(false);
   }
 
   // Agregar mensaje al chat
-  function addMessageToChat(message, sender) {
+  function addMessageToChat(message, sender, createdAt = null, isReadByClient = false) {
+    // Ocultar indicador de typing cuando llega un mensaje
+    if (sender === 'client') {
+      hideTypingIndicator();
+    }
+    if (!chatMessages) return;
+
     const messageDiv = document.createElement('div');
-    messageDiv.className = `flex ${sender === 'admin' ? 'justify-end' : 'justify-start'}`;
-    
+    messageDiv.className = `flex ${sender === 'admin' ? 'justify-end' : 'justify-start'} mb-2`;
+
+    // 📦 Contenedor en columna (burbuja + metadata)
+    const messageContainer = document.createElement('div');
+    messageContainer.className = "flex flex-col";
+
     const messageBubble = document.createElement('div');
-    messageBubble.className = `max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+    messageBubble.className = `max-w-xs rounded-lg p-3 ${
       sender === 'admin' 
-        ? 'bg-blue-500 text-white' 
-        : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
+        ? 'bg-blue-600 text-white' 
+        : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'
     }`;
-    messageBubble.textContent = message;
-    
-    messageDiv.appendChild(messageBubble);
+
+    // Fecha
+    let timeString;
+    if (createdAt) {
+      const date = new Date(createdAt);
+      timeString = date.toLocaleString('es-ES', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: true
+      });
+    } else {
+      const now = new Date();
+      timeString = now.toLocaleString('es-ES', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: true
+      });
+    }
+
+    messageBubble.innerHTML = `<p class="text-sm">${message}</p>`;
+    messageContainer.appendChild(messageBubble);
+
+    // Meta (hora + checkmarks)
+    const metaDiv = document.createElement('div');
+    metaDiv.className = `flex items-center mt-1 ${sender === 'admin' ? 'justify-end' : 'justify-start'}`;
+
+    let checkmarks = '';
+    if (sender === 'admin') {
+      if (isReadByClient) {
+        // ✅ Dos checkmarks verdes pegados
+        checkmarks = `
+          <span class="flex items-center">
+            <svg class="w-3 h-3" fill="#10b981" viewBox="0 0 24 24">
+              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+            </svg>
+            <svg class="w-3 h-3 -ml-0.5" fill="#10b981" viewBox="0 0 24 24">
+              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+            </svg>
+          </span>`;
+      } else {
+        // Un check gris oscuro
+        checkmarks = `
+          <svg class="w-3 h-3" fill="#6b7280" viewBox="0 0 24 24">
+            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+          </svg>`;
+      }
+    }
+
+    metaDiv.innerHTML = `
+      <div class="flex items-center gap-1">
+        <p class="text-xs text-gray-500 dark:text-gray-400" style="font-size: 10px;">${timeString}</p>
+        ${checkmarks}
+      </div>
+    `;
+
+    messageContainer.appendChild(metaDiv);
+    messageDiv.appendChild(messageContainer);
     chatMessages.appendChild(messageDiv);
+
     chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  // Actualizar check marks de mensajes del admin
+  function updateAdminCheckMarks() {
+    if (!currentCustomerId) return;
+    
+    // Buscar todos los mensajes del admin y cambiar check gris por doble check verde
+    const adminMessages = chatMessages.querySelectorAll('.flex.justify-end');
+    adminMessages.forEach(messageDiv => {
+      const metaDiv = messageDiv.querySelector('.flex.items-center.mt-1');
+      if (metaDiv) {
+        const singleCheck = metaDiv.querySelector('svg[fill="#6b7280"]');
+        if (singleCheck) {
+          // Cambiar a doble check verde
+          metaDiv.innerHTML = `
+            <div class="flex items-center gap-1">
+              <p class="text-xs text-gray-500 dark:text-gray-400" style="font-size: 10px;">${metaDiv.querySelector('p').textContent}</p>
+              <span class="flex items-center">
+                <svg class="w-3 h-3" fill="#10b981" viewBox="0 0 24 24">
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                </svg>
+                <svg class="w-3 h-3 -ml-0.5" fill="#10b981" viewBox="0 0 24 24">
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                </svg>
+              </span>
+            </div>
+          `;
+        }
+      }
+    });
   }
 
   // Inicializar Socket.io
@@ -196,11 +449,21 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
     
     // Escuchar mensajes nuevos
     socketService.onNewMessage((messageData) => {
+      // Solo procesar mensajes que sean para este admin específico
+      if (messageData.admin_id && parseInt(messageData.admin_id) !== parseInt(window.currentAdminId)) {
+        return; // Este mensaje no es para este admin
+      }
+      
       // Mostrar mensajes del cliente actual si el chat está abierto
       if (currentCustomerId && parseInt(messageData.customer_id) === parseInt(currentCustomerId)) {
         // Solo mostrar mensajes del cliente, no del admin (evitar duplicados)
         if (messageData.sender_role === 'client') {
-          addMessageToChat(messageData.message, 'client');
+          addMessageToChat(messageData.body, 'client', new Date(), false);
+          updateCustomerPresence(true);
+          if (chatModal && !chatModal.classList.contains('hidden')) {
+            markMessagesAsReadByAdmin(currentCustomerId);
+            refreshCustomerStatus(currentCustomerId);
+          }
         }
       }
       
@@ -223,7 +486,62 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
       if (window.updateNotificationsImmediately) {
         window.updateNotificationsImmediately();
       }
+
+      if (currentCustomerId) {
+        refreshCustomerStatus(currentCustomerId);
+      }
+      
+      // Actualizar check marks de mensajes del admin
+      updateAdminCheckMarks();
     });
+    
+    // Escuchar eventos de typing
+    if (socket) {
+      socket.on('typing', (data) => {
+        if (currentCustomerId && parseInt(data.customer_id) === parseInt(currentCustomerId)) {
+          showTypingIndicator();
+        }
+      });
+      
+      socket.on('stop-typing', (data) => {
+        if (currentCustomerId && parseInt(data.customer_id) === parseInt(currentCustomerId)) {
+          hideTypingIndicator();
+        }
+      });
+    }
+  }
+
+  // Mostrar indicador de typing
+  function showTypingIndicator() {
+    // Remover indicador existente si hay uno
+    hideTypingIndicator();
+    
+    const typingDiv = document.createElement('div');
+    typingDiv.id = 'typing-indicator';
+    typingDiv.className = 'flex justify-start mb-2';
+    typingDiv.innerHTML = `
+      <div class="max-w-xs bg-gray-100 dark:bg-gray-700 rounded-lg p-3">
+        <div class="flex items-center space-x-1">
+          <span class="text-xs text-gray-500 dark:text-gray-400">escribiendo</span>
+          <div class="flex space-x-1">
+            <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0ms"></div>
+            <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 150ms"></div>
+            <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 300ms"></div>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    chatMessages.appendChild(typingDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  // Ocultar indicador de typing
+  function hideTypingIndicator() {
+    const typingIndicator = document.getElementById('typing-indicator');
+    if (typingIndicator) {
+      typingIndicator.remove();
+    }
   }
   
   // Cargar mensajes del cliente
@@ -237,7 +555,7 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
         return;
       }
 
-      const response = await fetch(`${apiBase}/api/chat/messages/${customerId}`, {
+      const response = await fetch(`${apiBase}/api/chat/messages/${customerId}?adminId=${window.currentAdminId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -249,11 +567,11 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
       chatMessages.innerHTML = '';
       
       data.data.forEach((msg) => {
-        if (msg.sender_type === 'admin' && msg.is_security_message === 1) {
+        if (msg.sender_role === 'admin' && msg.is_security_message === 1) {
           return;
         }
-        const sender = msg.sender_type === 'admin' ? 'admin' : 'client';
-        addMessageToChat(msg.message, sender);
+        const sender = msg.sender_role === 'admin' ? 'admin' : 'client';
+        addMessageToChat(msg.body, sender, msg.created_at, msg.is_read_by_client);
       });
 
       await fetch(`${apiBase}/api/chat/mark-read-admin/${customerId}`, {
@@ -283,7 +601,7 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
 
     try {
       // Agregar mensaje del admin inmediatamente
-      addMessageToChat(message, 'admin');
+      addMessageToChat(message, 'admin', new Date(), false);
       chatInput.value = '';
 
       const token = localStorage.getItem('token');
@@ -300,6 +618,7 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
         },
         body: JSON.stringify({ 
           customer_id: currentCustomerId, 
+          admin_id: window.currentAdminId, 
           message: message, 
           sender_role: 'admin' 
         })
@@ -308,12 +627,6 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
       if (!response.ok) {
         throw new Error('Error enviando mensaje');
       }
-
-      // Marcar mensajes como leídos por admin
-      await fetch(`${apiBase}/api/chat/mark-read-admin/${currentCustomerId}`, {
-        method: 'PUT',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
 
       // El mensaje ya se agregó al chat, no necesitamos agregarlo de nuevo
       isTyping = false;
@@ -327,44 +640,47 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
   }
 
   // Abrir chat con cliente
-  window.openAdminChat = function(customerId, customerNameText, companyName) {
+  window.openAdminChat = function(customerId, customerNameText, isOnline = null) {
     currentCustomerId = customerId;
-    customerName.textContent = `Chat con ${customerNameText}`;
-    customerCompany.textContent = companyName;
-    
-    chatModal.classList.remove('hidden');
+    window.currentAdminChatCustomerId = customerId;
+
+    const formattedName = customerNameText.toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+    if (customerName) {
+      customerName.textContent = `${formattedName}`;
+    }
+
+    if (typeof isOnline === 'string') {
+      isOnline = isOnline === 'true';
+    } else if (typeof isOnline === 'number') {
+      isOnline = isOnline === 1;
+    }
+
+    if (isOnline === null) {
+      updateCustomerPresence(false);
+    } else {
+      updateCustomerPresence(Boolean(isOnline));
+    }
+
+    if (chatModal) {
+      chatModal.classList.remove('hidden');
+    }
+
+    stopCustomerStatusPolling();
     loadCustomerMessages(customerId);
-    
+    refreshCustomerStatus(customerId);
+    startCustomerStatusPolling();
+
     setTimeout(() => {
-      chatInput.focus();
+      chatInput?.focus();
       if (sendButton) {
         sendButton.disabled = !chatInput.value.trim();
       }
     }, 200);
   };
 
-  // Función para abrir el chat del cliente
-  function openCustomerChat(customerId, customerName) {
-    currentCustomerId = customerId;
-    // Exponer globalmente para que NotificationBell pueda acceder
-    window.currentAdminChatCustomerId = customerId;
-    
-    // Inicializar Socket.io si no está inicializado
-    if (!socket) {
-      initializeSocket();
-    }
-    
-    // Cargar mensajes del cliente
-    loadCustomerMessages(customerId);
-    
-    // Mostrar el modal
-    if (chatModal) {
-      chatModal.classList.remove('hidden');
-      document.getElementById('customer-name').textContent = customerName;
-    }
-    
-    // Marcar mensajes como leídos por admin
-    markMessagesAsReadByAdmin(customerId);
+  // Función para abrir el chat del cliente (compatibilidad)
+  function openCustomerChat(customerId, customerDisplayName) {
+    window.openAdminChat(customerId, customerDisplayName);
   }
   
   // Función para marcar mensajes como leídos por admin
@@ -394,6 +710,8 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
       currentCustomerId = null;
       // Limpiar variable global
       window.currentAdminChatCustomerId = null;
+      stopCustomerStatusPolling();
+      updateCustomerPresence(false);
     }
   }
 
@@ -414,8 +732,48 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
     }
   });
 
+  // Event listener for emoji button
+  emojiBtn?.addEventListener('click', toggleEmojiPicker);
+
+  // Prevenir scroll de la página cuando se hace scroll en el chat del admin
+  if (chatMessages) {
+    chatMessages.addEventListener('wheel', (e) => {
+      const { scrollTop, scrollHeight, clientHeight } = chatMessages;
+      const isAtTop = scrollTop === 0;
+      const isAtBottom = scrollTop + clientHeight >= scrollHeight;
+      
+      // Si está en el tope y hace scroll hacia arriba, o en el fondo y hace scroll hacia abajo
+      if ((isAtTop && e.deltaY < 0) || (isAtBottom && e.deltaY > 0)) {
+        e.preventDefault();
+      }
+    }, { passive: false });
+  }
+
   // Inicializar chat del admin al cargar la página
   document.addEventListener('DOMContentLoaded', () => {
     initializeSocket();
   });
-</script> 
+</script>
+
+<style>
+  /* Scrollbar personalizado para el área de mensajes */
+  #admin-chat-messages::-webkit-scrollbar {
+    width: 4px;
+  }
+  
+  #admin-chat-messages::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  #admin-chat-messages::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 2px;
+  }
+  
+  #admin-chat-messages::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+  }
+</style>
+
+
+

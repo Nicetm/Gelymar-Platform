@@ -15,5 +15,22 @@
     "folderCreatedSuccess": "Folder created successfully",
     "folderCreatedError": "Error creating folder",
     "getCustomerError": "Error getting customer"
+  },
+  "chat": {
+    "select_client": "Select a client to start chatting",
+    "offline": "Off line",
+    "online": "On line",
+    "write_message": "Write your message...",
+    "send": "Send",
+    "select_admin": "Select an administrator",
+    "select_agent": "Select Agent",
+    "choose_agent": "Choose an agent to start the conversation",
+    "loading_agents": "Loading agents...",
+    "security_message": "This is a security message",
+    "no_admins_available": "No administrators available at this time",
+    "message_sent": "Message sent",
+    "message_error": "Error sending message",
+    "data_protection": "Data Protection",
+    "data_protection_message": "All messages and data will be handled in accordance with our Privacy Policy."
   }
-} 
+}

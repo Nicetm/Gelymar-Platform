@@ -46,6 +46,51 @@ async function findCustomerIdByRut(rut) {
   return rows.length > 0 ? rows[0].id : null;
 }
 
+// Actualizar estado online del usuario
+async function updateUserOnlineStatus(userId, onlineStatus) {
+  const pool = await poolPromise;
+  await pool.query('UPDATE users SET online = ? WHERE id = ?', [onlineStatus, userId]);
+}
+
+// Obtener informaci�n del administrador principal (online/offline y nombre)
+async function getPrimaryAdminPresence() {
+  const pool = await poolPromise;
+  const [rows] = await pool.query(
+    `SELECT u.full_name, u.email, u.online
+     FROM users u
+     LEFT JOIN roles r ON u.role_id = r.id
+     WHERE u.role_id = 1
+     ORDER BY u.online DESC, u.id ASC
+     LIMIT 1`
+  );
+
+  if (!rows || rows.length === 0) {
+    return { online: false, name: 'Administrador' };
+  }
+
+  const { full_name, email, online } = rows[0];
+  const displayName = (full_name && full_name.trim()) || email || 'Administrador';
+  return { online: online === 1 || online === true, name: displayName };
+}
+
+async function getSpecificAdminPresence(adminId) {
+  const pool = await poolPromise;
+  const [rows] = await pool.query(
+    `SELECT u.full_name, u.email, u.online
+     FROM users u
+     WHERE u.id = ? AND u.role_id = 1`,
+    [adminId]
+  );
+
+  if (!rows || rows.length === 0) {
+    return { online: false, name: 'Administrador' };
+  }
+
+  const { full_name, email, online } = rows[0];
+  const displayName = (full_name && full_name.trim()) || email || 'Administrador';
+  return { online: online === 1 || online === true, name: displayName };
+}
+
 // Buscar usuario completo con roles y customer info para autenticación
 async function findUserForAuth(userId) {
   const pool = await poolPromise;
@@ -115,13 +160,19 @@ async function updateUser2FASecret(userId, secret) {
   await pool.query('UPDATE users SET twoFASecret = ? WHERE id = ?', [secret, userId]);
 }
 
+
+// Verificar si hay al menos un administrador en línea
 module.exports = {
   getAllUsers,
   findUserByEmailOrUsername,
   findCustomerIdByRut,
+  updateUserOnlineStatus,
+  getPrimaryAdminPresence,
+  getSpecificAdminPresence,
   findUserForAuth,
   getUserProfile,
   updateUserProfile,
   createUser,
   updateUser2FASecret,
 };
+

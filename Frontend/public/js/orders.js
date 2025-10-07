@@ -50,13 +50,78 @@ export async function initOrdersScript() {
     }
   }
 
+  // Función para determinar el color del semáforo
+  function getTrafficLightColor(order) {
+    const documentCount = order.document_count || 0;
+    const estadoOv = (order.estado_ov || '').toLowerCase();
+    
+    // Debug: mostrar los valores en consola
+    console.log('Order:', order.pc, 'Document Count:', documentCount, 'Estado OV:', estadoOv);
+    
+    // Verde: si el estado es "cerrada"
+    if (estadoOv === 'cerrada') {
+      console.log('Orden', order.pc, 'es VERDE (cerrada)');
+      return 'green';
+    }
+    
+    // Naranja: si el estado es "abierta" y tiene 4 o más documentos
+    if (estadoOv === 'abierta' && documentCount >= 4) {
+      console.log('Orden', order.pc, 'es NARANJA (abierta con 4+ documentos)');
+      return 'orange';
+    }
+    
+    // Rojo: si el estado es "abierta" y tiene 0 documentos
+    if (estadoOv === 'abierta' && documentCount === 0) {
+      console.log('Orden', order.pc, 'es ROJA (abierta con 0 documentos)');
+      return 'red';
+    }
+    
+    // Por defecto, rojo si no cumple ninguna condición
+    console.log('Orden', order.pc, 'es ROJA (por defecto)');
+    return 'red';
+  }
+
+  // Función para obtener el título del semáforo
+  function getTrafficLightTitle(order) {
+    const documentCount = order.document_count || 0;
+    const estadoOv = (order.estado_ov || '').toLowerCase();
+    
+    if (estadoOv === 'cerrada') {
+      return 'Orden cerrada';
+    }
+    
+    if (estadoOv === 'abierta' && documentCount >= 4) {
+      return `Orden abierta con ${documentCount} documentos`;
+    }
+    
+    if (estadoOv === 'abierta' && documentCount === 0) {
+      return 'Orden abierta sin documentos';
+    }
+    
+    return `Orden ${estadoOv} con ${documentCount} documentos`;
+  }
+
 
 
   // Función para renderizar una fila de orden
   function renderOrderRow(order) {
+    const trafficLightColor = getTrafficLightColor(order);
+    const trafficLightTitle = getTrafficLightTitle(order);
+    
     return `
       <tr data-id="${order.id}" class="hover:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition bg-white dark:bg-gray-900">
-        <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${order.pc || '-'}</td>
+        <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">
+          <div class="flex items-center gap-2">
+            <span>${order.pc || '-'}</span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" 
+                 title="${trafficLightTitle}"
+                 data-document-count="${order.document_count || 0}"
+                 data-estado-ov="${order.estado_ov || ''}"
+                 class="traffic-light-svg cursor-help">
+              <circle cx="12" cy="12" r="6" fill="${trafficLightColor === 'red' ? '#ef4444' : trafficLightColor === 'orange' ? '#f97316' : trafficLightColor === 'green' ? '#22c55e' : '#ef4444'}"/>
+            </svg>
+          </div>
+        </td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${order.oc || '-'}</td>
         <td class="px-4 py-3 break-all border-b border-gray-200 dark:border-gray-800">
           <button class="customer-name-btn text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline transition-colors cursor-pointer" 
@@ -72,7 +137,12 @@ export async function initOrdersScript() {
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(order.fecha_eta)}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${order.incoterm || '-'}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${order.puerto_destino || '-'}</td>
-        <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${order.certificados || '-'}</td>
+        <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">
+          <a href="/admin/clients/documents/view/${order.customer_uuid}?f=${order.id}&pc=${order.pc}&c=${order.customer_name}" 
+             class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline">
+            ${window.translations?.carpetas?.viewDocuments || 'ver documentos'}
+          </a>
+        </td>
         <td class="sticky right-0 bg-gray-50 dark:bg-gray-700 z-10 px-6 py-4 min-w-[120px] overflow-visible">
           <div class="flex justify-center gap-3 relative">
             
@@ -315,6 +385,8 @@ export async function initOrdersScript() {
    */
   function filterRows() {
     const query = searchInput.value.toLowerCase();
+    const filterOpenOrdersCheckbox = document.getElementById('filterOpenOrders');
+    const showOnlyOpen = filterOpenOrdersCheckbox ? filterOpenOrdersCheckbox.checked : false;
     
     filteredOrders = allOrders.filter(order => {
       // Filtro por búsqueda de texto en múltiples campos
@@ -330,7 +402,12 @@ export async function initOrdersScript() {
         order.certificados || ''
       ].join(' ').toLowerCase();
       
-      return searchableText.includes(query);
+      const matchesSearch = searchableText.includes(query);
+      
+      // Filtro por estado abierto
+      const matchesOpenFilter = !showOnlyOpen || (order.estado_ov && order.estado_ov.toLowerCase() === 'abierta');
+      
+      return matchesSearch && matchesOpenFilter;
     });
     
     // Aplicar ordenamiento actual si existe
@@ -346,6 +423,14 @@ export async function initOrdersScript() {
    * Buscador dinámico: filtra las filas según el texto ingresado.
    */
   searchInput.addEventListener('input', filterRows);
+
+  /**
+   * Event listener para el filtro de órdenes abiertas
+   */
+  const filterOpenOrdersCheckbox = document.getElementById('filterOpenOrders');
+  if (filterOpenOrdersCheckbox) {
+    filterOpenOrdersCheckbox.addEventListener('change', filterRows);
+  }
 
   /**
    * Event listeners para ordenamiento de columnas

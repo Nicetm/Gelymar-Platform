@@ -22,7 +22,9 @@ class Order {
     medio_envio_factura = null,
     incoterm = null,
     puerto_destino = null,
-    certificados = null
+    certificados = null,
+    estado_ov = null,
+    document_count = 0
   }) {
     this.id = id;
     this.rut = rut;
@@ -46,6 +48,8 @@ class Order {
     this.incoterm = incoterm;
     this.puerto_destino = puerto_destino;
     this.certificados = certificados;
+    this.estado_ov = estado_ov;
+    this.document_count = document_count;
   }
 }
 

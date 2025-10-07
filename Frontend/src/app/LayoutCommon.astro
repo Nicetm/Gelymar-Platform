@@ -54,7 +54,7 @@ const connectSrc = [
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{SITE_TITLE} — v{pkg.version}</title>
+    <title>{SITE_TITLE}</title>
     <link rel="icon" type="image/svg+xml" href="/gelymar.svg" />
     <meta name="generator" content={Astro.generator} />
     <meta name="description" content={pkg.description} />
@@ -136,8 +136,27 @@ const connectSrc = [
       PUBLIC_API_URL: import.meta.env.PUBLIC_API_URL 
     }}>
       // Función de logout simplificada
-      function logout() {
+      async function logout() {
         try {
+          const token = localStorage.getItem('token');
+          
+          // Llamar al endpoint de logout del backend si hay token
+          if (token) {
+            try {
+              const apiBase = window.apiBase || window.location.origin.replace(':4321', ':3000');
+              await fetch(`${apiBase}/api/auth/logout`, {
+                method: 'POST',
+                headers: { 
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                }
+              });
+            } catch (error) {
+              console.error('Error calling logout endpoint:', error);
+              // Continuar con logout local aunque falle el endpoint
+            }
+          }
+          
           localStorage.removeItem('token');
           localStorage.removeItem('userRole');
           localStorage.removeItem('userEmail');

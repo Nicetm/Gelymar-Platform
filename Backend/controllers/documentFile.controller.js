@@ -14,6 +14,7 @@ const {
 
 const fileService = require('../services/file.service');
 const emailService = require('../services/email.service');
+const orderService = require('../services/order.service');
 const { logger } = require('../utils/logger');
 const { cleanDirectoryName } = require('../utils/directoryUtils');
 const { validateFilePath, setSecureFilePermissions } = require('../utils/filePermissions');
@@ -96,7 +97,7 @@ async function getPDFData(file, lang = 'es') {
     subtitle: `Documento generado para ${order?.customer_name || file.customer_name}`,
     customerName: order?.customer_name || file.customer_name,
     internalOrderNumber: order?.pc || '-',
-    orderNumber: order?.oc,
+    orderNumber: order?.oc ? order.oc.replace(/^GEL\s*/i, '') : '-',
     responsiblePerson: 'Sistema Gelymar',
     destinationPort: orderDetail?.puerto_destino || '-',
     incoterm: orderDetail?.incoterm || '-',
@@ -732,6 +733,7 @@ exports.generateFile = async (req, res) => {
       id: file.id,
       status_id: 2,
       updated_at: new Date(),
+      fecha_generacion: new Date(),
       path: path.relative(FILE_SERVER_ROOT, filePath)
     };
 
@@ -788,6 +790,7 @@ exports.sendFile = async (req, res) => {
       id: id,
       status_id: 3,
       updated_at: new Date(),
+      fecha_envio: new Date(),
       path: file.path 
     });
 
@@ -842,6 +845,86 @@ exports.deleteFileById = async (req, res) => {
 };
 
 /**
+ * @route POST /api/files/regenerate/:id
+ * @desc Regenera el PDF del archivo sin cambiar el status_id
+ * @access Protegido (requiere JWT)
+ */
+exports.regenerateFile = async (req, res) => {
+  const { id } = req.params;
+  const { lang: frontendLang = 'es' } = req.body;
+
+  try {
+    const file = await fileService.getFileById(id);
+    if (!file) {
+      logger.warn(`Archivo no encontrado ID: ${id}`);
+      return res.status(404).json({ message: 'Archivo no encontrado' });
+    }
+
+    // Usar el idioma de la BD (country_lang) o el del frontend como fallback
+    const lang = file.lang || frontendLang;
+
+    const FILE_SERVER_ROOT = process.env.FILE_SERVER_ROOT || '/var/www/html';
+    // Limpiar nombres de directorios para evitar problemas con caracteres especiales
+    const cleanCustomerName = cleanDirectoryName(file.customer_name);
+    const cleanFolderName = cleanDirectoryName(file.pc);
+    
+    // Usar file_identifier si existe, sino usar solo PC
+    const folderName = file.file_identifier ? `${cleanFolderName}_${file.file_identifier}` : cleanFolderName;
+    const customerFolder = path.join(FILE_SERVER_ROOT, 'uploads', cleanCustomerName, folderName);
+    
+    // Crear directorio si no existe
+    if (!fs.existsSync(customerFolder)) {
+      fs.mkdirSync(customerFolder, { recursive: true });
+      logger.info(`Directorio creado: ${customerFolder}`);
+    }
+
+    // Generar nombre de archivo con versión
+    // Buscar archivos existentes con patrón _v*
+    const existingFiles = fs.readdirSync(customerFolder).filter(f => 
+      f.startsWith(`${file.name}_v`) && f.endsWith('.pdf')
+    );
+    
+    let version = 1;
+    if (existingFiles.length > 0) {
+      // Extraer números de versión existentes
+      const versions = existingFiles.map(f => {
+        const match = f.match(/_v(\d+)\.pdf$/);
+        return match ? parseInt(match[1]) : 0;
+      }).filter(v => v > 0);
+      
+      // Encontrar el siguiente número disponible
+      version = Math.max(...versions) + 1;
+    }
+    
+    const fileName = `${file.name}_v${version}.pdf`;
+    const filePath = path.join(customerFolder, fileName);
+
+    // Obtener el generador correspondiente según el nombre del documento
+    const generator = getDocumentGenerator(file.name);
+    
+    // Obtener datos reales de la BD
+    const pdfData = await getPDFData(file, lang);
+    
+    // Generar el PDF con el generador y datos correspondientes
+    await generator(filePath, pdfData);
+
+    // Duplicar el archivo con la nueva versión
+    const newFileId = await fileService.duplicateFile(id, path.relative(FILE_SERVER_ROOT, filePath));
+
+    logger.info(`Archivo regenerado correctamente ID: ${id} - Versión: ${fileName} - Nuevo ID: ${newFileId}`);
+    res.json({ 
+      message: 'Documento regenerado correctamente',
+      fileName: fileName,
+      filePath: path.relative(FILE_SERVER_ROOT, filePath),
+      newFileId: newFileId
+    });
+  } catch (err) {
+    logger.error(`Error al regenerar archivo: ${err.message}`);
+    res.status(500).json({ message: 'Error al regenerar el documento' });
+  }
+};
+
+/**
  * @route POST /api/files/resend/:id
  * @desc Duplica y reenvía el archivo por correo al cliente
  * @access Protegido (requiere JWT)
@@ -850,14 +933,21 @@ exports.resendFile = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const newFileId = await fileService.duplicateFile(id);
-    const newFile = await fileService.getFileById(newFileId);
-    if (!newFile) throw new Error('Error al obtener nuevo archivo para enviar');
+    // Actualizar solo fecha_reenvio del archivo original (sin cambiar status_id)
+    await fileService.updateFile({
+      id: id,
+      fecha_reenvio: new Date(),
+      updated_at: new Date()
+    });
+
+    // El archivo ya fue duplicado en regenerateFile, solo enviar
+    const file = await fileService.getFileById(id);
+    if (!file) throw new Error('Error al obtener archivo para enviar');
     
+    // Enviar el archivo
+    await emailService.sendFileToClient(file);
 
-    await emailService.sendFileToClient(newFile);
-
-    logger.info(`Archivo reenviado correctamente ID: ${newFileId}`);
+    logger.info(`Archivo reenviado correctamente ID: ${id}`);
     res.json({ message: 'Documento reenviado y enviado por correo correctamente' });
   } catch (err) {
     logger.error(`Error al reenviar archivo: ${err.message}`);
@@ -1069,6 +1159,7 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
             id: file.id,
             status_id: 2,
             updated_at: new Date(),
+            fecha_generacion: new Date(),
             path: path.relative(FILE_SERVER_ROOT, filePath)
           };
           await fileService.updateFile(updateData);
@@ -1093,7 +1184,14 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
         console.log(`Enviando correo a ${customerEmail} para orden ${orderId}`);
         await sendFileToClient(fileData);
         
-        // 10. Marcar orden como enviada
+        // 10. Actualizar fecha_envio del archivo
+        await fileService.updateFile({
+          id: file.id,
+          fecha_envio: new Date(),
+          updated_at: new Date()
+        });
+        
+        // 11. Marcar orden como enviada
         await markOrderAsSent(orderId);
         console.log(`Orden ${orderId} marcada como enviada`);
         

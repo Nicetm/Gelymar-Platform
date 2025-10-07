@@ -104,7 +104,10 @@ const getFiles = async (customerId, folderId) => {
         os.id AS status_id, 
         os.name AS status_name,
         o.pc,
-        o.oc
+        o.oc,
+        f.fecha_generacion,
+        f.fecha_envio,
+        f.fecha_reenvio
      FROM order_files f
      LEFT JOIN order_status os ON f.status_id = os.id
      JOIN orders o ON f.order_id = o.id
@@ -148,6 +151,9 @@ const getFileById = async(id) => {
       c.country,
       cc.primary_email AS customer_email,
       cl.lang,
+      f.fecha_generacion,
+      f.fecha_envio,
+      f.fecha_reenvio,
       GROUP_CONCAT(cc.contact_email SEPARATOR ',') AS contact_emails
     FROM order_files f
     JOIN orders fd ON f.order_id = fd.id
@@ -165,14 +171,53 @@ const getFileById = async(id) => {
 
 const updateFile = async(data) => {
   const pool = await poolPromise;
-  await pool.query(`
-    UPDATE order_files 
-    SET status_id = ?, updated_at = ?, path = ?, file_type = 'PDF'
-    WHERE id = ?
-  `, [data.status_id, data.updated_at, data.path, data.id]);
+  
+  // Construir la query dinámicamente basada en los campos proporcionados
+  const fields = [];
+  const values = [];
+  
+  if (data.status_id !== undefined) {
+    fields.push('status_id = ?');
+    values.push(data.status_id);
+  }
+  
+  if (data.updated_at !== undefined) {
+    fields.push('updated_at = ?');
+    values.push(data.updated_at);
+  }
+  
+  if (data.path !== undefined) {
+    fields.push('path = ?');
+    values.push(data.path);
+  }
+  
+  if (data.fecha_generacion !== undefined) {
+    fields.push('fecha_generacion = ?');
+    values.push(data.fecha_generacion);
+  }
+  
+  if (data.fecha_envio !== undefined) {
+    fields.push('fecha_envio = ?');
+    values.push(data.fecha_envio);
+  }
+  
+  if (data.fecha_reenvio !== undefined) {
+    fields.push('fecha_reenvio = ?');
+    values.push(data.fecha_reenvio);
+  }
+  
+  // Siempre establecer file_type como PDF si se está actualizando
+  fields.push('file_type = ?');
+  values.push('PDF');
+  
+  // Agregar el ID al final
+  values.push(data.id);
+  
+  const query = `UPDATE order_files SET ${fields.join(', ')} WHERE id = ?`;
+  await pool.query(query, values);
 }
 
-const duplicateFile = async (fileId) => {
+const duplicateFile = async (fileId, newPath = null) => {
 
   const pool = await poolPromise;
 
@@ -184,16 +229,21 @@ const duplicateFile = async (fileId) => {
 
   const file = rows[0];
 
+  // Usar el nuevo path si se proporciona, sino usar el original
+  const pathToUse = newPath || file.path;
+
   // Insertar el nuevo registro duplicado
   const [result] = await pool.query(`
     INSERT INTO order_files (
       order_id, pc, oc, name, path, file_identifier,
       created_at, updated_at, was_sent, 
-      document_type, file_type, status_id, is_visible_to_client
-    ) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW(), ?, ?, ?, ?, ?)`,
+      document_type, file_type, status_id, is_visible_to_client,
+      fecha_generacion, fecha_envio
+    ) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW(), ?, ?, ?, ?, ?, ?, ?)`,
     [
-      file.order_id, file.pc, file.oc, file.name, file.path, file.file_identifier,
-      true, file.document_type, file.file_type, 4, file.is_visible_to_client
+      file.order_id, file.pc, file.oc, file.name, pathToUse, file.file_identifier,
+      true, file.document_type, file.file_type, 4, file.is_visible_to_client,
+      file.fecha_generacion, file.fecha_envio
     ]
   );
 

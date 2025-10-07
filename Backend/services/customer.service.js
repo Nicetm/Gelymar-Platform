@@ -13,10 +13,12 @@ async function getAllCustomers() {
     SELECT 
       c.*, 
       COUNT(o.id) AS order_count,
-      cc.primary_email
+      cc.primary_email,
+      u.online
     FROM customers c
     LEFT JOIN orders o ON o.customer_id = c.id
     LEFT JOIN customer_contacts cc ON cc.customer_id = c.id
+    LEFT JOIN users u ON u.email = c.rut
     GROUP BY c.id, cc.primary_email
   `);
 
@@ -24,6 +26,7 @@ async function getAllCustomers() {
     const customer = new Customer(row);
     customer.folder_count = row.folder_count;
     customer.email = row.primary_email; // Usar el email principal de la nueva tabla
+    customer.online = row.online; // Agregar campo online
     return customer;
   });
 }
@@ -38,18 +41,24 @@ async function getCustomerById(id) {
   const [rows] = await pool.query(`
     SELECT 
       c.*,
-      cc.primary_email
+      cc.primary_email,
+      u.online
     FROM customers c
     LEFT JOIN customer_contacts cc ON cc.customer_id = c.id
+    LEFT JOIN users u ON u.email = c.rut
     WHERE c.id = ?
   `, [id]);
 
   if (rows.length === 0) return null;
 
   const customer = new Customer(rows[0]);
-  customer.email = rows[0].primary_email; // Usar el email principal de la nueva tabla
+  customer.email = rows[0].primary_email;
+  if (typeof rows[0].online !== 'undefined') {
+    customer.online = rows[0].online;
+  }
   return customer;
 }
+
 
 /**
  * Obtiene un cliente por su UUID público
@@ -61,18 +70,24 @@ async function getCustomerByUUID(uuid) {
   const [rows] = await pool.query(`
     SELECT 
       c.*,
-      cc.primary_email
+      cc.primary_email,
+      u.online
     FROM customers c
     LEFT JOIN customer_contacts cc ON cc.customer_id = c.id
+    LEFT JOIN users u ON u.email = c.rut
     WHERE c.uuid = ?
   `, [uuid]);
 
   if (rows.length === 0) return null;
 
   const customer = new Customer(rows[0]);
-  customer.email = rows[0].primary_email; // Usar el email principal de la nueva tabla
+  customer.email = rows[0].primary_email;
+  if (typeof rows[0].online !== 'undefined') {
+    customer.online = rows[0].online;
+  }
   return customer;
 }
+
 
 /**
  * Obtiene un cliente por su RUT
@@ -85,27 +100,32 @@ async function getCustomerByRut(rut) {
     const query = `
       SELECT 
         c.*,
-        cc.primary_email
+        cc.primary_email,
+        u.online
       FROM customers c
       LEFT JOIN customer_contacts cc ON cc.customer_id = c.id
+      LEFT JOIN users u ON u.email = c.rut
       WHERE c.rut = ?
     `;
     const params = [rut];
-    
+
     const [rows] = await pool.query(query, params);
-    
+
     if (rows.length === 0) {
-      console.log(`⚠️  Cliente no encontrado con RUT: "${rut}"`);
+      console.log(`??  Cliente no encontrado con RUT: "${rut}"`);
       return null;
     }
-    
+
     const customer = new Customer(rows[0]);
-    customer.email = rows[0].primary_email; // Usar el email principal de la nueva tabla
+    customer.email = rows[0].primary_email;
+    if (typeof rows[0].online !== 'undefined') {
+      customer.online = rows[0].online;
+    }
     // Log simplificado solo para debugging cuando sea necesario
     // console.log(`Cliente encontrado: ${customer.name} (${customer.rut})`);
-    
+
     return customer;
-    
+
   } catch (error) {
     console.error(`Error buscando cliente por RUT "${rut}":`);
     console.error(`   Error: ${error.message}`);
@@ -115,10 +135,60 @@ async function getCustomerByRut(rut) {
   }
 }
 
+
 async function getAllCustomerRuts() {
   const pool = await poolPromise;
   const [rows] = await pool.query('SELECT rut FROM customers');
   return rows.map(r => r.rut);
+}
+
+/**
+ * Obtiene un cliente por RUT con todos sus datos
+ * @param {string} rut - RUT del cliente
+ * @returns {Customer|null} Cliente encontrado o null
+ */
+async function getCustomerByRutForUpdate(rut) {
+  const pool = await poolPromise;
+  const [rows] = await pool.query('SELECT * FROM customers WHERE rut = ?', [rut]);
+  return rows.length > 0 ? rows[0] : null;
+}
+
+/**
+ * Actualiza un cliente por RUT
+ * @param {string} rut - RUT del cliente
+ * @param {Object} updateData - Datos a actualizar
+ * @returns {boolean} true si se actualizó, false si no
+ */
+async function updateCustomerByRut(rut, updateData) {
+  const pool = await poolPromise;
+  
+  // Construir la query de actualización dinámicamente
+  const allowedFields = ['name', 'email', 'contact_name', 'contact_secondary', 'phone', 'fax', 'mobile', 'address', 'address_alt', 'country', 'city'];
+  const fieldsToUpdate = [];
+  const values = [];
+
+  for (const [key, value] of Object.entries(updateData)) {
+    if (allowedFields.includes(key)) {
+      fieldsToUpdate.push(`${key} = ?`);
+      values.push(value); // Permitir null para actualizar campos vacíos a NULL
+    }
+  }
+
+  if (fieldsToUpdate.length === 0) {
+    return false; // No hay campos para actualizar
+  }
+
+  // Agregar el RUT al final para la condición WHERE
+  values.push(rut);
+
+  const query = `
+    UPDATE customers 
+    SET ${fieldsToUpdate.join(', ')}, updated_at = NOW()
+    WHERE rut = ?
+  `;
+
+  await pool.query(query, values);
+  return true;
 }
 
 async function insertCustomer(data) {
@@ -416,6 +486,8 @@ async function updateCustomerByUUID(uuid, updateData) {
 
 module.exports = {
   getAllCustomerRuts,
+  getCustomerByRutForUpdate,
+  updateCustomerByRut,
   insertCustomer,
   getAllCustomers,
   getCustomerById,  
@@ -427,3 +499,4 @@ module.exports = {
   updateCustomerByUUID,
   createOrUpdatePrimaryContact
 };
+

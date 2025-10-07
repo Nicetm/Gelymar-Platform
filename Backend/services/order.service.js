@@ -10,7 +10,7 @@ const getOrdersByFilters = async (filters = {}) => {
   const pool = await poolPromise;
 
   let query = `
-    SELECT DISTINCT
+    SELECT 
       o.id,
       o.rut,
       o.oc,
@@ -29,15 +29,47 @@ const getOrdersByFilters = async (filters = {}) => {
       od.medio_envio_factura,
       od.incoterm,
       od.puerto_destino,
-      od.certificados
+      od.certificados,
+      od.estado_ov,
+      COALESCE(doc_counts.document_count, 0) AS document_count
     FROM orders o
     JOIN customers c ON o.customer_id = c.id
     LEFT JOIN order_detail od ON o.id = od.order_id
+    LEFT JOIN (
+      SELECT order_id, COUNT(*) AS document_count
+      FROM order_files
+      GROUP BY order_id
+    ) doc_counts ON o.id = doc_counts.order_id
     ORDER BY o.fecha_factura DESC`;
 
   const params = [];
 
   const [rows] = await pool.query(query, params);
+
+  // Debug: mostrar algunos datos de ejemplo
+  if (rows.length > 0) {
+    console.log('Ejemplo de datos de órdenes:', {
+      pc: rows[0].pc,
+      document_count: rows[0].document_count,
+      estado_ov: rows[0].estado_ov,
+      order_id: rows[0].id
+    });
+    
+    // Debug: verificar si existen archivos para esta orden específica
+    const testOrderId = rows[0].id;
+    const [testFiles] = await pool.query('SELECT COUNT(*) as count FROM order_files WHERE order_id = ?', [testOrderId]);
+    console.log(`Archivos reales para orden ${testOrderId} (PC: ${rows[0].pc}):`, testFiles[0].count);
+    
+    // Debug específico para orden 19013
+    const order19013 = rows.find(row => row.pc === '19013');
+    if (order19013) {
+      console.log('=== DEBUG ORDEN 19013 ===');
+      console.log('Datos de la orden:', order19013);
+      const [files19013] = await pool.query('SELECT COUNT(*) as count FROM order_files WHERE order_id = ?', [order19013.id]);
+      console.log('Archivos reales para orden 19013:', files19013[0].count);
+      console.log('=======================');
+    }
+  }
 
   return rows.map(r => {
     const order = new Order({
@@ -60,7 +92,9 @@ const getOrdersByFilters = async (filters = {}) => {
       medio_envio_factura: r.medio_envio_factura,
       incoterm: r.incoterm,
       puerto_destino: r.puerto_destino,
-      certificados: r.certificados
+      certificados: r.certificados,
+      estado_ov: r.estado_ov,
+      document_count: r.document_count
     });
 
     return order;
@@ -87,7 +121,7 @@ const getClientDashboardOrders = async (customerUUID) => {
     COALESCE(oi_counts.items_count, 0) AS items_count
     FROM orders o
     JOIN customers c ON o.customer_id = c.id
-    LEFT JOIN files f ON f.order_id = o.id
+    LEFT JOIN order_files f ON f.order_id = o.id
     LEFT JOIN (
         SELECT factura, COUNT(*) AS items_count
         FROM order_items
@@ -141,20 +175,20 @@ const getClientOrderDocuments = async (orderId, customerUUID) => {
   // Obtener documentos de la orden (solo los visibles para el cliente)
   const documentsQuery = `
     SELECT 
-      f.id,
-      f.name AS filename,
-      f.path AS filepath,
-      f.file_type AS filetype,
-      f.created_at,
-      f.updated_at,
+      ofi.id,
+      ofi.name AS filename,
+      ofi.path AS filepath,
+      ofi.file_type AS filetype,
+      ofi.created_at,
+      ofi.updated_at,
       o.factura,
       o.fecha_factura,
-      s.name AS status
-    FROM order_files f
-    LEFT JOIN order_status s ON f.status_id = s.id
-    LEFT JOIN orders o ON f.order_id = o.id
-    WHERE f.order_id = ? AND f.is_visible_to_client = 1
-    ORDER BY f.created_at DESC
+      os.name AS status
+    FROM order_files ofi
+    JOIN order_status os ON ofi.status_id = os.id
+    JOIN orders o ON ofi.order_id = o.id
+    WHERE ofi.order_id = ? AND ofi.is_visible_to_client = 1
+    ORDER BY ofi.created_at DESC;
   `;
 
   const [documentRows] = await pool.query(documentsQuery, [order.id]);
@@ -368,6 +402,27 @@ const getOrderByRutAndOc = async (rut, oc) => {
     
   } catch (error) {
     console.error('Error getting order by RUT and OC:', error);
+    throw error;
+  }
+};
+
+/**
+ * Obtiene una orden por ID simple (sin validación de permisos)
+ * @param {number} orderId - ID de la orden
+ * @returns {Promise<object|null>} Orden encontrada o null
+ */
+const getOrderByIdSimple = async (orderId) => {
+  try {
+    const pool = await poolPromise;
+    const [[order]] = await pool.query(`
+      SELECT o.*, c.name as customer_name 
+      FROM orders o
+      JOIN customers c ON o.customer_id = c.id
+      WHERE o.id = ?
+    `, [orderId]);
+    return order || null;
+  } catch (error) {
+    console.error('Error en getOrderByIdSimple:', error.message);
     throw error;
   }
 };
@@ -596,6 +651,7 @@ module.exports = {
   getOrderItemsWithoutFactura,
   getOrderByRutAndOc,
   getOrderById,
+  getOrderByIdSimple,
   getOrderDetails,
   getOrderDetail
 };

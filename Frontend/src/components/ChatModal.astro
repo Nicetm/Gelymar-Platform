@@ -1,7 +1,23 @@
 ---
 // Modal de chat para comunicación cliente-admin
 //const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
+import { loadTranslations, getServerLang } from '../lib/i18n.js';
+
+const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
 const apiPublic = import.meta.env.PUBLIC_API_URL;
+const lang = getServerLang(Astro.cookies);
+
+let t: any = {};
+try {
+  t = {
+      messages: await loadTranslations(lang, 'messages'),
+      comond: await loadTranslations(lang, 'comond')
+    };
+} catch (error) {
+  console.warn('Error cargando traducciones:', error);
+  t = {};
+}
+  
 ---
 
 <!-- Modal de chat -->
@@ -21,8 +37,11 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
           </svg>
         </div>
         <div>
-          <h3 class="font-semibold text-gray-900 dark:text-white">Carla Torres</h3>
-          <p class="text-xs text-gray-500 dark:text-gray-400">On line</p>
+          <h3 id="chat-admin-name" class="font-semibold text-sm text-gray-900 dark:text-white">{t.messages?.chat?.select_agent || "Seleccionar Agente"}</h3>
+          <p id="chat-admin-status" class="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+            <span id="chat-admin-status-dot" class="inline-block w-2 h-2 rounded-full bg-gray-400"></span>
+            <span id="chat-admin-status-text">{t.messages?.chat?.choose_agent || "Elige un agente para iniciar la conversación"}</span>
+          </p>
         </div>
       </div>
       
@@ -34,28 +53,44 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
       </button>
     </div>
     
-    <!-- Área de mensajes -->
-    <div id="chat-messages" class="flex-1 p-4 overflow-y-auto space-y-3">
-      <!-- Mensaje de bienvenida -->
-      <div class="flex justify-start">
-        <div class="max-w-xs bg-gray-100 dark:bg-gray-700 rounded-lg p-3">
-          <p class="text-sm text-gray-900 dark:text-white">
-            Hello! My name is Carla Torres, how can I help you today?
-          </p>
-          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1" style="font-size: 10px;">${new Date().toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+    <!-- Pantalla de selección de administradores -->
+    <div id="admin-selection" class="flex-1 p-4 overflow-y-auto">
+      <div id="admin-list" class="space-y-2">
+        <div class="text-center text-gray-500 dark:text-gray-400">
+          <p>{t.chat?.loading_agents || "Cargando agentes..."}</p>
         </div>
       </div>
       
+      <!-- Mensaje de protección de datos -->
+      <div class="mt-8 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+        <div class="flex items-start gap-2">
+          <svg class="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+          </svg>
+          <div>
+            <p class="text-xs text-blue-700 dark:text-blue-300 font-medium mb-1">{t.messages?.chat?.data_protection || "Protección de Datos"}</p>
+            <p class="text-xs text-blue-600 dark:text-blue-400">{t.messages?.chat?.data_protection_message || "Todos los mensajes con nuestros agentes están encriptados para garantizar tu privacidad y seguridad."}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Área de mensajes -->
+    <div id="chat-messages" class="flex-1 p-4 overflow-y-auto space-y-3 hidden">
+      <div class="text-center text-gray-500 dark:text-gray-400">
+        <p>Loading chat history...</p>
+      </div>
       <!-- Los mensajes se cargarán dinámicamente aquí -->
     </div>
-    
+
+
     <!-- Área de escritura -->
-    <div class="p-4 border-t border-gray-200 dark:border-gray-700">
+    <div id="chat-input-area" class="p-4 border-t border-gray-200 dark:border-gray-700 hidden">
       <div class="flex gap-2">
         <input 
           id="chat-input" 
           type="text" 
-          placeholder="Write your message..."
+          placeholder={t.messages?.chat?.write_message || "Write your message..."}
           class="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
         <button 
@@ -82,9 +117,11 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
   </div>
 </div>
 
-<script is:inline define:vars={{ apiPublic }}>
+<script is:inline define:vars={{ apiPublic, apiBase, lang, t }}>
   window.apiBase = apiPublic;
-  
+  window.lang = lang;
+  window.translations = t;
+
   // Socket.io service (inline)
   class SocketService {
     constructor() {
@@ -159,6 +196,13 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
   const chatInput = document.getElementById('chat-input');
   const sendMessageBtn = document.getElementById('send-message-btn');
   const emojiBtn = document.getElementById('emoji-btn');
+  const adminStatusContainer = document.getElementById('chat-admin-status');
+  const adminStatusText = document.getElementById('chat-admin-status-text');
+  const adminStatusDot = document.getElementById('chat-admin-status-dot');
+  const adminNameLabel = document.getElementById('chat-admin-name');
+  const adminSelection = document.getElementById('admin-selection');
+  const adminList = document.getElementById('admin-list');
+  const chatInputArea = document.getElementById('chat-input-area');
   
   // Emoticones disponibles
   const emojis = ['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩', '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣', '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬', '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '😥', '😓', '🤗', '🤔', '🤭', '🤫', '🤥', '😶', '😐', '😑', '😬', '🙄', '😯', '😦', '😧', '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐', '🥴', '🤢', '🤮', '🤧', '😷', '🤒', '🤕', '🤑', '🤠', '😈', '👿', '👹', '👺', '🤡', '💩', '👻', '💀', '☠️', '👽', '👾', '🤖', '🎃', '😺', '😸', '😹', '😻', '😼', '😽', '', '😿', ''];
@@ -196,37 +240,278 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
   
   let isTyping = false;
   let socket = null;
+  let cachedCustomerId = null;
+  let cachedCustomerToken = null;
+  let customerIdRequest = null;
+  let currentAdminOnline = false;
+  let adminStatusInterval = null;
+  let adminDisplayName = 'Administrador';
+  let selectedAdminId = null;
+  let lastAdminActivity = null; // Timestamp de la última actividad del admin
   
-  // Función para obtener el customer_id del usuario actual
+  // Función para obtener el customer_id del usuario actual (con caché simple)
   async function getCustomerId() {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      cachedCustomerId = null;
+      cachedCustomerToken = null;
+      return null;
+    }
+
+    if (cachedCustomerToken === token && cachedCustomerId !== null) {
+      return cachedCustomerId;
+    }
+
+    if (customerIdRequest) {
+      return customerIdRequest;
+    }
+
+    customerIdRequest = (async () => {
+      try {
+        const response = await fetch(`${apiBase}/api/auth/me`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!response.ok) {
+          cachedCustomerId = null;
+          cachedCustomerToken = null;
+          return null;
+        }
+
+        const userData = await response.json();
+        cachedCustomerId = userData.customer_id ?? null;
+        cachedCustomerToken = token;
+        return cachedCustomerId;
+      } catch (error) {
+        console.error('Error obteniendo customer_id:', error);
+        cachedCustomerId = null;
+        cachedCustomerToken = null;
+        return null;
+      } finally {
+        customerIdRequest = null;
+      }
+    })();
+
+    return customerIdRequest;
+  }
+
+  // Función para marcar mensajes como leídos por el cliente
+  async function markMessagesAsReadByClient(customerIdOverride = null) {
+    try {
+      const token = localStorage.getItem('token');
+      const customerId = customerIdOverride ?? await getCustomerId();
+
+      if (!token || !customerId) {
+        return;
+      }
+
+      await fetch(`${apiBase}/api/chat/read/${customerId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+    } catch (error) {
+      console.error('Error marcando mensajes como leídos por cliente:', error);
+    }
+  }
+
+  function setAdminDisplayName(name) {
+    const sanitized = (name && name.toString().trim()) || t.messages?.chat?.select_agent || 'Seleccionar Agente';
+    adminDisplayName = sanitized;
+    if (adminNameLabel) {
+      adminNameLabel.textContent = adminDisplayName;
+    }
+  }
+
+  function updateAdminPresence(isOnline) {
+    currentAdminOnline = Boolean(isOnline);
+    if (adminStatusText) {
+      if (selectedAdminId) {
+        adminStatusText.textContent = currentAdminOnline ? t.messages?.chat?.online || 'On line' : t.messages?.chat?.offline || 'Off line';
+      } else {
+        adminStatusText.textContent = t.messages?.chat?.choose_agent || 'Elige un agente para iniciar'; 
+      }
+    }
+    if (adminStatusContainer) {
+      adminStatusContainer.classList.remove('text-gray-500', 'dark:text-gray-400', 'text-green-500', 'dark:text-green-400');
+      if (selectedAdminId) {
+        adminStatusContainer.classList.add(currentAdminOnline ? 'text-green-500' : 'text-gray-500', currentAdminOnline ? 'dark:text-green-400' : 'dark:text-gray-400');
+      } else {
+        adminStatusContainer.classList.add('text-gray-500', 'dark:text-gray-400');
+      }
+    }
+    if (adminStatusDot) {
+      adminStatusDot.classList.remove('bg-green-500', 'bg-gray-400');
+      if (selectedAdminId) {
+        adminStatusDot.classList.add(currentAdminOnline ? 'bg-green-500' : 'bg-gray-400');
+      } else {
+        adminStatusDot.classList.add('bg-gray-400');
+      }
+    }
+  }
+
+  async function refreshAdminOnlineStatus() {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      // Si el admin tuvo actividad reciente (menos de 30 segundos), no actualizar el estado
+      if (lastAdminActivity && Date.now() - lastAdminActivity < 30000) {
+        return;
+      }
+
+      const response = await fetch(`${apiBase}/api/chat/admin/status${selectedAdminId ? `?adminId=${selectedAdminId}` : ''}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!response.ok) {
+        updateAdminPresence(false);
+        if (selectedAdminId) {
+          setAdminDisplayName(adminDisplayName);
+        } else {
+          setAdminDisplayName(t.messages?.chat?.select_agent || 'Seleccionar Agente');
+        }
+        return;
+      }
+
+      const payload = await response.json();
+      const presence = payload?.data ?? payload ?? {};
+      // No actualizar el nombre si no hay un admin seleccionado
+      if (selectedAdminId) {
+        if (typeof presence.name !== 'undefined') {
+          setAdminDisplayName(presence.name);
+        }
+        const isOnline = presence.online ?? false;
+        updateAdminPresence(Boolean(isOnline));
+      }
+    } catch (error) {
+      console.error('Error obteniendo estado del administrador:', error);
+      updateAdminPresence(false);
+      if (selectedAdminId) {
+        setAdminDisplayName(adminDisplayName);
+      } else {
+        setAdminDisplayName(t.messages?.chat?.select_agent || 'Seleccionar Agente');
+      }
+    }
+  }
+
+  function startAdminStatusPolling() {
+    if (adminStatusInterval) return;
+    adminStatusInterval = setInterval(refreshAdminOnlineStatus, 10000);
+  }
+
+  function stopAdminStatusPolling() {
+    if (adminStatusInterval) {
+      clearInterval(adminStatusInterval);
+      adminStatusInterval = null;
+    }
+  }
+
+  updateAdminPresence(false);
+  setAdminDisplayName(t.messages?.chat?.select_agent || 'Seleccionar Agente');
+
+  // Función para cargar lista de administradores
+  async function loadAdminList() {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
-        return null;
+        console.log('No token found');
+        return;
       }
-      
-      const response = await fetch(`${apiBase}/api/auth/me`, {
+
+      const response = await fetch(`${apiBase}/api/chat/admins`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      
-      if (response.ok) {
-        const userData = await response.json();
-        return userData.customer_id;
-      } else {
-        return null;
+
+      if (!response.ok) {
+        console.log('Response not ok:', response.statusText);
+        return;
       }
+
+      const data = await response.json();
+      const admins = data.data || [];
+
+      if (!adminList) return;
+
+      adminList.innerHTML = '';
+
+      if (admins.length === 0) {
+        adminList.innerHTML = '<div class="text-center text-gray-500 dark:text-gray-400"><p>No hay agentes disponibles</p></div>';
+        return;
+      }
+
+      admins.forEach(admin => {
+        const adminItem = document.createElement('div');
+        adminItem.className = 'flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors';
+        
+        const isOnline = admin.online === 1;
+        const statusColor = isOnline ? 'bg-green-500' : 'bg-gray-400';
+        const statusText = isOnline ? 'On line' : 'Offline';
+        
+        adminItem.innerHTML = `
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
+              <span class="text-white font-semibold text-sm">${admin.full_name.charAt(0).toUpperCase()}</span>
+            </div>
+            <div>
+              <p class="font-semibold text-sm text-gray-900 dark:text-white">${admin.full_name}</p>
+              <div class="flex items-center gap-1">
+                <span class="inline-block w-2 h-2 rounded-full ${statusColor}"></span>
+                <span class="text-xs text-gray-500 dark:text-gray-400">${statusText}</span>
+              </div>
+            </div>
+          </div>
+          <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+        `;
+
+        adminItem.addEventListener('click', () => {
+          selectAdmin(admin);
+        });
+
+        adminList.appendChild(adminItem);
+      });
     } catch (error) {
-      console.error('Error obteniendo customer_id:', error);
-      return null;
+      console.error('Error cargando lista de administradores:', error);
+      if (adminList) {
+        adminList.innerHTML = '<div class="text-center text-red-500"><p>Error cargando agentes: ' + error.message + '</p></div>';
+      }
     }
   }
-  
+
+  // Función para seleccionar administrador
+  function selectAdmin(admin) {
+    selectedAdminId = admin.id;
+    setAdminDisplayName(admin.full_name);
+    updateAdminPresence(admin.online === 1);
+    
+    // Ocultar selección de administradores y mostrar chat
+    adminSelection.classList.add('hidden');
+    chatMessagesDiv.classList.remove('hidden');
+    chatInputArea.classList.remove('hidden');
+    
+    // Cargar mensajes del chat con el administrador seleccionado
+    loadChatMessages();
+  }
+
   // Función para cerrar el modal
   function closeChatModal() {
     if (chatModal && chatInput) {
       chatModal.classList.add('hidden');
       chatInput.blur();
     }
+    stopAdminStatusPolling();
+    updateAdminPresence(false);
+    
+    // Resetear estado
+    selectedAdminId = null;
+    setAdminDisplayName(t.messages?.chat?.select_agent || 'Seleccionar Agente');
+    updateAdminPresence(false); // Resetear estado a "Elige un agente para iniciar"
+    adminSelection.classList.remove('hidden');
+    chatMessagesDiv.classList.add('hidden');
+    chatInputArea.classList.add('hidden');
   }
   
   // Función para enviar mensaje
@@ -270,6 +555,7 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
         },
         body: JSON.stringify({
           customer_id: customerId,
+          admin_id: selectedAdminId,
           message: validationResult.message,
           sender_role: 'client'
         })
@@ -412,7 +698,7 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
         return;
       }
       
-      const response = await fetch(`${apiBase}/api/chat/messages/${customerId}`, {
+      const response = await fetch(`${apiBase}/api/chat/messages/${customerId}?adminId=${selectedAdminId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -428,12 +714,7 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
       updateChatMessages(data.data);
       
       // Marcar como leídos
-      await fetch(`${apiBase}/api/chat/read/${customerId}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      await markMessagesAsReadByClient(customerId);
       
     } catch (error) {
       console.error('Error cargando mensajes:', error);
@@ -448,22 +729,26 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
     chatMessagesDiv.innerHTML = '';
     
     // Agregar mensaje de bienvenida
-    addMessageToChat('Hello! My name is Carla Torres, how can I help you today?', 'admin');
+    const welcomeMessage = selectedAdminId ? 
+      `Hello! My name is ${adminDisplayName}, how can I help you today?` : 
+      'Please select an agent to start the conversation.';
+    addMessageToChat(welcomeMessage, 'admin');
     
     // Agregar mensajes desde la API (filtrar mensajes de seguridad)
     messages.forEach((msg) => {
       // Mostrar mensajes de seguridad del admin solo en el cliente
-      if (msg.sender_type === 'admin' && msg.is_security_message === 1) {
-        addSecurityMessageToChat(msg.message);
+      if (msg.sender_role === 'admin' && msg.is_security_message === 1) {
+        addSecurityMessageToChat(msg.body);
         return;
       }
-      const sender = msg.sender_type === 'client' ? 'user' : 'admin';
-      addMessageToChat(msg.message, sender, msg.created_at, msg.is_read_by_admin);
+      const sender = msg.sender_role === 'client' ? 'user' : 'admin';
+      addMessageToChat(msg.body, sender, msg.created_at, msg.is_read_by_admin);
     });
   }
   
   // Hacer las funciones globales para que el botón flotante pueda acceder
   window.loadChatMessages = loadChatMessages;
+  window.openChatModal = openChatModal;
   // Socket.io ya maneja las actualizaciones en tiempo real
   window.startChatPolling = () => {};
   window.stopChatPolling = () => {};
@@ -493,26 +778,42 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
             // Cliente conectado correctamente
           }
         });
+        refreshAdminOnlineStatus();
+        if (chatModal && !chatModal.classList.contains('hidden')) {
+          startAdminStatusPolling();
+        }
       });
     }
     
     // Escuchar mensajes nuevos
-    socketService.onNewMessage((messageData) => {
-      // Mostrar todos los mensajes nuevos (tanto del admin como del cliente)
-      getCustomerId().then(customerId => {
-        if (parseInt(messageData.customer_id) === parseInt(customerId)) {
-          // Solo mostrar mensajes del admin, no del propio cliente (evitar duplicados)
-          if (messageData.sender_role === 'admin') {
-            addMessageToChat(messageData.message, 'admin', new Date(), false);
+    socketService.onNewMessage(async (messageData) => {
+      const customerId = await getCustomerId();
+      if (!customerId) {
+        return;
+      }
+
+      if (parseInt(messageData.customer_id) === parseInt(customerId)) {
+        // Solo mostrar mensajes del admin seleccionado, no del propio cliente (evitar duplicados)
+        if (messageData.sender_role === 'admin' && selectedAdminId && parseInt(messageData.admin_id) === parseInt(selectedAdminId)) {
+          addMessageToChat(messageData.body, 'admin', new Date(), false);
+          updateAdminPresence(true); // Si el admin envía un mensaje, está online
+          lastAdminActivity = Date.now(); // Registrar actividad del admin
+
+          if (chatModal && !chatModal.classList.contains('hidden')) {
+            await markMessagesAsReadByClient(customerId);
+            // No llamar refreshAdminOnlineStatus() aquí para evitar cambiar el estado
           }
         }
-      });
+      }
     });
     
     // Escuchar actualizaciones de notificaciones para actualizar check verdes
     socketService.onUpdateNotifications(() => {
       // Recargar mensajes para mostrar check verdes actualizados
       loadChatMessages();
+      if (chatModal && !chatModal.classList.contains('hidden')) {
+        refreshAdminOnlineStatus();
+      }
     });
   }
   
@@ -631,15 +932,24 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
   function openChatModal() {
     if (chatModal && chatInput) {
       chatModal.classList.remove('hidden');
-      chatInput.focus();
       
+      // Resetear estado y mostrar selección de administradores
+      selectedAdminId = null;
+      adminSelection.classList.remove('hidden');
+      chatMessagesDiv.classList.add('hidden');
+      chatInputArea.classList.add('hidden');
+      
+      // Cargar lista de administradores
+      loadAdminList();
+
+      stopAdminStatusPolling();
+      refreshAdminOnlineStatus();
+      startAdminStatusPolling();
+
       // Inicializar Socket.io si no está inicializado
       if (!socket) {
         initializeChatSocket();
       }
-      
-      // Cargar mensajes
-      loadChatMessages();
     }
   }
   
@@ -671,11 +981,26 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
   
   // Inicializar chat al cargar la página
   document.addEventListener('DOMContentLoaded', () => {
+    refreshAdminOnlineStatus();
     initializeChatSocket();
   });
 
   // Event listeners for emojis
   emojiBtn?.addEventListener('click', toggleEmojiPicker);
+
+  // Prevenir scroll de la página cuando se hace scroll en el chat
+  if (chatMessagesDiv) {
+    chatMessagesDiv.addEventListener('wheel', (e) => {
+      const { scrollTop, scrollHeight, clientHeight } = chatMessagesDiv;
+      const isAtTop = scrollTop === 0;
+      const isAtBottom = scrollTop + clientHeight >= scrollHeight;
+      
+      // Si está en el tope y hace scroll hacia arriba, o en el fondo y hace scroll hacia abajo
+      if ((isAtTop && e.deltaY < 0) || (isAtBottom && e.deltaY > 0)) {
+        e.preventDefault();
+      }
+    }, { passive: false });
+  }
 </script>
 
 <style>
@@ -712,4 +1037,4 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
       transform: translateY(0);
     }
   }
-</style> 
+</style>

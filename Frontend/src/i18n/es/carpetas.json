@@ -79,5 +79,8 @@
 	"gastoAdicional": "Gasto Adicional",
 	"cliente": "Cliente",
 	"cantidad": "Cantidad",
-	"precioUnitario": "Precio Unitario"
+	"precioUnitario": "Precio Unitario",
+	"viewDocuments": "Ver documentos",
+	"documents": "Documentos",
+	"onlyOpen": "Solo Abiertas"
 }

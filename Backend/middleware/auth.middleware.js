@@ -52,6 +52,18 @@ const createAuthMiddleware = (options = {}) => {
             return res.status(403).json({ message: 'Token inválido' });
           }
         } else {
+          // Si el token expiró y no se permite, actualizar online a 0
+          if (err.name === 'TokenExpiredError') {
+            try {
+              const expiredDecoded = jwt.decode(token);
+              if (expiredDecoded && expiredDecoded.id) {
+                await userService.updateUserOnlineStatus(expiredDecoded.id, 0);
+                logger.info(`Token expirado para usuario ${expiredDecoded.email} - online actualizado a 0`);
+              }
+            } catch (error) {
+              logger.error(`Error actualizando estado online por token expirado: ${error.message}`);
+            }
+          }
           return res.status(403).json({ message: 'Token inválido o expirado' });
         }
       }

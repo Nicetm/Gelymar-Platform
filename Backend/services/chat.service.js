@@ -1,4 +1,5 @@
 const ChatMessage = require('../models/chatMessage.model');
+const EncryptionService = require('./encryption.service');
 const UserService = require('./user.service');
 
 class ChatService {
@@ -47,34 +48,71 @@ class ChatService {
     }
   }
 
-  static async getChatSummary() {
+  static async getChatSummary(adminId) {
     try {
-      const recentChats = await ChatMessage.getRecentChats();
-      const totalUnread = await ChatMessage.getAdminUnreadCount();
+      const recentChats = await ChatMessage.getRecentChats(adminId);
+      const totalUnread = await ChatMessage.getAdminUnreadCount(adminId);
       
+      // Desencriptar mensajes recientes (excepto mensajes de seguridad)
+      const decryptedChats = recentChats.map(chat => {
+        if (chat.last_message && !chat.is_security_message && EncryptionService.isEncrypted(chat.last_message)) {
+          try {
+            chat.last_message = EncryptionService.decrypt(chat.last_message);
+          } catch (error) {
+            console.error('Error desencriptando mensaje reciente:', error);
+            chat.last_message = '[Mensaje no disponible]';
+          }
+        }
+        return chat;
+      });
       
       return {
-        recentChats,
+        recentChats: decryptedChats,
         totalUnread,
-        totalChats: recentChats.length
+        totalChats: decryptedChats.length
       };
     } catch (error) {
       throw error;
     }
   }
 
-  static async markAllAsRead() {
+  static async getAdminPresence() {
     try {
-      const affectedRows = await ChatMessage.markAllAsRead();
+      return await UserService.getPrimaryAdminPresence();
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  static async getSpecificAdminPresence(adminId) {
+    try {
+      return await UserService.getSpecificAdminPresence(adminId);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  static async markAllAsRead(adminId) {
+    try {
+      const affectedRows = await ChatMessage.markAllAsRead(adminId);
       return { success: true, affectedRows };
     } catch (error) {
       throw error;
     }
   }
 
-  static async markAsReadByAdmin(customerId) {
+  static async markAsReadByAdmin(customerId, adminId) {
     try {
-      const affectedRows = await ChatMessage.markAsReadByAdmin(customerId);
+      const affectedRows = await ChatMessage.markAsReadByAdmin(customerId, adminId);
+      return { success: true, affectedRows };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  static async markAsReadByClient(customerId) {
+    try {
+      const affectedRows = await ChatMessage.markAsRead(customerId);
       return { success: true, affectedRows };
     } catch (error) {
       throw error;
@@ -85,6 +123,15 @@ class ChatService {
     try {
       const user = await UserService.findUserForAuth(userId);
       return user;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  static async getAdmins() {
+    try {
+      const admins = await ChatMessage.getAdmins();
+      return admins;
     } catch (error) {
       throw error;
     }

@@ -175,7 +175,6 @@ const { unreadCount = 0 } = Astro.props;
     
     // Escuchar mensajes nuevos
     socketService.onNewMessage((messageData) => {
-      console.log('Nuevo mensaje recibido (cliente):', messageData);
       
       // Verificar que el mensaje sea para este cliente
       getCustomerId().then(customerId => {
@@ -239,23 +238,14 @@ const { unreadCount = 0 } = Astro.props;
   
   // Event listener para abrir el chat
   document.getElementById('chat-toggle-btn')?.addEventListener('click', () => {
-    // Abrir el modal de chat
-    const chatModal = document.getElementById('chat-modal');
-    if (chatModal) {
-      chatModal.classList.remove('hidden');
-      
-      // Cargar mensajes
-      const loadChatMessages = window.loadChatMessages;
-      if (loadChatMessages) {
-        setTimeout(() => {
-          loadChatMessages();
-        }, 100);
-      }
-      
-      // Enfocar el input del chat
-      const chatInput = document.getElementById('chat-input');
-      if (chatInput) {
-        setTimeout(() => chatInput.focus(), 200);
+    // Llamar a la función openChatModal si está disponible
+    if (typeof window.openChatModal === 'function') {
+      window.openChatModal();
+    } else {
+      // Fallback: abrir el modal directamente
+      const chatModal = document.getElementById('chat-modal');
+      if (chatModal) {
+        chatModal.classList.remove('hidden');
       }
     }
   });

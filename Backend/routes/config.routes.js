@@ -9,4 +9,7 @@ router.get('/pdf-mail-list', authMiddleware, authorizeRoles(['admin']), configCo
 
 router.put('/pdf-mail-list', authMiddleware, authorizeRoles(['admin']), configController.updatePdfMailList);
 
+// Ruta para configuración del chat
+router.get('/headerBusquedaClienteChat', authMiddleware, authorizeRoles(['admin']), configController.getHeaderBusquedaClienteChat);
+
 module.exports = router;

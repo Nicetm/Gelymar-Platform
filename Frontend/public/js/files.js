@@ -327,7 +327,7 @@ export function initFilesScript() {
     if (pageData.length === 0) {
       tableBody.innerHTML = `
         <tr class="bg-white dark:bg-gray-900">
-          <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+          <td colspan="9" class="px-6 py-8 text-center text-gray-500">
             No se encontraron archivos
           </td>
         </tr>
@@ -537,7 +537,9 @@ export function initFilesScript() {
           </div>
         </td>
         <td class="px-6 py-4 items-center gap-3">${new Date(file.created_at).toLocaleString("es-CL")}</td>
-        <td class="px-6 py-4 items-center gap-3">${new Date(file.updated_at).toLocaleString("es-CL")}</td>
+        <td class="px-6 py-4 items-center gap-3">${file.fecha_generacion ? new Date(file.fecha_generacion).toLocaleString("es-CL") : '-'}</td>
+        <td class="px-6 py-4 items-center gap-3">${file.fecha_envio ? new Date(file.fecha_envio).toLocaleString("es-CL") : '-'}</td>
+        <td class="px-6 py-4 items-center gap-3">${file.fecha_reenvio ? new Date(file.fecha_reenvio).toLocaleString("es-CL") : '-'}</td>
         <td data-v="${file.is_visible_to_client}" class="px-6 py-4 text-center">
           <div class="relative group">
             <label class="relative inline-flex items-center cursor-pointer">
@@ -546,7 +548,7 @@ export function initFilesScript() {
                 class="sr-only peer visibility-toggle"
                 data-file-id="${file.id}"
                 ${(file.is_visible_to_client == 1 || file.is_visible_to_client === true) ? 'checked' : ''} />
-              <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+              <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-0 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
             </label>
             <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
                         bg-blue-600 text-white text-xs rounded px-2 py-1 shadow-lg
@@ -587,7 +589,7 @@ export function initFilesScript() {
         if (files.length === 0) {
           tableBody.innerHTML = `
             <tr class="bg-white dark:bg-gray-900">
-              <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+              <td colspan="9" class="px-6 py-8 text-center text-gray-500">
                 No se encontraron archivos
               </td>
             </tr>
@@ -856,9 +858,14 @@ export function initFilesScript() {
     e.preventDefault();
     const { fileId } = btn.dataset;
 
+    // Obtener el nombre del archivo desde la fila de la tabla
+    const fileRow = btn.closest('tr');
+    const fileNameCell = fileRow.querySelector('.filename-text');
+    const fileName = fileNameCell ? fileNameCell.textContent.trim() : 'documento';
+
     const confirmed = await confirmAction(
       '¿Generar documento?',
-      'Esto generará un nuevo documento PDF.',
+      `Esto generará un nuevo documento de ${fileName}.`,
       'info'
     );
 
@@ -895,14 +902,70 @@ export function initFilesScript() {
   });
 
   // Event delegation para botones de enviar/reenviar
-  document.addEventListener('click', (e) => {
+  document.addEventListener('click', async (e) => {
     const btn = e.target.closest('.send-btn, .resend-btn');
     if (!btn) return;
     e.preventDefault();
 
     const { fileId, fileName, order } = btn.dataset;
-    const action = btn.classList.contains('send-btn') ? 'send' : 'resend';
-    openMessageModal(fileId, fileName, order, action);
+    
+    // Si es un botón de reenviar, preguntar si regenerar primero
+    if (btn.classList.contains('resend-btn')) {
+      const regenerate = await confirmAction(
+        '¿Regenerar documento?',
+        '¿Desea regenerar el documento antes de enviar por correo al cliente?',
+        'question'
+      );
+
+      if (regenerate) {
+        // Mostrar loading en el botón
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<svg class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>';
+        btn.disabled = true;
+
+        try {
+          // Obtener idioma del localStorage
+          const lang = localStorage.getItem('lang') || 'es';
+          
+          // Regenerar el documento
+          const res = await fetch(`${apiBase}/api/files/regenerate/${fileId}`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ lang })
+          });
+
+          if (!res.ok) throw new Error('Error al regenerar archivo');
+          
+          const result = await res.json();
+          
+          // Después de regenerar, enviar por correo
+          const urlParams = new URLSearchParams(window.location.search);
+          const finalOrder = order || urlParams.get('oc') || '';
+          openMessageModal(fileId, result.fileName, finalOrder, 'resend');
+          
+        } catch (err) {
+          showNotification('Error al regenerar documento', 'error');
+        } finally {
+          // Restaurar botón
+          btn.innerHTML = originalText;
+          btn.disabled = false;
+          await refreshFiles();
+        }
+      } else {
+        // Solo enviar por correo sin regenerar
+        const urlParams = new URLSearchParams(window.location.search);
+        const finalOrder = order || urlParams.get('oc') || '';
+        openMessageModal(fileId, fileName, finalOrder, 'resend');
+      }
+    } else {
+      // Botón de enviar normal - obtener OC de URL si order está vacío
+      const urlParams = new URLSearchParams(window.location.search);
+      const finalOrder = order || urlParams.get('oc') || '';
+      openMessageModal(fileId, fileName, finalOrder, 'send');
+    }
   });
 
 

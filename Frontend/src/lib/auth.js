@@ -92,8 +92,27 @@ export function redirectByRole(userRole) {
 /**
  * Cierra la sesión del usuario
  */
-export function logout() {
+export async function logout() {
   try {
+    const token = localStorage.getItem(AUTH_CONFIG.TOKEN_KEY);
+    
+    // Llamar al endpoint de logout del backend si hay token
+    if (token && typeof window !== 'undefined') {
+      try {
+        const apiBase = window.apiBase || window.location.origin.replace(':4321', ':3000');
+        await fetch(`${apiBase}/api/auth/logout`, {
+          method: 'POST',
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+      } catch (error) {
+        console.error('Error calling logout endpoint:', error);
+        // Continuar con logout local aunque falle el endpoint
+      }
+    }
+    
     // Limpiar localStorage
     localStorage.removeItem(AUTH_CONFIG.TOKEN_KEY);
     localStorage.removeItem(AUTH_CONFIG.USER_ROLE_KEY);

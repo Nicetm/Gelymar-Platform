@@ -281,7 +281,8 @@ io.use(async (socket, next) => {
 io.on('connection', (socket) => {
   // Unir al usuario a una sala específica según su rol
   if (socket.user.role === 'admin') {
-    socket.join('admin-room');
+    socket.join('admin-room'); // Para notificaciones generales
+    socket.join(`admin-${socket.user.id}`); // Para mensajes específicos del admin
   } else if (socket.user.role === 'client' && socket.user.customer_id) {
     const customerRoom = `customer-${socket.user.customer_id}`;
     socket.join(customerRoom);

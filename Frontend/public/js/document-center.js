@@ -10,7 +10,7 @@ let currentOrderId = null;
 let documents = [];
 let filteredDocuments = [];
 let currentPage = 1;
-const itemsPerPage = 4;
+const itemsPerPage = 1000; // Mostrar todas las tarjetas
 
 // Variables globales para paginación de órdenes
 let currentOrderPage = 1;
@@ -188,7 +188,7 @@ function renderOrders() {
       <td class="px-3 py-2">
         <div class="flex items-center">
           <div class="ml-3">
-            <p class="text-sm font-medium text-gray-900 dark:text-gray-200">${order.orderNumber}</p>
+            <p class="text-sm font-medium text-gray-900 dark:text-gray-200">${order.orderNumber?.replace(/^GEL\s+/, '') || order.orderNumber}</p>
           </div>
         </div>
       </td>
@@ -198,7 +198,7 @@ function renderOrders() {
         </div>
       </td>
       <td class="px-6 py-2">
-        <p class="text-sm text-gray-900 dark:text-gray-200">${order.factura}</p>
+        <p class="text-sm text-gray-900 dark:text-gray-200">${order.factura || '-'}</p>
       </td>
       <td class="px-6 py-2">
         <p class="text-sm text-gray-900 dark:text-gray-200">${formatDateOnly(order.fecha_factura)}</p>
@@ -210,11 +210,21 @@ function renderOrders() {
       </td>
       <td class="px-6 py-2 text-center">
         <div class="flex items-center justify-center space-x-3">
-          <button class="view-items-btn p-2 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200" data-order-pc="${order.pc}" data-order-oc="${order.orderNumber}" data-factura="${order.factura}" title="View items">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
-            </svg>
-          </button>
+          <!-- Ver lista de items -->
+          <div class="relative group">
+            <button class="view-items-btn text-gray-900 dark:text-white hover:text-green-500 transition"
+                   data-order-pc="${order.pc}" data-order-oc="${order.orderNumber}" data-factura="${order.factura}">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+              </svg>
+            </button>
+            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
+                        bg-green-600 text-white text-xs rounded px-2 py-1 shadow-lg
+                        opacity-0 group-hover:opacity-100 transition
+                        pointer-events-none whitespace-nowrap z-50">
+              ${window.translations?.carpetas?.tooltipViewItems || 'Ver lista de items'}
+            </div>
+          </div>
         </div>
       </td>
     `;
@@ -369,18 +379,16 @@ function renderDocuments(docs, page) {
   documentsContainer.innerHTML = '';
 
   if (pageDocuments.length === 0) {
+    documentsContainer.className = 'flex items-center justify-center py-8 text-gray-500 dark:text-gray-400 w-full';
     documentsContainer.innerHTML = `
-      <div class="col-span-full flex flex-col items-center justify-center py-12 text-gray-500 dark:text-gray-400">
-        <svg class="w-12 h-12 mb-4 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-        </svg>
-        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">No documents found</h3>
-        <p class="text-sm text-gray-500 dark:text-gray-400">There are no documents available for this order.</p>
-      </div>
+      <p class="text-sm whitespace-nowrap">There are no documents available for this order.</p>
     `;
     return;
   }
 
+  // Restaurar clases originales del grid
+  documentsContainer.className = 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 p-4 min-h-[200px]';
+  
   pageDocuments.forEach(doc => {
     const typeIcons = {
       'pdf': `<svg class="w-8 h-8 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -440,7 +448,7 @@ function renderDocuments(docs, page) {
               ${icon}
             </div>
             <div class="flex-1 min-w-0">
-              <h3 class="text-sm font-medium text-gray-900 dark:text-white truncate" title="${doc.name}">
+              <h3 class="text-sm font-medium text-gray-900 dark:text-white break-words overflow-hidden" title="${doc.name}" style="word-wrap: break-word; overflow-wrap: break-word; hyphens: auto;">
                 ${doc.name}
               </h3>
               <p class="text-xs text-gray-500 dark:text-gray-400">Updated ${formatDate(doc.updated)}</p>
@@ -453,7 +461,7 @@ function renderDocuments(docs, page) {
         <p class="text-xs text-gray-500 dark:text-gray-400">Invoice Date: ${formatDateOnly(doc.fecha_factura)}</p>
       </div>
 
-      <div class="flex items-center justify-end space-x-2 mt-auto dark:bg-gray-900">
+      <div class="flex items-center justify-end space-x-2 mt-auto dark:bg-gray-900"> <span class="text-xs text-gray-500 dark:text-gray-400">${window.translations?.documentos?.downloadDocument || 'Descargar documento'}</span>
         <a href="#" onclick="downloadFileClient(${doc.id})" class="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors duration-200" data-doc-id="${doc.id}" title="Download document">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
@@ -2088,12 +2096,7 @@ function filterOrders(searchTerm) {
   } else {
     const term = searchTerm.toLowerCase();
     filteredOrders = allOrders.filter(order => 
-      order.orderNumber?.toLowerCase().includes(term) ||
-      order.factura?.toLowerCase().includes(term) ||
-      order.clientName?.toLowerCase().includes(term) ||
-      order.documents?.toString().includes(term) ||
-      order.items_count?.toString().includes(term) ||
-      formatDateOnly(order.fecha_factura)?.toLowerCase().includes(term)
+      order.orderNumber?.toLowerCase().includes(term)
     );
   }
   
@@ -2112,6 +2115,94 @@ function initializeOrdersSearch() {
     });
   }
 }
+
+// Variables para ordenamiento
+let currentSort = { column: null, direction: 'asc' };
+
+// Función para ordenar las órdenes
+function sortOrders(column, direction) {
+  filteredOrders.sort((a, b) => {
+    let aValue, bValue;
+    
+    switch (column) {
+      case 'order':
+        aValue = (a.orderNumber || '').toLowerCase();
+        bValue = (b.orderNumber || '').toLowerCase();
+        break;
+      case 'documents':
+        aValue = parseInt(a.documents) || 0;
+        bValue = parseInt(b.documents) || 0;
+        break;
+      case 'invoice':
+        aValue = (a.factura || '').toLowerCase();
+        bValue = (b.factura || '').toLowerCase();
+        break;
+      case 'invoice_date':
+        aValue = a.fecha_factura || '';
+        bValue = b.fecha_factura || '';
+        break;
+      case 'items_count':
+        aValue = parseInt(a.items_count) || 0;
+        bValue = parseInt(b.items_count) || 0;
+        break;
+      default:
+        return 0;
+    }
+    
+    if (direction === 'asc') {
+      return aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
+    } else {
+      return aValue < bValue ? 1 : aValue > bValue ? -1 : 0;
+    }
+  });
+}
+
+// Función para actualizar los iconos de ordenamiento
+function updateSortIcons(activeColumn, direction) {
+  // Remover todos los iconos activos
+  document.querySelectorAll('th[data-sort] .sort-icon').forEach(icon => {
+    icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />';
+  });
+  
+  // Agregar icono activo a la columna actual
+  const activeHeader = document.querySelector(`th[data-sort="${activeColumn}"] .sort-icon`);
+  if (activeHeader) {
+    if (direction === 'asc') {
+      // Flecha hacia arriba (ascendente)
+      activeHeader.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" />';
+    } else {
+      // Flecha hacia abajo (descendente)
+      activeHeader.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />';
+    }
+  }
+}
+
+// Event listeners para ordenamiento de columnas
+document.addEventListener('click', (e) => {
+  const header = e.target.closest('th[data-sort]');
+  if (!header) return;
+  
+  e.preventDefault();
+  const column = header.dataset.sort;
+  
+  // Cambiar dirección si es la misma columna
+  if (currentSort.column === column) {
+    currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+  } else {
+    currentSort.column = column;
+    currentSort.direction = 'asc';
+  }
+  
+  // Ordenar las órdenes
+  sortOrders(currentSort.column, currentSort.direction);
+  
+  // Actualizar iconos
+  updateSortIcons(currentSort.column, currentSort.direction);
+  
+  // Re-renderizar tabla
+  currentOrderPage = 1;
+  renderOrders();
+});
 
 // Inicializar el buscador cuando se carga la página
 document.addEventListener('DOMContentLoaded', () => {

@@ -28,3 +28,17 @@ exports.updatePdfMailList = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+/**
+ * @route GET /api/config/headerBusquedaClienteChat
+ * @desc Obtener configuración del chat de búsqueda de clientes
+ * @access Admin only
+ */
+exports.getHeaderBusquedaClienteChat = async (req, res) => {
+  try {
+    const config = await configService.getConfigByName('headerBusquedaClienteChat');
+    res.json(config ? config.params : { enable: 0 });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};

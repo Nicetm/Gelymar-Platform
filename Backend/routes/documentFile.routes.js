@@ -120,6 +120,8 @@ router.post('/upload', authMiddleware, authorizeRoles(['admin']), controller.upl
 
 router.post('/generate/:id', authMiddleware, authorizeRoles(['admin']), controller.generateFile);
 
+router.post('/regenerate/:id', authMiddleware, authorizeRoles(['admin']), controller.regenerateFile);
+
 router.post('/send/:id', authMiddleware, authorizeRoles(['admin']), controller.sendFile);
 
 router.post('/resend/:id', authMiddleware, authorizeRoles(['admin']), controller.resendFile);

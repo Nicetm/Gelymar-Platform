@@ -73,6 +73,6 @@ router.post('/reset-password', authValidations.resetPassword, authController.res
  *       200:
  *         description: Sesión cerrada correctamente
  */
-router.post('/logout', authController.logout);
+router.post('/logout', authMiddleware, authController.logout);
 
 module.exports = router;

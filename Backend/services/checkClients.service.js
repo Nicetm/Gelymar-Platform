@@ -3,7 +3,7 @@ const os = require('os');
 const path = require('path');
 const { parse } = require('csv-parse/sync');
 const { stringify } = require('csv-stringify/sync');
-const { getAllCustomerRuts, insertCustomer } = require('./customer.service');
+const { getAllCustomerRuts, getCustomerByRutForUpdate, updateCustomerByRut, insertCustomer } = require('./customer.service');
 const { getNetworkFilePath } = require('./networkMount.service');
 
 async function fetchClientFilesFromNetwork() {
@@ -58,6 +58,7 @@ async function fetchClientFilesFromNetwork() {
       console.log(`[${new Date().toISOString()}] -> Check Client Process -> Procesando ${recordsToProcess.length} registros del CSV`);
 
       let nuevos = 0;
+      let actualizados = 0;
       let omitidos = 0;
       const totalRecords = recordsToProcess.length;
 
@@ -85,36 +86,83 @@ async function fetchClientFilesFromNetwork() {
           rut = rut.slice(0, -1);
         }
         
+        // Función para normalizar valores vacíos a null
+        const normalizeToNull = (value) => {
+          if (!value || value.trim() === '') return null;
+          return value.trim();
+        };
+
+        // Preparar datos del cliente
+        const clientData = {
+          name: normalizeToNull(r.Nombre),
+          email: normalizeToNull(r.Email),
+          contact_name: normalizeToNull(r.Contacto),
+          contact_secondary: normalizeToNull(r.Contacto2),
+          phone: normalizeToNull(r.Telefono),
+          fax: normalizeToNull(r.Fax),
+          mobile: normalizeToNull(r.Mobile),
+          address: normalizeToNull(r.Direccion),
+          address_alt: normalizeToNull(r.Direccion2),
+          country: normalizeToNull(r.Pais),
+          city: normalizeToNull(r.Ciudad)
+        };
+
         if (existingRuts.includes(rut)) {
-          console.log(`[${new Date().toISOString()}] -> Check Client Process -> Registro omitido: RUT=${rut} - Motivo: Cliente ya existe`);
-          omitidos++;
-          continue;
+          // Cliente existe, verificar si hay cambios
+          const existingClient = await getCustomerByRutForUpdate(rut);
+          if (existingClient) {
+            // Función para normalizar valores (segunda comprobación de seguridad)
+            const normalize = (value) => {
+              if (value === undefined || value === '' || value === null) return null;
+              return value;
+            };
+
+            // Comparar campos para detectar cambios
+            const hasChanges = 
+              normalize(existingClient.name) !== normalize(clientData.name) ||
+              normalize(existingClient.email) !== normalize(clientData.email) ||
+              normalize(existingClient.contact_name) !== normalize(clientData.contact_name) ||
+              normalize(existingClient.contact_secondary) !== normalize(clientData.contact_secondary) ||
+              normalize(existingClient.phone) !== normalize(clientData.phone) ||
+              normalize(existingClient.fax) !== normalize(clientData.fax) ||
+              normalize(existingClient.mobile) !== normalize(clientData.mobile) ||
+              normalize(existingClient.address) !== normalize(clientData.address) ||
+              normalize(existingClient.address_alt) !== normalize(clientData.address_alt) ||
+              normalize(existingClient.country) !== normalize(clientData.country) ||
+              normalize(existingClient.city) !== normalize(clientData.city);
+
+            if (hasChanges) {
+              await updateCustomerByRut(rut, clientData);
+              console.log(`[${new Date().toISOString()}] -> Check Client Process -> ACTUALIZANDO: RUT=${rut}, Nombre=${clientData.name || 'N/A'}`);
+              actualizados++;
+            } else {
+              console.log(`[${new Date().toISOString()}] -> Check Client Process -> SIN CAMBIOS: RUT=${rut}, Nombre=${clientData.name || 'N/A'}`);
+              omitidos++;
+            }
+          } else {
+            console.log(`[${new Date().toISOString()}] -> Check Client Process -> Registro omitido: RUT=${rut} - Motivo: Cliente no encontrado en BD`);
+            omitidos++;
+          }
+        } else {
+          // Cliente no existe, insertarlo
+          await insertCustomer({
+            rut,
+            ...clientData
+          });
+
+          console.log(`[${new Date().toISOString()}] -> Check Client Process -> INSERTANDO: RUT=${rut}, Nombre=${clientData.name || 'N/A'}, Cuenta creada OK`);
+          nuevos++;
         }
-
-        await insertCustomer({
-          rut,
-          name: r.Nombre?.trim(),
-          address: r.Direccion?.trim(),
-          address_alt: r.Direccion2?.trim(),
-          city: r.Ciudad?.trim(),
-          country: r.Pais?.trim(),
-          contact_name: r.Contacto?.trim(),
-          contact_secondary: r.Contacto2?.trim(),
-          fax: r.Fax?.trim(),
-          phone: r.Telefono?.trim()
-        });
-
-        console.log(`[${new Date().toISOString()}] -> Check Client Process -> insertando fila: RUT=${rut}, Nombre=${r.Nombre?.trim() || 'N/A'}, Cuenta creada OK`);
-        nuevos++;
       }
       
       // Log de progreso del lote
-      console.log(`[${new Date().toISOString()}] -> Check Client Process -> Lote ${batchIndex + 1}/${totalBatches} completado. Progreso: ${nuevos + omitidos}/${totalRecords} registros procesados`);
+      console.log(`[${new Date().toISOString()}] -> Check Client Process -> Lote ${batchIndex + 1}/${totalBatches} completado. Progreso: ${nuevos + actualizados + omitidos}/${totalRecords} registros procesados`);
     }
   
       console.log(`\n[${new Date().toISOString()}] -> Check Client Process -> RESUMEN DEL PROCESAMIENTO:`);
       console.log(`   • Total procesados: ${recordsToProcess.length}`);
       console.log(`   • Nuevos clientes: ${nuevos}`);
+      console.log(`   • Clientes actualizados: ${actualizados}`);
       console.log(`   • Registros omitidos: ${omitidos}`);
       console.log(`\n[${new Date().toISOString()}] -> Check Client Process -> Procesamiento de clientes completado exitosamente.`);
     } catch (error) {

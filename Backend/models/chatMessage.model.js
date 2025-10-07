@@ -98,12 +98,13 @@ class ChatMessage {
     }
   }
 
-  static async getRecentChats() {
+  static async getRecentChats(adminId) {
     const pool = await poolPromise;
     const query = `
-      SELECT 
+      SELECT
         c.id as customer_id,
         c.name as company_name,
+        u.online as online,
         cm.body as last_message,
         cm.created_at as last_message_time,
         cm.sender_role as last_sender,
@@ -111,15 +112,83 @@ class ChatMessage {
       FROM customers c
       INNER JOIN chat_messages cm ON c.id = cm.customer_id
       LEFT JOIN chat_messages cm2 ON c.id = cm2.customer_id
+      LEFT JOIN users u ON u.email = c.rut
       WHERE cm.id = (
         SELECT MAX(id) 
         FROM chat_messages 
         WHERE customer_id = c.id
+        AND admin_id = ?
         AND NOT (sender_role = 'admin' AND is_security_message = 1)
       )
+      AND cm.admin_id = ?
       AND NOT (cm.sender_role = 'admin' AND cm.is_security_message = 1)
-      GROUP BY c.id, c.name, cm.body, cm.created_at, cm.sender_role
+      GROUP BY c.id, c.name, u.online, cm.body, cm.created_at, cm.sender_role
       ORDER BY cm.created_at DESC
+    `;
+    
+    try {
+      const [rows] = await pool.query(query, [adminId, adminId]);
+      return rows;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  static async getAdminUnreadCount(adminId) {
+    const pool = await poolPromise;
+    const query = `
+      SELECT COUNT(*) as count
+      FROM chat_messages
+      WHERE sender_role = 'client' AND is_read_by_admin = 0 AND admin_id = ?
+    `;
+    
+    try {
+      const [rows] = await pool.query(query, [adminId]);
+      return rows[0].count;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  static async markAllAsRead(adminId) {
+    const pool = await poolPromise;
+    const query = `
+      UPDATE chat_messages 
+      SET is_read_by_admin = 1 
+      WHERE sender_role = 'client' AND is_read_by_admin = 0 AND admin_id = ?
+    `;
+    
+    try {
+      const [result] = await pool.query(query, [adminId]);
+      return result.affectedRows;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  static async markAsReadByAdmin(customerId, adminId) {
+    const pool = await poolPromise;
+    const query = `
+      UPDATE chat_messages 
+      SET is_read_by_admin = 1 
+      WHERE customer_id = ? AND admin_id = ? AND sender_role = 'client' AND is_read_by_admin = 0
+    `;
+    
+    try {
+      const [result] = await pool.query(query, [customerId, adminId]);
+      return result.affectedRows;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  static async getAdmins() {
+    const pool = await poolPromise;
+    const query = `
+      SELECT id, full_name, online 
+      FROM users 
+      WHERE role_id = 1 
+      ORDER BY full_name ASC
     `;
     
     try {
@@ -130,49 +199,32 @@ class ChatMessage {
     }
   }
 
-  static async getAdminUnreadCount() {
+  static async getMessagesByAdmin(customerId, adminId) {
     const pool = await poolPromise;
     const query = `
-      SELECT COUNT(*) as count
-      FROM chat_messages
-      WHERE sender_role = 'client' AND is_read_by_admin = 0
+      SELECT * FROM chat_messages 
+      WHERE customer_id = ? AND admin_id = ?
+      ORDER BY created_at ASC
     `;
     
     try {
-      const [rows] = await pool.query(query);
-      return rows[0].count;
+      const [rows] = await pool.query(query, [customerId, adminId]);
+      return rows;
     } catch (error) {
       throw error;
     }
   }
 
-  static async markAllAsRead() {
+  static async sendMessageWithAdmin(customerId, adminId, message, senderRole, isSecurityMessage = false) {
     const pool = await poolPromise;
     const query = `
-      UPDATE chat_messages 
-      SET is_read_by_admin = 1 
-      WHERE sender_role = 'client' AND is_read_by_admin = 0
+      INSERT INTO chat_messages (customer_id, admin_id, body, sender_role, is_security_message, created_at)
+      VALUES (?, ?, ?, ?, ?, NOW())
     `;
     
     try {
-      const [result] = await pool.query(query);
-      return result.affectedRows;
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  static async markAsReadByAdmin(customerId) {
-    const pool = await poolPromise;
-    const query = `
-      UPDATE chat_messages 
-      SET is_read_by_admin = 1 
-      WHERE customer_id = ? AND sender_role = 'client' AND is_read_by_admin = 0
-    `;
-    
-    try {
-      const [result] = await pool.query(query, [customerId]);
-      return result.affectedRows;
+      const [result] = await pool.query(query, [customerId, adminId, message, senderRole, isSecurityMessage]);
+      return result.insertId;
     } catch (error) {
       throw error;
     }

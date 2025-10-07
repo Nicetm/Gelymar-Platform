@@ -15,5 +15,22 @@
     "folderCreatedSuccess": "Carpeta creada correctamente",
     "folderCreatedError": "Error al crear carpeta",
     "getCustomerError": "Error al obtener cliente"
+  },
+  "chat": {
+    "select_client": "Selecciona un cliente para comenzar el chat",
+    "offline": "Desconectado",
+    "online": "En línea",
+    "write_message": "Escribe tu mensaje...",
+    "send": "Enviar",
+    "select_admin": "Selecciona un administrador",
+    "select_agent": "Seleccionar Agente",
+    "choose_agent": "Elige un agente para iniciar la conversación",
+    "loading_agents": "Cargando agentes...",
+    "security_message": "Este es un mensaje de seguridad",
+    "no_admins_available": "No hay administradores disponibles en este momento",
+    "message_sent": "Mensaje enviado",
+    "message_error": "Error al enviar mensaje",
+    "data_protection": "Protección de Datos",
+    "data_protection_message": "Todos los mensajes y datos serán tratados de acuerdo con nuestra Política de Privacidad."
   }
-} 
+}

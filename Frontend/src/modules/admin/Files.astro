@@ -129,7 +129,9 @@ const orderOc = files.length > 0 ? files[0]?.oc : '';
           <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t.documentos.name}</th>
           <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t.documentos.status}</th>
           <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t.documentos.created}</th>
-          <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t.documentos.updated}</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Fecha Generación</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Fecha Envío</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Fecha Reenvío</th>
           <th class="px-4 py-3 text-center text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t.documentos.is_visible_to_customer}</th>
           <th class="px-4 py-3 text-center text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t.comond.actions}</th>
         </tr>
@@ -137,7 +139,7 @@ const orderOc = files.length > 0 ? files[0]?.oc : '';
       <tbody id="filesTableBody" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-xs min-h-[600px] text-gray-900 dark:text-gray-200 transition-all duration-300 ease-out motion-safe:animate-fade-slide">
         <!-- Los datos se cargarán dinámicamente con JavaScript -->
         <tr id="loadingRow" class="bg-white dark:bg-gray-900">
-          <td colspan="8" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+          <td colspan="9" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
             <div class="flex items-center justify-center">
               <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -356,7 +358,8 @@ const orderOc = files.length > 0 ? files[0]?.oc : '';
 	</div>
 </section>
 
-<script type="module" define:vars={{ apiPublic, fileServer, lang, documentTypes, orderOc, t }}>
+<script type="module" define:vars={{ apiPublic, fileServer, lang, documentTypes, orderOc, orderPc, t }}>
+
   import { initFilesScript } from '/js/files.js';
   
   // Hacer las variables disponibles globalmente
@@ -365,6 +368,7 @@ const orderOc = files.length > 0 ? files[0]?.oc : '';
   window.lang = lang;
   window.documentTypes = documentTypes;
   window.orderOc = orderOc;
+  window.orderPc = orderPc;
   window.translations = t;
 
   // Inicializar el script cuando el DOM esté completamente cargado

@@ -18,7 +18,8 @@ class Customer {
     created_at,
     updated_at,
     contacts = [],
-    order_count = 0
+    order_count = 0,
+    online = 0
   }) {
     this.id = id;
     this.uuid = uuid;
@@ -39,6 +40,7 @@ class Customer {
     this.updated_at = updated_at;
     this.contacts = contacts;
     this.order_count = order_count;
+    this.online = online;
   }
 }
 

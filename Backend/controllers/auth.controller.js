@@ -62,6 +62,9 @@ exports.login = async (req, res) => {
       cardCode: user.cardCode || null
     });
 
+    // Actualizar campo online a 1
+    await userService.updateUserOnlineStatus(user.id, 1);
+
     logger.info(`Login exitoso para usuario ${user.email || user.username || 'undefined'}`);
     logger.info(`Usuario encontrado:`, { id: user.id, email: user.email, username: user.username, role: user.role });
     res.json({ token });
@@ -308,6 +311,16 @@ exports.changePassword = async (req, res) => {
  * @access Público (o protegido si se quiere)
  */
 exports.logout = async (req, res) => {
+  try {
+    // Si hay usuario autenticado, actualizar online a 0
+    if (req.user && req.user.id) {
+      await userService.updateUserOnlineStatus(req.user.id, 0);
+      logger.info(`Usuario ${req.user.email} desconectado - online actualizado a 0`);
+    }
+  } catch (error) {
+    logger.error(`Error actualizando estado online en logout: ${error.message}`);
+  }
+  
   res.clearCookie('token');
   logger.info('Sesión cerrada correctamente');
   res.status(200).json({ message: 'Sesión cerrada correctamente' });
