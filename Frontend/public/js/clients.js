@@ -163,11 +163,11 @@ export async function initClientsScript() {
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">
           <div class="flex justify-center items-center gap-3 text-gray-900 dark:text-white">
             <div class="relative group">
-              <a href="/admin/clients/folders/view/${customer.uuid}?c=${customer.name}" class="hover:text-yellow-500 transition">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h18v4H3z"/><path d="M3 7h18v13H3z"/><path d="M16 3v4"/></svg>
+              <a href="/admin/clients/folders/view/${customer.uuid}?c=${customer.name}" class="hover:text-blue-500 transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
               </a>
               <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
-                          bg-orange-600 text-white text-xs rounded px-2 py-1 shadow-lg
+                          bg-blue-600 text-white text-xs rounded px-2 py-1 shadow-lg
                           opacity-0 group-hover:opacity-100 transition
                           pointer-events-none whitespace-nowrap z-50">
                 ${window.translations?.clientes?.view_orders || 'Ver órdenes'}
@@ -178,29 +178,29 @@ export async function initClientsScript() {
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 20.5C6.753 20.5 2.5 16.247 2.5 11S6.753 1.5 12 1.5 21.5 5.753 21.5 11 17.247 20.5 12 20.5z"/></svg>
               </a>
               <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
-                          bg-orange-600 text-white text-xs rounded px-2 py-1 shadow-lg
+                          bg-blue-600 text-white text-xs rounded px-2 py-1 shadow-lg
                           opacity-0 group-hover:opacity-100 transition
                           pointer-events-none whitespace-nowrap z-50">
                 ${window.translations?.clientes?.view_info || 'Ver información adicional'}
               </div>
             </div>
             <div class="relative group">
-              <a href="#" data-uuid="${customer.uuid}" data-name="${customer.name}" class="hover:text-indigo-500 transition manage-contacts-btn">
+              <a href="#" data-uuid="${customer.uuid}" data-name="${customer.name}" class="hover:text-blue-500 transition manage-contacts-btn">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
               </a>
               <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
-                          bg-orange-600 text-white text-xs rounded px-2 py-1 shadow-lg
+                          bg-blue-600 text-white text-xs rounded px-2 py-1 shadow-lg
                           opacity-0 group-hover:opacity-100 transition
                           pointer-events-none whitespace-nowrap z-50">
                 ${window.translations?.clientes?.manage_contacts || 'Gestionar contactos'}
               </div>
             </div>
             <div class="relative group">
-              <a href="#" data-uuid="${customer.uuid}" data-name="${customer.name}" class="hover:text-orange-500 transition change-password-btn">
+              <a href="#" data-uuid="${customer.uuid}" data-name="${customer.name}" class="hover:text-blue-500 transition change-password-btn">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
               </a>
               <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
-                          bg-orange-600 text-white text-xs rounded px-2 py-1 shadow-lg
+                          bg-blue-600 text-white text-xs rounded px-2 py-1 shadow-lg
                           opacity-0 group-hover:opacity-100 transition
                           pointer-events-none whitespace-nowrap z-50">
                 ${window.translations?.clientes?.change_password || 'Cambiar contraseña'}
@@ -681,7 +681,7 @@ export async function initClientsScript() {
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">${contact.email || '-'}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">${contact.telefono || '-'}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 delete-contact-btn" data-contact-idx="${contact.idx}">
+                      <button class="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 delete-contact-btn" data-contact-idx="${contact.idx}">
                         Eliminar
                       </button>
                     </td>
@@ -766,7 +766,7 @@ export async function initClientsScript() {
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Teléfono</label>
             <input type="tel" class="contact-phone w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="+56 9 1234 5678">
           </div>
-          <button type="button" class="ml-2 p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 remove-contact-row" data-row-id="${rowId}">
+          <button type="button" class="ml-2 p-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 remove-contact-row" data-row-id="${rowId}">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
             </svg>

@@ -3,6 +3,7 @@ const bcrypt = require('bcrypt');
 const speakeasy = require('speakeasy');
 const qrcode = require('qrcode');
 const userService = require('../services/user.service');
+const customerService = require('../services/customer.service');
 const { generateToken } = require('../utils/jwt.util');
 const { sendEmail } = require('../utils/email.util');
 const { logger } = require('../utils/logger');
@@ -65,15 +66,27 @@ exports.login = async (req, res) => {
     // Actualizar campo online a 1
     await userService.updateUserOnlineStatus(user.id, 1);
 
+    // Obtener clientes sin cuenta para notificaciones
+    let customersWithoutAccount = 0;
+    try {
+      const customers = await customerService.getCustomersWithoutAccount();
+      customersWithoutAccount = customers.length;
+    } catch (error) {
+      logger.error(`Error obteniendo clientes sin cuenta: ${error.message}`);
+    }
+
     logger.info(`Login exitoso para usuario ${user.email || user.username || 'undefined'}`);
     logger.info(`Usuario encontrado:`, { id: user.id, email: user.email, username: user.username, role: user.role });
-    res.json({ token });
+    res.json({ 
+      token,
+      customersWithoutAccount 
+    });
 
   } catch (err) {
     logger.error(`Error en login: ${err.message}`);
     res.status(500).json({ message: 'Error interno' });
   }
-};
+}
 
 /**
  * @route POST /api/auth/refresh

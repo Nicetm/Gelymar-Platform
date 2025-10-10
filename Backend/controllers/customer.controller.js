@@ -1,4 +1,5 @@
 const customerService = require('../services/customer.service');
+const userService = require('../services/user.service');
 const { logger } = require('../utils/logger');
 const bcrypt = require('bcrypt');
 
@@ -208,5 +209,89 @@ exports.changeCustomerPassword = async (req, res) => {
   } catch (error) {
     logger.error(`Error al cambiar contraseña del cliente: ${error.message}`);
     res.status(500).json({ message: 'Error al cambiar contraseña' });
+  }
+};
+
+/**
+ * @route GET /api/customers/without-account
+ * @desc Obtiene lista de clientes sin cuenta de usuario
+ * @access Protegido (requiere JWT)
+ */
+exports.getCustomersWithoutAccount = async (req, res) => {
+
+  try {
+    const customers = await customerService.getCustomersWithoutAccount();
+    logger.info(`Se obtuvieron ${customers.length} clientes sin cuenta`);
+    res.json({ customers });
+  } catch (error) {
+    logger.error(`Error al obtener clientes sin cuenta: ${error.message}`);
+    res.status(500).json({ message: 'Error al obtener clientes sin cuenta desde la base de datos' });
+  }
+};
+
+exports.getCustomerByRut = async (req, res) => {
+  logger.info('Petición recibida: obtener cliente por RUT');
+  try {
+    const { rut } = req.params;
+    const customer = await customerService.getCustomerByRut(rut);
+    
+    if (!customer) {
+      logger.warn(`Cliente no encontrado con RUT: ${rut}`);
+      return res.status(404).json({ message: 'Cliente no encontrado' });
+    }
+    
+    logger.info(`Cliente encontrado: ${customer.name}`);
+    res.json(customer);
+  } catch (error) {
+    logger.error(`Error al obtener cliente por RUT: ${error.message}`);
+    res.status(500).json({ message: 'Error al obtener cliente desde la base de datos' });
+  }
+};
+
+exports.createCustomerAccount = async (req, res) => {
+  logger.info('Petición recibida: crear cuenta de cliente');
+  try {
+    const { customerId } = req.params;
+    const { customerName, customerRut } = req.body;
+    
+    // Obtener datos del cliente por RUT
+    const customer = await customerService.getCustomerByRut(customerRut);
+    if (!customer) {
+      return res.status(404).json({ message: 'Cliente no encontrado' });
+    }
+    
+    const bcrypt = require('bcrypt');
+    const userService = require('../services/user.service');
+    
+    // Generar contraseña por defecto
+    const defaultPassword = '123456';
+    const hashedPassword = await bcrypt.hash(defaultPassword, 10);
+    
+    // Crear usuario usando el servicio
+    
+    const userData = {
+      email: customer.rut.trim(),
+      password: hashedPassword,
+      role_id: 2, // role_id = 2 (cliente)
+      full_name: customer.name || 'Cliente',
+      phone: customer.phone || null,
+      country: customer.country || null,
+      city: customer.city || null,
+      twoFASecret: null
+    };
+    
+    const userId = await userService.createUser(userData);
+    
+    logger.info(`Cuenta creada para cliente: ${customer.name} (${customer.rut})`);
+    res.json({ 
+      message: 'Cuenta creada exitosamente',
+      userId: userId,
+      customerName: customer.name,
+      customerRut: customer.rut
+    });
+    
+  } catch (error) {
+    logger.error(`Error al crear cuenta de cliente: ${error.message}`);
+    res.status(500).json({ message: 'Error al crear cuenta de cliente' });
   }
 };

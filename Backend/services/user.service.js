@@ -144,12 +144,33 @@ async function updateUserProfile(userId, profileData) {
 // Crear nuevo usuario
 async function createUser(user) {
   const pool = await poolPromise;
-  const { email, username, password, role, cardCode, twoFASecret } = user;
+  const { email, password, role_id, full_name, phone, country, city, twoFASecret } = user;
 
-  const [result] = await pool.query(
-    'INSERT INTO users (email, username, password, role, cardCode, twoFASecret, twoFAEnabled) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [email, username, password, role, cardCode, twoFASecret, false]
-  );
+  const [result] = await pool.query(`
+    INSERT INTO users (
+      email, 
+      password, 
+      role_id, 
+      twoFASecret, 
+      twoFAEnabled, 
+      full_name, 
+      phone, 
+      country, 
+      city, 
+      created_at, 
+      updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+  `, [
+    email,
+    password,
+    role_id,
+    twoFASecret,
+    false,
+    full_name,
+    phone,
+    country,
+    city
+  ]);
 
   return result.insertId;
 }

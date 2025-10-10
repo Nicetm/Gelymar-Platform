@@ -21,6 +21,26 @@ router.get('/', authMiddleware, authorizeRoles(['admin']), customerController.ge
 
 /**
  * @swagger
+ * /api/customers/without-account:
+ *   get:
+ *     summary: Get customers without user account
+ *     tags: [Customers]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of customers without account
+ *       500:
+ *         description: Server error
+ */
+router.get('/without-account', authMiddleware, authorizeRoles(['admin']), customerController.getCustomersWithoutAccount);
+
+router.get('/by-rut/:rut', authMiddleware, authorizeRoles(['admin']), customerController.getCustomerByRut);
+
+router.post('/:customerId/create-account', authMiddleware, authorizeRoles(['admin']), customerController.createCustomerAccount);
+
+/**
+ * @swagger
  * /api/customers/{id}:
  *   get:
  *     summary: Get a customer by ID

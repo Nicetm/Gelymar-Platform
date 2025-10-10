@@ -371,6 +371,20 @@ async function createOrUpdatePrimaryContact(customer_uuid, primary_email) {
 }
 
 /**
+ * Obtiene clientes que no tienen cuenta de usuario
+ * @returns {Array<Customer>} Lista de clientes sin cuenta
+ */
+async function getCustomersWithoutAccount() {
+  const pool = await poolPromise;
+  const [rows] = await pool.query(`
+    SELECT * FROM customers 
+    WHERE rut NOT IN (SELECT email FROM users)
+  `);
+
+  return rows.map(row => new Customer(row));
+}
+
+/**
  * Elimina un contacto de un cliente
  * @param {number} contactId - ID del contacto a eliminar
  * @returns {boolean} true si se eliminó, false si no se encontró
@@ -497,6 +511,7 @@ module.exports = {
   getContactsByCustomerUUID,
   deleteCustomerContact,
   updateCustomerByUUID,
-  createOrUpdatePrimaryContact
+  createOrUpdatePrimaryContact,
+  getCustomersWithoutAccount
 };
 

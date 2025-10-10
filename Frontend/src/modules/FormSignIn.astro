@@ -145,9 +145,14 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
             return;
           }
 
-          // Guardar token
+          // Guardar token y datos adicionales
           localStorage.setItem('token', data.token);
           document.cookie = `token=${data.token}; path=/; SameSite=Strict`;
+          
+          // Guardar cantidad de clientes sin cuenta
+          if (data.customersWithoutAccount !== undefined) {
+            localStorage.setItem('customersWithoutAccount', data.customersWithoutAccount);
+          }
 
           // Obtener rol del usuario
           try {
