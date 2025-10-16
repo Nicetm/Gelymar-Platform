@@ -2,9 +2,39 @@
 // import { asset } from '../lib/data.js';
 const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
 const apiPublic = import.meta.env.PUBLIC_API_URL;
+const adminAppUrl = import.meta.env.PUBLIC_ADMIN_APP_URL || '';
+const clientAppUrl = import.meta.env.PUBLIC_CLIENT_APP_URL || '';
+const appContext = import.meta.env.PUBLIC_APP_CONTEXT || 'both';
+
+const contextInfo = (() => {
+  const normalized = appContext.toLowerCase();
+  if (normalized === 'admin') {
+    return {
+      label: 'Portal Administrador',
+      helper: 'Acceso exclusivo para personal interno',
+      badgeClasses: 'bg-amber-100 text-amber-700 border border-amber-200'
+    };
+  }
+  if (normalized === 'client') {
+    return {
+      label: 'Portal Clientes',
+      helper: 'Ingreso para clientes externos',
+      badgeClasses: 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+    };
+  }
+  return null;
+})();
+
 ---
 
 <div class="w-full max-w-md mx-auto mt-10 space-y-6 animate-fade-in">
+  {contextInfo && (
+    <div class={`rounded-xl px-4 py-3 shadow-sm flex flex-col gap-1 ${contextInfo.badgeClasses}`}>
+      <p class="text-base font-semibold tracking-wide">{contextInfo.label}</p>
+      <p class="text-xs opacity-80">{contextInfo.helper}</p>
+    </div>
+  )}
+  
   <!-- Mensaje de contraseña actualizada -->
   <p id="resetSuccessMessage" class="text-sm text-center text-green-600 hidden">
     Your password has been updated. You can now log in.
@@ -67,10 +97,38 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
   }
 </style>
 
-<script is:inline define:vars={{ apiPublic,apiBase }}>
-  let otpShown = false;
+<script is:inline define:vars={{ apiPublic, apiBase, adminAppUrl, clientAppUrl, appContext }}>
 
-  // Mostrar mensaje si viene de reseteo de contraseña
+  let otpShown = false;
+  const normalizedAdminUrl = adminAppUrl && adminAppUrl.trim() !== '' ? adminAppUrl.trim() : '/admin/';
+  const normalizedClientUrl = clientAppUrl && clientAppUrl.trim() !== '' ? clientAppUrl.trim() : '/client/';
+  const normalizedAppContext = (appContext || 'both').toLowerCase();
+  localStorage.removeItem('token');
+  localStorage.removeItem('orders_cache');
+  localStorage.removeItem('customers_cache');
+  localStorage.removeItem('orders_cache_timestamp');
+  localStorage.removeItem('customers_cache_timestamp');
+  localStorage.removeItem('customersWithoutAccount');
+
+  const isAbsoluteUrl = (url) => /^https?:\/\//i.test(url);
+  const navigateTo = (targetUrl) => {
+    if (!targetUrl) return;
+    if (isAbsoluteUrl(targetUrl)) {
+      window.location.href = targetUrl;
+    } else {
+      window.location.href = targetUrl.startsWith('/') ? targetUrl : `/${targetUrl}`;
+    }
+  };
+
+  const showPortalMismatchMessage = (message) => {
+    const msg = document.getElementById('loginMessage');
+    msg.textContent = message;
+    msg.classList.remove('hidden');
+    msg.classList.remove('text-green-600', 'text-blue-600');
+    msg.classList.add('text-red-500');
+  };
+
+  // Mostrar mensaje si viene de reseteo de contrasena
   const params = new URLSearchParams(window.location.search);
   if (params.get('reset') === 'success') {
     document.getElementById('resetSuccessMessage').classList.remove('hidden');
@@ -171,11 +229,21 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
                 return;
               }
 
+              localStorage.setItem('userRole', userRole);
+
               // Redirigir según rol
               if (userRole === 'admin') {
-                window.location.href = '/admin/';
+                if (normalizedAppContext === 'client' && !isAbsoluteUrl(normalizedAdminUrl)) {
+                  showPortalMismatchMessage('Acceso de administracion disponible solo desde la intranet. Usa el portal interno.');
+                  return;
+                }
+                navigateTo(normalizedAdminUrl);
               } else {
-                window.location.href = '/client/';
+                if (normalizedAppContext === 'admin' && !isAbsoluteUrl(normalizedClientUrl)) {
+                  showPortalMismatchMessage('Portal de clientes disponible en el dominio publico. Usa la URL de clientes.');
+                  return;
+                }
+                navigateTo(normalizedClientUrl);
               }
             } else {
               msg.textContent = 'Error validando usuario';

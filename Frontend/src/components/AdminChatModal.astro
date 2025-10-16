@@ -228,6 +228,9 @@ try {
   }
 
   async function refreshCustomerStatus(customerId) {
+
+    const apiBase = window.apiBase;
+
     try {
       const token = localStorage.getItem('token');
       if (!token || !customerId) return;
@@ -272,6 +275,9 @@ try {
 
   // Obtener el ID del admin actual
   async function getCurrentAdminId() {
+
+    const apiBase = window.apiBase;
+
     try {
       const token = localStorage.getItem('token');
       if (!token) return null;
@@ -546,6 +552,9 @@ try {
   
   // Cargar mensajes del cliente
   async function loadCustomerMessages(customerId) {
+
+    const apiBase = window.apiBase;
+
     if (!chatMessages) return;
     
     try {
@@ -591,6 +600,9 @@ try {
 
   // Enviar mensaje
   async function sendAdminMessage() {
+
+    const apiBase = window.apiBase;
+
     if (!chatInput || !sendButton || !currentCustomerId) return;
     
     const message = chatInput.value.trim();
@@ -685,6 +697,9 @@ try {
   
   // Función para marcar mensajes como leídos por admin
   async function markMessagesAsReadByAdmin(customerId) {
+
+    const apiBase = window.apiBase;
+
     try {
       const token = localStorage.getItem('token');
       if (!token) return;

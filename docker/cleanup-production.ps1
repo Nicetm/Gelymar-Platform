@@ -7,11 +7,11 @@ Write-Host "⚠️  MySQL y sus datos NO serán afectados" -ForegroundColor Gree
 
 # Detener todos los contenedores excepto MySQL
 Write-Host "🛑 Deteniendo contenedores (excepto MySQL)..." -ForegroundColor Yellow
-docker stop gelymar-platform-fileserver-prod gelymar-platform-backend-prod gelymar-platform-frontend-prod gelymar-platform-cron-prod gelymar-platform-phpmyadmin-prod gelymar-platform-terminal-prod 2>$null
+docker stop gelymar-platform-fileserver-prod gelymar-platform-backend-prod gelymar-platform-frontend-prod gelymar-platform-frontend-client-prod gelymar-platform-cron-prod gelymar-platform-phpmyadmin-prod gelymar-platform-terminal-prod 2>$null
 
 # Eliminar contenedores excepto MySQL
 Write-Host "🗑️  Eliminando contenedores (excepto MySQL)..." -ForegroundColor Yellow
-docker rm gelymar-platform-fileserver-prod gelymar-platform-backend-prod gelymar-platform-frontend-prod gelymar-platform-cron-prod gelymar-platform-phpmyadmin-prod gelymar-platform-terminal-prod 2>$null
+docker rm gelymar-platform-fileserver-prod gelymar-platform-backend-prod gelymar-platform-frontend-prod gelymar-platform-frontend-client-prod gelymar-platform-cron-prod gelymar-platform-phpmyadmin-prod gelymar-platform-terminal-prod 2>$null
 
 # Eliminar volúmenes excepto mysql_data
 Write-Host "🗑️  Eliminando volúmenes (excepto mysql_data)..." -ForegroundColor Yellow
@@ -25,6 +25,7 @@ Write-Host "🗑️  Eliminando imágenes de producción (excepto MySQL)..." -Fo
 docker rmi nicetm/gelymar-platform:fileserver-prod 2>$null
 docker rmi nicetm/gelymar-platform:backend-prod 2>$null
 docker rmi nicetm/gelymar-platform:frontend-prod 2>$null
+docker rmi nicetm/gelymar-platform:frontend-client-prod 2>$null
 docker rmi nicetm/gelymar-platform:cron-prod 2>$null
 docker rmi nicetm/gelymar-platform:terminal-prod 2>$null
 docker rmi nicetm/gelymar-platform:phpmyadmin-prod 2>$null

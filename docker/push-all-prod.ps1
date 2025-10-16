@@ -36,17 +36,27 @@ if ($LASTEXITCODE -eq 0) {
     exit 1
 }
 
-# 4. Frontend
-Write-Host "📦 Subiendo Frontend..." -ForegroundColor Yellow
+# 4. Frontend (admin)
+Write-Host "?? Subiendo Frontend (admin)..." -ForegroundColor Yellow
 docker push nicetm/gelymar-platform:frontend-prod
 if ($LASTEXITCODE -eq 0) {
-    Write-Host "✅ Frontend subido" -ForegroundColor Green
+    Write-Host "? Frontend (admin) subido" -ForegroundColor Green
 } else {
-    Write-Host "❌ Error subiendo Frontend" -ForegroundColor Red
+    Write-Host "? Error subiendo Frontend (admin)" -ForegroundColor Red
     exit 1
 }
 
-# 5. Cron
+# 5. Frontend (cliente)
+Write-Host "?? Subiendo Frontend (cliente)..." -ForegroundColor Yellow
+docker push nicetm/gelymar-platform:frontend-client-prod
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "? Frontend (cliente) subido" -ForegroundColor Green
+} else {
+    Write-Host "? Error subiendo Frontend (cliente)" -ForegroundColor Red
+    exit 1
+}
+
+# 6. Cron
 Write-Host "📦 Subiendo Cron..." -ForegroundColor Yellow
 docker push nicetm/gelymar-platform:cron-prod
 if ($LASTEXITCODE -eq 0) {
@@ -88,7 +98,8 @@ Write-Host "🔧 Comandos para subir imágenes individuales:" -ForegroundColor Y
 Write-Host "   MySQL:      docker push nicetm/gelymar-platform:mysql-prod" -ForegroundColor Gray
 Write-Host "   Fileserver: docker push nicetm/gelymar-platform:fileserver-prod" -ForegroundColor Gray
 Write-Host "   Backend:    docker push nicetm/gelymar-platform:backend-prod" -ForegroundColor Gray
-Write-Host "   Frontend:   docker push nicetm/gelymar-platform:frontend-prod" -ForegroundColor Gray
+Write-Host "   Frontend (admin):   docker push nicetm/gelymar-platform:frontend-prod" -ForegroundColor Gray
+Write-Host "   Frontend (cliente): docker push nicetm/gelymar-platform:frontend-client-prod" -ForegroundColor Gray
 Write-Host "   Cron:       docker push nicetm/gelymar-platform:cron-prod" -ForegroundColor Gray
 # Write-Host "   Config Manager: docker push nicetm/gelymar-platform:config-manager-prod" -ForegroundColor Gray
 Write-Host "   phpMyAdmin: docker push nicetm/gelymar-platform:phpmyadmin-prod" -ForegroundColor Gray

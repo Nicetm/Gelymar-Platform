@@ -93,12 +93,60 @@ class TestingService {
       frontend: {
         build: {
           context: '../../Frontend',
-          dockerfile: 'Dockerfile'
+          dockerfile: 'Dockerfile',
+          args: {
+            APP_CONTEXT: 'admin',
+            PUBLIC_APP_CONTEXT: 'admin',
+            PUBLIC_ADMIN_APP_URL: 'http://localhost:2121/admin/',
+            PUBLIC_CLIENT_APP_URL: 'http://localhost:2122/client/',
+            PUBLIC_API_URL: 'http://backend:3000',
+            PUBLIC_API_BASE_URL: 'http://backend:3000/api',
+            PUBLIC_FRONTEND_BASE_URL: 'http://localhost:2121',
+            SERVER_API_URL: 'http://backend:3000',
+            CI: 'false',
+            DEV_PORT: '2121'
+          }
         },
         container_name: `gelymar-platform-frontend-${environment}`,
         environment: {
           NODE_ENV: 'test',
-          API_URL: 'http://backend:3000'
+          APP_CONTEXT: 'admin',
+          PUBLIC_APP_CONTEXT: 'admin',
+          PUBLIC_ADMIN_APP_URL: 'http://localhost:2121/admin/',
+          PUBLIC_CLIENT_APP_URL: 'http://localhost:2122/client/',
+          PUBLIC_API_URL: 'http://backend:3000',
+          SERVER_API_URL: 'http://backend:3000'
+        },
+        ports: ['2121:2121'],
+        depends_on: ['backend'],
+        networks: ['gelymar_test_network']
+      },
+      'frontend-client': {
+        build: {
+          context: '../../Frontend',
+          dockerfile: 'Dockerfile',
+          args: {
+            APP_CONTEXT: 'client',
+            PUBLIC_APP_CONTEXT: 'client',
+            PUBLIC_ADMIN_APP_URL: 'http://localhost:2121/admin/',
+            PUBLIC_CLIENT_APP_URL: 'http://localhost:2122/client/',
+            PUBLIC_API_URL: 'http://backend:3000',
+            PUBLIC_API_BASE_URL: 'http://backend:3000/api',
+            PUBLIC_FRONTEND_BASE_URL: 'http://localhost:2122',
+            SERVER_API_URL: 'http://backend:3000',
+            CI: 'false',
+            DEV_PORT: '2122'
+          }
+        },
+        container_name: `gelymar-platform-frontend-client-${environment}`,
+        environment: {
+          NODE_ENV: 'test',
+          APP_CONTEXT: 'client',
+          PUBLIC_APP_CONTEXT: 'client',
+          PUBLIC_ADMIN_APP_URL: 'http://localhost:2121/admin/',
+          PUBLIC_CLIENT_APP_URL: 'http://localhost:2122/client/',
+          PUBLIC_API_URL: 'http://backend:3000',
+          SERVER_API_URL: 'http://backend:3000'
         },
         ports: ['2122:2121'],
         depends_on: ['backend'],

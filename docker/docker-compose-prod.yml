@@ -120,6 +120,11 @@ services:
         - REMOTE_ASSETS_BASE_URL=${REMOTE_ASSETS_BASE_URL}
         - SERVER_API_URL=${SERVER_API_URL}
         - CI=${CI}
+        - APP_CONTEXT=admin
+        - PUBLIC_APP_CONTEXT=admin
+        - PUBLIC_ADMIN_APP_URL=${PUBLIC_ADMIN_APP_URL}
+        - PUBLIC_CLIENT_APP_URL=${PUBLIC_CLIENT_APP_URL}
+        - DEV_PORT=2121
     image: nicetm/gelymar-platform:frontend-prod
     container_name: gelymar-platform-frontend-prod
     restart: unless-stopped
@@ -137,6 +142,59 @@ services:
       - REMOTE_ASSETS_BASE_URL=${REMOTE_ASSETS_BASE_URL}
       - SERVER_API_URL=${SERVER_API_URL}
       - CI=${CI}
+      - APP_CONTEXT=admin
+      - PUBLIC_APP_CONTEXT=admin
+      - PUBLIC_ADMIN_APP_URL=${PUBLIC_ADMIN_APP_URL}
+      - PUBLIC_CLIENT_APP_URL=${PUBLIC_CLIENT_APP_URL}
+      - DEV_PORT=2121
+    networks:
+      - gelymar-network
+    depends_on:
+      - backend
+
+  frontend-client:
+    build:
+      context: ../Frontend
+      dockerfile: Dockerfile
+      args:
+        - NODE_ENV=${NODE_ENV}
+        - PUBLIC_API_URL=${PUBLIC_API_URL}
+        - PUBLIC_FILE_SERVER_URL=${PUBLIC_FILE_SERVER_URL}
+        - PUBLIC_API_BASE_URL=${PUBLIC_API_BASE_URL}
+        - PUBLIC_FRONTEND_BASE_URL=${PUBLIC_CLIENT_FRONTEND_BASE_URL}
+        - PUBLIC_LANG=${PUBLIC_LANG}
+        - SITE=${SITE}
+        - BASE_URL=${BASE_URL}
+        - REMOTE_ASSETS_BASE_URL=${REMOTE_ASSETS_BASE_URL}
+        - SERVER_API_URL=${SERVER_API_URL}
+        - CI=${CI}
+        - APP_CONTEXT=client
+        - PUBLIC_APP_CONTEXT=client
+        - PUBLIC_ADMIN_APP_URL=${PUBLIC_ADMIN_APP_URL}
+        - PUBLIC_CLIENT_APP_URL=${PUBLIC_CLIENT_APP_URL}
+        - DEV_PORT=2122
+    image: nicetm/gelymar-platform:frontend-client-prod
+    container_name: gelymar-platform-frontend-client-prod
+    restart: unless-stopped
+    ports:
+      - "2122:2122"
+    environment:
+      - TZ=America/Santiago
+      - PUBLIC_API_URL=${PUBLIC_API_URL}
+      - PUBLIC_FILE_SERVER_URL=${PUBLIC_FILE_SERVER_URL}
+      - PUBLIC_API_BASE_URL=${PUBLIC_API_BASE_URL}
+      - PUBLIC_FRONTEND_BASE_URL=${PUBLIC_CLIENT_FRONTEND_BASE_URL}
+      - PUBLIC_LANG=${PUBLIC_LANG}
+      - SITE=${SITE}
+      - BASE_URL=${BASE_URL}
+      - REMOTE_ASSETS_BASE_URL=${REMOTE_ASSETS_BASE_URL}
+      - SERVER_API_URL=${SERVER_API_URL}
+      - CI=${CI}
+      - APP_CONTEXT=client
+      - PUBLIC_APP_CONTEXT=client
+      - PUBLIC_ADMIN_APP_URL=${PUBLIC_ADMIN_APP_URL}
+      - PUBLIC_CLIENT_APP_URL=${PUBLIC_CLIENT_APP_URL}
+      - DEV_PORT=2122
     networks:
       - gelymar-network
     depends_on:

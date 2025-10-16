@@ -61,7 +61,7 @@ if (arg === 'execute-now') {
 }
 
 // Cron independiente - se ejecuta diariamente a las 8 AM
-cron.schedule('36 14 * * *', async () => {
+cron.schedule('* 08 * * *', async () => {
   console.log(`[${new Date().toISOString()}] Iniciando procesamiento de órdenes nuevas...`);
   try {
     await processNewOrdersAndSendEmails();

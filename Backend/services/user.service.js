@@ -74,6 +74,7 @@ async function getPrimaryAdminPresence() {
 }
 
 async function getSpecificAdminPresence(adminId) {
+  console.log('Getting specific admin presence for:', adminId);
   const pool = await poolPromise;
   const [rows] = await pool.query(
     `SELECT u.full_name, u.email, u.online

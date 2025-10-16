@@ -22,8 +22,14 @@
 	"scripts": {
 		"astro": "astro",
 		"build": "astro build",
+		"build:admin": "cross-env APP_CONTEXT=admin PUBLIC_APP_CONTEXT=admin astro build",
+		"build:client": "cross-env APP_CONTEXT=client PUBLIC_APP_CONTEXT=client astro build",
 		"dev": "astro dev",
+		"dev:admin": "cross-env APP_CONTEXT=admin PUBLIC_APP_CONTEXT=admin astro dev --port 2121",
+		"dev:client": "cross-env APP_CONTEXT=client PUBLIC_APP_CONTEXT=client astro dev --port 2122",
 		"preview": "astro preview",
+		"preview:admin": "cross-env APP_CONTEXT=admin PUBLIC_APP_CONTEXT=admin astro preview --port 4211 --host 0.0.0.0",
+		"preview:client": "cross-env APP_CONTEXT=client PUBLIC_APP_CONTEXT=client astro preview --port 4222 --host 0.0.0.0",
 		"start": "astro dev"
 	},
 	"dependencies": {
@@ -59,6 +65,7 @@
 		"eslint-plugin-astro": "^0.23.0",
 		"eslint-plugin-import": "^2.27.5",
 		"eslint-plugin-prettier": "^4.2.1",
-		"eslint-plugin-tsdoc": "^0.2.17"
+		"eslint-plugin-tsdoc": "^0.2.17",
+		"cross-env": "^7.0.3"
 	}
 }

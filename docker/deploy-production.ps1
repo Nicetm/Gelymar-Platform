@@ -26,6 +26,7 @@ $images = @(
     "nicetm/gelymar-platform:fileserver-prod", 
     "nicetm/gelymar-platform:backend-prod",
     "nicetm/gelymar-platform:frontend-prod",
+    "nicetm/gelymar-platform:frontend-client-prod",
     "nicetm/gelymar-platform:cron-prod",
     "nicetm/gelymar-platform:terminal-prod",
     "nicetm/gelymar-platform:phpmyadmin-prod"
@@ -62,8 +63,9 @@ docker compose -f docker-compose-hub.yml ps
 Write-Host ""
 Write-Host "🎉 ¡Despliegue completado exitosamente!" -ForegroundColor Green
 Write-Host ""
-Write-Host "📋 Servicios disponibles:" -ForegroundColor Cyan
-Write-Host "   🌐 Frontend:     http://172.20.10.151:2121" -ForegroundColor White
+Write-Host "?? Servicios disponibles:" -ForegroundColor Cyan
+Write-Host "   ?? Frontend (admin):   http://172.20.10.151:2121" -ForegroundColor White
+Write-Host "   ?? Frontend (cliente): http://172.20.10.151:2122" -ForegroundColor White
 Write-Host "   🔧 Backend API:  http://172.20.10.151:3000" -ForegroundColor White
 Write-Host "   📁 File Server:  http://172.20.10.151:8080" -ForegroundColor White
 Write-Host "   🗄️  phpMyAdmin:   http://172.20.10.151:8081" -ForegroundColor White

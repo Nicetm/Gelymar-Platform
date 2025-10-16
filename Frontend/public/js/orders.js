@@ -55,29 +55,23 @@ export async function initOrdersScript() {
     const documentCount = order.document_count || 0;
     const estadoOv = (order.estado_ov || '').toLowerCase();
     
-    // Debug: mostrar los valores en consola
-    console.log('Order:', order.pc, 'Document Count:', documentCount, 'Estado OV:', estadoOv);
     
     // Verde: si el estado es "cerrada"
     if (estadoOv === 'cerrada') {
-      console.log('Orden', order.pc, 'es VERDE (cerrada)');
       return 'green';
     }
     
     // Naranja: si el estado es "abierta" y tiene 4 o más documentos
     if (estadoOv === 'abierta' && documentCount >= 4) {
-      console.log('Orden', order.pc, 'es NARANJA (abierta con 4+ documentos)');
       return 'orange';
     }
     
     // Rojo: si el estado es "abierta" y tiene 0 documentos
     if (estadoOv === 'abierta' && documentCount === 0) {
-      console.log('Orden', order.pc, 'es ROJA (abierta con 0 documentos)');
       return 'red';
     }
     
     // Por defecto, rojo si no cumple ninguna condición
-    console.log('Orden', order.pc, 'es ROJA (por defecto)');
     return 'red';
   }
 
@@ -897,8 +891,6 @@ async function openOrderDetailModal(orderId, orderOc) {
 
     const orderDetail = await response.json();
     
-    console.log('Order Detail Response:', orderDetail);
-
     // Función para formatear fechas
     function formatDateToDDMMYYYY(dateString) {
       if (!dateString) return '-';
@@ -1108,7 +1100,6 @@ function saveToCache(data) {
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify(data));
     localStorage.setItem(CACHE_TIMESTAMP_KEY, Date.now().toString());
-    console.log('Datos guardados en caché');
   } catch (error) {
     console.warn('No se pudo guardar en caché:', error);
   }
@@ -1119,7 +1110,6 @@ function loadFromCache() {
   try {
     const cachedData = localStorage.getItem(CACHE_KEY);
     if (cachedData) {
-      console.log('Datos cargados desde caché');
       return JSON.parse(cachedData);
     }
   } catch (error) {
@@ -1145,7 +1135,6 @@ export async function loadOrdersWithCache() {
       }
     }
 
-    console.log('Cargando datos desde API...');
     const token = localStorage.getItem('token');
     const apiBase = window.apiBase;
     
@@ -1158,7 +1147,6 @@ export async function loadOrdersWithCache() {
     }
 
     const orders = await response.json();
-    console.log('Órdenes desde API:', orders.length);
     
     // Guardar en caché
     saveToCache(orders);
@@ -1170,7 +1158,6 @@ export async function loadOrdersWithCache() {
     // Si hay error en la API, intentar usar caché aunque esté expirado
     const cachedData = loadFromCache();
     if (cachedData) {
-      console.log('Usando caché expirado debido a error en API');
       return cachedData;
     }
     

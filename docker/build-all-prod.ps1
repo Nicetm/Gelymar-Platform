@@ -5,7 +5,7 @@ Write-Host "🚀 Iniciando construcción de todas las imágenes Docker para prod
 
 # Limpiar imágenes anteriores para forzar reconstrucción limpia
 Write-Host "🧹 Limpiando imágenes anteriores..." -ForegroundColor Yellow
-docker rmi nicetm/gelymar-platform:mysql-prod nicetm/gelymar-platform:fileserver-prod nicetm/gelymar-platform:backend-prod nicetm/gelymar-platform:frontend-prod nicetm/gelymar-platform:cron-prod nicetm/gelymar-platform:config-manager-prod nicetm/gelymar-platform:phpmyadmin-prod 2>$null
+docker rmi nicetm/gelymar-platform:mysql-prod nicetm/gelymar-platform:fileserver-prod nicetm/gelymar-platform:backend-prod nicetm/gelymar-platform:frontend-prod nicetm/gelymar-platform:frontend-client-prod nicetm/gelymar-platform:cron-prod nicetm/gelymar-platform:config-manager-prod nicetm/gelymar-platform:phpmyadmin-prod 2>$null
 
 # 1. MySQL (etiquetar imagen existente)
 Write-Host "📦 Etiquetando MySQL..." -ForegroundColor Yellow
@@ -49,7 +49,8 @@ Write-Host "🔧 Comandos para construir imágenes individuales:" -ForegroundCol
 Write-Host "   MySQL:      docker tag mysql:8.0 nicetm/gelymar-platform:mysql-prod" -ForegroundColor Gray
 Write-Host "   Fileserver: docker-compose -f docker-compose-prod.yml --env-file .env.production build --no-cache fileserver" -ForegroundColor Gray
 Write-Host "   Backend:    docker-compose -f docker-compose-prod.yml --env-file .env.production build --no-cache backend" -ForegroundColor Gray
-Write-Host "   Frontend:   docker-compose -f docker-compose-prod.yml --env-file .env.production build --no-cache frontend" -ForegroundColor Gray
+Write-Host "   Frontend (admin): docker-compose -f docker-compose-prod.yml --env-file .env.production build --no-cache frontend" -ForegroundColor Gray
+Write-Host "   Frontend (cliente): docker-compose -f docker-compose-prod.yml --env-file .env.production build --no-cache frontend-client" -ForegroundColor Gray
 Write-Host "   Cron:       docker-compose -f docker-compose-prod.yml --env-file .env.production build --no-cache cron" -ForegroundColor Gray
 Write-Host "   Config Manager: docker-compose -f docker-compose-prod.yml --env-file .env.production build --no-cache config-manager" -ForegroundColor Gray
 Write-Host "   phpMyAdmin: docker tag phpmyadmin/phpmyadmin:latest nicetm/gelymar-platform:phpmyadmin-prod" -ForegroundColor Gray

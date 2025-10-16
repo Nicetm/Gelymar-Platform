@@ -15,6 +15,10 @@ services:
     image: nicetm/gelymar-platform:frontend-prod
     profiles: ["download"]
 
+  frontend-client:
+    image: nicetm/gelymar-platform:frontend-client-prod
+    profiles: ["download"]
+
   cron:
     image: nicetm/gelymar-platform:cron-prod
     profiles: ["download"]

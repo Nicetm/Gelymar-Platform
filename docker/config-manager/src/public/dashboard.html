@@ -382,6 +382,18 @@
                                 <input type="text" id="devPublicFrontendBaseUrl" placeholder="http://localhost:2121">
                             </div>
                             <div class="form-group">
+                                <label for="devPublicClientFrontendBaseUrl">Public Client Frontend Base URL</label>
+                                <input type="text" id="devPublicClientFrontendBaseUrl" placeholder="http://localhost:2122">
+                            </div>
+                            <div class="form-group">
+                                <label for="devPublicAdminAppUrl">Admin App URL</label>
+                                <input type="text" id="devPublicAdminAppUrl" placeholder="http://localhost:2121/admin/">
+                            </div>
+                            <div class="form-group">
+                                <label for="devPublicClientAppUrl">Client App URL</label>
+                                <input type="text" id="devPublicClientAppUrl" placeholder="http://localhost:2122/client/">
+                            </div>
+                            <div class="form-group">
                                 <label for="devServerApiUrl">Server API URL</label>
                                 <input type="text" id="devServerApiUrl" placeholder="http://backend:3000">
                             </div>
@@ -757,6 +769,18 @@
                             <div class="form-group">
                                 <label for="prodPublicFrontendBaseUrl">Public Frontend Base URL</label>
                                 <input type="text" id="prodPublicFrontendBaseUrl" placeholder="http://172.20.10.151:2121">
+                            </div>
+                            <div class="form-group">
+                                <label for="prodPublicClientFrontendBaseUrl">Public Client Frontend Base URL</label>
+                                <input type="text" id="prodPublicClientFrontendBaseUrl" placeholder="http://172.20.10.151:2122">
+                            </div>
+                            <div class="form-group">
+                                <label for="prodPublicAdminAppUrl">Admin App URL</label>
+                                <input type="text" id="prodPublicAdminAppUrl" placeholder="http://172.20.10.151:2121/admin/">
+                            </div>
+                            <div class="form-group">
+                                <label for="prodPublicClientAppUrl">Client App URL</label>
+                                <input type="text" id="prodPublicClientAppUrl" placeholder="http://172.20.10.151:2122/client/">
                             </div>
                             <div class="form-group">
                                 <label for="prodServerApiUrl">Server API URL</label>
@@ -2258,6 +2282,9 @@ fi`;
             if (currentDevConfig.PUBLIC_FILE_SERVER_URL) document.getElementById('devPublicFileServerUrl').value = currentDevConfig.PUBLIC_FILE_SERVER_URL;
             if (currentDevConfig.PUBLIC_API_BASE_URL) document.getElementById('devPublicApiBaseUrl').value = currentDevConfig.PUBLIC_API_BASE_URL;
             if (currentDevConfig.PUBLIC_FRONTEND_BASE_URL) document.getElementById('devPublicFrontendBaseUrl').value = currentDevConfig.PUBLIC_FRONTEND_BASE_URL;
+            if (currentDevConfig.PUBLIC_CLIENT_FRONTEND_BASE_URL) document.getElementById('devPublicClientFrontendBaseUrl').value = currentDevConfig.PUBLIC_CLIENT_FRONTEND_BASE_URL;
+            if (currentDevConfig.PUBLIC_ADMIN_APP_URL) document.getElementById('devPublicAdminAppUrl').value = currentDevConfig.PUBLIC_ADMIN_APP_URL;
+            if (currentDevConfig.PUBLIC_CLIENT_APP_URL) document.getElementById('devPublicClientAppUrl').value = currentDevConfig.PUBLIC_CLIENT_APP_URL;
             if (currentDevConfig.SERVER_API_URL) document.getElementById('devServerApiUrl').value = currentDevConfig.SERVER_API_URL;
             if (currentDevConfig.SITE) document.getElementById('devSite').value = currentDevConfig.SITE;
             if (currentDevConfig.BACKEND_BASE_URL) document.getElementById('devBackendBaseUrl').value = currentDevConfig.BACKEND_BASE_URL;
@@ -2328,6 +2355,9 @@ fi`;
             if (currentProdConfig.PUBLIC_FILE_SERVER_URL) document.getElementById('prodPublicFileServerUrl').value = currentProdConfig.PUBLIC_FILE_SERVER_URL;
             if (currentProdConfig.PUBLIC_API_BASE_URL) document.getElementById('prodPublicApiBaseUrl').value = currentProdConfig.PUBLIC_API_BASE_URL;
             if (currentProdConfig.PUBLIC_FRONTEND_BASE_URL) document.getElementById('prodPublicFrontendBaseUrl').value = currentProdConfig.PUBLIC_FRONTEND_BASE_URL;
+            if (currentProdConfig.PUBLIC_CLIENT_FRONTEND_BASE_URL) document.getElementById('prodPublicClientFrontendBaseUrl').value = currentProdConfig.PUBLIC_CLIENT_FRONTEND_BASE_URL;
+            if (currentProdConfig.PUBLIC_ADMIN_APP_URL) document.getElementById('prodPublicAdminAppUrl').value = currentProdConfig.PUBLIC_ADMIN_APP_URL;
+            if (currentProdConfig.PUBLIC_CLIENT_APP_URL) document.getElementById('prodPublicClientAppUrl').value = currentProdConfig.PUBLIC_CLIENT_APP_URL;
             if (currentProdConfig.SERVER_API_URL) document.getElementById('prodServerApiUrl').value = currentProdConfig.SERVER_API_URL;
             if (currentProdConfig.SITE) document.getElementById('prodSite').value = currentProdConfig.SITE;
             if (currentProdConfig.BACKEND_BASE_URL) document.getElementById('prodBackendBaseUrl').value = currentProdConfig.BACKEND_BASE_URL;
@@ -2406,6 +2436,9 @@ fi`;
                 PUBLIC_FILE_SERVER_URL: document.getElementById('devPublicFileServerUrl')?.value || '',
                 PUBLIC_API_BASE_URL: document.getElementById('devPublicApiBaseUrl')?.value || '',
                 PUBLIC_FRONTEND_BASE_URL: document.getElementById('devPublicFrontendBaseUrl')?.value || '',
+                PUBLIC_CLIENT_FRONTEND_BASE_URL: document.getElementById('devPublicClientFrontendBaseUrl')?.value || '',
+                PUBLIC_ADMIN_APP_URL: document.getElementById('devPublicAdminAppUrl')?.value || '',
+                PUBLIC_CLIENT_APP_URL: document.getElementById('devPublicClientAppUrl')?.value || '',
                 SERVER_API_URL: document.getElementById('devServerApiUrl')?.value || '',
                 SITE: document.getElementById('devSite')?.value || '',
                 BACKEND_BASE_URL: document.getElementById('devBackendBaseUrl')?.value || '',
@@ -2475,6 +2508,9 @@ fi`;
                 PUBLIC_FILE_SERVER_URL: document.getElementById('prodPublicFileServerUrl')?.value || '',
                 PUBLIC_API_BASE_URL: document.getElementById('prodPublicApiBaseUrl')?.value || '',
                 PUBLIC_FRONTEND_BASE_URL: document.getElementById('prodPublicFrontendBaseUrl')?.value || '',
+                PUBLIC_CLIENT_FRONTEND_BASE_URL: document.getElementById('prodPublicClientFrontendBaseUrl')?.value || '',
+                PUBLIC_ADMIN_APP_URL: document.getElementById('prodPublicAdminAppUrl')?.value || '',
+                PUBLIC_CLIENT_APP_URL: document.getElementById('prodPublicClientAppUrl')?.value || '',
                 SERVER_API_URL: document.getElementById('prodServerApiUrl')?.value || '',
                 SITE: document.getElementById('prodSite')?.value || '',
                 BACKEND_BASE_URL: document.getElementById('prodBackendBaseUrl')?.value || '',
@@ -2936,7 +2972,9 @@ fi`;
             // Mapeo de contenedores a URLs
             const urlMap = {
                 'gelymar-platform-frontend-dev': 'http://localhost:2121',
+                'gelymar-platform-frontend-client-dev': 'http://localhost:2122',
                 'gelymar-platform-frontend-prod': 'http://172.20.10.151:2121',
+                'gelymar-platform-frontend-client-prod': 'http://172.20.10.151:2122',
                 'gelymar-platform-backend-dev': 'http://localhost:3000',
                 'gelymar-platform-backend-prod': 'http://172.20.10.151:3000',
                 'gelymar-platform-fileserver-dev': 'http://localhost:8080',
@@ -2952,7 +2990,9 @@ fi`;
             // Si es un contenedor remoto, usar la IP del servidor remoto
             if (isRemote) {
                 // Para contenedores remotos, usar la IP del servidor remoto
-                if (containerName.includes('frontend')) {
+                if (containerName.includes('frontend-client')) {
+                    return `http://${remoteServerIp}:2122`;
+                } else if (containerName.includes('frontend')) {
                     return `http://${remoteServerIp}:2121`;
                 } else if (containerName.includes('backend')) {
                     return `http://${remoteServerIp}:3000`;

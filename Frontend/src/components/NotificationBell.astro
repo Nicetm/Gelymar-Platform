@@ -5,7 +5,7 @@ export interface Props {
 }
 
 const { unreadCount = 0 } = Astro.props;
-//const apiBase = import.meta.env.PUBLIC_API_URL || import.meta.env.SERVER_API_URL;
+const apiBase = import.meta.env.PUBLIC_API_URL || import.meta.env.SERVER_API_URL;
 const apiPublic = import.meta.env.PUBLIC_API_URL;
 ---
 
@@ -78,7 +78,7 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
 </div>
 
 
-<script is:inline define:vars={{ apiPublic }}>
+<script is:inline define:vars={{ apiPublic, apiBase }}>
   window.apiBase = apiPublic;
   
   // Importar showNotification desde utils
@@ -88,6 +88,7 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
   
   // Importar funciones necesarias
   async function confirmAction(title, message, type = 'warning') {
+    
     return new Promise((resolve) => {
       // Crear el modal
       const modal = document.createElement('div');
@@ -196,7 +197,7 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
         return this.socket;
       }
 
-      const apiBase = window.apiBase || 'http://localhost:3000';
+      const apiBase = window.apiBase;
       
       this.socket = io(apiBase, {
         auth: { token },
@@ -319,12 +320,15 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
   
   // Función para cargar notificaciones
   async function loadNotifications() {
+    
+    const apiBase = window.apiBase;
+
     try {
       // Validar token usando función centralizada
       const token = getValidToken();
       if (!token) return;
       
-      const response = await fetch(`${window.apiBase || 'http://localhost:3000'}/api/chat/summary`, {
+      const response = await fetch(`${apiBase}/api/chat/summary`, {
 headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -352,7 +356,10 @@ headers: {
       updateNotificationBadge();
       
       // Cargar chats recientes como notificaciones
-      notifications = data.data.recentChats || [];
+      notifications = (data.data.recentChats || []).filter((chat) => {
+        const unread = Number(chat?.unread_count ?? 0);
+        return unread > 0;
+      });
       
       // Agregar notificación de clientes sin cuenta si hay
       if (customersWithoutAccount > 0) {
@@ -377,8 +384,6 @@ headers: {
     const badge = document.getElementById('notification-badge');
     const ping = document.getElementById('notification-ping');
     const bellIcon = notificationBell?.querySelector('svg');
-    
-
     
     if (unreadCount > 0) {
       // Cambiar color de la campanita a naranja
@@ -532,7 +537,7 @@ headers: {
       if (!token) return;
       
       // Marcar todas como leídas
-      await fetch(`${window.apiBase || 'http://localhost:3000'}/api/chat/mark-all-read`, {
+      await fetch(`${apiBase}/api/chat/mark-all-read`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -654,6 +659,9 @@ headers: {
 
   // Función para abrir el modal de clientes sin cuenta
   async function openCustomersWithoutAccountModal() {
+
+    const apiBase = window.apiBase;
+
     // Crear modal dinámicamente en el body
     const existingModal = document.getElementById('customersWithoutAccountModal');
     if (existingModal) {
@@ -707,7 +715,7 @@ headers: {
       const token = getValidToken();
       if (!token) return;
 
-      const response = await fetch(`${window.apiBase || 'http://localhost:3000'}/api/customers/without-account`, {
+      const response = await fetch(`${apiBase}/api/customers/without-account`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -791,6 +799,9 @@ headers: {
 
   // Función para crear cuenta de cliente
   async function createCustomerAccount(customerId, customerName, customerRut, customerEmail) {
+
+    const apiBase = window.apiBase;
+
     try {
       // Verificar si el cliente tiene email
       const hasEmail = customerEmail && customerEmail.trim() !== '';
@@ -822,7 +833,7 @@ headers: {
           return;
         }
 
-        const response = await fetch(`${window.apiBase}/api/customers/by-rut/${encodeURIComponent(customerRut)}`, {
+        const response = await fetch(`${apiBase}/api/customers/by-rut/${encodeURIComponent(customerRut)}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -836,7 +847,7 @@ headers: {
         const customerData = await response.json();
         
         // Crear cuenta de usuario
-        const createResponse = await fetch(`${window.apiBase}/api/customers/${customerId}/create-account`, {
+        const createResponse = await fetch(`${apiBase}/api/customers/${customerId}/create-account`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -867,7 +878,7 @@ headers: {
         }
         
         // Actualizar localStorage con el nuevo count
-        const updateResponse = await fetch(`${window.apiBase}/api/customers/without-account`, {
+        const updateResponse = await fetch(`${apiBase}/api/customers/without-account`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -894,11 +905,14 @@ headers: {
 
   // Función para obtener el customer_id del usuario actual
   async function getCustomerId() {
+
+    const apiBase = window.apiBase;
+
     try {
       const token = localStorage.getItem('token');
       if (!token) return null;
       
-      const response = await fetch(`${window.apiBase || 'http://localhost:3000'}/api/auth/me`, {
+      const response = await fetch(`${apiBase}/api/auth/me`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -915,14 +929,18 @@ headers: {
 
   // Función para actualizar contador de notificaciones
   async function updateNotificationCount() {
+
+    const apiBase = window.apiBase;
+    
     try {
+
       const token = localStorage.getItem('token');
       if (!token) return;
 
       let newCount = unreadCount;
 
       if (userRole === 'admin') {
-        const response = await fetch(`${window.apiBase || 'http://localhost:3000'}/api/chat/summary`, {
+        const response = await fetch(`${apiBase}/api/chat/summary`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
 
@@ -937,7 +955,7 @@ headers: {
       } else {
         const customerId = await getCustomerId();
         if (customerId) {
-          const response = await fetch(`${window.apiBase || 'http://localhost:3000'}/api/chat/unread-count/${customerId}`, {
+          const response = await fetch(`${apiBase}/api/chat/unread-count/${customerId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
 
