@@ -635,10 +635,7 @@ sshpass -p 'Lug4R0j4.2025' ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile
       
       // Leer variables del archivo .env
       const envVars = this.readEnvFile(envFile);
-      console.log(`🔧 Variables .env cargadas para ${action}:`, Object.keys(envVars));
-      
       let command;
-      
       switch (action) {
         case 'restart':
           command = `${dockerCommand} -f ${composeFile} --env-file ${envFile} restart`;
@@ -655,11 +652,6 @@ sshpass -p 'Lug4R0j4.2025' ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile
         default:
           throw new Error(`Acción global ${action} no soportada`);
       }
-
-      console.log(`🔧 Ejecutando comando: ${command}`);
-      console.log(`📁 Directorio de trabajo: ${projectPath}`);
-      console.log(`⏱️ Iniciando ejecución del comando...`);
-      console.log(`🔄 Esto puede tardar varios minutos...`);
 
       const output = execSync(command, { 
         encoding: 'utf8',
@@ -681,20 +673,14 @@ sshpass -p 'Lug4R0j4.2025' ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile
         }
       });
 
-      console.log(`✅ Comando terminado exitosamente`);
-      console.log(`📤 Output completo del comando:`);
-      console.log(`==========================================`);
-      console.log(output);
-      console.log(`==========================================`);
-
       return {
         action: `${action}_all`,
         output: output,
         timestamp: new Date().toISOString()
       };
     } catch (error) {
-      console.error(`❌ Error ejecutando acción global: ${action}`);
-      console.error(`❌ Error details: ${error.message}`);
+      console.error(`Error ejecutando acción global: ${action}`);
+      console.error(`Error details: ${error.message}`);
       throw new Error(`Error ejecutando ${action} global: ${error.message}`);
     }
   }
@@ -714,8 +700,6 @@ sshpass -p 'Lug4R0j4.2025' ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile
       const serviceName = containerName.replace('gelymar-platform-', '');
       
       const command = `${dockerCommand} -f ${composeFile} up -d --build ${serviceName}`;
-      console.log(`🔧 Reconstruyendo ${containerName} (servicio: ${serviceName})`);
-      console.log(`🔧 Comando: ${command}`);
       
       const output = execSync(command, { 
         encoding: 'utf8',
@@ -732,8 +716,6 @@ sshpass -p 'Lug4R0j4.2025' ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile
           SESSION_SECRET: process.env.SESSION_SECRET
         }
       });
-
-      console.log(`✅ Reconstrucción exitosa de ${containerName}`);
 
       return {
         containerName,

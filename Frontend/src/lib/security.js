@@ -77,12 +77,6 @@ class SecurityAuditor {
     if (severity === SEVERITY_LEVELS.CRITICAL) {
       this.sendToServer(event);
     }
-
-    // Log en consola en desarrollo
-    if (import.meta.env.DEV) {
-      console.log(`[SECURITY] ${eventType}:`, event);
-    }
-
     return event;
   }
 

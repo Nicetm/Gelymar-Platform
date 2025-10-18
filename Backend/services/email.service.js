@@ -20,6 +20,13 @@ const transporter = nodemailer.createTransport({
   }
 });
 
+const DOC_NAME_MAP = {
+  'Order Receipt Advice': 'Aviso de Recepción de Orden',
+  'Shipment Advice': 'Aviso de Embarque',
+  'Order Delivery Advice': 'Aviso de Entrega',
+  'Availability Advice': 'Aviso de Disponibilidad de Orden',
+};
+
 async function sendFileToClient(file, lang = 'en') {
 
   lang = file.lang || 'en';
@@ -60,17 +67,18 @@ async function sendFileToClient(file, lang = 'en') {
   const templatePath = path.join(__dirname, '../mail-generator/template/document.hbs');
   const templateContent = fs.readFileSync(templatePath, 'utf8');
   const template = Handlebars.compile(templateContent);
+  const filename = lang == 'en' ? file.name : await translateNameOfDocument(file.name);
 
   // Datos para el template
   const templateData = {
     lang,
     dear: translations.mail.dear,
-    subject: `📄 Documento Gelymar: ${file.name}`,
-    title: file.name,
+    subject: `📄 Gelymar: ${filename}`,
+    title: filename,
     logoUrl: 'https://www.gelymar.com/wp-content/uploads/2014/08/gelymar-logo.jpg',
     customerName: file.customer_name,
     introMessage: translations.mail.introMessage,
-    documentName: file.name,
+    documentName: filename,
     logisticsManagement: translations.mail.logisticsManagement,
     gelymar: translations.mail.gelymar,
     pleaseFindAttached: translations.mail.pleaseFindAttached,
@@ -89,7 +97,7 @@ async function sendFileToClient(file, lang = 'en') {
   const htmlContent = template(templateData);
 
   const mailOptions = {
-    from: `Gelymar Documentos <${process.env.SMTP_USER}>`,
+    from: `Gelymar <${process.env.SMTP_USER}>`,
     to: emails.join(','),
     subject: templateData.subject,
     html: htmlContent,
@@ -100,6 +108,10 @@ async function sendFileToClient(file, lang = 'en') {
   };
 
   await transporter.sendMail(mailOptions);
+}
+
+async function translateNameOfDocument(name) {
+  return DOC_NAME_MAP[name] || name;
 }
 
 module.exports = { sendFileToClient };

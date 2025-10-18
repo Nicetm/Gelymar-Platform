@@ -246,15 +246,7 @@
         }
     </style>
     <script>
-        // Debug completo del localStorage
-        console.log('=== DEBUG FILE MANAGER ===');
-        console.log('localStorage completo:', localStorage);
-        console.log('User Token:', localStorage.getItem('user_token'));
-        console.log('User Data:', localStorage.getItem('user_data'));
-        console.log('Authenticated:', localStorage.getItem('authenticated'));
-        
         // Verificar autenticación se hará en DOMContentLoaded
-        
         let currentPath = '';
         let files = [];
         
@@ -289,11 +281,9 @@
         async function loadFiles() {
             try {
                 const token = localStorage.getItem('user_token');
-                console.log('🔑 Token encontrado:', token ? 'Sí' : 'No');
-                console.log('🔑 Token valor:', token);
                 
                 if (!token) {
-                    console.error('❌ No hay token, redirigiendo al login');
+                    console.error('No hay token, redirigiendo al login');
                     window.location.href = 'login.html';
                     return;
                 }
@@ -302,7 +292,6 @@
                 
                 // Usar configuración desde variables de entorno
                 const backendUrl = window.APP_CONFIG?.BACKEND_BASE_URL || 'http://localhost:3000';
-                console.log('🌐 Backend URL:', backendUrl);
                 const response = await fetch(`${backendUrl}/api/fileserver/files?path=${encodeURIComponent(currentPath)}`, {
                     headers: {
                         'Authorization': `Bearer ${token}`
@@ -540,15 +529,10 @@
         document.addEventListener('DOMContentLoaded', function() {
             // Verificar autenticación una sola vez
             const token = localStorage.getItem('user_token');
-            console.log('Verificando autenticación...');
-            
             if (!token) {
-                console.log('No hay token, redirigiendo al login');
                 window.location.href = 'login.html';
                 return;
             }
-            
-            console.log('Token válido, cargando archivos...');
             loadFiles();
         });
     </script>

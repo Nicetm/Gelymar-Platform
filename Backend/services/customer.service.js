@@ -477,9 +477,6 @@ async function updateCustomerByUUID(uuid, updateData) {
     WHERE uuid = ?
   `;
 
-  console.log(`Actualizando cliente con query: ${query}`);
-  console.log(`Valores: ${JSON.stringify(values)}`);
-
   await pool.query(query, values);
 
   // Si se actualizó el email, crear o actualizar el registro de contactos

@@ -103,7 +103,6 @@ app.use('/api/integration', integrationRoutes);
 
 // Ruta principal - redirigir a login o dashboard
 app.get('/', (req, res) => {
-  console.log('🔍 Sesión actual:', req.session);
   if (req.session && req.session.userId) {
     res.redirect('/dashboard');
   } else {

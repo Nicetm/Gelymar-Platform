@@ -5,7 +5,6 @@ export const GET: APIRoute = async ({ params, url }) => {
   const token = url.searchParams.get('token');
 
   if (!id || !token) {
-    console.log(`🔍 [Frontend Proxy] Parámetros faltantes`);
     return new Response('Missing parameters', { status: 400 });
   }
 

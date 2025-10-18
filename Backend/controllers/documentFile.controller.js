@@ -26,10 +26,10 @@ const { validateFilePath, setSecureFilePermissions } = require('../utils/filePer
  */
 function getDocumentGenerator(documentName) {
   const generators = {
-    'Recepcion de orden': generateRecepcionOrden,
-    'Aviso de Embarque': generateAvisoEmbarque,
-    'Aviso de Entrega': generateAvisoEntrega,
-    'Aviso de Disponibilidad de Orden': generateAvisoDisponibilidad
+    'Order Receipt Advice': generateRecepcionOrden,
+    'Shipment Advice': generateAvisoEmbarque,
+    'Order Delivery Advice': generateAvisoEntrega,
+    'Availability Advice': generateAvisoDisponibilidad
   };
   
   return generators[documentName] || generateRecepcionOrden; // Fallback si no encuentra
@@ -122,7 +122,7 @@ async function getPDFData(file, lang = 'es') {
 
   // Datos específicos según el tipo de documento
   const specificData = {
-    'Recepcion de orden': {
+    'Order Receipt Advice': {
       ...baseData,
       processingStatus: 'En Proceso',
       serviceType: 'Logística Integral',
@@ -130,7 +130,7 @@ async function getPDFData(file, lang = 'es') {
       destination: 'Internacional',
       priority: 'Normal'
     },
-    'Aviso de Embarque': {
+    'Shipment Advice': {
       ...baseData,
       etd: orderDetail?.fecha_etd,
       eta: orderDetail?.fecha_eta,
@@ -143,7 +143,7 @@ async function getPDFData(file, lang = 'es') {
       totalVolume: orderItems.reduce((sum, item) => sum + (item.volumen || 0), 0),
       specialInstructions: 'Manejar con cuidado. Mercancía frágil.'
     },
-    'Aviso de Entrega': {
+    'Order Delivery Advice': {
       ...baseData,
       items: orderItems,
       processingStatus: 'Entregado',
@@ -151,7 +151,7 @@ async function getPDFData(file, lang = 'es') {
       dimensions: 'Variable según producto',
       factura: orderDetail?.factura || '-'
     },
-    'Aviso de Disponibilidad de Orden': {
+    'Availability Advice': {
       ...baseData,
       items: orderItems,
       processingStatus: 'Disponible',
@@ -166,11 +166,11 @@ async function getPDFData(file, lang = 'es') {
   const { getDocumentTranslations } = require('../pdf-generator/i18n');
   let translationKey = 'aviso_recepcion'; // Default
   
-  if (file.name === 'Aviso de Embarque') {
+  if (file.name === 'Shipment Advice') {
     translationKey = 'aviso_embarque';
-  } else if (file.name === 'Aviso de Entrega') {
+  } else if (file.name === 'Order Delivery Advice') {
     translationKey = 'aviso_entrega';
-  } else if (file.name === 'Aviso de Disponibilidad de Orden') {
+  } else if (file.name === 'Availability Advice') {
     translationKey = 'aviso_disponibilidad';
   }
   
@@ -384,8 +384,6 @@ exports.viewFile = async (req, res) => {
     }
     
     const viewUrl = `/api/files/temp-view/${tempToken}`;
-    console.log(`🔍 [viewFile] Generando URL: ${viewUrl}`);
-    console.log(`🔍 [viewFile] Token generado: ${tempToken}`);
     
     res.json({ 
       viewUrl: viewUrl,
@@ -406,17 +404,10 @@ exports.viewFile = async (req, res) => {
  */
 exports.tempViewFile = async (req, res) => {
   const { token } = req.params;
-  
-  console.log(`🔍 [tempViewFile] URL completa: ${req.originalUrl}`);
-  console.log(`🔍 [tempViewFile] Parámetros:`, req.params);
-  
-  try {
-    console.log(`🔍 [tempViewFile] Token recibido: ${token}`);
-    console.log(`🔍 [tempViewFile] Tokens disponibles:`, global.tempTokens ? Array.from(global.tempTokens.keys()) : 'No hay tokens');
     
+  try {
     // Verificar token temporal
     if (!global.tempTokens || !global.tempTokens.has(token)) {
-      console.log(`❌ [tempViewFile] Token no válido: ${token}`);
       return res.status(404).json({ message: 'Token no válido o expirado' });
     }
     
@@ -764,20 +755,12 @@ exports.sendFile = async (req, res) => {
       return res.status(404).json({ message: 'Archivo no encontrado' });
     }
 
-    // Mostrar información del archivo en consola para depuración
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Archivo a enviar:', file);
-    }
-
     // Verificar que haya emails disponibles antes de intentar enviar
     const emails = [];
     if (file.customer_email) emails.push(file.customer_email);
     if (file.contact_emails) emails.push(...file.contact_emails.split(',').filter(email => email.trim()));
     
-    console.log('Emails encontrados:', emails);
-    
     if (emails.length === 0) {
-      console.log('No hay emails disponibles, retornando error 400');
       return res.status(400).json({ 
         message: 'El cliente no tiene configurado una casilla de email',
         error: 'NO_EMAIL_CONFIGURED'
@@ -1009,13 +992,9 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
       getCustomerEmail,
       markOrderAsSent
     } = require('../services/checkOrderReception.service');
-    const { getOrderDataForPDF } = require('../services/file.service');
-    const { generateRecepcionOrden } = require('../pdf-generator/generator');
     const { sendFileToClient } = require('../services/email.service');
     const fs = require('fs');
     const path = require('path');
-
-    console.log('Iniciando procesamiento de órdenes nuevas...');
     
     // 1. Obtener order_ids de new_orders
     const orderIds = await getNewOrders();
@@ -1026,17 +1005,13 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
         processed: 0 
       });
     }
-    
-    console.log(`Se encontraron ${orderIds.length} órdenes nuevas`);
-    
+        
     let processed = 0;
     let errors = 0;
     
     // 2. Procesar cada orden
     for (const orderId of orderIds) {
-      try {
-        console.log(`Procesando orden ${orderId}...`);
-        
+      try {        
         // 3. Obtener datos de la orden (rut, customer_id)
         const orderData = await getOrderData(orderId);
         if (!orderData) {
@@ -1046,11 +1021,9 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
         }
         
         // 4. Verificar si existen archivos por defecto, si no, crearlos
-        console.log(`Verificando archivos por defecto para orden ${orderId}...`);
         const existingFiles = await fileService.getFilesByFolderId(orderId);
         
         if (existingFiles.length === 0) {
-          console.log(`No hay archivos para orden ${orderId}, creando archivos por defecto...`);
           
           // Obtener datos completos de la orden para crear archivos
           const pool = await poolPromise;
@@ -1062,7 +1035,6 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
           `, [orderId]);
           
           if (!fullOrderData) {
-            console.error(`No se encontraron datos completos para orden ${orderId}`);
             errors++;
             continue;
           }
@@ -1074,11 +1046,8 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
             fullOrderData.pc,
             fullOrderData.oc
           );
-          console.log(`Archivos por defecto creados para orden ${orderId}`);
-        } else {
-          console.log(`Ya existen ${existingFiles.length} archivos para orden ${orderId}`);
         }
-        
+
         // 5. Obtener archivo de recepción (id, path)
         const receptionFile = await getReceptionFile(orderId);
         if (!receptionFile) {
@@ -1086,11 +1055,6 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
           errors++;
           continue;
         }
-        
-        console.log(`Archivo de recepción encontrado:`, {
-          id: receptionFile.id,
-          path: receptionFile.path
-        });
         
         // 6. Obtener email del cliente
         const customerData = await getCustomerEmail(orderData.customer_id, orderData.rut);
@@ -1103,25 +1067,13 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
         const customerLang = customerData.lang || 'en'; // Usar idioma del cliente o inglés por defecto
 
         // 7. Generar archivo PDF usando el mismo flujo que el botón
-        console.log(`Generando archivo PDF para orden ${orderId}...`);
-        
         // Obtener el archivo completo (como lo hace el botón)
-        console.log(`Buscando archivo con ID: ${receptionFile.id}`);
         const file = await fileService.getFileById(receptionFile.id);
         if (!file) {
           console.error(`No se encontró archivo con ID ${receptionFile.id} para orden ${orderId}`);
           errors++;
           continue;
         }
-        
-        console.log(`Archivo encontrado:`, {
-          id: file.id,
-          name: file.name,
-          order_id: file.order_id,
-          pc: file.pc,
-          oc: file.oc,
-          customer_name: file.customer_name
-        });
         
         // Usar el mismo flujo que generateFile
         const FILE_SERVER_ROOT = process.env.FILE_SERVER_ROOT || '/var/www/html';
@@ -1135,7 +1087,6 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
         // Crear directorio si no existe
         if (!fs.existsSync(customerFolder)) {
           fs.mkdirSync(customerFolder, { recursive: true });
-          console.log(`Directorio creado: ${customerFolder}`);
         }
 
         const fileName = `${file.name}.pdf`;
@@ -1152,7 +1103,6 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
         try {
           // Generar el PDF con el generador y datos correspondientes
           await generator(filePath, pdfData);
-          console.log(`PDF generado: ${filePath}`);
           
           // Actualizar el archivo en la BD
           updateData = {
@@ -1181,7 +1131,6 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
         };
         
         // 9. Enviar correo
-        console.log(`Enviando correo a ${customerEmail} para orden ${orderId}`);
         await sendFileToClient(fileData);
         
         // 10. Actualizar fecha_envio del archivo
@@ -1193,9 +1142,6 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
         
         // 11. Marcar orden como enviada
         await markOrderAsSent(orderId);
-        console.log(`Orden ${orderId} marcada como enviada`);
-        
-        console.log(`Orden ${orderId} procesada exitosamente`);
         processed++;
         
       } catch (error) {
@@ -1204,8 +1150,6 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
         // Continuar con la siguiente orden
       }
     }
-    
-    console.log('Procesamiento de órdenes nuevas completado');
     
     res.status(200).json({
       message: 'Procesamiento de órdenes nuevas completado',

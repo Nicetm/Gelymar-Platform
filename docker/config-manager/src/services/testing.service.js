@@ -18,8 +18,6 @@ class TestingService {
         cleanup = true
       } = testConfig;
 
-      console.log(`🧪 Creando entorno de testing: ${name}`);
-
       // Crear docker-compose para testing
       const composeContent = this.generateTestCompose(services, environment);
       const composePath = path.join('/tmp', `${name}-docker-compose.yml`);
@@ -50,7 +48,6 @@ class TestingService {
         cleanup
       };
     } catch (error) {
-      console.error('Error creando entorno de testing:', error);
       throw error;
     }
   }
@@ -230,14 +227,11 @@ TEST_RETRIES=3
         }
 
         if (readyServices.length === services.length) {
-          console.log('✅ Todos los servicios de testing están listos');
           return true;
         }
 
-        console.log(`⏳ Esperando servicios... (${readyServices.length}/${services.length})`);
         await new Promise(resolve => setTimeout(resolve, 2000));
       } catch (error) {
-        console.error('Error verificando servicios:', error);
         await new Promise(resolve => setTimeout(resolve, 2000));
       }
     }
@@ -248,7 +242,6 @@ TEST_RETRIES=3
   // Ejecutar tests
   async runTests(testSuite, environment) {
     try {
-      console.log(`🧪 Ejecutando test suite: ${testSuite}`);
 
       const testResults = {
         suite: testSuite,
@@ -291,14 +284,12 @@ TEST_RETRIES=3
 
       return testResults;
     } catch (error) {
-      console.error('Error ejecutando tests:', error);
       throw error;
     }
   }
 
   // Ejecutar tests unitarios
   async runUnitTests(testResults) {
-    console.log('🔬 Ejecutando tests unitarios...');
 
     const unitTests = [
       {
@@ -331,7 +322,6 @@ TEST_RETRIES=3
 
   // Ejecutar tests de integración
   async runIntegrationTests(testResults) {
-    console.log('🔗 Ejecutando tests de integración...');
 
     const integrationTests = [
       {
@@ -364,7 +354,6 @@ TEST_RETRIES=3
 
   // Ejecutar tests end-to-end
   async runE2ETests(testResults) {
-    console.log('🎭 Ejecutando tests end-to-end...');
 
     const e2eTests = [
       {
@@ -398,7 +387,6 @@ TEST_RETRIES=3
   // Limpiar entorno de testing
   async cleanupTestEnvironment(environmentName) {
     try {
-      console.log(`🧹 Limpiando entorno de testing: ${environmentName}`);
 
       const { execSync } = require('child_process');
       
@@ -419,10 +407,9 @@ TEST_RETRIES=3
         await fs.unlink(`/tmp/${environmentName}-docker-compose.yml`);
         await fs.unlink(`/tmp/${environmentName}.env`);
       } catch (error) {
-        console.log('Archivos temporales ya eliminados');
+        console.error('Error eliminando archivos temporales:', error);
       }
 
-      console.log('✅ Entorno de testing limpiado exitosamente');
       return { success: true };
     } catch (error) {
       console.error('Error limpiando entorno de testing:', error);
@@ -460,8 +447,6 @@ TEST_RETRIES=3
   // Ejecutar pipeline de CI/CD
   async runCIPipeline(config) {
     try {
-      console.log('🚀 Iniciando pipeline de CI/CD');
-
       const pipeline = {
         id: `pipeline-${Date.now()}`,
         startTime: new Date(),
@@ -521,7 +506,6 @@ TEST_RETRIES=3
       pipeline.duration = pipeline.endTime - pipeline.startTime;
       pipeline.status = testResults.summary.failed === 0 ? 'passed' : 'failed';
 
-      console.log('✅ Pipeline de CI/CD completado');
       return pipeline;
     } catch (error) {
       console.error('Error en pipeline de CI/CD:', error);

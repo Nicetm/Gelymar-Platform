@@ -20,7 +20,6 @@ async function generatePDF(filePath, templateName, data) {
     if (fs.existsSync(filePath)) {
       try {
         fs.unlinkSync(filePath);
-        console.log(`Archivo existente eliminado: ${filePath}`);
       } catch (error) {
         console.error(`Error al eliminar archivo existente: ${error.message}`);
       }
@@ -154,7 +153,6 @@ function drawHeader(doc, logoPath, data) {
   doc.moveDown(0.2);
 }
 
-// Aviso de Recepcion de Orden
 function drawInfoSectionReception(doc, data) {
   const startY = doc.y + 15;
   const sectionWidth = 500;

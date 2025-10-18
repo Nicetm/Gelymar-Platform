@@ -92,6 +92,7 @@ services:
     volumes:
       - backend_logs:/app/logs
       - fileserver_data:/var/www/html
+      - /mnt/archivos:/mnt/archivos
     networks:
       - gelymar-network
     depends_on:
@@ -244,7 +245,7 @@ services:
 
   # phpMyAdmin
   phpmyadmin:
-    image: phpmyadmin:5.2.1
+    image: phpmyadmin/phpmyadmin:latest
     container_name: gelymar-platform-phpmyadmin-prod
     restart: unless-stopped
     ports:

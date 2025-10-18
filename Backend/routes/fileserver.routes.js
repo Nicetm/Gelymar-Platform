@@ -34,12 +34,10 @@ const verifyToken = (req, res, next) => {
 
 // Login endpoint
 router.post('/login', async (req, res) => {
-    console.log('🔐 [Fileserver] Intento de login recibido:', req.body);
     try {
         const { username, password } = req.body;
         
         if (!username || !password) {
-            console.log('❌ [Fileserver] Usuario o contraseña faltantes');
             return res.status(400).json({ 
                 success: false,
                 message: 'Usuario y contraseña requeridos' 
@@ -48,22 +46,17 @@ router.post('/login', async (req, res) => {
 
         // Usar el mismo sistema que monitoring
         const monitoringService = require('../services/monitoring.service');
-        console.log('🔍 [Fileserver] Autenticando usuario:', username);
         const user = await monitoringService.authenticateUser(username, password);
         
         if (!user) {
-            console.log('❌ [Fileserver] Usuario no encontrado o contraseña incorrecta:', username);
             return res.status(401).json({ 
                 success: false,
                 message: 'Usuario o contraseña incorrectos' 
             });
         }
         
-        console.log('✅ [Fileserver] Usuario autenticado correctamente:', username);
-
         // Generar token de sesión
         const sessionToken = monitoringService.generateSessionToken(user);
-        console.log('🎫 [Fileserver] Token generado para usuario:', username);
 
         res.json({
             success: true,
@@ -76,8 +69,8 @@ router.post('/login', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('💥 [Fileserver] Error en login:', error.message);
-        console.error('💥 [Fileserver] Stack trace:', error.stack);
+        console.error('[Fileserver] Error en login:', error.message);
+        console.error('[Fileserver] Stack trace:', error.stack);
         res.status(500).json({
             success: false,
             message: 'Error interno del servidor'

@@ -469,10 +469,10 @@ export function initFilesScript() {
 
     // Definir archivos por defecto que no deben tener botón de eliminar
     const defaultFiles = [
-      'Recepcion de orden',
-      'Aviso de Embarque', 
-      'Aviso de Entrega',
-      'Aviso de Disponibilidad de Orden'
+      'Order Receipt Advice',
+      'Shipment Advice',
+      'Order Delivery Advice',
+      'Availability Advice'
     ];
     
     const isDefaultFile = defaultFiles.includes(file.name);
@@ -805,14 +805,10 @@ export function initFilesScript() {
   async function loadFileWithToken(fileId) {
     const fileContent = document.getElementById('file-content');
     
-    try {
-      console.log('🔍 apiBase:', apiBase);
-      console.log('🔍 fileId:', fileId);
-      
+    try {     
       // Usar endpoint con token como parámetro de consulta
       const token = localStorage.getItem('token');
       const iframeUrl = `${apiBase}/api/files/view-with-token/${fileId}?token=${encodeURIComponent(token)}`;
-      console.log('URL del iframe:', iframeUrl);
       
       // Crear iframe con URL completa
       const iframe = document.createElement('iframe');

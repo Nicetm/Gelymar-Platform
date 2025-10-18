@@ -154,7 +154,6 @@ const compareItemFields = async (existingItem, newRecord) => {
     const normalizedExistingValue = normalizeExistingValue(existingValue);
     
     if (normalizedExistingValue !== newValue) {
-      console.log(`Campo ${field} cambió: ${normalizedExistingValue} -> ${newValue}`);
       return true;
     }
   }

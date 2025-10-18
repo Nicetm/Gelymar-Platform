@@ -152,8 +152,6 @@ export function initSidebarAdmin(config) {
             openPdfMailModal();
             break;
           case 'profile':
-            console.log('Profile settings clicked');
-            // Aquí puedes agregar la funcionalidad para profile
             break;
         }
       }

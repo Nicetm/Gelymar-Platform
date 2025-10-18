@@ -30,9 +30,7 @@ class ChatMessage {
     `;
     
     try {
-      console.log('Insertando mensaje:', { customer_id, message, sender_role, isSecurityMessage });
       const [result] = await pool.query(query, [customer_id, message, sender_role, isSecurityMessage]);
-      console.log('Mensaje insertado con ID:', result.insertId);
       return result.insertId;
     } catch (error) {
       console.error('Error en create:', error);

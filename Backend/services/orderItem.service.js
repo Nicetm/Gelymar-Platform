@@ -128,9 +128,6 @@ const updateOrderLineFactura = async (orderLineId, factura) => {
     if (result.affectedRows === 0) {
       throw new Error(`No se pudo actualizar la línea de orden con ID ${orderLineId}`);
     }
-    
-    console.log(`Línea de orden ${orderLineId} actualizada con factura: ${factura}`);
-    
   } catch (error) {
     console.error('Error updating order line factura:', error);
     throw error;

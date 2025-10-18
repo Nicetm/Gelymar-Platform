@@ -72,9 +72,10 @@ async function createFolder({ customer_id, name, path }) {
 
   // Insert en files (los 3 registros)
   const filesToInsert = [
-    { name: 'Recepcion de orden' },
-    { name: 'Aviso de Embarque' },
-    { name: 'Aviso de entrega' }
+    { name: 'Order Receipt Advice' },
+    { name: 'Shipment Advice' },
+    { name: 'Aviso de entrega' },
+    { name: 'Availability Advice' }
   ];
 
   for (const file of filesToInsert) {

@@ -16,26 +16,25 @@ const isServer = Object.values(networkInterfaces)
 const envFile = isServer ? './env.server' : './env.local';
 if (fs.existsSync(envFile)) {
   dotenv.config({ path: envFile });
-  console.log(`🔧 [Cronjob] Entorno detectado: ${isServer ? 'Servidor Ubuntu (172.20.10.151)' : 'Desarrollo local'}`);
 } else {
   dotenv.config(); // Fallback a .env si existe
 }
 
 async function runSimpleSequence() {
-  console.log('🚀 Ejecutando Cron Master...');
+  console.log('Ejecutando Cron Master...');
   
   try {
     const scriptPath = path.join(__dirname, 'cron', 'cronMaster.js');
     const result = await runScript(scriptPath, ['execute-now']);
     
     if (result.success) {
-      console.log('✅ Cron Master ejecutado exitosamente');
+      console.log('Cron Master ejecutado exitosamente');
     } else {
-      console.log('⚠️ Cron Master ejecutado con warnings');
+      console.log('Cron Master ejecutado con warnings');
     }
     
   } catch (error) {
-    console.error('❌ Error ejecutando Cron Master:', error.message);
+    console.error('Error ejecutando Cron Master:', error.message);
   }
 }
 

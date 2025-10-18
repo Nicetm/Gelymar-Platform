@@ -27,10 +27,9 @@ try {
 
   if (response.ok) {
     orders = await response.json();
-    console.log('Orders from server:', orders.length); // Solo este log
   }
 } catch (error) {
-  console.log('API Error:', error instanceof Error ? error.message : String(error));
+  console.error('API Error:', error instanceof Error ? error.message : String(error));
   orders = [];
 }
 ---

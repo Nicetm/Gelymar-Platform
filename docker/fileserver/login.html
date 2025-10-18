@@ -123,24 +123,17 @@
                 });
                 
                 const data = await response.json();
-                console.log('Respuesta del servidor:', data);
-                console.log('Response OK:', response.ok);
-                console.log('Token en respuesta:', data.token);
                 
                 if (response.ok && data.success && data.token) {
                     // Guardar token y datos del usuario
-                    console.log('Login exitoso, guardando token:', data.token);
                     localStorage.setItem('user_token', data.token);
                     localStorage.setItem('user_data', JSON.stringify(data.user));
                     localStorage.setItem('authenticated', 'true');
                     
                     // Verificar que se guardó correctamente
                     const savedToken = localStorage.getItem('user_token');
-                    console.log('Token guardado:', savedToken ? 'Sí' : 'No');
-                    console.log('Token guardado completo:', savedToken);
                     
                     // Redirigir inmediatamente
-                    console.log('Redirigiendo a file-manager.php...');
                     window.location.href = 'file-manager.php';
                 } else {
                     // Mostrar error

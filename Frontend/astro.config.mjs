@@ -27,7 +27,6 @@ if (fs.existsSync(envFile)) {
       process.env[key.trim()] = value.trim();
     }
   });
-  console.log(`🔧 [Frontend] Entorno detectado: ${isServer ? 'Servidor Ubuntu (172.20.10.151)' : 'Desarrollo local'}`);
 }
 
 // Asegurar que CI esté definida y debuggear
@@ -35,15 +34,9 @@ if (!process.env.CI) {
   process.env.CI = 'false';
 }
 
-console.log(`🔍 [Debug] CI value: "${process.env.CI}" (type: ${typeof process.env.CI})`);
-console.log(`🔍 [Debug] CI evaluation: ${!!process.env.CI}`);
-console.log(`🔍 [Debug] CI === 'false': ${process.env.CI === 'false'}`);
-console.log(`🔍 [Debug] Will use base path: ${process.env.CI ? '/flowbite-astro-admin-dashboard' : '/'}`);
-
 // Forzar CI a false para desarrollo local
 if (!isServer) {
   delete process.env.CI;
-  console.log(`🔧 [Debug] CI removed for local development`);
 }
 
 
@@ -65,9 +58,8 @@ if (fs.existsSync(pagesPath)) {
     if (file.endsWith('.astro.tsx') && fs.existsSync(fullPath)) {
       try {
         fs.renameSync(fullPath, path.join(pagesPath, `_${file}`));
-        console.log(`Renamed unsupported file: ${file}`);
       } catch (err) {
-        console.warn(`Could not rename ${file}:`, err.message);
+        console.error(`Could not rename ${file}:`, err.message);
       }
     }
   });

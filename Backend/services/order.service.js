@@ -43,33 +43,7 @@ const getOrdersByFilters = async (filters = {}) => {
     ORDER BY o.fecha_factura DESC`;
 
   const params = [];
-
   const [rows] = await pool.query(query, params);
-
-  // Debug: mostrar algunos datos de ejemplo
-  if (rows.length > 0) {
-    console.log('Ejemplo de datos de órdenes:', {
-      pc: rows[0].pc,
-      document_count: rows[0].document_count,
-      estado_ov: rows[0].estado_ov,
-      order_id: rows[0].id
-    });
-    
-    // Debug: verificar si existen archivos para esta orden específica
-    const testOrderId = rows[0].id;
-    const [testFiles] = await pool.query('SELECT COUNT(*) as count FROM order_files WHERE order_id = ?', [testOrderId]);
-    console.log(`Archivos reales para orden ${testOrderId} (PC: ${rows[0].pc}):`, testFiles[0].count);
-    
-    // Debug específico para orden 19013
-    const order19013 = rows.find(row => row.pc === '19013');
-    if (order19013) {
-      console.log('=== DEBUG ORDEN 19013 ===');
-      console.log('Datos de la orden:', order19013);
-      const [files19013] = await pool.query('SELECT COUNT(*) as count FROM order_files WHERE order_id = ?', [order19013.id]);
-      console.log('Archivos reales para orden 19013:', files19013[0].count);
-      console.log('=======================');
-    }
-  }
 
   return rows.map(r => {
     const order = new Order({

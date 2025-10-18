@@ -1507,9 +1507,6 @@
         // Función para actualizar las URLs de contenedores remotos cuando cambie la IP
         function updateRemoteServerIp(newIp) {
             // Esta función se puede llamar cuando se actualice la IP del servidor remoto
-            // Por ahora, las URLs se calculan dinámicamente en getContainerUrl()
-            console.log('IP del servidor remoto actualizada:', newIp);
-            
             // Si estamos en la pestaña de contenedores, refrescar la lista para mostrar las nuevas URLs
             if (currentTab === 'containers') {
                 refreshContainers();
@@ -1703,9 +1700,9 @@
             if (terminalContent) {
                 // Crear script que ejecute docker exec -it directamente como terminal-manager.sh
                 const script = `#!/bin/bash
-echo "🔗 Conectando al contenedor: ${containerName}"
-echo "📦 Usando contenedor: ${containerName}"
-echo "✅ Terminal cargado. Escribe comandos:"
+echo "Conectando al contenedor: ${containerName}"
+echo "Usando contenedor: ${containerName}"
+echo "Terminal cargado. Escribe comandos:"
 echo ""
 if docker ps | grep -q "${containerName}"; then
     if docker exec "${containerName}" test -f /bin/bash; then
@@ -1714,7 +1711,7 @@ if docker ps | grep -q "${containerName}"; then
         docker exec -it "${containerName}" /bin/sh
     fi
 else
-    echo "❌ Error: El contenedor ${containerName} no está corriendo"
+    echo "Error: El contenedor ${containerName} no está corriendo"
     echo "📋 Contenedores activos:"
     docker ps --format "table {{.Names}}\t{{.Status}}"
     echo ""
@@ -1731,7 +1728,6 @@ fi`;
                         src="${terminalUrl}" 
                         class="w-full h-full border-0"
                         style="width: 100%; height: 100%; border: none;"
-                        onload="onContainerTerminalLoad()"
                         onerror="onContainerTerminalError()">
                     </iframe>
                 `;
@@ -1980,20 +1976,15 @@ fi`;
                     src="${terminalUrl}" 
                     class="w-full h-full border-0"
                     style="width: 100%; height: 100%; border: none;"
-                    onload="onContainerTerminalLoad()"
                     onerror="onContainerTerminalError()">
                 </iframe>
             `;
             
-            containerTerminal.write('✅ Terminal del contenedor cargado.\r\n');
-        }
-        
-        function onContainerTerminalLoad() {
-            console.log('✅ Terminal del contenedor cargado');
+            containerTerminal.write('Terminal del contenedor cargado.\r\n');
         }
         
         function onContainerTerminalError() {
-            console.log('❌ Error cargando terminal del contenedor');
+            console.error('Error cargando terminal del contenedor');
         }
 
         // Función para configurar entrada de comandos del contenedor
@@ -2021,7 +2012,7 @@ fi`;
         async function restartContainer(containerName) {
             if (!containerTerminal) return;
             
-            containerTerminal.write('\r\n🔄 Reiniciando contenedor...\r\n');
+            containerTerminal.write('\r\nReiniciando contenedor...\r\n');
             
             try {
                 // Obtener el nombre real del contenedor
@@ -2039,12 +2030,12 @@ fi`;
                 const result = await response.json();
                 
                 if (result.success) {
-                    containerTerminal.write(`✅ Contenedor ${actualContainerName} reiniciado exitosamente\r\n`);
+                    containerTerminal.write(`Contenedor ${actualContainerName} reiniciado exitosamente\r\n`);
                 } else {
-                    containerTerminal.write('❌ Error: ' + result.message + '\r\n');
+                    containerTerminal.write('Error: ' + result.message + '\r\n');
                 }
             } catch (error) {
-                containerTerminal.write('❌ Error: ' + error.message + '\r\n');
+                containerTerminal.write('Error: ' + error.message + '\r\n');
             }
             
             setTimeout(() => {
@@ -2056,7 +2047,7 @@ fi`;
         async function stopContainer(containerName) {
             if (!containerTerminal) return;
             
-            containerTerminal.write('\r\n⏹️ Deteniendo contenedor...\r\n');
+            containerTerminal.write('\r\nDeteniendo contenedor...\r\n');
             
             try {
                 // Obtener el nombre real del contenedor
@@ -2074,12 +2065,12 @@ fi`;
                 const result = await response.json();
                 
                 if (result.success) {
-                    containerTerminal.write(`✅ Contenedor ${actualContainerName} detenido exitosamente\r\n`);
+                    containerTerminal.write(`Contenedor ${actualContainerName} detenido exitosamente\r\n`);
                 } else {
-                    containerTerminal.write('❌ Error: ' + result.message + '\r\n');
+                    containerTerminal.write('Error: ' + result.message + '\r\n');
                 }
             } catch (error) {
-                containerTerminal.write('❌ Error: ' + error.message + '\r\n');
+                containerTerminal.write('Error: ' + error.message + '\r\n');
             }
             
             setTimeout(() => {
@@ -2091,7 +2082,7 @@ fi`;
         async function startContainer(containerName) {
             if (!containerTerminal) return;
             
-            containerTerminal.write('\r\n▶️ Iniciando contenedor...\r\n');
+            containerTerminal.write('\r\nIniciando contenedor...\r\n');
             
             try {
                 // Obtener el nombre real del contenedor
@@ -2109,12 +2100,12 @@ fi`;
                 const result = await response.json();
                 
                 if (result.success) {
-                    containerTerminal.write(`✅ Contenedor ${actualContainerName} iniciado exitosamente\r\n`);
+                    containerTerminal.write(`Contenedor ${actualContainerName} iniciado exitosamente\r\n`);
                 } else {
-                    containerTerminal.write('❌ Error: ' + result.message + '\r\n');
+                    containerTerminal.write('Error: ' + result.message + '\r\n');
                 }
             } catch (error) {
-                containerTerminal.write('❌ Error: ' + error.message + '\r\n');
+                containerTerminal.write('Error: ' + error.message + '\r\n');
             }
             
             setTimeout(() => {
@@ -2419,13 +2410,7 @@ fi`;
         }
 
         // Funciones de actualización
-        async function guardarDesarrollo() {
-            console.log('🔧 GUARDANDO DESARROLLO - FORZANDO environment: dev');
-            console.log('🔧 Frontend: Pestaña actual:', document.querySelector('.tab-button.active')?.textContent);
-            console.log('🔧 Frontend: Elementos dev encontrados:');
-            console.log('  - devHostIP:', document.getElementById('devHostIP') ? 'EXISTE' : 'NO EXISTE');
-            console.log('  - devDomain:', document.getElementById('devDomain') ? 'EXISTE' : 'NO EXISTE');
-            
+        async function guardarDesarrollo() {           
             const config = {
                 environment: 'dev', // FORZADO
                 // Red y URLs
@@ -2489,15 +2474,10 @@ fi`;
                 PROJECT_PATH: document.getElementById('devProjectPath')?.value || ''
             };
             
-            console.log('🔧 Frontend: Configuración de desarrollo recopilada:', config);
-            console.log('🔧 Frontend: ENVIRONMENT FORZADO A:', config.environment);
-            
             await updateConfig(config, 'dev');
         }
 
         async function guardarProduccion() {
-            console.log('🔧 GUARDANDO PRODUCCIÓN - FORZANDO environment: prod');
-            
             const config = {
                 environment: 'prod', // FORZADO
                 // Red y URLs
@@ -2508,9 +2488,6 @@ fi`;
                 PUBLIC_FILE_SERVER_URL: document.getElementById('prodPublicFileServerUrl')?.value || '',
                 PUBLIC_API_BASE_URL: document.getElementById('prodPublicApiBaseUrl')?.value || '',
                 PUBLIC_FRONTEND_BASE_URL: document.getElementById('prodPublicFrontendBaseUrl')?.value || '',
-                PUBLIC_CLIENT_FRONTEND_BASE_URL: document.getElementById('prodPublicClientFrontendBaseUrl')?.value || '',
-                PUBLIC_ADMIN_APP_URL: document.getElementById('prodPublicAdminAppUrl')?.value || '',
-                PUBLIC_CLIENT_APP_URL: document.getElementById('prodPublicClientAppUrl')?.value || '',
                 SERVER_API_URL: document.getElementById('prodServerApiUrl')?.value || '',
                 SITE: document.getElementById('prodSite')?.value || '',
                 BACKEND_BASE_URL: document.getElementById('prodBackendBaseUrl')?.value || '',
@@ -2561,9 +2538,6 @@ fi`;
                 PROJECT_PATH: document.getElementById('prodProjectPath')?.value || ''
             };
             
-            console.log('🔧 Frontend: Configuración de producción recopilada:', config);
-            console.log('🔧 Frontend: ENVIRONMENT FORZADO A:', config.environment);
-            
             await updateConfig(config, 'prod');
         }
 
@@ -2572,10 +2546,6 @@ fi`;
                 // FORZAR el environment en el config
                 config.environment = environment;
                 
-                console.log('🔧 Frontend: Enviando configuración:', config);
-                console.log('🔧 Frontend: Entorno FORZADO:', environment);
-                console.log('🔧 Frontend: config.environment:', config.environment);
-                
                 const response = await fetch('/api/config/update', {
                     method: 'POST',
                     headers: {
@@ -2583,13 +2553,8 @@ fi`;
                     },
                     credentials: 'include',
                     body: JSON.stringify(config)
-                });
-                
-                console.log('🔧 Frontend: Respuesta del servidor:', response.status, response.statusText);
-                
+                });                
                 const result = await response.json();
-                console.log('🔧 Frontend: Resultado:', result);
-                
                 if (result.success) {
                     showToast(`Configuración ${environment} actualizada exitosamente`, 'success');
                     // Actualizar la visualización del archivo después de guardar
@@ -2695,9 +2660,9 @@ fi`;
             const statusElement = document.getElementById(`${environment}ServicesStatus`);
             
             if (!summaryElement || !statusElement) {
-                console.error('❌ Elementos no encontrados para:', environment);
-                console.error('❌ summaryElement:', summaryElement);
-                console.error('❌ statusElement:', statusElement);
+                console.error('Elementos no encontrados para:', environment);
+                console.error('summaryElement:', summaryElement);
+                console.error('statusElement:', statusElement);
                 return;
             }
             
@@ -2801,13 +2766,13 @@ fi`;
                 const result = await response.json();
                 
                 if (result.success) {
-                    showToast(`✅ ${result.message}`, 'success');
+                    showToast(`${result.message}`, 'success');
                 } else {
-                    showToast(`❌ ${result.message}`, 'error');
+                    showToast(`${result.message}`, 'error');
                 }
             } catch (error) {
-                console.error('❌ testDevDBConnection: Error:', error);
-                showToast('❌ Error de conexión', 'error');
+                console.error('testDevDBConnection: Error:', error);
+                showToast('Error de conexión', 'error');
             }
         }
 
@@ -2836,13 +2801,13 @@ fi`;
                 const result = await response.json();
                 
                 if (result.success) {
-                    showToast(`✅ ${result.message}`, 'success');
+                    showToast(`${result.message}`, 'success');
                 } else {
-                    showToast(`❌ ${result.message}`, 'error');
+                    showToast(`${result.message}`, 'error');
                 }
             } catch (error) {
-                console.error('❌ testDevEmail: Error:', error);
-                showToast('❌ Error de conexión', 'error');
+                console.error('testDevEmail: Error:', error);
+                showToast('Error de conexión', 'error');
             }
         }
 
@@ -2872,13 +2837,13 @@ fi`;
                 const result = await response.json();
                 
                 if (result.success) {
-                    showToast(`✅ ${result.message}`, 'success');
+                    showToast(`${result.message}`, 'success');
                 } else {
-                    showToast(`❌ ${result.message}`, 'error');
+                    showToast(`${result.message}`, 'error');
                 }
             } catch (error) {
-                console.error('❌ testProdDBConnection: Error:', error);
-                showToast('❌ Error de conexión', 'error');
+                console.error('testProdDBConnection: Error:', error);
+                showToast('Error de conexión', 'error');
             }
         }
 
@@ -2907,13 +2872,13 @@ fi`;
                 const result = await response.json();
                 
                 if (result.success) {
-                    showToast(`✅ ${result.message}`, 'success');
+                    showToast(`${result.message}`, 'success');
                 } else {
-                    showToast(`❌ ${result.message}`, 'error');
+                    showToast(`${result.message}`, 'error');
                 }
             } catch (error) {
-                console.error('❌ testProdEmail: Error:', error);
-                showToast('❌ Error de conexión', 'error');
+                console.error('testProdEmail: Error:', error);
+                showToast('Error de conexión', 'error');
             }
         }
 
@@ -3160,9 +3125,7 @@ fi`;
                         PROJECT_PATH: document.getElementById('prodProjectPath')?.value || '/home/administrator/gelymar-platform'
                     };
                 }
-                
-                console.log(`🔧 Frontend: Enviando configuración para ${action}:`, config);
-                
+                      
                 const response = await fetch('/api/containers/global-action', {
                     method: 'POST',
                     headers: {
@@ -3261,7 +3224,7 @@ fi`;
                 updateRemoteConnectionStatus('error');
                 document.getElementById('remoteTerminalInfo').textContent = 'Error SSH: ' + data.message;
                 if (remoteTerminal) {
-                    remoteTerminal.write('\r\n❌ Error: ' + data.message + '\r\n');
+                    remoteTerminal.write('\r\nError: ' + data.message + '\r\n');
                 }
             });
             
@@ -3289,7 +3252,7 @@ fi`;
         
         socket.on('container-error', (data) => {
             if (containerTerminal) {
-                containerTerminal.write('\r\n❌ Error: ' + data.message + '\r\n');
+                containerTerminal.write('\r\nError: ' + data.message + '\r\n');
             }
         });
         }
@@ -3765,7 +3728,7 @@ fi`;
                 });
                 
                 if (sshResponse.data.success) {
-                    showSuccessNotification('✅ Conexión SSH exitosa! Ahora creando contexto Docker...');
+                    showSuccessNotification('Conexión SSH exitosa! Ahora creando contexto Docker...');
                     
                     // Crear contexto temporal para probar
                     const response = await axios.post('/api/docker/context/create-remote', {
@@ -3775,16 +3738,16 @@ fi`;
                     });
                     
                     if (response.data.success) {
-                        showSuccessNotification('✅ Contexto Docker creado exitosamente!');
+                        showSuccessNotification('Contexto Docker creado exitosamente!');
                     } else {
-                        showErrorNotification('⚠️ Conexión SSH OK pero error creando contexto Docker: ' + response.data.message);
+                        showErrorNotification('Conexión SSH OK pero error creando contexto Docker: ' + response.data.message);
                     }
                 } else {
-                    showErrorNotification('❌ Error en conexión SSH: ' + sshResponse.data.message);
+                    showErrorNotification('Error en conexión SSH: ' + sshResponse.data.message);
                 }
             } catch (error) {
                 console.error('Error testing connection:', error);
-                showErrorNotification('❌ Error probando conexión: ' + error.message);
+                showErrorNotification('Error probando conexión: ' + error.message);
             }
         }
 

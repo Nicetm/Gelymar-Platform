@@ -13,9 +13,6 @@ async function fetchClientFilesFromNetwork() {
       console.log('Ruta del archivo:', inputPath);
       
       const content = fs.readFileSync(inputPath, 'latin1');
-      console.log('Contenido leído (primeras líneas):');
-      console.log(content.split('\n').slice(0, 3).join('\n'));
-  
       const records = parse(content, {
         delimiter: ';',
         columns: true,
@@ -50,7 +47,6 @@ async function fetchClientFilesFromNetwork() {
   
             // Leer RUTs existentes en la BD
       const existingRuts = await getAllCustomerRuts();
-      console.log(`RUTs ya existentes en BD: ${existingRuts.length}`);
 
       // Procesar todos los registros
       const recordsToProcess = records;

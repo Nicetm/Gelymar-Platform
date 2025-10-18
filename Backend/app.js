@@ -24,17 +24,17 @@ const isDocker = process.env.DOCKER_ENV === 'true';
 
 // Cargar archivo de configuración según entorno
 if (isDocker) {
-  console.log('🔧 [Backend] Entorno detectado: Docker');  
-  console.log('🔧 [Backend] DB_HOST cargado:', process.env.DB_HOST);
-  console.log('🔧 [Backend] DB_USER cargado:', process.env.DB_USER);
+  console.log('[Backend] Entorno detectado: Docker');  
+  console.log('[Backend] DB_HOST cargado:', process.env.DB_HOST);
+  console.log('[Backend] DB_USER cargado:', process.env.DB_USER);
 } else if (isServer) {
   dotenv.config({ path: './env.server' });
-  console.log('🔧 [Backend] Entorno detectado: Servidor Ubuntu (172.20.10.151)');
+  console.log('[Backend] Entorno detectado: Servidor Ubuntu (172.20.10.151)');
 } else {
   dotenv.config({ path: './.env.local' });
-  console.log('🔧 [Backend] Entorno detectado: Desarrollo local');
-  console.log('🔧 [Backend] DB_HOST cargado:', process.env.DB_HOST);
-  console.log('🔧 [Backend] DB_USER cargado:', process.env.DB_USER);
+  console.log('[Backend] Entorno detectado: Desarrollo local');
+  console.log('[Backend] DB_HOST cargado:', process.env.DB_HOST);
+  console.log('[Backend] DB_USER cargado:', process.env.DB_USER);
 }
 
 // Middlewares
@@ -67,7 +67,7 @@ const configRoutes = require('./routes/config.routes');
 
 
 // Configuración de rate limiting
-const limiter = rateLimit({
+const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
   max: 100, // máximo 100 requests por ventana
   message: { message: 'Demasiadas solicitudes desde esta IP, intente nuevamente en 15 minutos' },
@@ -75,7 +75,7 @@ const limiter = rateLimit({
   legacyHeaders: false,
 });
 
-const speedLimiter = slowDown({
+const authSlowDown = slowDown({
   windowMs: 15 * 60 * 1000, // 15 minutos
   delayAfter: 50, // permitir 50 requests sin delay
   delayMs: (used, req) => {
@@ -83,6 +83,25 @@ const speedLimiter = slowDown({
     return (used - delayAfter) * 500;
   },
 });
+
+const baseAdminOrigin = process.env.FRONTEND_BASE_URL || 'http://localhost:2121';
+const baseClientOrigin = process.env.PUBLIC_CLIENT_FRONTEND_BASE_URL || process.env.PUBLIC_FRONTEND_BASE_URL || 'http://localhost:2122';
+
+const devOrigins = [
+  'http://localhost:2121',
+  'http://localhost:2122',
+  'http://localhost:2123',
+  'http://localhost:3001',
+  'http://localhost:8080',
+  'http://localhost:8082',
+  'http://localhost:9615',
+];
+
+const allowedOrigins = [
+  baseAdminOrigin,
+  baseClientOrigin,
+  ...(process.env.NODE_ENV === 'production' ? [] : devOrigins),
+].filter(Boolean);
 
 // Middlewares de seguridad globales
 app.use(helmet({
@@ -92,7 +111,7 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'"],
       scriptSrc: ["'self'"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "http://localhost:*", "http://backend:*", "https://api.gelymar.com", "ws://localhost:*", "wss://localhost:*", "ws://localhost:3000", "wss://localhost:3000"],
+      connectSrc: ["'self'", ...allowedOrigins, "http://backend:*", "ws://localhost:*", "wss://localhost:*", "ws://localhost:3000", "wss://localhost:3000"],
     },
   },
   crossOriginEmbedderPolicy: false,
@@ -100,24 +119,18 @@ app.use(helmet({
 
 // Configuración CORS más restrictiva
 app.use(cors({
-  origin: [
-    process.env.FRONTEND_BASE_URL || 'http://localhost:2121',
-    'http://localhost:2122',
-    'http://localhost:2123',
-    'http://localhost:3001', // React frontend
-    'http://localhost:8080',
-    'http://localhost:8082',
-    'http://localhost:9615',
-    /^http:\/\/172\.20\.10\.151:\d+$/, // Permite cualquier puerto para 172.20.10.151
-  ],
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, origin);
+    }
+    return callback(new Error('Origen no permitido por CORS'));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
 // Middlewares globales
-//app.use(limiter);
-//app.use(speedLimiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
 
@@ -138,7 +151,7 @@ app.get('/api-docs', (req, res) => {
 });
 
 // Rutas API públicas
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authLimiter, authSlowDown, authRoutes);
 app.use('/api/monitoring', monitoringRoutes);
 app.use('/api/fileserver', fileserverRoutes);
 
@@ -242,15 +255,7 @@ const server = createServer(app);
 // Configurar Socket.io
 const io = new Server(server, {
   cors: {
-    origin: [
-      process.env.FRONTEND_BASE_URL || 'http://localhost:2121',
-      'http://localhost:2122',
-      'http://localhost:2123',
-      'http://localhost:3001', // React frontend
-      'http://localhost:8082',
-      'http://localhost:9615',
-      /^http:\/\/172\.20\.10\.151:\d+$/, // Permite cualquier puerto para 172.20.10.151
-    ],
+    origin: allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST']
   }

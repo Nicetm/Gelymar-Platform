@@ -44,8 +44,6 @@ class SecurityMonitor {
     this.checkInterval = setInterval(() => {
       this.performSecurityCheck();
     }, MONITOR_CONFIG.CHECK_INTERVAL);
-    
-    console.log('[SECURITY] Monitoreo de seguridad iniciado');
   }
 
   /**
@@ -59,8 +57,6 @@ class SecurityMonitor {
       clearInterval(this.checkInterval);
       this.checkInterval = null;
     }
-    
-    console.log('[SECURITY] Monitoreo de seguridad detenido');
   }
 
   /**
@@ -182,11 +178,6 @@ class SecurityMonitor {
     
     // Notificar a los callbacks registrados
     this.notifyAlertCallbacks(alert);
-    
-    // Log en consola en desarrollo
-    if (import.meta.env.DEV) {
-      console.warn(`[SECURITY ALERT] ${alertType}:`, alert);
-    }
     
     return alert;
   }

@@ -271,7 +271,6 @@ export async function initClientsScript() {
   function setupAutoRefresh() {
     const checkCacheExpiry = () => {
       if (!isCacheValid()) {
-        console.log('Caché expirado, refrescando automáticamente...');
         refreshData();
       }
     };

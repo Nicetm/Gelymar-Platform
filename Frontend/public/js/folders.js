@@ -665,21 +665,17 @@ export async function initFoldersScript() {
    * Función para cargar los detalles de una orden
    */
   async function loadOrderDetail(orderId, pc, oc) {
-    try {
-      console.log('Loading order detail for:', { orderId, pc, oc });
-      
+    try {     
       const response = await fetch(`${apiBase}/api/orders/${orderId}/detail`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
         }
       });
 
-      console.log('Response status:', response.status);
       let orderDetail;
 
       if (response.ok) {
         orderDetail = await response.json();
-        console.log('Order detail data:', orderDetail);
       } else if (response.status === 404) {
         // Si no hay datos en order_detail, crear un objeto con datos básicos
         orderDetail = {
@@ -693,7 +689,6 @@ export async function initFoldersScript() {
           puerto_destino: null,
           u_observaciones: null
         };
-        console.log('Created default order detail:', orderDetail);
       } else {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
@@ -707,7 +702,6 @@ export async function initFoldersScript() {
         const element = document.getElementById(elementId);
         if (element) {
           element.textContent = value || '-';
-          console.log(`Set ${elementId} to:`, value || '-');
         } else {
           console.error(`Element not found: ${elementId}`);
         }
@@ -732,7 +726,6 @@ export async function initFoldersScript() {
       // Mostrar el modal
       orderDetailModal.classList.remove('hidden');
       orderDetailModal.classList.add('flex');
-      console.log('Modal should be visible now');
 
     } catch (error) {
       console.error('Error loading order detail:', error);
@@ -978,9 +971,7 @@ export async function initFoldersScript() {
       }
 
       const orderDetail = await response.json();
-      
-      console.log('Order Detail Response:', orderDetail);
-
+  
       // Función para formatear fechas
       function formatDateToDDMMYYYY(dateString) {
         if (!dateString) return '-';

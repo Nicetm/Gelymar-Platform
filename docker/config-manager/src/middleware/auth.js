@@ -15,14 +15,6 @@ const dbConfig = {
   queueLimit: 0
 };
 
-console.log('🔍 Configuración de BD:', {
-  host: dbConfig.host,
-  port: dbConfig.port,
-  user: dbConfig.user,
-  database: dbConfig.database,
-  password: dbConfig.password ? '***' : 'undefined'
-});
-
 const pool = mysql.createPool(dbConfig);
 const auditMiddleware = new AuditMiddleware();
 
@@ -68,22 +60,11 @@ const requireAuth = async (req, res, next) => {
  */
 const authenticateUser = async (username, password) => {
   try {
-    console.log('🔍 Intentando autenticar usuario:', username);
     
     const [users] = await pool.execute(
       'SELECT id, username, password FROM monitoring WHERE username = ?',
       [username]
     );
-
-    console.log('📋 Usuarios encontrados:', users.length);
-    if (users.length > 0) {
-      console.log('👤 Usuario encontrado:', {
-        id: users[0].id,
-        username: users[0].username,
-        passwordLength: users[0].password ? users[0].password.length : 0,
-        passwordStartsWith: users[0].password ? users[0].password.substring(0, 10) : 'undefined'
-      });
-    }
 
     if (users.length === 0) {
       return { success: false, message: 'Usuario no encontrado' };

@@ -234,7 +234,7 @@ async function fetchOrderFilesFromNetwork() {
           });
           
           // Insertar en tabla new_orders para procesamiento posterior
-          //await insertNewOrderRecord(orderId);
+          await insertNewOrderRecord(orderId);
           
           console.log(`[${new Date().toISOString()}] -> Check Order Process -> NUEVA ORDEN insertada: PC=${pc}, OC=${oc}, unique_key=${uniqueKey}`);
           insertados++;

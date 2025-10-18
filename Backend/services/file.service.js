@@ -221,8 +221,6 @@ const duplicateFile = async (fileId, newPath = null) => {
 
   const pool = await poolPromise;
 
-  console.log('Duplicando archivo con ID:', fileId);
-
   // Leer el registro original
   const [rows] = await pool.query(`SELECT * FROM order_files WHERE id = ?`, [fileId]);
   if (rows.length === 0) throw new Error('Archivo original no encontrado');
@@ -338,7 +336,7 @@ const createDefaultFilesForOrder = async (orderId, customerName, pc, oc) => {
     // Definir los 4 archivos por defecto
     const defaultDocuments = [
       {
-        name: 'Recepcion de orden',
+        name: 'Order Receipt Advice',
         order_id: orderId,
         pc: pc,
         oc: oc,
@@ -346,7 +344,7 @@ const createDefaultFilesForOrder = async (orderId, customerName, pc, oc) => {
         file_identifier: fileIdentifier
       },
       {
-        name: 'Aviso de Embarque',
+        name: 'Shipment Advice',
         order_id: orderId,
         pc: pc,
         oc: oc,
@@ -354,7 +352,7 @@ const createDefaultFilesForOrder = async (orderId, customerName, pc, oc) => {
         file_identifier: fileIdentifier
       },
       {
-        name: 'Aviso de Entrega',
+        name: 'Order Delivery Advice',
         order_id: orderId,
         pc: pc,
         oc: oc,
@@ -362,7 +360,7 @@ const createDefaultFilesForOrder = async (orderId, customerName, pc, oc) => {
         file_identifier: fileIdentifier
       },
       {
-        name: 'Aviso de Disponibilidad de Orden',
+        name: 'Availability Advice',
         order_id: orderId,
         pc: pc,
         oc: oc,
@@ -524,7 +522,6 @@ const markFileAsVisibleToClient = async (fileId) => {
       'UPDATE order_files SET is_visible_to_client = 1 WHERE id = ?',
       [fileId]
     );
-    console.log(`Archivo ${fileId} marcado como visible al cliente`);
   } catch (error) {
     console.error('Error marcando archivo como visible:', error);
     throw error;
@@ -564,7 +561,6 @@ const createDefaultFilesIfNotExist = async (orderId) => {
     // Verificar si ya existen archivos para esta orden
     const existingFiles = await getFilesByFolderId(orderId);
     if (existingFiles.length > 0) {
-      console.log(`Archivos ya existen para orden ${orderId}`);
       return existingFiles;
     }
 
@@ -589,7 +585,6 @@ const createDefaultFilesIfNotExist = async (orderId) => {
       order.oc
     );
 
-    console.log(`Archivos por defecto creados para orden ${orderId}: ${result.filesCreated} archivos`);
     return result.files;
   } catch (error) {
     console.error(`Error creando archivos por defecto para orden ${orderId}:`, error.message);

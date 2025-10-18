@@ -11,7 +11,6 @@ let mountPath = null;
  */
 async function mountNetworkShare() {
   if (isNetworkMounted && mountPath) {
-    console.log('✅ Red ya montada en:', mountPath);
     return mountPath;
   }
 
@@ -30,7 +29,6 @@ async function mountNetworkShare() {
   if (isDocker) {
     // En Docker, montar la red compartida directamente
     inputPath = '/mnt/archivos';
-    console.log('🐳 Docker: Montando red compartida en:', inputPath);
     
     // Crear directorio si no existe
     if (!fs.existsSync(inputPath)) {
@@ -44,15 +42,12 @@ async function mountNetworkShare() {
       const credentialsContent = `username=${networkUser}\npassword=${networkPassword}\n`;
       
       fs.writeFileSync(credentialsFile, credentialsContent, { mode: 0o600 });
-      console.log('🔗 Archivo de credenciales creado');
-      
+
       const mountCommand = `mount -t cifs //${networkServer}/${sharePath} ${inputPath} -o credentials=${credentialsFile},uid=1000,gid=1000,iocharset=utf8`;
-      console.log('🔗 Ejecutando comando de montaje...');
       execSync(mountCommand, { stdio: 'inherit' });
       
       // Limpiar archivo de credenciales
       fs.unlinkSync(credentialsFile);
-      console.log('✅ Red compartida montada exitosamente');
     } catch (error) {
       console.error('❌ Error montando red compartida:', error.message);
       // Intentar limpiar archivo de credenciales si existe
@@ -70,20 +65,15 @@ async function mountNetworkShare() {
     inputPath = 'Z:\\';
     if (!fs.existsSync('Z:\\')) {
       try {
-        console.log(`🔗 Mapeando red compartida como unidad Z:...`);
         execSync(`net use Z: \\\\${networkServer}\\${sharePath} /user:${networkUser} "${networkPassword}"`, { stdio: 'inherit' });
-        console.log('✅ Red compartida mapeada exitosamente');
       } catch (error) {
         console.error('❌ Error mapeando red compartida:', error.message);
         throw new Error(`No se pudo mapear la red compartida: ${error.message}`);
       }
-    } else {
-      console.log('✅ Unidad Z: ya mapeada');
     }
   } else {
     // En Linux, usar path absoluto
     inputPath = `/mnt/${networkServer}/${sharePath}`;
-    console.log('🐧 Linux: Usando path absoluto:', inputPath);
   }
   
   // Verificar que el path existe
@@ -94,7 +84,6 @@ async function mountNetworkShare() {
   isNetworkMounted = true;
   mountPath = inputPath;
   
-  console.log('✅ Red montada exitosamente en:', inputPath);
   return inputPath;
 }
 
@@ -131,10 +120,8 @@ function unmountNetwork() {
     try {
       if (os.platform() === 'win32') {
         execSync('net use Z: /delete', { stdio: 'inherit' });
-        console.log('✅ Red desmontada exitosamente (Windows)');
       } else if (process.env.DOCKER_ENV === 'true') {
         execSync(`umount ${mountPath}`, { stdio: 'inherit' });
-        console.log('✅ Red desmontada exitosamente (Docker)');
       }
     } catch (error) {
       console.error('❌ Error desmontando red:', error.message);

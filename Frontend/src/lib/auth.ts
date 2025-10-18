@@ -12,7 +12,7 @@ export async function validateRole(astro: AstroGlobal, requiredRole: 'admin' | '
 
   try {
     const response = await fetch(`${apiBase}/api/auth/me`, {
-      headers: { Authorization: `Bearer ${token}` }
+      credentials: 'include'
     });
     
     if (!response.ok) {

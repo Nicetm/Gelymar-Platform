@@ -46,7 +46,7 @@ async function getReceptionFile(orderId) {
   try {
     const [rows] = await pool.query(
       'SELECT id, path FROM order_files WHERE order_id = ? AND name = ?',
-      [orderId, 'Recepcion de orden']
+      [orderId, 'Order Receipt Advice']
     );
     return rows.length > 0 ? rows[0] : null;
   } catch (error) {
@@ -161,7 +161,7 @@ async function processOrderReception(order) {
       WHERE f.customer_id = ? 
         AND f.pc = ? 
         AND f.oc = ?
-        AND f.name LIKE '%recepcion%orden%'
+        AND f.name LIKE '%Order%Receipt%'
         AND (f.was_sent IS NULL OR f.was_sent = 0)
       GROUP BY f.id
     `, [order.customer_id, order.pc, order.oc]);

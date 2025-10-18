@@ -12,23 +12,23 @@ const isServer = Object.values(networkInterfaces)
   .flat()
   .some(iface => iface && iface.address === '172.20.10.151');
 
-console.log(`🔧 [Cronjob] Detección de entorno:`);
-console.log(`🔧 [Cronjob] - isServer: ${isServer}`);
-console.log(`🔧 [Cronjob] - networkInterfaces:`, Object.keys(networkInterfaces));
+console.log(`[Cronjob] Detección de entorno:`);
+console.log(`[Cronjob] - isServer: ${isServer}`);
+console.log(`[Cronjob] - networkInterfaces:`, Object.keys(networkInterfaces));
 
 // Cargar archivo de configuración según entorno
 const envFile = isServer ? '../env.server' : '../env.local';
-console.log(`🔧 [Cronjob] Intentando cargar archivo: ${envFile}`);
-console.log(`🔧 [Cronjob] Archivo existe: ${fs.existsSync(envFile)}`);
+console.log(`[Cronjob] Intentando cargar archivo: ${envFile}`);
+console.log(`[Cronjob] Archivo existe: ${fs.existsSync(envFile)}`);
 
 if (fs.existsSync(envFile)) {
   dotenv.config({ path: envFile });
-  console.log(`🔧 [Cronjob] Entorno detectado: ${isServer ? 'Servidor Ubuntu (172.20.10.151)' : 'Desarrollo local'}`);
-  console.log(`🔧 [Cronjob] Archivo de configuración cargado: ${envFile}`);
+  console.log(`[Cronjob] Entorno detectado: ${isServer ? 'Servidor Ubuntu (172.20.10.151)' : 'Desarrollo local'}`);
+  console.log(`[Cronjob] Archivo de configuración cargado: ${envFile}`);
 } else {
-  console.log(`⚠️ [Cronjob] Archivo de configuración no encontrado: ${envFile}`);
-  console.log(`⚠️ [Cronjob] Directorio actual: ${process.cwd()}`);
-  console.log(`⚠️ [Cronjob] Archivos en directorio:`, fs.readdirSync('.'));
+  console.log(`[Cronjob] Archivo de configuración no encontrado: ${envFile}`);
+  console.log(`[Cronjob] Directorio actual: ${process.cwd()}`);
+  console.log(`[Cronjob] Archivos en directorio:`, fs.readdirSync('.'));
   dotenv.config(); // Fallback a .env si existe
 }
 
@@ -37,18 +37,18 @@ let BACKEND_API_URL = process.env.BACKEND_API_URL || 'http://localhost:3000';
 
 // Si estamos en Docker y no se cargó la configuración, forzar la URL correcta
 if (isServer && BACKEND_API_URL === 'http://localhost:3000') {
-  console.log(`⚠️ [Cronjob] Forzando configuración para Docker...`);
+  console.log(`[Cronjob] Forzando configuración para Docker...`);
   BACKEND_API_URL = 'http://backend:3000';
 }
 
 // Verificación adicional: si detectamos que estamos en un contenedor Docker
 if (process.env.DOCKER_ENV === 'true' || fs.existsSync('/.dockerenv')) {
-  console.log(`🐳 [Cronjob] Detectado entorno Docker, usando backend:3000`);
+  console.log(`[Cronjob] Detectado entorno Docker, usando backend:3000`);
   BACKEND_API_URL = 'http://backend:3000';
 }
 
-console.log(`🔧 [Cronjob] BACKEND_API_URL configurado: ${BACKEND_API_URL}`);
-console.log(`🔧 [Cronjob] Variables de entorno disponibles:`, Object.keys(process.env).filter(key => key.includes('BACKEND')));
+console.log(`[Cronjob] BACKEND_API_URL configurado: ${BACKEND_API_URL}`);
+console.log(`[Cronjob] Variables de entorno disponibles:`, Object.keys(process.env).filter(key => key.includes('BACKEND')));
 
 // DB_CONFIG ya no se necesita, se usa endpoint del backend
 
@@ -61,14 +61,14 @@ async function getTaskConfig() {
     });
     
     if (response.data.success) {
-      console.log(`🔧 [Cronjob] Configuración de tareas cargada desde backend:`, response.data.config);
+      console.log(`[Cronjob] Configuración de tareas cargada desde backend:`, response.data.config);
       return response.data.config;
     } else {
       throw new Error('Respuesta del backend no exitosa');
     }
   } catch (error) {
-    console.error(`⚠️ [Cronjob] Error cargando configuración desde backend:`, error.message);
-    console.log(`⚠️ [Cronjob] Usando configuración por defecto...`);
+    console.error(`[Cronjob] Error cargando configuración desde backend:`, error.message);
+    console.log(`[Cronjob] Usando configuración por defecto...`);
     return {
       clean_database: false,
       check_clients: false,
@@ -244,34 +244,34 @@ async function executeSequence() {
 
   for (const task of tasks) {
     if (!task.enabled) {
-      console.log(`[${new Date().toISOString()}] -> Cron Master Process -> ⏭️ ${task.name} deshabilitado - saltando...`);
+      console.log(`[${new Date().toISOString()}] -> Cron Master Process -> ${task.name} deshabilitado - saltando...`);
       continue;
     }
     
     const taskStartTime = new Date();
-    console.log(`[${taskStartTime.toISOString()}] -> Cron Master Process -> ✅ TAREA ${task.name} HABILITADA - EJECUTANDO...`);
+    console.log(`[${taskStartTime.toISOString()}] -> Cron Master Process -> TAREA ${task.name} HABILITADA - EJECUTANDO...`);
     
     try {
       await task.func();
       const taskEndTime = new Date();
       const taskDuration = taskEndTime - taskStartTime;
-      console.log(`[${taskEndTime.toISOString()}] -> Cron Master Process -> ✅ ${task.name} completado exitosamente`);
+      console.log(`[${taskEndTime.toISOString()}] -> Cron Master Process -> ${task.name} completado exitosamente`);
       
       // Esperar entre procesos
-      console.log(`[${new Date().toISOString()}] -> Cron Master Process -> ⏸️ Esperando 2 segundos...`);
+      console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Esperando 2 segundos...`);
       await new Promise(resolve => setTimeout(resolve, 2000));
       
     } catch (error) {
       const taskErrorTime = new Date();
       const taskDuration = taskErrorTime - taskStartTime;
-      console.error(`[${taskErrorTime.toISOString()}] -> Cron Master Process -> ❌ Error en ${task.name}:`, error.message);
-      console.log(`[${taskErrorTime.toISOString()}] -> Cron Master Process -> ⏭️ Continuando con el siguiente proceso...`);
+      console.error(`[${taskErrorTime.toISOString()}] -> Cron Master Process -> Error en ${task.name}:`, error.message);
+      console.log(`[${taskErrorTime.toISOString()}] -> Cron Master Process -> Continuando con el siguiente proceso...`);
     }
   }
   
   const endTime = new Date();
   const totalDuration = endTime - startTime;
-  console.log(`[${endTime.toISOString()}] -> Cron Master Process -> 🎉 Secuencia completada!`);
+  console.log(`[${endTime.toISOString()}] -> Cron Master Process -> Secuencia completada!`);
   
   // El cron completa la secuencia de tareas
   console.log(`[${endTime.toISOString()}] -> Cron Master Process -> Secuencia completada`);
@@ -288,25 +288,25 @@ const emitReady = () => {
 const arg = process.argv[2];
 
 if (arg === 'execute-now') {
-  console.log('👉 Ejecutando secuencia inmediatamente...');
+  console.log('Ejecutando secuencia inmediatamente...');
   (async () => {
     await executeSequence();
-    console.log('✅ Secuencia completada, terminando...');
+    console.log('Secuencia completada, terminando...');
     process.exit(0);
   })();
 } else {
   // Solo levantar el proceso, NO ejecutar nada automáticamente
-  console.log('👉 Cron Master iniciado - esperando horario programado (7:00 AM)...');
+  console.log('Cron Master iniciado - esperando horario programado (7:00 AM)...');
   emitReady();
 
   // Programar ejecución diaria a las 7:00 AM
   cron.schedule('0 7 * * *', async () => {
-    console.log(`[${new Date().toISOString()}] -> Cron Master Process -> 🚀 Iniciando secuencia programada...`);
+    console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Iniciando secuencia programada...`);
     try {
       await executeSequence();
-      console.log(`[${new Date().toISOString()}] -> Cron Master Process -> 🎉 Secuencia programada completada exitosamente`);
+      console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Secuencia programada completada exitosamente`);
     } catch (error) {
-      console.error(`[${new Date().toISOString()}] -> Cron Master Process -> ❌ Error en secuencia programada:`, error.message);
+      console.error(`[${new Date().toISOString()}] -> Cron Master Process -> Error en secuencia programada:`, error.message);
     }
   });
 } 

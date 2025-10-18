@@ -71,10 +71,7 @@ export async function initChangePasswordScript() {
     try {
       const token = localStorage.getItem('token');
       const apiBase = window.apiBase;
-      
-      console.log('🔍 [Change Password] apiBase:', apiBase);
-      console.log('🔍 [Change Password] token:', token ? 'present' : 'missing');
-      
+         
       const res = await fetch(`${apiBase}/api/auth/change-password`, {
         method: 'POST',
         headers: {
@@ -84,8 +81,6 @@ export async function initChangePasswordScript() {
         body: JSON.stringify({ currentPassword, newPassword })
       });
       
-      console.log('🔍 [Change Password] response status:', res.status);
-
       const data = await res.json();
 
       if (!res.ok) {

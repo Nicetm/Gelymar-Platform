@@ -96,9 +96,6 @@ exports.getOrderDetails = async (req, res) => {
  */
 exports.getClientDashboardOrders = async (req, res) => {
   try {
-    console.log('🔍 [Controller] req.user:', req.user);
-    console.log('🔍 [Controller] req.user.uuid:', req.user.uuid);
-    
     // Solo clientes pueden acceder a este endpoint
     if (req.user.role !== 'client') {
       return res.status(403).json({ 
@@ -110,7 +107,6 @@ exports.getClientDashboardOrders = async (req, res) => {
 
     // Obtener órdenes del cliente autenticado
     const orders = await orderService.getClientDashboardOrders(req.user.uuid);
-    console.log('🔍 [Controller] orders found:', orders.length);
 
     res.json(orders);
   } catch (err) {
