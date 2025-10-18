@@ -254,21 +254,6 @@ docker exec gelymar-platform-cron pm2 restart gelymar-client-fetcher
 - **Check ETD** - Verifica fechas ETD (8 AM, 12 PM, 4 PM, 8 PM, 1 AM)
 - **Send Order Reception** - Envía documentos de recepción (8 AM diario)
 
-## 🔐 Credenciales por Defecto
-
-### Base de Datos
-- **MySQL Root**: `root` / `root123456`
-- **phpMyAdmin**: `root` / `root123456`
-
-### File Server
-- **FTP**: `ftpuser` / `gelymar123`
-
-### Terminal Web
-- **Usuario**: `admin` / `admin123`
-
-### Monitoring
-- **Usuario**: `admin` / `gelymar2024`
-
 ## 🛠️ Troubleshooting
 
 ### Problemas Comunes
