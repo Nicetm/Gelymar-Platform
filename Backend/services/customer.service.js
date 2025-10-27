@@ -112,7 +112,6 @@ async function getCustomerByRut(rut) {
     const [rows] = await pool.query(query, params);
 
     if (rows.length === 0) {
-      console.log(`??  Cliente no encontrado con RUT: "${rut}"`);
       return null;
     }
 
@@ -121,8 +120,6 @@ async function getCustomerByRut(rut) {
     if (typeof rows[0].online !== 'undefined') {
       customer.online = rows[0].online;
     }
-    // Log simplificado solo para debugging cuando sea necesario
-    // console.log(`Cliente encontrado: ${customer.name} (${customer.rut})`);
 
     return customer;
 
@@ -450,8 +447,6 @@ async function updateCustomerByUUID(uuid, updateData) {
     return null;
   }
 
-  console.log(`Cliente encontrado: ${existingCustomer[0].name} (${existingCustomer[0].rut})`);
-
   // Construir la query de actualización dinámicamente
   const allowedFields = ['name', 'email', 'phone', 'country', 'city', 'address', 'address_alt', 'contact_name', 'contact_secondary', 'fax'];
   const fieldsToUpdate = [];
@@ -482,7 +477,6 @@ async function updateCustomerByUUID(uuid, updateData) {
   // Si se actualizó el email, crear o actualizar el registro de contactos
   if (updateData.email) {
     try {
-      console.log(`Creando/actualizando contacto principal para email: ${updateData.email}`);
       await createOrUpdatePrimaryContact(uuid, updateData.email);
     } catch (error) {
       console.error('Error actualizando contacto principal:', error.message);
@@ -491,7 +485,6 @@ async function updateCustomerByUUID(uuid, updateData) {
 
   // Retornar el cliente actualizado
   const updatedCustomer = await getCustomerByUUID(uuid);
-  console.log(`Cliente actualizado exitosamente: ${updatedCustomer ? updatedCustomer.name : 'null'}`);
   return updatedCustomer;
 }
 

@@ -164,7 +164,8 @@ async function fetchOrderFilesFromNetwork() {
         const linea = record.linea?.trim() || '0';
         
         // Generar unique_key usando SHA corto con linea
-        const uniqueKey = generateShortHash(`${pc}-${oc}-${fechaIngreso}-${linea}`);
+        //const uniqueKey = generateShortHash(`${pc}-${oc}-${fechaIngreso}-${linea}`);
+        const uniqueKey = generateShortHash(`${pc}-${fechaIngreso}-${linea}`);
         
         // Extraer RUT del cliente (campo Rut del CSV)
         let customerRut = record.Rut?.trim();
@@ -195,7 +196,7 @@ async function fetchOrderFilesFromNetwork() {
             customer_id: customer.id,
             rut: customerRut,
             pc: pc,
-            oc: oc,
+            oc: normalizeValue(record.OC?.trim()),
             factura: normalizeValue(record.Factura?.trim()),
             fecha_factura: normalizeDate(record.Fecha_factura?.trim()),
             fecha_ingreso: normalizeDate(record.Fecha?.trim()),
@@ -252,7 +253,7 @@ async function fetchOrderFilesFromNetwork() {
               customer_id: customer.id,
               rut: customerRut,
               pc: pc,
-              oc: oc,
+              oc: normalizeValue(record.OC?.trim()),
               factura: normalizeValue(record.Factura?.trim()),
               fecha_factura: normalizeDate(record.Fecha_factura?.trim()),
               fecha_ingreso: normalizeDate(record.Fecha?.trim()),
@@ -291,7 +292,7 @@ async function fetchOrderFilesFromNetwork() {
             console.log(`[${new Date().toISOString()}] -> Check Order Process -> ORDEN ACTUALIZADA: PC=${pc}, OC=${oc}, unique_key=${uniqueKey}`);
             insertados++;
           } else {
-            console.log(`[${new Date().toISOString()}] -> Check Order Process -> ORDEN SIN CAMBIOS: PC=${pc}, OC=${oc}, unique_key=${uniqueKey}`);
+            //console.log(`[${new Date().toISOString()}] -> Check Order Process -> ORDEN SIN CAMBIOS: PC=${pc}, OC=${oc}, unique_key=${uniqueKey}`);
             omitidos++;
           }
         }
@@ -354,7 +355,7 @@ async function getOrderDetailByOrderId(orderId) {
 // Función para comparar campos de orden
 async function compareOrderFields(existingOrder, newRecord) {
   const fieldsToCompare = [
-    'factura', 'fecha_factura', 'fecha_ingreso'
+    'oc', 'factura', 'fecha_factura', 'fecha_ingreso'
   ];
   
   for (const field of fieldsToCompare) {
@@ -362,7 +363,9 @@ async function compareOrderFields(existingOrder, newRecord) {
     let newValue;
     
     // Mapear campos del CSV a campos de BD
-    if (field === 'factura') {
+    if (field === 'oc') {
+      newValue = normalizeValue(newRecord.OC?.trim());
+    } else if (field === 'factura') {
       newValue = normalizeNumber(newRecord.Factura?.trim());
     } else if (field === 'fecha_factura') {
       newValue = normalizeDate(newRecord.Fecha_factura?.trim());

@@ -1,6 +1,7 @@
 // middleware/auth.middleware.js
 const jwt = require('jsonwebtoken');
 const { logger } = require('../utils/logger');
+const { normalizeRole } = require('../utils/role.util');
 const userService = require('../services/user.service');
 
 /**
@@ -74,10 +75,14 @@ const createAuthMiddleware = (options = {}) => {
         return res.status(401).json({ message: 'Usuario no encontrado' });
       }
 
+      const normalizedRole = normalizeRole(user.role, user.role_id);
+
       // Asignar datos completos del usuario
       req.user = {
         ...decoded,
-        role: user.role,
+        role: normalizedRole,
+        roleName: user.role,
+        roleId: user.role_id,
         uuid: user.uuid,
         twoFAEnabled: user.twoFAEnabled,
         twoFASecret: user.twoFASecret

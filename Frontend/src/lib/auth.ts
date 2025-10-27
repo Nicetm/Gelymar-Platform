@@ -20,7 +20,7 @@ export async function validateRole(astro: AstroGlobal, requiredRole: 'admin' | '
     }
 
     const user = await response.json();
-    const userRole = user.role || (user.role_id === 1 ? 'admin' : 'client');
+    const userRole = user.role || ((user.role_id === 1 || user.role_id === 3) ? 'admin' : 'client');
     
     if (userRole !== requiredRole) {
       console.warn(`Acceso denegado: usuario ${user.email} con rol ${userRole} intentando acceder a ${requiredRole}`);

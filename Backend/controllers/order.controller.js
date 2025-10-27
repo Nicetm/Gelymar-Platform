@@ -10,10 +10,16 @@ const orderService = require('../services/order.service');
 exports.getAllOrders = async (req, res) => {
   try {
     const filters = {};
+    const roleId = Number(req.user.roleId || req.user.role_id);
 
     // Si es cliente, se filtra automáticamente por UUID
     if (req.user.role === 'client') {
       filters.customerUUID = req.user.uuid; // o req.user.customer_uuid
+    }
+
+    // Si es vendedor, filtrar por su propio RUT (email)
+    if (roleId === 3) {
+      filters.salesRut = req.user.email;
     }
 
     const data = await orderService.getOrdersByFilters(filters);
@@ -32,10 +38,15 @@ exports.getAllOrders = async (req, res) => {
 exports.searchOrders = async (req, res) => {
   try {
     const filters = req.body || {};
+    const roleId = Number(req.user.roleId || req.user.role_id);
 
     // Si es cliente, forzamos el filtro por su UUID
     if (req.user.role === 'client') {
       filters.customerUUID = req.user.uuid;
+    }
+
+    if (roleId === 3) {
+      filters.salesRut = req.user.email;
     }
 
     const data = await orderService.getOrdersByFilters(filters);
@@ -193,6 +204,10 @@ exports.getOrderItemsWithoutFactura = async (req, res) => {
   }
 };
 
+/**
+ * GET /api/orders/alerts/missing-documents
+ * Devuelve las órdenes que requieren alerta por falta de documentos
+ */
 /**
  * GET /api/orders/:orderId/detail
  * Devuelve los detalles completos de una orden específica

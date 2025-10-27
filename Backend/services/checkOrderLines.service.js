@@ -20,9 +20,6 @@ async function fetchOrderLineFilesFromNetwork() {
     console.log('Ruta del archivo:', inputPath);
     
     const content = fs.readFileSync(inputPath, 'latin1');
-    console.log('Contenido leído (primeras líneas):');
-    console.log(content.split('\n').slice(0, 3).join('\n'));
-
     const records = parse(content, {
       delimiter: ';',
       columns: true,
@@ -147,7 +144,7 @@ async function fetchOrderLineFilesFromNetwork() {
         const localizacion = record.Localizacion?.trim();
         
         // Generar unique_key usando SHA corto con sublinea
-        const uniqueKey = generateShortHash(`${pc}-${oc}-${fechaIngreso}-${linea}-${itemCode}-${sublinea}`);
+        const uniqueKey = generateShortHash(`${pc}-${fechaIngreso}-${linea}-${sublinea}`);
         const descripcion = record.Descripcion?.trim();
         const kgSolicitados = record.Cant_ordenada?.trim();
         const kgEnviados = record.Cant_enviada?.trim();
@@ -243,7 +240,7 @@ async function fetchOrderLineFilesFromNetwork() {
             console.log(`[${new Date().toISOString()}] -> Check Order Line Process -> LÍNEA ACTUALIZADA: PC=${pc}, Línea=${linea}, unique_key=${uniqueKey}`);
             insertados++;
           } else {
-            console.log(`[${new Date().toISOString()}] -> Check Order Line Process -> LÍNEA SIN CAMBIOS: PC=${pc}, Línea=${linea}, unique_key=${uniqueKey}`);
+            //console.log(`[${new Date().toISOString()}] -> Check Order Line Process -> LÍNEA SIN CAMBIOS: PC=${pc}, Línea=${linea}, unique_key=${uniqueKey}`);
             omitidos++;
           }
         }

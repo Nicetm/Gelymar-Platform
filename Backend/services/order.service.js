@@ -1,5 +1,6 @@
 const { poolPromise } = require('../config/db');
 const Order = require('../models/order.model');
+const mysql = require('mysql2');
 
 /**
  * Busca órdenes por filtros opcionales
@@ -35,14 +36,32 @@ const getOrdersByFilters = async (filters = {}) => {
     FROM orders o
     JOIN customers c ON o.customer_id = c.id
     LEFT JOIN order_detail od ON o.id = od.order_id
+    LEFT JOIN sellers s ON s.codigo = od.vendedor
     LEFT JOIN (
       SELECT order_id, COUNT(*) AS document_count
       FROM order_files
       GROUP BY order_id
-    ) doc_counts ON o.id = doc_counts.order_id
-    ORDER BY o.fecha_factura DESC`;
+    ) doc_counts ON o.id = doc_counts.order_id`;
 
   const params = [];
+  const conditions = [];
+
+  if (filters.customerUUID) {
+    conditions.push('c.uuid = ?');
+    params.push(filters.customerUUID);
+  }
+
+  if (filters.salesRut) {
+    conditions.push('s.rut = ?');
+    params.push(filters.salesRut);
+  }
+
+  if (conditions.length > 0) {
+    query += ` WHERE ${conditions.join(' AND ')}`;
+  }
+
+  query += ' ORDER BY o.fecha_factura DESC';
+
   const [rows] = await pool.query(query, params);
 
   return rows.map(r => {
@@ -267,15 +286,26 @@ const getOrderItems = async (orderPc, orderOc, factura, user) => {
     const pool = await poolPromise;
     
         // Verificar que la orden existe y el usuario tiene acceso
+    const roleId = Number(user.roleId || user.role_id);
+
     let orderQuery = `
       SELECT o.id, o.pc, o.oc, o.factura, c.uuid as customer_uuid
       FROM orders o
       JOIN customers c ON o.customer_id = c.id
+      LEFT JOIN order_detail od ON o.id = od.order_id
+      LEFT JOIN sellers s ON s.codigo = od.vendedor
       WHERE o.pc = ? AND o.oc = ? AND (o.factura = ? OR (o.factura IS NULL AND ? = 'null'))
     `;
-    
-    const [orderRows] = await pool.query(orderQuery, [orderPc, orderOc, factura, factura]);
-    
+
+    const orderParams = [orderPc, orderOc, factura, factura];
+
+    if (roleId === 3) {
+      orderQuery += ' AND s.rut = ?';
+      orderParams.push(user.email);
+    }
+
+    const [orderRows] = await pool.query(orderQuery, orderParams);
+
     if (orderRows.length === 0) {
       return null; // Orden no encontrada
     }
@@ -424,6 +454,16 @@ const getOrderById = async (orderId, user) => {
       params.push(user.uuid);
     }
 
+    const roleId = Number(user.roleId || user.role_id);
+    if (roleId === 3) {
+      query += ` AND EXISTS (
+        SELECT 1 FROM order_detail od
+        JOIN sellers s ON s.codigo = od.vendedor
+        WHERE od.order_id = o.id AND s.rut = ?
+      )`;
+      params.push(user.email);
+    }
+
     const [rows] = await pool.query(query, params);
     return rows[0] || null;
   } catch (error) {
@@ -463,6 +503,16 @@ const getOrderDetails = async (orderId, user) => {
     if (user.role === 'client') {
       query += ' AND c.uuid = ?';
       params.push(user.uuid);
+    }
+
+    const roleId = Number(user.roleId || user.role_id);
+    if (roleId === 3) {
+      query += ` AND EXISTS (
+        SELECT 1 FROM order_detail od2
+        JOIN sellers s ON s.codigo = od2.vendedor
+        WHERE od2.order_id = o.id AND s.rut = ?
+      )`;
+      params.push(user.email);
     }
 
     const [rows] = await pool.query(query, params);
@@ -507,6 +557,16 @@ const getOrderDetail = async (orderId, user) => {
       params.push(user.uuid);
     }
 
+    const roleId = Number(user.roleId || user.role_id);
+    if (roleId === 3) {
+      query += ` AND EXISTS (
+        SELECT 1 FROM order_detail od2
+        JOIN sellers s ON s.codigo = od2.vendedor
+        WHERE od2.order_id = o.id AND s.rut = ?
+      )`;
+      params.push(user.email);
+    }
+
     const [rows] = await pool.query(query, params);
     return rows[0] || null;
   } catch (error) {
@@ -526,15 +586,25 @@ const getOrderItemsWithoutFactura = async (orderPc, orderOc, user) => {
     const pool = await poolPromise;
     
     // Verificar que la orden existe y el usuario tiene acceso
+    const roleId = Number(user.roleId || user.role_id);
+
     let orderQuery = `
       SELECT o.id, o.pc, o.oc, o.factura, c.uuid as customer_uuid
       FROM orders o
       JOIN customers c ON o.customer_id = c.id
+      LEFT JOIN order_detail od ON o.id = od.order_id
+      LEFT JOIN sellers s ON s.codigo = od.vendedor
       WHERE o.pc = ? AND o.oc = ? AND o.factura IS NULL
     `;
-    console.log('orderPc', orderPc, 'orderOc', orderOc);
-    
-    const [orderRows] = await pool.query(orderQuery, [orderPc, orderOc]);
+
+    const orderParams = [orderPc, orderOc];
+
+    if (roleId === 3) {
+      orderQuery += ' AND s.rut = ?';
+      orderParams.push(user.email);
+    }
+
+    const [orderRows] = await pool.query(orderQuery, orderParams);
     
     if (orderRows.length === 0) {
       return null; // Orden no encontrada
@@ -614,6 +684,61 @@ const getOrderItemsWithoutFactura = async (orderPc, orderOc, user) => {
   }
 };
 
+/**
+ * Obtiene las órdenes que cumplen con la condición de alerta por falta de documentos.
+ * @param {Object} options
+ * @param {string} options.fechaAlerta - Fecha mínima de ingreso de la orden (formato YYYY-MM-DD).
+ * @param {number} [options.minDocuments=5] - Cantidad mínima de documentos requeridos.
+ * @returns {Promise<Array>}
+ */
+const getOrdersMissingDocumentsAlert = async ({ fechaAlerta, minDocuments = 5 }) => {
+  try {
+    const pool = await poolPromise;
+    const sanitizedFecha = fechaAlerta || '1970-01-01';
+
+    const query = `
+        SELECT 
+          o.id,
+          o.pc,
+          o.oc,
+          c.name AS customer_name,
+          c.uuid AS customer_uuid,
+          od.fecha,
+          od.fecha_etd,
+          COALESCE(doc_counts.document_count, 0) AS document_count
+        FROM orders o
+        JOIN customers c ON o.customer_id = c.id
+        LEFT JOIN order_detail od ON o.id = od.order_id
+        LEFT JOIN (
+          SELECT order_id, COUNT(*) AS document_count
+          FROM order_files
+          GROUP BY order_id
+        ) doc_counts ON o.id = doc_counts.order_id
+        WHERE DATE(COALESCE(od.fecha, o.fecha_factura, o.created_at)) >= ?
+          AND od.fecha_etd IS NOT NULL
+          AND DATE_ADD(DATE(od.fecha_etd), INTERVAL 5 DAY) <= CURDATE()
+          AND COALESCE(doc_counts.document_count, 0) < ?
+        ORDER BY od.fecha_etd ASC, o.pc ASC
+      `;
+
+    const [rows] = await pool.query(query, [sanitizedFecha, minDocuments]);
+
+    return rows.map(row => ({
+      id: row.id,
+      pc: row.pc,
+      oc: row.oc,
+      customer_name: row.customer_name,
+      customer_uuid: row.customer_uuid,
+      fecha: row.fecha,
+      fecha_etd: row.fecha_etd,
+      document_count: row.document_count
+    }));
+  } catch (error) {
+    console.error('Error en getOrdersMissingDocumentsAlert:', error.message);
+    throw error;
+  }
+};
+
 module.exports = {
   getOrdersByFilters,
   getClientDashboardOrders,
@@ -627,5 +752,6 @@ module.exports = {
   getOrderById,
   getOrderByIdSimple,
   getOrderDetails,
-  getOrderDetail
+  getOrderDetail,
+  getOrdersMissingDocumentsAlert
 };

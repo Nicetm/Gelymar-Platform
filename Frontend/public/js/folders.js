@@ -26,6 +26,16 @@ function formatCurrency(amount, currency = 'CLP') {
   // Agregar espacio después del código de moneda y asegurar USD
   return formatted.replace(/([A-Z]{2,3})\$/, '$1 $').replace('US $', 'USD $');
 }
+ 
+function navigateToClientsWithFilter(customerName) {
+  try {
+    localStorage.setItem('clientSearchFilter', customerName);
+    window.location.href = '/admin/clients';
+  } catch (error) {
+    console.error('Error navegando a clientes:', error);
+    showNotification('Error al navegar a la página de clientes', 'error');
+  }
+}
 
 // Función para formatear cantidad con unidad
 function formatQuantity(amount, unit = 'KG') {
@@ -68,11 +78,14 @@ async function openItemsModal(orderPc, orderOc, factura) {
     // Cargar items de la orden
     const token = localStorage.getItem('token');
     const apiBase = window.apiBase;
+
+    const safeOrderOc = orderOc ? encodeURIComponent(orderOc) : '';
+    const safeFactura = factura && factura !== 'null' ? encodeURIComponent(factura) : '';
     
     // Usar endpoint diferente según si tiene factura o no
     const url = factura && factura !== 'null' 
-      ? `${apiBase}/api/orders/${orderPc}/${orderOc}/${factura}/items`
-      : `${apiBase}/api/orders/${orderPc}/${orderOc}/items`;
+      ? `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/${safeFactura}/items`
+      : `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/items`;
     
     const response = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` }
@@ -216,6 +229,44 @@ export async function initFoldersScript() {
   const params = new URLSearchParams(window.location.search);
   const clientName = params.get('c');
 
+  function getTrafficLightColor(folder) {
+    const documentCount = folder.document_count || 0;
+    const estadoOv = (folder.estado_ov || '').toLowerCase();
+
+    if (estadoOv === 'cerrada') {
+      return 'green';
+    }
+
+    if (estadoOv === 'abierta' && documentCount >= 4) {
+      return 'orange';
+    }
+
+    if (estadoOv === 'abierta' && documentCount === 0) {
+      return 'red';
+    }
+
+    return 'red';
+  }
+
+  function getTrafficLightTitle(folder) {
+    const documentCount = folder.document_count || 0;
+    const estadoOv = (folder.estado_ov || '').toLowerCase();
+
+    if (estadoOv === 'cerrada') {
+      return 'Orden cerrada';
+    }
+
+    if (estadoOv === 'abierta' && documentCount >= 4) {
+      return `Orden abierta con ${documentCount} documentos`;
+    }
+
+    if (estadoOv === 'abierta' && documentCount === 0) {
+      return 'Orden abierta sin documentos';
+    }
+
+    return `Orden ${estadoOv} con ${documentCount} documentos`;
+  }
+
   function renderTable() {
     const start = (currentPage - 1) * itemsPerPage;
     const pageData = filteredRows.slice(start, start + itemsPerPage);
@@ -243,9 +294,11 @@ export async function initFoldersScript() {
     let value = cell.textContent.trim();
     
     // Para las columnas de fecha, convertir a timestamp
-    if (columnIndex === 6) { // fecha_factura
+    if ([3, 6, 7, 8].includes(columnIndex)) {
       if (value === '-') return 0;
-      return new Date(value).getTime();
+      const [day, month, year] = value.split('/');
+      if (!day || !month || !year) return 0;
+      return new Date(Number(year), Number(month) - 1, Number(day)).getTime();
     }
     
     return value.toLowerCase();
@@ -258,11 +311,16 @@ export async function initFoldersScript() {
     const columnMap = {
       'pc': 0,
       'oc': 1,
-      'fecha': 2,
-      'moneda': 3,
+      'customer_name': 2,
+      'fecha': 3,
       'medio_envio_factura': 4,
       'factura': 5,
-      'fecha_factura': 6
+      'fecha_factura': 6,
+      'fecha_etd': 7,
+      'fecha_eta': 8,
+      'incoterm': 9,
+      'puerto_destino': 10,
+      'certificados': 11
     };
     
     const columnIndex = columnMap[column];
@@ -317,87 +375,125 @@ export async function initFoldersScript() {
     const folders = await res.json();
 
     if (tableBody) {
-      tableBody.innerHTML = folders.map(folder => `
-        <tr data-id="${folder.id}" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-sm min-h-[600px]">
-          <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${folder.pc}</td>
-          <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${folder.oc}</td>
-          <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(folder.fecha)}</td>
-          <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${folder.currency || '-'}</td>
-          <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${folder.medio_envio_factura || '-'}</td>
-          <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${folder.factura || '-'}</td>
-          <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(folder.fecha_factura)}</td>
-          <td class="w-[25%] px-6 py-4 text-sm border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">
-            <div class="flex justify-center items-center gap-3">
-              
-              <!-- Ver documentos y archivos -->
-              <div class="relative group">
-                <a href="/admin/clients/documents/view/${folder.customer_uuid}?f=${folder.id}&pc=${folder.pc}&c=${clientName}"
-                   class="go-to-order-btn text-gray-900 dark:text-white hover:text-green-500 transition">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-                    <polyline points="14 2 14 8 20 8"/>
-                  </svg>
-                </a>
-                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
-                            bg-green-600 text-white text-xs rounded px-2 py-1 shadow-lg
-                            opacity-0 group-hover:opacity-100 transition
-                            pointer-events-none whitespace-nowrap z-50">
-                  ${window.translations?.carpetas?.tooltipGoToOrder || 'Ver documentos y archivos'}
-                </div>
-              </div>
+      tableBody.innerHTML = folders.map(folder => {
+        const trafficLightColor = getTrafficLightColor(folder);
+        const trafficLightTitle = getTrafficLightTitle(folder);
+        const displayCustomerName = folder.customer_name || clientName || '-';
+        const escapedCustomerNameAttr = displayCustomerName.replace(/"/g, '&quot;');
+        const encodedCustomerName = encodeURIComponent(displayCustomerName);
+        const safePcAttr = (folder.pc || '').toString().replace(/"/g, '&quot;');
+        const safeOcAttr = (folder.oc || '').toString().replace(/"/g, '&quot;');
+        const safeFacturaAttr = (folder.factura || '').toString().replace(/"/g, '&quot;');
+        const documentsUrl = `/admin/clients/documents/view/${folder.customer_uuid}?f=${folder.id}&pc=${folder.pc}&c=${encodedCustomerName}`;
 
-              <!-- Ver lista de items -->
-              <div class="relative group">
-                <a href="#" class="items-list-btn text-gray-900 dark:text-white hover:text-green-500 transition"
-                   data-order-pc="${folder.pc}" data-order-oc="${folder.oc}" data-factura="${folder.factura}">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
-                  </svg>
-                </a>
-                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
-                            bg-green-600 text-white text-xs rounded px-2 py-1 shadow-lg
-                            opacity-0 group-hover:opacity-100 transition
-                            pointer-events-none whitespace-nowrap z-50">
-                  ${window.translations?.carpetas?.tooltipViewItems || 'Ver lista de items'}
-                </div>
+        return `
+          <tr data-id="${folder.id}" class="hover:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition bg-white dark:bg-gray-900">
+            <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">
+              <div class="flex items-center gap-2">
+                <span>${folder.pc || '-'}</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                     title="${trafficLightTitle}"
+                     data-document-count="${folder.document_count || 0}"
+                     data-estado-ov="${folder.estado_ov || ''}"
+                     class="traffic-light-svg cursor-help">
+                  <circle cx="12" cy="12" r="6" fill="${trafficLightColor === 'red' ? '#ef4444' : trafficLightColor === 'orange' ? '#f97316' : trafficLightColor === 'green' ? '#22c55e' : '#ef4444'}"/>
+                </svg>
               </div>
+            </td>
+            <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${folder.oc || '-'}</td>
+            <td class="px-4 py-3 break-all border-b border-gray-200 dark:border-gray-800">
+              <button class="customer-name-btn text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline transition-colors cursor-pointer"
+                      data-customer-name="${escapedCustomerNameAttr}">
+                ${displayCustomerName}
+              </button>
+            </td>
+            <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(folder.fecha)}</td>
+            <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${folder.medio_envio_factura || '-'}</td>
+            <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${folder.factura || '-'}</td>
+            <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(folder.fecha_factura)}</td>
+            <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(folder.fecha_etd)}</td>
+            <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(folder.fecha_eta)}</td>
+            <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${folder.incoterm || '-'}</td>
+            <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${folder.puerto_destino || '-'}</td>
+            <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">
+              <a href="${documentsUrl}"
+                 class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline">
+                ${window.translations?.carpetas?.viewDocuments || 'ver documentos'}
+              </a>
+            </td>
+            <td class="sticky right-0 bg-gray-50 dark:bg-gray-700 z-10 px-6 py-4 min-w-[120px] overflow-visible">
+              <div class="flex justify-center gap-3 relative">
 
-              <!-- Expandir items -->
-              <div class="relative group">
-                <a href="#" class="expand-items-btn text-gray-900 dark:text-white hover:text-green-500 transition"
-                   data-order-pc="${folder.pc}" data-order-oc="${folder.oc}" data-factura="${folder.factura}">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
-                  </svg>
-                </a>
-                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
-                            bg-green-600 text-white text-xs rounded px-2 py-1 shadow-lg
-                            opacity-0 group-hover:opacity-100 transition
-                            pointer-events-none whitespace-nowrap z-50">
-                  ${window.translations?.carpetas?.tooltipExpandItems || 'Expandir items en tabla'}
+                <!-- Ver documentos y archivos -->
+                <div class="relative group">
+                  <a href="${documentsUrl}"
+                     class="go-to-order-btn text-gray-900 dark:text-white hover:text-green-500 transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                      <polyline points="14 2 14 8 20 8"/>
+                    </svg>
+                  </a>
+                  <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
+                              bg-green-600 text-white text-xs rounded px-2 py-1 shadow-lg
+                              opacity-0 group-hover:opacity-100 transition
+                              pointer-events-none whitespace-nowrap z-50">
+                    ${window.translations?.carpetas?.tooltipGoToOrder || 'Ver documentos y archivos'}
+                  </div>
                 </div>
-              </div>
 
-              <!-- Ver detalles de orden -->
-              <div class="relative group">
-                <a href="#" class="order-detail-btn text-gray-900 dark:text-white hover:text-green-500 transition"
-                   data-order-id="${folder.id}" data-order-pc="${folder.pc}" data-order-oc="${folder.oc}">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                  </svg>
-                </a>
-                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
-                            bg-green-600 text-white text-xs rounded px-2 py-1 shadow-lg
-                            opacity-0 group-hover:opacity-100 transition
-                            pointer-events-none whitespace-nowrap z-50">
-                  ${window.translations?.carpetas?.tooltipOrderDetails || 'Ver detalles de orden'}
+                <!-- Ver lista de items -->
+                <div class="relative group">
+                  <a href="#" class="items-list-btn text-gray-900 dark:text-white hover:text-green-500 transition"
+                     data-order-pc="${safePcAttr}" data-order-oc="${safeOcAttr}" data-factura="${safeFacturaAttr}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+                    </svg>
+                  </a>
+                  <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
+                              bg-green-600 text-white text-xs rounded px-2 py-1 shadow-lg
+                              opacity-0 group-hover:opacity-100 transition
+                              pointer-events-none whitespace-nowrap z-50">
+                    ${window.translations?.carpetas?.tooltipViewItems || 'Ver lista de items'}
+                  </div>
                 </div>
-              </div>
 
-            </div>
-          </td>
-        </tr>
-      `).join('');
+                <!-- Expandir items -->
+                <div class="relative group">
+                  <a href="#" class="expand-items-btn text-gray-900 dark:text-white hover:text-green-500 transition"
+                     data-order-pc="${safePcAttr}" data-order-oc="${safeOcAttr}" data-factura="${safeFacturaAttr}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                  </a>
+                  <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
+                              bg-green-600 text-white text-xs rounded px-2 py-1 shadow-lg
+                              opacity-0 group-hover:opacity-100 transition
+                              pointer-events-none whitespace-nowrap z-50">
+                    ${window.translations?.carpetas?.tooltipExpandItems || 'Expandir items en tabla'}
+                  </div>
+                </div>
+
+                <!-- Ver detalles de orden -->
+                <div class="relative group">
+                  <a href="#" class="order-detail-btn text-gray-900 dark:text-white hover:text-green-500 transition"
+                     data-order-id="${folder.id}" data-order-pc="${safePcAttr}" data-order-oc="${safeOcAttr}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                  </a>
+                  <div class="absolute bottom-full right-0 mb-2
+                              bg-green-600 text-white text-xs rounded px-2 py-1 shadow-lg
+                              opacity-0 group-hover:opacity-100 transition
+                              pointer-events-none whitespace-nowrap z-50">
+                    ${window.translations?.carpetas?.tooltipOrderDetails || 'Ver detalles de orden'}
+                  </div>
+                </div>
+
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
 
       allRows.length = 0;
       allRows.push(...Array.from(tableBody.querySelectorAll('tr')));
@@ -438,6 +534,17 @@ export async function initFoldersScript() {
     if (currentPage < totalPages) {
       currentPage += 1;
       renderTable();
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    const customerNameBtn = e.target.closest('.customer-name-btn');
+    if (customerNameBtn) {
+      e.preventDefault();
+      const customerName = customerNameBtn.dataset.customerName;
+      if (customerName && customerName !== '-') {
+        navigateToClientsWithFilter(customerName);
+      }
     }
   });
 
@@ -778,11 +885,14 @@ export async function initFoldersScript() {
       // Cargar items de la orden
       const token = localStorage.getItem('token');
       const apiBase = window.apiBase;
+
+      const safeOrderOc = orderOc ? encodeURIComponent(orderOc) : '';
+      const safeFactura = factura && factura !== 'null' ? encodeURIComponent(factura) : '';
       
       // Usar endpoint diferente según si tiene factura o no
       const url = factura && factura !== 'null' 
-        ? `${apiBase}/api/orders/${orderPc}/${orderOc}/${factura}/items`
-        : `${apiBase}/api/orders/${orderPc}/${orderOc}/items`;
+        ? `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/${safeFactura}/items`
+        : `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/items`;
       
       const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` }
@@ -799,7 +909,7 @@ export async function initFoldersScript() {
       expandedRow.className = 'expanded-items-row bg-gray-50 dark:bg-gray-800';
       
       const expandedCell = document.createElement('td');
-      expandedCell.colSpan = 8; // Ajustar según el número de columnas de la tabla de folders
+      expandedCell.colSpan = 13; // Ajustar según el número de columnas de la tabla de folders
       expandedCell.className = 'px-6 py-4';
       
       // Crear tabla de items

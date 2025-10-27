@@ -132,7 +132,7 @@ async function fetchClientFilesFromNetwork() {
               console.log(`[${new Date().toISOString()}] -> Check Client Process -> ACTUALIZANDO: RUT=${rut}, Nombre=${clientData.name || 'N/A'}`);
               actualizados++;
             } else {
-              console.log(`[${new Date().toISOString()}] -> Check Client Process -> SIN CAMBIOS: RUT=${rut}, Nombre=${clientData.name || 'N/A'}`);
+              //console.log(`[${new Date().toISOString()}] -> Check Client Process -> SIN CAMBIOS: RUT=${rut}, Nombre=${clientData.name || 'N/A'}`);
               omitidos++;
             }
           } else {

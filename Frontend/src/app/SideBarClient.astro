@@ -31,7 +31,7 @@ try {
     }).then(r => (r.ok ? r.json() : null));
     user = Array.isArray(data) ? data[0] ?? null : data;
     if (user && !user.role && user.role_id !== undefined) {
-      user.role = user.role_id === 1 ? 'admin'
+      user.role = (user.role_id === 1 || user.role_id === 3) ? 'admin'
                 : user.role_id === 2 ? 'client'
                 : String(user.role_id);
     }

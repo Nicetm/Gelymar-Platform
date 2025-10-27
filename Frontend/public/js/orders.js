@@ -25,6 +25,16 @@ export async function initOrdersScript() {
     return;
   }
   
+  try {
+    const storedOrderSearchFilter = localStorage.getItem('ordersSearchFilter');
+    if (storedOrderSearchFilter) {
+      searchInput.value = storedOrderSearchFilter;
+      localStorage.removeItem('ordersSearchFilter');
+    }
+  } catch (error) {
+    console.warn('No se pudo restaurar filtro de �rdenes:', error);
+  }
+  
   // Verificar elementos necesarios (sin botón de refresh)
   const cacheStatus = qs('cacheStatus');
 
@@ -735,11 +745,14 @@ async function openItemsModal(orderPc, orderOc, factura) {
     // Cargar items de la orden usando endpoint diferente según si tiene factura o no
     const token = localStorage.getItem('token');
     const apiBase = window.apiBase;
+
+    const safeOrderOc = orderOc ? encodeURIComponent(orderOc) : '';
+    const safeFactura = factura && factura !== 'null' ? encodeURIComponent(factura) : '';
     
     // Usar endpoint diferente según si tiene factura o no
     const url = factura && factura !== 'null' 
-      ? `${apiBase}/api/orders/${orderPc}/${orderOc}/${factura}/items`
-      : `${apiBase}/api/orders/${orderPc}/${orderOc}/items`;
+      ? `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/${safeFactura}/items`
+      : `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/items`;
     
     const response = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` }
@@ -761,7 +774,7 @@ async function openItemsModal(orderPc, orderOc, factura) {
     if (itemsTableBody) {
       const currency = items[0]?.currency || 'CLP';
       itemsTableBody.innerHTML = items.map(item => {
-        const quantity = parseFloat(item.kg_solicitados) || 0;
+        const quantity = factura && factura !== 'null' ? parseFloat(item.kg_facturados) : parseFloat(item.kg_solicitados) || 0;
         const unitPrice = parseFloat(item.unit_price) || 0;
         const total = quantity * unitPrice;
         const unit = item.unidad_medida || 'KG';
@@ -782,18 +795,18 @@ async function openItemsModal(orderPc, orderOc, factura) {
     const totalItemsCount = items.length;
     
     const totalQuantitySum = items.reduce((sum, item) => {
-      const quantity = parseFloat(item.kg_solicitados) || 0;
+      const quantity = factura && factura !== 'null' ? parseFloat(item.kg_facturados) : parseFloat(item.kg_solicitados) || 0;
       return sum + quantity;
     }, 0);
     
     const totalValueSum = items.reduce((sum, item) => {
-      const quantity = parseFloat(item.kg_solicitados) || 0;
+      const quantity = factura && factura !== 'null' ? parseFloat(item.kg_facturados) : parseFloat(item.kg_solicitados) || 0;
       const price = parseFloat(item.unit_price) || 0;
       const itemTotal = quantity * price;
       return sum + itemTotal;
     }, 0);
 
-          const currency = items[0]?.currency || 'CLP';
+      const currency = items[0]?.currency || 'CLP';
       const unit = items[0]?.unidad_medida || 'KG';
       const gastoAdicional = parseFloat(items[0]?.gasto_adicional_flete) || 0;
       
@@ -963,10 +976,13 @@ async function toggleItemsExpansion(orderPc, orderOc, factura) {
     const token = localStorage.getItem('token');
     const apiBase = window.apiBase;
     
+    const safeOrderOc = orderOc ? encodeURIComponent(orderOc) : '';
+    const safeFactura = factura && factura !== 'null' ? encodeURIComponent(factura) : '';
+
     // Usar endpoint diferente según si tiene factura o no
     const url = factura && factura !== 'null' 
-      ? `${apiBase}/api/orders/${orderPc}/${orderOc}/${factura}/items`
-      : `${apiBase}/api/orders/${orderPc}/${orderOc}/items`;
+      ? `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/${safeFactura}/items`
+      : `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/items`;
     
     const response = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` }

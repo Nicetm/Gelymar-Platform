@@ -12,6 +12,7 @@ const slowDown = require('express-slow-down');
 const swaggerSpec = require('./docs/swagger');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
+const { normalizeRole } = require('./utils/role.util');
 require('module-alias/register');
 
 // Detectar si estamos en el servidor Ubuntu (172.20.10.151)
@@ -91,6 +92,7 @@ const devOrigins = [
   'http://localhost:2121',
   'http://localhost:2122',
   'http://localhost:2123',
+  'http://localhost:2124',
   'http://localhost:3001',
   'http://localhost:8080',
   'http://localhost:8082',
@@ -109,9 +111,10 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
+      scriptSrc: ["'self'", "https://www.google.com/recaptcha/", "https://www.gstatic.com/recaptcha/"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", ...allowedOrigins, "http://backend:*", "ws://localhost:*", "wss://localhost:*", "ws://localhost:3000", "wss://localhost:3000"],
+      frameSrc: ["'self'", "https://www.google.com/recaptcha/", "https://www.gstatic.com/recaptcha/"],
+      connectSrc: ["'self'", ...allowedOrigins, "http://backend:*", "https://www.google.com/recaptcha/", "ws://localhost:*", "wss://localhost:*", "ws://localhost:3000", "wss://localhost:3000"],
     },
   },
   crossOriginEmbedderPolicy: false,
@@ -272,11 +275,18 @@ io.use(async (socket, next) => {
       return next(new Error('Token no proporcionado'));
     }
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await ChatService.authenticateUser(decoded.id);  
+    const user = await ChatService.authenticateUser(decoded.id);
     if (!user) {
       return next(new Error('Usuario no encontrado o inactivo'));
     }
-    socket.user = user;
+
+    const normalizedRole = normalizeRole(user.role, user.role_id);
+    socket.user = {
+      ...user,
+      role: normalizedRole,
+      roleName: user.role,
+      roleId: user.role_id,
+    };
     next();
   } catch (error) {
     next(new Error('Token inválido'));

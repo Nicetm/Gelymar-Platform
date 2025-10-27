@@ -7,6 +7,37 @@ const customerService = require('../services/customer.service');
 const { generateToken } = require('../utils/jwt.util');
 const { sendEmail } = require('../utils/email.util');
 const { logger } = require('../utils/logger');
+const { normalizeRole } = require('../utils/role.util');
+
+const verifyRecaptcha = async (token) => {
+  const secret = process.env.RECAPTCHA_SECRET_KEY;
+  if (!secret) {
+    return true;
+  }
+
+  if (!token) {
+    return false;
+  }
+
+  try {
+    const params = new URLSearchParams();
+    params.append('secret', secret);
+    params.append('response', token);
+
+    const response = await fetch('https://www.google.com/recaptcha/api/siteverify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString(),
+    });
+
+    const data = await response.json();
+
+    return data.success === true;
+  } catch (error) {
+    logger.error(`Error verifying reCAPTCHA: ${error.message}`);
+    return false;
+  }
+};
 
 const extractTwoFAPayload = (req) => {
   const headerToken = req.headers['x-2fa-token'] || req.headers['authorization'];
@@ -37,7 +68,14 @@ const extractTwoFAPayload = (req) => {
  * @access Público
  */
 exports.login = async (req, res) => {
-  const { email, username, password, otp } = req.body;
+  const { email, username, password, otp, captchaResponse } = req.body;
+
+  const captchaValid = await verifyRecaptcha(captchaResponse);
+  /*
+  if (!captchaValid) {
+    logger.warn(`Failed captcha verification for ${email || username}`);
+    return res.status(400).json({ message: 'Captcha verification failed' });
+  }*/
 
   logger.info(`Intento de login para: ${email || username}`);
 
@@ -92,11 +130,14 @@ exports.login = async (req, res) => {
       }
     }
 
+    const normalizedRole = normalizeRole(user.role, user.role_id);
+
     const token = generateToken({
       id: user.id,
       email: user.email,
       username: user.username || null,
-      role: user.role,
+      role: normalizedRole,
+      roleId: user.role_id,
       cardCode: user.cardCode || null
     });
 
@@ -156,11 +197,14 @@ exports.refreshToken = async (req, res) => {
       return res.status(404).json({ message: 'Usuario no encontrado' });
     }
 
+    const normalizedRole = normalizeRole(user.role, user.role_id);
+
     const newToken = generateToken({
       id: user.id,
       email: user.email,
       username: user.username || null,
-      role: user.role,
+      role: normalizedRole,
+      roleId: user.role_id,
       cardCode: user.cardCode || null
     });
 

@@ -1,15 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const orderController = require('../controllers/order.controller');
+const configController = require('../controllers/config.controller');
 const authMiddleware = require('../middleware/auth.middleware');
 const { authorizeRoles } = require('../middleware/role.middleware');
-
-/**
- * @swagger
- * tags:
- *   name: Órdenes
- *   description: Endpoints para gestión de órdenes de venta
- */
 
 /**
  * @swagger
@@ -64,6 +58,22 @@ router.get('/client/:orderId/documents', authMiddleware, authorizeRoles(['client
  *         description: Lista de órdenes
  */
 router.get('/', authMiddleware, authorizeRoles(['admin', 'client']), orderController.getAllOrders);
+
+/**
+ * @swagger
+ * /api/orders/alerts/missing-documents:
+ *   get:
+ *     summary: Obtiene órdenes que requieren alerta por falta de documentos
+ *     tags: [Órdenes]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de órdenes que necesitan documentos
+ *       404:
+ *         description: Configuración no encontrada
+ */
+router.get('/alerts/missing-documents', authMiddleware, authorizeRoles(['admin']), configController.getOrdersMissingDocumentsAlert);
 
 /**
  * @swagger

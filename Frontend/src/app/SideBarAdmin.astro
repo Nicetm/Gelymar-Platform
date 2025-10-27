@@ -31,7 +31,7 @@ try {
     }).then(r => (r.ok ? r.json() : null));
     user = Array.isArray(data) ? data[0] ?? null : data;
     if (user && !user.role && user.role_id !== undefined) {
-      user.role = user.role_id === 1 ? 'admin'
+      user.role = (user.role_id === 1 || user.role_id === 3) ? 'admin'
                 : user.role_id === 2 ? 'client'
                 : String(user.role_id);
     }
@@ -374,6 +374,13 @@ button[data-dropdown-toggle="language-dropdown"][aria-expanded="true"] i[data-lu
           </a>
           <a
             href="#"
+            data-setting="notification-email-list"
+            class="settings-option flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200"
+          >
+            <i data-lucide="bell" class="w-4 h-4"></i> Notification email list
+          </a>
+          <a
+            href="#"
             data-setting="profile"
             class="settings-option flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200"
           >
@@ -505,8 +512,8 @@ button[data-dropdown-toggle="language-dropdown"][aria-expanded="true"] i[data-lu
     <div class="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700">
       <!-- Botón + email a la izquierda -->
       <button id="addEmailBtn" type="button"
-        class="flex items-center gap-2 text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium transition">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        class="text-xs flex items-center gap-2 text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
         </svg>
         {t.admin_settings.add_email}
@@ -514,15 +521,63 @@ button[data-dropdown-toggle="language-dropdown"][aria-expanded="true"] i[data-lu
       <!-- Botones a la derecha -->
       <div class="flex gap-3">
         <button id="cancelPdfMailBtn"
-          class="px-4 py-2 bg-gray-300 dark:bg-gray-800 text-gray-700 dark:text-gray-100 rounded-md hover:bg-gray-400 dark:hover:bg-gray-700 transition font-medium">
+          class="text-xs px-4 py-2 bg-gray-300 dark:bg-gray-800 text-gray-700 dark:text-gray-100 rounded-md hover:bg-gray-400 dark:hover:bg-gray-700 transition font-medium">
           {t.admin_settings.cancel}
         </button>
         <button id="savePdfMailBtn"
-          class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md font-medium transition flex items-center gap-2">
+          class="text-xs px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md font-medium transition flex items-center gap-2">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
           </svg>
           {t.admin_settings.add}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Notification Email List Modal -->
+<div id="notificationEmailListModal" class="fixed inset-0 bg-black bg-opacity-50 dark:bg-black/80 hidden flex justify-center items-center z-50">
+  <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 w-full max-w-2xl mx-4 relative max-h-[90vh] overflow-y-auto shadow-2xl">
+    <button id="closeNotificationEmailModal" class="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition dark:text-gray-300 dark:hover:text-red-400">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+    
+    <div class="flex items-center gap-4 mb-6">
+      <div class="w-16 h-16 bg-gradient-to-br from-emerald-500 to-cyan-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+        <span id="notificationEmailInitials">NL</span>
+      </div>
+      <div>
+        <h2 id="notificationEmailTitle" class="text-xl font-bold text-gray-900 dark:text-gray-100">Notification Email List</h2>
+        <p class="text-sm text-gray-600 dark:text-gray-400">{t.admin_settings.subtitle}</p>
+      </div>
+    </div>
+
+    <div id="notificationEmailFormContainer" class="border-b border-gray-200 dark:border-gray-700 pb-4 mb-6"></div>
+
+    <div id="notificationExistingEmailsTable" class="mb-6"></div>
+
+    <div class="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700">
+      <button id="addNotificationEmailBtn" type="button"
+        class="text-xs flex items-center gap-2 text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+        </svg>
+        {t.admin_settings.add_email}
+      </button>
+      <div class="flex gap-3">
+        <button id="cancelNotificationEmailBtn"
+          class="text-xs px-4 py-2 bg-gray-300 dark:bg-gray-800 text-gray-700 dark:text-gray-100 rounded-md hover:bg-gray-400 dark:hover:bg-gray-700 transition font-medium">
+          {t.admin_settings.cancel}
+        </button>
+        <button id="saveNotificationEmailBtn"
+          class="text-xs px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md font-medium transition flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          {t.admin_settings.save}
         </button>
       </div>
     </div>

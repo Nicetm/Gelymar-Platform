@@ -5,20 +5,21 @@ const apiPublic = import.meta.env.PUBLIC_API_URL;
 const adminAppUrl = import.meta.env.PUBLIC_ADMIN_APP_URL || '';
 const clientAppUrl = import.meta.env.PUBLIC_CLIENT_APP_URL || '';
 const appContext = import.meta.env.PUBLIC_APP_CONTEXT || 'both';
+const recaptchaSiteKey = import.meta.env.PUBLIC_RECAPTCHA_SITE_KEY || '';
 
 const contextInfo = (() => {
   const normalized = appContext.toLowerCase();
   if (normalized === 'admin') {
     return {
-      label: 'Portal Administrador',
-      helper: 'Acceso exclusivo para personal interno',
+      label: 'Admin Portal',
+      helper: 'Exclusive access for internal staff',
       badgeClasses: 'bg-amber-100 text-amber-700 border border-amber-200'
     };
   }
   if (normalized === 'client') {
     return {
-      label: 'Portal Clientes',
-      helper: 'Ingreso para clientes externos',
+      label: 'Client Portal',
+      helper: 'Login for external customers',
       badgeClasses: 'bg-emerald-100 text-emerald-700 border border-emerald-200'
     };
   }
@@ -28,12 +29,27 @@ const contextInfo = (() => {
 ---
 
 <div class="w-full max-w-md mx-auto mt-10 space-y-6 animate-fade-in">
-  {contextInfo && (
-    <div class={`rounded-xl px-4 py-3 shadow-sm flex flex-col gap-1 ${contextInfo.badgeClasses}`}>
-      <p class="text-base font-semibold tracking-wide">{contextInfo.label}</p>
-      <p class="text-xs opacity-80">{contextInfo.helper}</p>
+
+  <!-- Header -->
+  <div class="flex flex-col items-center text-center gap-6">
+    <!-- Logo + Nombre animado -->
+    <div class="flex items-center gap-2">
+      <img src="/assets/gelymar.svg" alt="Gelymar Logo" class="h-10 w-10"/>
+      <span class="text-[2rem] font-bold tracking-tight text-[#002E50] dark:text-gray-100">
+        Gelymar
+      </span>
     </div>
-  )}
+
+  </div>
+
+  <div class="text-center">
+    <h1 class="text-2xl font-bold text-[#002E50]">
+      {contextInfo?.label ?? 'Welcome back'}
+    </h1>
+    <p class="mt-1 text-sm text-[#002E50]/80">
+      {contextInfo?.helper ?? 'Access your dashboard and documentation tools.'}
+    </p>
+  </div>
   
   <!-- Mensaje de contraseña actualizada -->
   <p id="resetSuccessMessage" class="text-sm text-center text-green-600 hidden">
@@ -42,9 +58,37 @@ const contextInfo = (() => {
 
   <form id="loginForm" class="space-y-6" method="POST" action="javascript:void(0);" onsubmit="return false;" novalidate>
     <!-- Username -->
-    <div>
-      <label for="username" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Username</label>
-      <input type="text" id="username" name="username" required class="input" placeholder="Enter your username" autocomplete="username"/>
+    <div class="relative">
+      <label for="username" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+        Username
+      </label>
+      <input
+        type="text"
+        id="username"
+        name="username"
+        required
+        class="input"
+        placeholder="Enter your username"
+      />
+    
+      <div class="group absolute right-2 top-9">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="1.5"
+          stroke="currentColor"
+          class="w-5 h-5 text-gray-400 cursor-help"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M8.625 9.75a3.375 3.375 0 016.75 0c0 1.875-3.375 1.875-3.375 3.75m0 3.75h.008v.008h-.008v-.008z" />
+        </svg>
+        <!-- Tooltip -->
+        <span
+          class="absolute hidden group-hover:block bg-blue-800 text-white text-xs rounded px-3 py-2 -top-11 right-0 whitespace-nowrap">
+          e.g., 15000222-4
+        </span>
+      </div>
     </div>
 
     <!-- Password -->
@@ -52,6 +96,12 @@ const contextInfo = (() => {
       <label for="password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Password</label>
       <input type="password" id="password" name="password" required class="input" placeholder="••••••••" autocomplete="current-password"/>
     </div>
+
+    {recaptchaSiteKey && (
+      <div class="flex justify-center">
+        <div class="g-recaptcha" data-sitekey={recaptchaSiteKey}></div>
+      </div>
+    )}
 
     <!-- OTP input -->
     <div id="otpContainer" class="hidden">
@@ -97,9 +147,10 @@ const contextInfo = (() => {
   }
 </style>
 
-<script is:inline define:vars={{ apiPublic, apiBase, adminAppUrl, clientAppUrl, appContext }}>
+<script is:inline define:vars={{ apiPublic, apiBase, adminAppUrl, clientAppUrl, appContext, recaptchaSiteKey }}>
 
   let otpShown = false;
+
   const normalizedAdminUrl = adminAppUrl && adminAppUrl.trim() !== '' ? adminAppUrl.trim() : '/admin/';
   const normalizedClientUrl = clientAppUrl && clientAppUrl.trim() !== '' ? clientAppUrl.trim() : '/client/';
   const normalizedAppContext = (appContext || 'both').toLowerCase();
@@ -137,6 +188,18 @@ const contextInfo = (() => {
   // Event listener único para el formulario
   document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('loginForm');
+
+    if (recaptchaSiteKey) {
+      const existingScript = document.querySelector('script[src*="recaptcha/api.js"]');
+      if (!existingScript) {
+        const script = document.createElement('script');
+        script.src = 'https://www.google.com/recaptcha/api.js';
+        script.async = true;
+        script.defer = true;
+        document.head.appendChild(script);
+      }
+    }
+
     if (form) {
       form.addEventListener('submit', async function(e) {
         e.preventDefault();
@@ -147,11 +210,33 @@ const contextInfo = (() => {
         const username = formData.get('username')?.trim() || '';
         const password = formData.get('password') || '';
         const otp = formData.get('otp')?.trim() || '';
-        
+        let captchaResponse = '';
+
+        if (recaptchaSiteKey) {
+          if (!window.grecaptcha || typeof window.grecaptcha.getResponse !== 'function') {
+            const msg = document.getElementById('loginMessage');
+            msg.textContent = 'Captcha is not ready yet. Please wait a moment and try again.';
+            msg.classList.remove('hidden');
+            msg.classList.remove('text-green-600');
+            msg.classList.add('text-red-500');
+            return;
+          }
+
+          captchaResponse = window.grecaptcha.getResponse();
+          if (!captchaResponse) {
+            const msg = document.getElementById('loginMessage');
+            msg.textContent = 'Please confirm you are not a robot';
+            msg.classList.remove('hidden');
+            msg.classList.remove('text-green-600');
+            msg.classList.add('text-red-500');
+            return;
+          }
+        }
+
         // Validación básica
         if (!username || !password) {
           const msg = document.getElementById('loginMessage');
-          msg.textContent = 'Por favor complete todos los campos requeridos';
+          msg.textContent = 'Please complete all required fields';
           msg.classList.remove('hidden');
           msg.classList.remove('text-green-600');
           msg.classList.add('text-red-500');
@@ -169,7 +254,7 @@ const contextInfo = (() => {
           const res = await fetch(`${apiPublic}/api/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password, otp })
+            body: JSON.stringify({ username, password, otp, captchaResponse })
           });
 
           const data = await res.json();
@@ -220,7 +305,7 @@ const contextInfo = (() => {
 
             if (meRes.ok) {
               const user = await meRes.json();
-              const userRole = user.role || (user.role_id === 1 ? 'admin' : 'client');
+              const userRole = user.role || ((user.role_id === 1 || user.role_id === 3) ? 'admin' : 'client');
               
               // Verificar si debe cambiar password
               if (user.change_pw === 0) {
@@ -229,6 +314,7 @@ const contextInfo = (() => {
                 return;
               }
 
+              localStorage.setItem('cfg', user.role_cfg);
               localStorage.setItem('userRole', userRole);
 
               // Redirigir según rol
@@ -262,6 +348,10 @@ const contextInfo = (() => {
           msg.textContent = 'Connection error';
           msg.classList.remove('hidden');
           msg.classList.add('text-red-500');
+        } finally {
+          if (recaptchaSiteKey && window.grecaptcha && typeof window.grecaptcha.reset === 'function') {
+            window.grecaptcha.reset();
+          }
         }
       });
     }

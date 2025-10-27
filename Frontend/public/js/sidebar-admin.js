@@ -28,6 +28,100 @@ export function initSidebarAdmin(config) {
     return clientToken;
   }
 
+  async function fetchAdminSettingsVisibility() {
+    try {
+      const authToken = token || getClientToken();
+      if (!authToken) {
+        return null;
+      }
+
+      const response = await fetch(`${API_BASE}/api/config/admin-settings/visibility`, {
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
+
+      if (!response.ok) {
+        return null;
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error obteniendo visibilidad de los ajustes:', error);
+      return null;
+    }
+  }
+
+  async function applyAdminSettingsVisibility(settingsBtn, settingsDropdown) {
+    if (!settingsDropdown) {
+      return false;
+    }
+
+    const pdfOption = settingsDropdown.querySelector('[data-setting="pdf-mail-list"]');
+    const notificationOption = settingsDropdown.querySelector('[data-setting="notification-email-list"]');
+    const profileOption = settingsDropdown.querySelector('[data-setting="profile"]');
+
+    const visibility = await fetchAdminSettingsVisibility();
+
+    const pdfEnabled = visibility && Object.prototype.hasOwnProperty.call(visibility, 'pdfMailList')
+      ? Boolean(visibility.pdfMailList)
+      : true;
+    const notificationEnabled = visibility && Object.prototype.hasOwnProperty.call(visibility, 'notificationEmailList')
+      ? Boolean(visibility.notificationEmailList)
+      : true;
+    const profileEnabled = visibility && Object.prototype.hasOwnProperty.call(visibility, 'profile')
+      ? Boolean(visibility.profile)
+      : true;
+
+    if (pdfOption) {
+      if (pdfEnabled) {
+        pdfOption.classList.remove('hidden');
+        pdfOption.style.display = '';
+      } else {
+        pdfOption.classList.add('hidden');
+        pdfOption.style.display = 'none';
+      }
+    }
+
+    if (notificationOption) {
+      if (notificationEnabled) {
+        notificationOption.classList.remove('hidden');
+        notificationOption.style.display = '';
+      } else {
+        notificationOption.classList.add('hidden');
+        notificationOption.style.display = 'none';
+      }
+    }
+
+    if (profileOption) {
+      if (profileEnabled) {
+        profileOption.classList.remove('hidden');
+        profileOption.style.display = '';
+      } else {
+        profileOption.classList.add('hidden');
+        profileOption.style.display = 'none';
+      }
+    }
+
+    const hasVisibleSettings =
+      (!!pdfOption && pdfEnabled) ||
+      (!!notificationOption && notificationEnabled) ||
+      (!!profileOption && profileEnabled);
+
+    if (settingsBtn) {
+      if (hasVisibleSettings) {
+        settingsBtn.classList.remove('hidden');
+        settingsBtn.style.display = '';
+      } else {
+        settingsBtn.classList.add('hidden');
+        settingsBtn.style.display = 'none';
+      }
+    }
+
+    settingsDropdown.classList.add('hidden');
+    settingsDropdown.style.display = 'none';
+
+    return hasVisibleSettings;
+  }
+
   async function loadAdminData() {
     try {
       const res = await fetch(`${API_BASE}/api/users/profile`, {
@@ -83,33 +177,30 @@ export function initSidebarAdmin(config) {
     // DOM references
     const settingsBtn = document.getElementById("currentSettingsBtn");
     const settingsDropdown = document.getElementById("settings-dropdown");
+    let hasVisibleSettings = false;
 
-    // Settings dropdown toggle
     if (settingsBtn && settingsDropdown) {
-      // Forzar estado inicial
-      settingsDropdown.classList.add('hidden');
-      settingsDropdown.style.display = 'none';
-      
+      hasVisibleSettings = await applyAdminSettingsVisibility(settingsBtn, settingsDropdown);
+    }
+
+    if (settingsBtn && settingsDropdown && hasVisibleSettings) {
       settingsBtn.onclick = function(e) {
         e.preventDefault();
         
-        // Toggle dropdown
         const isVisible = settingsDropdown.style.display === 'block';
         
         if (!isVisible) {
           settingsDropdown.style.display = 'block';
           settingsDropdown.classList.remove('hidden');
           
-          // Rotar chevron
           const chevron = settingsBtn.querySelector('i[data-lucide="chevron-up"]');
           if (chevron) {
             chevron.style.transform = 'rotate(180deg)';
           }
         } else {
-          settingsDropdown.style.display = 'none';
           settingsDropdown.classList.add('hidden');
+          settingsDropdown.style.display = 'none';
           
-          // Resetear chevron
           const chevron = settingsBtn.querySelector('i[data-lucide="chevron-up"]');
           if (chevron) {
             chevron.style.transform = 'rotate(0deg)';
@@ -117,9 +208,8 @@ export function initSidebarAdmin(config) {
         }
       };
       
-      // Cerrar dropdown al hacer click fuera
       document.addEventListener('click', function(e) {
-        if (!settingsBtn.contains(e.target) && !settingsDropdown.contains(e.target)) {
+        if (!settingsBtn.contains(e.target) && (!settingsDropdown || !settingsDropdown.contains(e.target))) {
           settingsDropdown.classList.add('hidden');
           settingsDropdown.style.display = 'none';
           
@@ -131,29 +221,40 @@ export function initSidebarAdmin(config) {
       });
     }
 
-    // Settings options handlers
     document.addEventListener('click', function(e) {
-      if (e.target.closest('.settings-option')) {
-        e.preventDefault();
-        const setting = e.target.closest('.settings-option').dataset.setting;
-        
-        // Cerrar dropdown
+      if (!hasVisibleSettings) {
+        return;
+      }
+
+      const option = e.target.closest('.settings-option');
+      if (!option || option.classList.contains('hidden') || option.style.display === 'none') {
+        return;
+      }
+
+      e.preventDefault();
+      const setting = option.dataset.setting;
+      
+      if (settingsDropdown) {
         settingsDropdown.classList.add('hidden');
         settingsDropdown.style.display = 'none';
-        
+      }
+      
+      if (settingsBtn) {
         const chevron = settingsBtn.querySelector('i[data-lucide="chevron-up"]');
         if (chevron) {
           chevron.style.transform = 'rotate(0deg)';
         }
-        
-        // Handle different settings
-        switch(setting) {
-          case 'pdf-mail-list':
-            openPdfMailModal();
-            break;
-          case 'profile':
-            break;
-        }
+      }
+      
+      switch(setting) {
+        case 'pdf-mail-list':
+          openPdfMailModal();
+          break;
+        case 'notification-email-list':
+          openNotificationEmailModal();
+          break;
+        case 'profile':
+          break;
       }
     });
 
@@ -165,14 +266,14 @@ export function initSidebarAdmin(config) {
 
     // PDF Mail List Modal
     const pdfMailModal = document.getElementById('pdfMailListModal');
-    const closePdfMailModal = document.getElementById('closePdfMailModal');
+    const closePdfMailModalBtn = document.getElementById('closePdfMailModal');
     const cancelPdfMailBtn = document.getElementById('cancelPdfMailBtn');
     const addEmailBtn = document.getElementById('addEmailBtn');
     const savePdfMailBtn = document.getElementById('savePdfMailBtn');
     const emailFormContainer = document.getElementById('emailFormContainer');
     const existingEmailsTable = document.getElementById('existingEmailsTable');
 
-    let emails = [];
+    let pdfEmails = [];
 
     // Abrir modal PDF Mail List
     async function openPdfMailModal() {
@@ -181,27 +282,27 @@ export function initSidebarAdmin(config) {
           headers: { Authorization: `Bearer ${token}` }
         });
         const data = await response.json();
-        emails = data.emails || [];
-        renderExistingEmailsTable();
-        renderEmailForm();
+        pdfEmails = data.emails || [];
+        renderPdfExistingEmailsTable();
+        renderPdfEmailForm();
         pdfMailModal.classList.remove('hidden');
       } catch (error) {
         console.error('Error cargando emails:', error);
-        emails = [];
-        renderExistingEmailsTable();
-        renderEmailForm();
+        pdfEmails = [];
+        renderPdfExistingEmailsTable();
+        renderPdfEmailForm();
         pdfMailModal.classList.remove('hidden');
       }
     }
 
     // Cerrar modal
-    function closeModal() {
+    function closePdfMailModal() {
       pdfMailModal.classList.add('hidden');
     }
 
-    // Renderizar lista de emails existentes en tabla
-    function renderExistingEmailsTable() {
-      if (emails.length === 0) {
+    // Renderizar lista de pdfEmails existentes en tabla
+    function renderPdfExistingEmailsTable() {
+      if (pdfEmails.length === 0) {
         existingEmailsTable.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center py-4">No hay emails configurados</p>';
         return;
       }
@@ -217,8 +318,8 @@ export function initSidebarAdmin(config) {
               </tr>
             </thead>
             <tbody>
-              ${emails.map((email, index) => `
-                <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+              ${pdfEmails.map((email, index) => `
+                <tr class="text-xs bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
                   <td class="px-6 py-4 font-medium text-gray-900 dark:text-white">${email.name}</td>
                   <td class="px-6 py-4">${email.email}</td>
                   <td class="px-6 py-4">
@@ -236,19 +337,19 @@ export function initSidebarAdmin(config) {
       existingEmailsTable.innerHTML = tableHTML;
     }
 
-    // Renderizar formulario para nuevos emails
-    function renderEmailForm() {
+    // Renderizar formulario para nuevos pdfEmails
+    function renderPdfEmailForm() {
       emailFormContainer.innerHTML = '';
     }
 
     // Agregar nuevo email al formulario
-    function addEmail() {
+    function addPdfEmail() {
       const newEmailDiv = document.createElement('div');
       newEmailDiv.className = 'flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-md mb-2';
       newEmailDiv.innerHTML = `
         <div class="flex-1 grid grid-cols-2 gap-3">
-          <input type="text" placeholder="Nombre" class="new-email-name px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-          <input type="email" placeholder="Email" class="new-email-email px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+          <input type="text" placeholder="Nombre" class="text-xs new-email-name px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+          <input type="email" placeholder="Email" class="text-xs new-email-email px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
         </div>
         <button class="remove-new-email text-center text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -260,23 +361,23 @@ export function initSidebarAdmin(config) {
     }
 
     // Remover email existente
-    async function removeExistingEmail(index) {
-      const email = emails[index];
+    async function removePdfExistingEmail(index) {
+      const email = pdfEmails[index];
       const confirmed = await confirmAction(
         '¿Eliminar email?',
         `Se eliminará el email: ${email.name} (${email.email})`,
         'warning'
       );
       if (confirmed) {
-        emails.splice(index, 1);
-        renderExistingEmailsTable();
+        pdfEmails.splice(index, 1);
+        renderPdfExistingEmailsTable();
         // Guardar cambios en BD
-        await saveEmailsToDB();
+        await savePdfEmailsToDB();
       }
     }
 
-    // Guardar emails en BD sin confirmación
-    async function saveEmailsToDB() {
+    // Guardar pdfEmails en BD sin confirmación
+    async function savePdfEmailsToDB() {
       try {
         const response = await fetch(`${API_BASE}/api/config/pdf-mail-list`, {
           method: 'PUT',
@@ -284,7 +385,7 @@ export function initSidebarAdmin(config) {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${getClientToken()}`
           },
-          body: JSON.stringify({ emails })
+          body: JSON.stringify({ emails: pdfEmails })
         });
 
         if (response.ok) {
@@ -298,8 +399,8 @@ export function initSidebarAdmin(config) {
       }
     }
 
-    // Guardar emails
-    async function saveEmails() {
+    // Guardar pdfEmails
+    async function savePdfEmails() {
       const confirmed = await confirmAction(
         '¿Guardar cambios?',
         'Se actualizará la lista de correos para PDFs.',
@@ -309,7 +410,7 @@ export function initSidebarAdmin(config) {
       if (!confirmed) return;
       
       try {
-        // Recopilar datos del formulario de nuevos emails
+        // Recopilar datos del formulario de nuevos pdfEmails
         const newEmailInputs = emailFormContainer.querySelectorAll('.new-email-name, .new-email-email');
         const newEmails = [];
         
@@ -325,8 +426,8 @@ export function initSidebarAdmin(config) {
           }
         }
 
-        // Combinar emails existentes con nuevos
-        const updatedEmails = [...emails, ...newEmails];
+        // Combinar pdfEmails existentes con nuevos
+        const updatedEmails = [...pdfEmails, ...newEmails];
 
         const response = await fetch(`${API_BASE}/api/config/pdf-mail-list`, {
           method: 'PUT',
@@ -339,9 +440,186 @@ export function initSidebarAdmin(config) {
 
         if (response.ok) {
           showNotification('Lista de emails actualizada correctamente', 'success');
-          emails = updatedEmails;
-          renderExistingEmailsTable();
-          renderEmailForm();
+          pdfEmails = updatedEmails;
+          renderPdfExistingEmailsTable();
+          renderPdfEmailForm();
+        } else {
+          throw new Error('Error al guardar');
+        }
+      } catch (error) {
+        console.error('Error guardando emails:', error);
+        showNotification('Error al guardar la lista de emails', 'error');
+      }
+    }
+
+    // Notification Email List Modal
+    const notificationEmailModal = document.getElementById('notificationEmailListModal');
+    const closeNotificationEmailModalBtn = document.getElementById('closeNotificationEmailModal');
+    const cancelNotificationEmailBtn = document.getElementById('cancelNotificationEmailBtn');
+    const addNotificationEmailBtn = document.getElementById('addNotificationEmailBtn');
+    const saveNotificationEmailBtn = document.getElementById('saveNotificationEmailBtn');
+    const notificationEmailFormContainer = document.getElementById('notificationEmailFormContainer');
+    const notificationExistingEmailsTable = document.getElementById('notificationExistingEmailsTable');
+
+    let notificationEmails = [];
+
+    async function openNotificationEmailModal() {
+      try {
+        const response = await fetch(`${API_BASE}/api/config/notification-email-list`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await response.json();
+        notificationEmails = data.emails || [];
+        renderNotificationExistingEmailsTable();
+        renderNotificationEmailForm();
+        notificationEmailModal.classList.remove('hidden');
+      } catch (error) {
+        console.error('Error cargando emails de notificación:', error);
+        notificationEmails = [];
+        renderNotificationExistingEmailsTable();
+        renderNotificationEmailForm();
+        notificationEmailModal.classList.remove('hidden');
+      }
+    }
+
+    function closeNotificationEmailModal() {
+      notificationEmailModal.classList.add('hidden');
+    }
+
+    function renderNotificationExistingEmailsTable() {
+      if (notificationEmails.length === 0) {
+        notificationExistingEmailsTable.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center py-4">No hay emails configurados</p>';
+        return;
+      }
+
+      const tableHTML = `
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+            <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+              <tr>
+                <th scope="col" class="px-6 py-3">${t.admin_settings.name}</th>
+                <th scope="col" class="px-6 py-3">${t.admin_settings.email}</th>
+                <th scope="col" class="px-6 py-3">${t.admin_settings.actions}</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${notificationEmails.map((email, index) => `
+                <tr class="text-xs bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                  <td class="px-6 py-4 font-medium text-gray-900 dark:text-white">${email.name}</td>
+                  <td class="px-6 py-4">${email.email}</td>
+                  <td class="px-6 py-4">
+                    <button class="remove-existing-notification-email flex items-center justify-center text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 font-medium" data-index="${index}">
+                      ${t.admin_settings.delete}
+                    </button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      notificationExistingEmailsTable.innerHTML = tableHTML;
+    }
+
+    function renderNotificationEmailForm() {
+      notificationEmailFormContainer.innerHTML = '';
+    }
+
+    function addNotificationEmail() {
+      const newEmailDiv = document.createElement('div');
+      newEmailDiv.className = 'flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-md mb-2';
+      newEmailDiv.innerHTML = `
+        <div class="flex-1 grid grid-cols-2 gap-3">
+          <input type="text" placeholder="Nombre" class="text-xs new-email-name px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+          <input type="email" placeholder="Email" class="text-xs new-email-email px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+        </div>
+        <button class="remove-new-email text-center text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </button>
+      `;
+      notificationEmailFormContainer.appendChild(newEmailDiv);
+    }
+
+    async function removeNotificationExistingEmail(index) {
+      const email = notificationEmails[index];
+      const confirmed = await confirmAction(
+        '¿Eliminar email?',
+        `Se eliminará el email: ${email.name} (${email.email})`,
+        'warning'
+      );
+      if (confirmed) {
+        notificationEmails.splice(index, 1);
+        renderNotificationExistingEmailsTable();
+        await saveNotificationEmailsToDB();
+      }
+    }
+
+    async function saveNotificationEmailsToDB() {
+      try {
+        const response = await fetch(`${API_BASE}/api/config/notification-email-list`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${getClientToken()}`
+          },
+          body: JSON.stringify({ emails: notificationEmails })
+        });
+
+        if (response.ok) {
+          showNotification('Lista de emails actualizada correctamente', 'success');
+        } else {
+          throw new Error('Error al guardar');
+        }
+      } catch (error) {
+        console.error('Error guardando emails:', error);
+        showNotification('Error al guardar la lista de emails', 'error');
+      }
+    }
+
+    async function saveNotificationEmails() {
+      const confirmed = await confirmAction(
+        '¿Guardar cambios?',
+        'Se actualizará la lista de correos para notificaciones.',
+        'success'
+      );
+
+      if (!confirmed) return;
+
+      try {
+        const newEmailInputs = notificationEmailFormContainer.querySelectorAll('.new-email-name, .new-email-email');
+        const newEmails = [];
+
+        for (let i = 0; i < newEmailInputs.length; i += 2) {
+          const nameInput = newEmailInputs[i];
+          const emailInput = newEmailInputs[i + 1];
+
+          if (nameInput.value.trim() && emailInput.value.trim()) {
+            newEmails.push({
+              name: nameInput.value.trim(),
+              email: emailInput.value.trim()
+            });
+          }
+        }
+
+        const updatedEmails = [...notificationEmails, ...newEmails];
+
+        const response = await fetch(`${API_BASE}/api/config/notification-email-list`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${getClientToken()}`
+          },
+          body: JSON.stringify({ emails: updatedEmails })
+        });
+
+        if (response.ok) {
+          showNotification('Lista de emails actualizada correctamente', 'success');
+          notificationEmails = updatedEmails;
+          renderNotificationExistingEmailsTable();
+          renderNotificationEmailForm();
         } else {
           throw new Error('Error al guardar');
         }
@@ -352,27 +630,51 @@ export function initSidebarAdmin(config) {
     }
 
     // Event listeners
-    closePdfMailModal.addEventListener('click', closeModal);
-    cancelPdfMailBtn.addEventListener('click', closeModal);
+    closePdfMailModalBtn.addEventListener('click', closePdfMailModal);
+    cancelPdfMailBtn.addEventListener('click', closePdfMailModal);
+
+    if (closeNotificationEmailModalBtn) {
+      closeNotificationEmailModalBtn.addEventListener('click', closeNotificationEmailModal);
+    }
+
+    if (cancelNotificationEmailBtn) {
+      cancelNotificationEmailBtn.addEventListener('click', closeNotificationEmailModal);
+    }
     
     // Usar event delegation para botones que se recrean
     document.addEventListener('click', (e) => {
       if (e.target.closest('#addEmailBtn')) {
         e.preventDefault();
-        addEmail();
+        addPdfEmail();
       }
       if (e.target.closest('#savePdfMailBtn')) {
         e.preventDefault();
-        saveEmails();
+        savePdfEmails();
+      }
+      if (e.target.closest('#addNotificationEmailBtn')) {
+        e.preventDefault();
+        addNotificationEmail();
+      }
+      if (e.target.closest('#saveNotificationEmailBtn')) {
+        e.preventDefault();
+        saveNotificationEmails();
       }
     });
 
     // Cerrar modal al hacer click fuera
     pdfMailModal.addEventListener('click', (e) => {
       if (e.target === pdfMailModal) {
-        closeModal();
+        closePdfMailModal();
       }
     });
+
+    if (notificationEmailModal) {
+      notificationEmailModal.addEventListener('click', (e) => {
+        if (e.target === notificationEmailModal) {
+          closeNotificationEmailModal();
+        }
+      });
+    }
 
     // Event delegation para botones de eliminar
     document.addEventListener('click', (e) => {
@@ -391,7 +693,14 @@ export function initSidebarAdmin(config) {
         e.stopPropagation();
         const button = e.target.closest('.remove-existing-email');
         const index = parseInt(button.dataset.index);
-        removeExistingEmail(index);
+        removePdfExistingEmail(index);
+      }
+      if (e.target.closest('.remove-existing-notification-email')) {
+        e.preventDefault();
+        e.stopPropagation();
+        const button = e.target.closest('.remove-existing-notification-email');
+        const index = parseInt(button.dataset.index);
+        removeNotificationExistingEmail(index);
       }
     });
 

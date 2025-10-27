@@ -9,7 +9,6 @@ async function checkClientAccess() {
   const pool = await poolPromise;
   
   try {
-    console.log('🔍 Iniciando verificación de acceso de clientes...');
     
     // 1. Obtener todos los clientes con los campos requeridos
     const [customers] = await pool.query(`

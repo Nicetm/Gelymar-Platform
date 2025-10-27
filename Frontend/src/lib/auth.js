@@ -56,7 +56,7 @@ export async function getUserRole() {
     }
 
     const user = await response.json();
-    return user.role || (user.role_id === 1 ? 'admin' : 'client');
+    return user.role || ((user.role_id === 1 || user.role_id === 3) ? 'admin' : 'client');
   } catch (error) {
     console.error('Error obteniendo rol:', error);
     return null;
@@ -199,7 +199,7 @@ export async function validateRole(Astro, requiredRole) {
     }
 
     const user = await response.json();
-    const userRole = user.role || (user.role_id === 1 ? 'admin' : 'client');
+    const userRole = user.role || ((user.role_id === 1 || user.role_id === 3) ? 'admin' : 'client');
     
     if (userRole !== requiredRole) {
       return Astro.redirect('/authentication/sign-in');

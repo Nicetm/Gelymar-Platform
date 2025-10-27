@@ -92,6 +92,7 @@ services:
       - RATE_LIMIT_MAX_REQUESTS=${RATE_LIMIT_MAX_REQUESTS}
       - SLOW_DOWN_DELAY_AFTER=${SLOW_DOWN_DELAY_AFTER}
       - SLOW_DOWN_DELAY_MS=${SLOW_DOWN_DELAY_MS}
+      - RECAPTCHA_SECRET_KEY=${RECAPTCHA_SECRET_KEY}
     volumes:
       - backend_logs_dev:/app/logs
       - fileserver_data_dev:/var/www/html
@@ -127,6 +128,7 @@ services:
         - PUBLIC_APP_CONTEXT=admin
         - PUBLIC_ADMIN_APP_URL=${PUBLIC_ADMIN_APP_URL}
         - PUBLIC_CLIENT_APP_URL=${PUBLIC_CLIENT_APP_URL}
+        - PUBLIC_RECAPTCHA_SITE_KEY=${PUBLIC_RECAPTCHA_SITE_KEY}
         - DEV_PORT=2121
     image: nicetm/gelymar-platform:frontend-dev
     container_name: gelymar-platform-frontend-dev
@@ -149,6 +151,7 @@ services:
       - PUBLIC_APP_CONTEXT=admin
       - PUBLIC_ADMIN_APP_URL=${PUBLIC_ADMIN_APP_URL}
       - PUBLIC_CLIENT_APP_URL=${PUBLIC_CLIENT_APP_URL}
+      - PUBLIC_RECAPTCHA_SITE_KEY=${PUBLIC_RECAPTCHA_SITE_KEY}
       - DEV_PORT=2121
     networks:
       - gelymar-network-dev
@@ -177,6 +180,7 @@ services:
         - PUBLIC_ADMIN_APP_URL=${PUBLIC_ADMIN_APP_URL}
         - PUBLIC_CLIENT_APP_URL=${PUBLIC_CLIENT_APP_URL}
         - DEV_PORT=2122
+        - PUBLIC_RECAPTCHA_SITE_KEY=${PUBLIC_RECAPTCHA_SITE_KEY}
     image: nicetm/gelymar-platform:frontend-client-dev
     container_name: gelymar-platform-frontend-client-dev
     restart: unless-stopped
@@ -198,6 +202,7 @@ services:
       - PUBLIC_APP_CONTEXT=client
       - PUBLIC_ADMIN_APP_URL=${PUBLIC_ADMIN_APP_URL}
       - PUBLIC_CLIENT_APP_URL=${PUBLIC_CLIENT_APP_URL}
+      - PUBLIC_RECAPTCHA_SITE_KEY=${PUBLIC_RECAPTCHA_SITE_KEY}
       - DEV_PORT=2122
     networks:
       - gelymar-network-dev

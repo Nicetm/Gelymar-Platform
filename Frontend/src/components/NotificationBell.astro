@@ -338,12 +338,29 @@ headers: {
       
       const data = await response.json();
       const newUnreadCount = data.data.totalUnread || 0;
+
+      // Obtener alertas de órdenes sin suficientes documentos
+      let missingDocs = [];
+      let missingDocsCount = 0;
+      try {
+        const missingDocsResponse = await fetch(`${apiBase}/api/orders/alerts/missing-documents`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (missingDocsResponse.ok) {
+          const missingDocsData = await missingDocsResponse.json();
+          missingDocs = missingDocsData.orders || [];
+          missingDocsCount = Number(missingDocsData.count || missingDocs.length || 0);
+        }
+      } catch (alertError) {
+        console.warn('No fue posible obtener alertas de órdenes sin documentos:', alertError);
+      }
       
       // Obtener clientes sin cuenta del localStorage
       const customersWithoutAccount = parseInt(localStorage.getItem('customersWithoutAccount') || '0');
 
       const previousCount = unreadCount;
-      unreadCount = newUnreadCount + customersWithoutAccount;
+      unreadCount = newUnreadCount + customersWithoutAccount + missingDocsCount;
 
       if (unreadCount > previousCount && document.hidden) {
         startTabBlink();
@@ -360,6 +377,17 @@ headers: {
         const unread = Number(chat?.unread_count ?? 0);
         return unread > 0;
       });
+      
+      if (missingDocsCount > 0) {
+        const missingDocsNotifications = missingDocs.map(order => ({
+          id: `orders-missing-docs-${order.id}`,
+          type: 'orders_missing_documents',
+          unread: true,
+          timestamp: order.fecha_etd || order.fecha || new Date().toISOString(),
+          order
+        }));
+        notifications = [...missingDocsNotifications, ...notifications];
+      }
       
       // Agregar notificación de clientes sin cuenta si hay
       if (customersWithoutAccount > 0) {
@@ -457,6 +485,43 @@ headers: {
         `;
       }
       
+      if (notification.type === 'orders_missing_documents') {
+        const order = notification.order || {};
+        const etdDate = order.fecha_etd ? new Date(order.fecha_etd).toLocaleDateString('es-CL') : 'Sin ETD';
+        const ingresoDate = order.fecha ? new Date(order.fecha).toLocaleDateString('es-CL') : 'Sin fecha';
+        return `
+          <div
+            class="p-3 border-b border-gray-100 dark:border-gray-700 bg-red-50 dark:bg-red-900/20 cursor-pointer transition-colors orders-missing-docs-notification"
+            data-order-id="${order.id || ''}"
+            data-order-pc="${order.pc || ''}"
+            data-order-oc="${order.oc || ''}"
+          >
+            <div class="flex items-start gap-3">
+              <svg class="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 21a9 9 0 110-18 9 9 0 010 18z"/>
+              </svg>
+              <div class="flex-1">
+                <p class="font-medium text-sm text-gray-900 dark:text-white">
+                  Orden ${order.pc || 'N/A'} · OC ${order.oc || 'N/A'}
+                </p>
+                <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                  Cliente: ${order.customer_name || 'Sin información'}
+                </p>
+                <p class="text-xs text-gray-600 dark:text-gray-400">
+                  Falta documentación mínima
+                </p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  ETD: ${etdDate} · Ingreso: ${ingresoDate}
+                </p>
+              </div>
+              <span class="ml-2 bg-red-500 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                !
+              </span>
+            </div>
+          </div>
+        `;
+      }
+      
       // Notificaciones de chat normales
       return `
         <div 
@@ -506,6 +571,29 @@ headers: {
         }
         
         notificationDropdown?.classList.add('hidden');
+      });
+    });
+
+    const ordersMissingDocsNotifications = notificationList.querySelectorAll('.orders-missing-docs-notification');
+    ordersMissingDocsNotifications.forEach(item => {
+      item.addEventListener('click', () => {
+        const pc = item.getAttribute('data-order-pc') || '';
+        const oc = item.getAttribute('data-order-oc') || '';
+        const params = [];
+        if (pc) params.push('pc=' + encodeURIComponent(pc));
+        if (oc) params.push('oc=' + encodeURIComponent(oc));
+        const targetUrl = params.length > 0 ? '/admin/orders?' + params.join('&') : '/admin/orders';
+        try {
+          if (oc) {
+            localStorage.setItem('ordersSearchFilter', oc);
+          } else if (pc) {
+            localStorage.setItem('ordersSearchFilter', pc);
+          }
+        } catch (storageError) {
+          console.warn('No se pudo guardar filtro de órdenes:', storageError);
+        }
+        notificationDropdown?.classList.add('hidden');
+        window.location.href = targetUrl;
       });
     });
 

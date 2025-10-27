@@ -47,6 +47,7 @@ async function getFoldersByCustomer(customerId) {
     const folder = new Folder(r);
     folder.customer_uuid = r.customer_uuid;
     folder.fileCount = countMap[r.id] || 0;
+    folder.document_count = folder.fileCount;
     return folder;
   });
 }

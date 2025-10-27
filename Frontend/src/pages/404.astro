@@ -15,7 +15,7 @@ if (token) {
     
     if (response.ok) {
       const user = await response.json();
-      const userRole = user.role || (user.role_id === 1 ? 'admin' : 'client');
+      const userRole = user.role || ((user.role_id === 1 || user.role_id === 3) ? 'admin' : 'client');
       
       // User authenticated in 404
       

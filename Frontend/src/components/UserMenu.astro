@@ -152,7 +152,7 @@ const avatarUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURICom
       const fullName = u.full_name ?? 'User';
       const roleNameClient =
         u.role ??
-        (u.role_id === 1 ? 'Admin'
+        ((u.role_id === 1 || u.role_id === 3) ? 'Admin'
          : u.role_id === 2 ? 'Client'
          : 'Guest');
       const email = u.email ?? '';

@@ -10,6 +10,20 @@ const generateToken = (user) => {
     role: user.role,
   };
 
+  if (user.roleId !== undefined) {
+    payload.roleId = user.roleId;
+  } else if (user.role_id !== undefined) {
+    payload.roleId = user.role_id;
+  }
+
+  if (user.cardCode !== undefined) {
+    payload.cardCode = user.cardCode;
+  }
+
+  if (user.username !== undefined) {
+    payload.username = user.username;
+  }
+
   return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 

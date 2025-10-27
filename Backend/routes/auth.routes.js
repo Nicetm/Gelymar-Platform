@@ -1,6 +1,7 @@
 // /routes/auth.routes.js
 const express = require('express');
 const router = express.Router();
+const crypto = require('crypto');
 const authController = require('../controllers/auth.controller');
 const authMiddleware = require('../middleware/auth.middleware');
 const userService = require('../services/user.service');
@@ -50,10 +51,14 @@ router.get('/me', authMiddleware, async (req, res) => {
             country: user.country,
             city: user.city,
             role: req.user.role,
+            role_id: req.user.roleId,
+            role_cfg: crypto.createHash('md5').update(String(req.user.roleId)).digest('hex'),
+            role_name: req.user.roleName || req.user.role,
             change_pw: user.change_pw,
             customer_id: customer_id
         });
     } catch (error) {
+        console.error('Error en me:', error);
         res.status(500).json({ message: 'Error interno' });
     }
 });

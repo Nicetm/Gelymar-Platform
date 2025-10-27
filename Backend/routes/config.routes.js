@@ -6,10 +6,16 @@ const { authorizeRoles } = require('../middleware/role.middleware');
 
 // Rutas para PDF mail list
 router.get('/pdf-mail-list', authMiddleware, authorizeRoles(['admin']), configController.getPdfMailList);
-
 router.put('/pdf-mail-list', authMiddleware, authorizeRoles(['admin']), configController.updatePdfMailList);
+
+// Rutas para Notificación Email List
+router.get('/notification-email-list', authMiddleware, authorizeRoles(['admin']), configController.getNotificationEmailList);
+router.put('/notification-email-list', authMiddleware, authorizeRoles(['admin']), configController.updateNotificationEmailList);
 
 // Ruta para configuración del chat
 router.get('/headerBusquedaClienteChat', authMiddleware, authorizeRoles(['admin']), configController.getHeaderBusquedaClienteChat);
+
+// Visibilidad de opciones del panel de ajustes
+router.get('/admin-settings/visibility', authMiddleware, authorizeRoles(['admin']), configController.getAdminSettingsVisibility);
 
 module.exports = router;

@@ -109,7 +109,7 @@ async function generateDefaultFiles() {
       }
     }
     
-    console.log(`✅ Documentos generados: ${totalFilesCreated} archivos, ${totalOrdersProcessed} órdenes, ${totalDirectoriesCreated} directorios`);
+    console.log(`Documentos generados: ${totalFilesCreated} archivos, ${totalOrdersProcessed} órdenes, ${totalDirectoriesCreated} directorios`);
     
   } catch (error) {
     console.error(`[${new Date().toISOString()}] -> Check Default Files Process -> Error en generación de documentos por defecto:`, error.message);
