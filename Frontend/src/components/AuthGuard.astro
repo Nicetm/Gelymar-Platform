@@ -3,42 +3,12 @@
 const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
 const { role } = Astro.props;
 ---
-<script is:inline define:vars={{ apiBase, requiredRole: role }}>
-  document.addEventListener('DOMContentLoaded', async () => {
-    const token = localStorage.getItem('token');
 
-    if (!token) {
-      window.location.href = '/authentication/sign-in';
-      return;
-    }
+<script
+  type="module"
+  define:vars={{ apiBase, requiredRole: role }}
+>
+  import { initAuthGuard } from '/js/auth-guard.js';
 
-    try {
-      // Verificar token localmente
-      const [, payloadBase64] = token.split('.');
-      if (!payloadBase64) {
-        localStorage.removeItem('token');
-        window.location.href = '/authentication/sign-in';
-        return;
-      }
-
-      const payload = JSON.parse(atob(payloadBase64));
-
-      // Solo verificar que tenga los campos básicos
-      if (!payload.email || !payload.id) {
-        localStorage.removeItem('token');
-        window.location.href = '/authentication/sign-in';
-        return;
-      }
-
-      // 🔐 VALIDACIÓN BÁSICA DE ROL (opcional, el backend ya protege)
-      if (requiredRole) {
-        // Por ahora, confiamos en que el backend protege las rutas
-        // La validación completa se hace en el servidor
-      }
-
-    } catch (err) {
-      localStorage.removeItem('token');
-      window.location.href = '/authentication/sign-in';
-    }
-  });
+  initAuthGuard({ requiredRole });
 </script>

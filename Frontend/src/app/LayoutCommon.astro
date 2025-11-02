@@ -74,12 +74,12 @@ const connectSrc = [
     <!-- Content Security Policy (connect-src dinámico para Socket.io/API) -->
     <meta http-equiv="Content-Security-Policy" content={`
       default-src 'self';
-      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://cdn.socket.io;
+      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://cdn.socket.io https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/;
       style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net;
       font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net;
       img-src 'self' data: https: blob:;
-      connect-src ${connectSrc};
-      frame-src 'self' data: blob:;
+      connect-src ${connectSrc} https://www.google.com/recaptcha/;
+      frame-src 'self' data: blob: https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/;
       object-src 'none';
       base-uri 'self';
       form-action 'self';
@@ -104,148 +104,34 @@ const connectSrc = [
 
     <!-- Socket.io -->
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script is:inline>
-      // Verificar que Socket.io esté disponible
-      window.socketIoReady = false;
-      if (typeof io !== 'undefined') {
-        window.socketIoReady = true;
-      } else {
-        // Esperar a que se cargue
-        window.addEventListener('load', () => {
-          if (typeof io !== 'undefined') {
-            window.socketIoReady = true;
-          } else {
-            console.error('Socket.io no se pudo cargar');
-          }
-        });
-      }
-    </script>
-    
-    <!-- Exponer endpoints base al cliente -->
-    <script is:inline define:vars={{ 
-      API_BASE: import.meta.env.PUBLIC_API_URL, 
-      FRONTEND_BASE: import.meta.env.PUBLIC_FRONTEND_BASE_URL 
-    }}>
-      window.apiBase = API_BASE;
-      window.frontendBase = FRONTEND_BASE;
-    </script>
-    
-    <!-- WATCHER TOKEN -->
-    <script is:inline define:vars={{ 
-      SERVER_API_URL: import.meta.env.SERVER_API_URL, 
-      PUBLIC_API_URL: import.meta.env.PUBLIC_API_URL 
-    }}>
-      // Función de logout simplificada
-      async function logout() {
+      (function() {
         try {
-          const token = localStorage.getItem('token');
-          
-          // Llamar al endpoint de logout del backend si hay token
-          if (token) {
-            try {
-              const apiBase = window.apiBase || window.location.origin.replace(':4321', ':3000');
-              await fetch(`${apiBase}/api/auth/logout`, {
-                method: 'POST',
-                headers: { 
-                  'Authorization': `Bearer ${token}`,
-                  'Content-Type': 'application/json'
-                }
-              });
-            } catch (error) {
-              console.error('Error calling logout endpoint:', error);
-              // Continuar con logout local aunque falle el endpoint
-            }
-          }
-          
-          localStorage.removeItem('token');
-          localStorage.removeItem('userRole');
-          localStorage.removeItem('userEmail');
-          document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-          window.location.href = '/authentication/sign-in';
-        } catch (error) {
-          console.error('Error en logout:', error);
-          window.location.href = '/authentication/sign-in';
+          const storedTheme = localStorage.getItem('color-theme');
+          const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          const shouldUseDark = storedTheme === 'dark' || (!storedTheme && prefersDark);
+          document.documentElement.classList.toggle('dark', shouldUseDark);
+        } catch (_) {
+          // ignore access issues (e.g., localStorage disabled)
         }
-      }
+      })();
+    </script>
+    <script
+      type="module"
+      define:vars={{
+        API_BASE: import.meta.env.PUBLIC_API_URL,
+        FRONTEND_BASE: import.meta.env.PUBLIC_FRONTEND_BASE_URL
+      }}
+    >
+      import { initLayoutCommon } from '/js/layout-common.js';
 
-      // Función para verificar token
-      function checkTokenExpiration() {
-        const token = localStorage.getItem('token');
-        if (!token) return;
-
-        try {
-          const payload = JSON.parse(atob(token.split('.')[1]));
-          const expirationTime = payload.exp * 1000;
-          const currentTime = Date.now();
-          const timeUntilExpiration = expirationTime - currentTime;
-          const fiveMinutes = 5 * 60 * 1000;
-
-          if (timeUntilExpiration <= fiveMinutes && timeUntilExpiration > 0) {
-            const modal = document.getElementById('tokenWarningModal');
-            if (modal) modal.classList.remove('hidden');
-          } else if (timeUntilExpiration <= 0) {
-            logout();
-          }
-        } catch (error) {
-          console.error('Error checking token:', error);
-        }
-      }
-
-      window.addEventListener('DOMContentLoaded', () => {
-        const logoutBtn = document.getElementById('logoutNow');
-        const extendBtn = document.getElementById('extendSession');
-        const modal = document.getElementById('tokenWarningModal');
-
-        // Verificar token cada minuto
-        setInterval(checkTokenExpiration, 60000);
-        
-        // Verificar al cargar
-        checkTokenExpiration();
-
-        logoutBtn?.addEventListener('click', () => {
-          logout();
-        });
-
-        extendBtn?.addEventListener('click', async () => {
-          try {
-            const apiUrl = `${API_BASE}/api/auth/refresh`;
-            
-            const res = await fetch(apiUrl, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-              }
-            });
-            
-            const data = await res.json();
-
-            if (res.ok && data.token) {
-              localStorage.setItem('token', data.token);
-              if (modal) modal.classList.add('hidden');
-            } else {
-              logout();
-            }
-          } catch (e) {
-            console.error('Error al renovar token:', e);
-            logout();
-          }
-        });
+      initLayoutCommon({
+        apiBase: API_BASE || '',
+        frontendBase: FRONTEND_BASE || '',
       });
     </script>
 
-    <script is:inline src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
-    <script is:inline>
-      if (
-        localStorage.getItem('color-theme') === 'dark' ||
-        (!('color-theme' in localStorage) &&
-          window.matchMedia('(prefers-color-scheme: dark)').matches)
-      ) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-    </script>
   </head>
 
   <body
@@ -276,13 +162,6 @@ const connectSrc = [
       </div>
     </div>
 
-    <!-- ELIMINA SPINNER CUANDO CARGUE -->
-    <script>
-      window.addEventListener('DOMContentLoaded', () => {
-        const spinner = document.getElementById('globalSpinnerInit');
-        if (spinner) spinner.remove();
-      });
-    </script>
   </body>
 </html>
 

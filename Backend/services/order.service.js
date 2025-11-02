@@ -418,12 +418,27 @@ const getOrderByRutAndOc = async (rut, oc) => {
 const getOrderByIdSimple = async (orderId) => {
   try {
     const pool = await poolPromise;
-    const [[order]] = await pool.query(`
-      SELECT o.*, c.name as customer_name 
-      FROM orders o
-      JOIN customers c ON o.customer_id = c.id
-      WHERE o.id = ?
-    `, [orderId]);
+    const [[order]] = await pool.query(
+      `
+        SELECT 
+          o.*,
+          c.name AS customer_name,
+          od.fecha_etd AS fecha_etd,
+          od.fecha AS fecha_detalle
+        FROM orders o
+        JOIN customers c ON o.customer_id = c.id
+        LEFT JOIN (
+          SELECT 
+            order_id,
+            MAX(fecha_etd) AS fecha_etd,
+            MAX(fecha) AS fecha
+          FROM order_detail
+          GROUP BY order_id
+        ) od ON od.order_id = o.id
+        WHERE o.id = ?
+      `,
+      [orderId]
+    );
     return order || null;
   } catch (error) {
     console.error('Error en getOrderByIdSimple:', error.message);
@@ -441,9 +456,22 @@ const getOrderById = async (orderId, user) => {
   try {
     const pool = await poolPromise;
     let query = `
-      SELECT o.*, c.name as customer_name, c.uuid as customer_uuid
+      SELECT 
+        o.*,
+        c.name AS customer_name,
+        c.uuid AS customer_uuid,
+        od.fecha_etd AS fecha_etd,
+        od.fecha AS fecha_detalle
       FROM orders o
       JOIN customers c ON o.customer_id = c.id
+      LEFT JOIN (
+        SELECT 
+          order_id,
+          MAX(fecha_etd) AS fecha_etd,
+          MAX(fecha) AS fecha
+        FROM order_detail
+        GROUP BY order_id
+      ) od ON od.order_id = o.id
       WHERE o.id = ?
     `;
     let params = [orderId];

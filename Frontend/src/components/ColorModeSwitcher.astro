@@ -38,27 +38,9 @@
 	<div class="tooltip-arrow" data-popper-arrow></div>
 </div>
 
-<script is:inline>
-	const toggleBtn = document.getElementById('theme-toggle');
-	const darkIcon = document.getElementById('theme-toggle-dark-icon');
-	const lightIcon = document.getElementById('theme-toggle-light-icon');
 
-	const userPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-	const storedTheme = localStorage.getItem('color-theme');
+<script type="module">
+  import { initColorModeSwitcher } from '/js/color-mode-switcher.js';
 
-	if (storedTheme === 'dark' || (!storedTheme && userPrefersDark)) {
-		document.documentElement.classList.add('dark');
-		lightIcon.classList.remove('hidden');
-	} else {
-		document.documentElement.classList.remove('dark');
-		darkIcon.classList.remove('hidden');
-	}
-
-	toggleBtn.addEventListener('click', () => {
-		const isDark = document.documentElement.classList.toggle('dark');
-		darkIcon.classList.toggle('hidden');
-		lightIcon.classList.toggle('hidden');
-		localStorage.setItem('color-theme', isDark ? 'dark' : 'light');
-		document.dispatchEvent(new Event('dark-mode'));
-	});
+  initColorModeSwitcher();
 </script>

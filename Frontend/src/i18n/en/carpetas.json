@@ -80,7 +80,7 @@
 	"cliente": "Customer",
 	"cantidad": "Quantity",
 	"precioUnitario": "Unit Price",
-	"viewDocuments": "View documents",
+	"viewDocuments": "Documents",
 	"documents": "Documents",
 	"onlyOpen": "Open Only"
 }

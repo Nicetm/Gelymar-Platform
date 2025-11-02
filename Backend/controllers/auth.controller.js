@@ -208,6 +208,16 @@ exports.refreshToken = async (req, res) => {
       cardCode: user.cardCode || null
     });
 
+    const cookieOptions = {
+      httpOnly: true,
+      sameSite: 'strict',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 60 * 60 * 1000,
+    };
+
+    res.cookie('token', newToken, cookieOptions);
+
     logger.info(`Token refrescado para ${decoded.email}`);
     res.status(200).json({ token: newToken });
   } catch (error) {

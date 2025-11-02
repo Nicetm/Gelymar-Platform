@@ -1,12 +1,131 @@
 ---
 export const prerender = false;
 
-import LayoutSidebar from '../../../../app/LayoutSidebarAdmin.astro'
+import LayoutSidebar from '../../../../app/LayoutSidebarAdmin.astro';
+import { loadTranslations, getServerLang } from '../../../../lib/i18n.js';
+
+const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
+const apiPublic = import.meta.env.PUBLIC_API_URL;
+const lang = getServerLang(Astro.cookies);
+const id = Astro.params.id;
+const type = Astro.url.searchParams.get('type') ?? 'messages';
+
+const translations = await loadTranslations(lang, 'messages');
+const messagingTranslations = (translations as any).messaging || {};
+const sharedLabels = messagingTranslations.shared || {};
+const listTranslations = messagingTranslations.list || {};
+const detailTranslations = messagingTranslations.detail || {};
+const detailLabels = {
+  ...sharedLabels,
+  ...detailTranslations,
+  tabs: listTranslations.tabs || {},
+  pagination: sharedLabels.pagination || detailTranslations.pagination || {},
+};
 ---
 
 <LayoutSidebar>
-    <div class="p-4">
-        <h1>Vista de Mensaje</h1>
-        <p>ID: {Astro.params.id}</p>
+  <section
+    id="MessagingDetail"
+    data-id={id}
+    data-type={type}
+    class="px-4 pt-20 pb-8 sm:px-6 lg:px-10"
+  >
+    <header class="flex flex-col gap-3 pb-4 border-b border-gray-200 dark:border-gray-700">
+      <a
+        href="/admin/messaging"
+        class="inline-flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+      >
+        <i data-lucide="arrow-left" class="w-4 h-4"></i>
+        {detailLabels.back}
+      </a>
+      <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{detailLabels.heading}</h1>
+    </header>
+
+    <div class="grid gap-6 mt-6 lg:grid-cols-[2fr,1fr]">
+      <article class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm">
+        <header class="flex flex-col gap-1 px-6 py-4 border-b border-gray-200 dark:border-gray-800 text-sm text-gray-500 dark:text-gray-400">
+          <span id="messageDetailType" class="uppercase font-semibold tracking-wide">-</span>
+          <p id="messageDetailTitle" class="text-xl font-semibold text-gray-900 dark:text-white">...</p>
+          <p id="messageDetailSubtitle" class="text-sm text-gray-500 dark:text-gray-400">...</p>
+        </header>
+
+        <section class="px-6 py-5">
+          <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">
+            {detailLabels.metadata}
+          </h2>
+          <div id="messageDetailMeta" class="grid gap-3 text-sm text-gray-700 dark:text-gray-200">
+            <p>...</p>
+          </div>
+        </section>
+
+        <section class="px-6 py-5 border-t border-gray-200 dark:border-gray-800">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              {detailLabels.conversation}
+            </h2>
+            <span id="messageDetailTimestamp" class="text-xs text-gray-400 dark:text-gray-500">-</span>
+          </div>
+          <div
+            id="messageDetailConversation"
+            class="flex flex-col gap-3 max-h-[480px] overflow-y-auto pr-2 text-sm"
+          >
+            <div class="text-gray-400 dark:text-gray-500">{detailLabels.emptyConversation}</div>
+          </div>
+        </section>
+      </article>
+
+      <aside class="flex flex-col gap-6">
+        <article class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm">
+          <header class="px-5 py-4 border-b border-gray-200 dark:border-gray-800">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              {detailLabels.documents}
+            </h2>
+          </header>
+          <div id="messageDetailDocuments" class="px-5 py-4 text-sm text-gray-600 dark:text-gray-300">
+            <p class="text-gray-400 dark:text-gray-500">{detailLabels.missingData}</p>
+          </div>
+        </article>
+
+        <article class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm">
+          <header class="px-5 py-4 border-b border-gray-200 dark:border-gray-800">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              {detailLabels.customer}
+            </h2>
+          </header>
+          <div id="messageDetailCustomer" class="px-5 py-4 text-sm text-gray-600 dark:text-gray-300">
+            <p class="text-gray-400 dark:text-gray-500">{detailLabels.missingData}</p>
+          </div>
+        </article>
+      </aside>
     </div>
+  </section>
+
+  <script type="module" define:vars={{ apiBase, apiPublic, lang, type, id, labels: detailLabels }}>
+    import { initMessagingDetail } from '/js/messaging.js';
+
+    async function bootstrap() {
+      if (!window.apiBase) {
+        window.apiBase = apiPublic || apiBase || '';
+      }
+      if (!window.lang) {
+        window.lang = lang || 'es';
+      }
+      await initMessagingDetail({
+        apiBase,
+        apiPublic,
+        lang,
+        type,
+        id,
+        labels,
+      });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', bootstrap);
+    } else {
+      bootstrap();
+    }
+  </script>
 </LayoutSidebar>
+
+

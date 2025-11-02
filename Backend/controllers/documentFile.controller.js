@@ -755,11 +755,24 @@ exports.sendFile = async (req, res) => {
       return res.status(404).json({ message: 'Archivo no encontrado' });
     }
 
-    // Verificar que haya emails disponibles antes de intentar enviar
-    const emails = [];
-    if (file.customer_email) emails.push(file.customer_email);
-    if (file.contact_emails) emails.push(...file.contact_emails.split(',').filter(email => email.trim()));
-    
+    const { emails: emailsFromBody, lang: requestedLang } = req.body || {};
+    const overrideEmails = Array.isArray(emailsFromBody)
+      ? emailsFromBody.map((email) => (typeof email === 'string' ? email.trim() : '')).filter(Boolean)
+      : [];
+
+    const emails = overrideEmails.length ? [...new Set(overrideEmails)] : [];
+    if (!emails.length) {
+      if (file.customer_email) emails.push(file.customer_email);
+      if (file.contact_emails) {
+        emails.push(
+          ...file.contact_emails
+            .split(',')
+            .map((email) => email.trim())
+            .filter(Boolean)
+        );
+      }
+    }
+
     if (emails.length === 0) {
       return res.status(400).json({ 
         message: 'El cliente no tiene configurado una casilla de email',
@@ -767,7 +780,15 @@ exports.sendFile = async (req, res) => {
       });
     }
 
-    await emailService.sendFileToClient(file);
+    const sendOptions = {};
+    if (requestedLang) {
+      sendOptions.lang = requestedLang;
+    }
+    if (overrideEmails.length) {
+      sendOptions.recipients = emails;
+    }
+
+    await emailService.sendFileToClient(file, sendOptions);
 
     await fileService.updateFile({
       id: id,
@@ -916,19 +937,50 @@ exports.resendFile = async (req, res) => {
   const { id } = req.params;
 
   try {
-    // Actualizar solo fecha_reenvio del archivo original (sin cambiar status_id)
+    // El archivo ya fue duplicado en regenerateFile, solo enviar
+    const file = await fileService.getFileById(id);
+    if (!file) throw new Error('Error al obtener archivo para enviar');
+
+    const { emails: emailsFromBody, lang: requestedLang } = req.body || {};
+    const overrideEmails = Array.isArray(emailsFromBody)
+      ? emailsFromBody.map((email) => (typeof email === 'string' ? email.trim() : '')).filter(Boolean)
+      : [];
+
+    const emails = overrideEmails.length ? [...new Set(overrideEmails)] : [];
+    if (!emails.length) {
+      if (file.customer_email) emails.push(file.customer_email);
+      if (file.contact_emails) {
+        emails.push(
+          ...file.contact_emails
+            .split(',')
+            .map((email) => email.trim())
+            .filter(Boolean)
+        );
+      }
+    }
+
+    if (emails.length === 0) {
+      return res.status(400).json({
+        message: 'El cliente no tiene configurado una casilla de email',
+        error: 'NO_EMAIL_CONFIGURED'
+      });
+    }
+
+    const sendOptions = {};
+    if (requestedLang) {
+      sendOptions.lang = requestedLang;
+    }
+    if (overrideEmails.length) {
+      sendOptions.recipients = emails;
+    }
+
+    await emailService.sendFileToClient(file, sendOptions);
+
     await fileService.updateFile({
       id: id,
       fecha_reenvio: new Date(),
       updated_at: new Date()
     });
-
-    // El archivo ya fue duplicado en regenerateFile, solo enviar
-    const file = await fileService.getFileById(id);
-    if (!file) throw new Error('Error al obtener archivo para enviar');
-    
-    // Enviar el archivo
-    await emailService.sendFileToClient(file);
 
     logger.info(`Archivo reenviado correctamente ID: ${id}`);
     res.json({ message: 'Documento reenviado y enviado por correo correctamente' });

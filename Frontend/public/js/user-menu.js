@@ -1,0 +1,152 @@
+export function initUserMenu(config = {}) {
+  const {
+    apiBase = '',
+    fileServer = '',
+  } = config;
+
+  if (typeof window === 'undefined') return;
+
+  const API_BASE = apiBase || window.apiBase || '';
+  const FILE_SERVER = fileServer || window.fileServer || '';
+
+  const logoutButton = document.getElementById('logoutButton');
+  const nameEl = document.querySelector('#userFullName');
+  const roleEl = document.querySelector('#userRole');
+  const emailEl = document.querySelector('#userEmail');
+  /** @type {HTMLImageElement|null} */
+  const avatarEl = document.querySelector('#userAvatar');
+
+  if (logoutButton) {
+    logoutButton.addEventListener('click', async () => {
+      try {
+        const token = localStorage.getItem('token');
+
+        if (token) {
+          try {
+            await fetch(`${API_BASE}/api/auth/logout`, {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+            });
+          } catch (error) {
+            console.error('Error calling logout endpoint:', error);
+          }
+        }
+
+        localStorage.removeItem('token');
+        localStorage.removeItem('userRole');
+        localStorage.removeItem('userEmail');
+        document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+        window.location.href = '/authentication/sign-in';
+      } catch (err) {
+        console.error('Error logging out:', err);
+        window.location.href = '/authentication/sign-in';
+      }
+    });
+  }
+
+  if (!nameEl || !emailEl || !avatarEl || !roleEl) {
+    return;
+  }
+
+  const applyUserProfile = (profile = {}) => {
+    const {
+      fullName,
+      roleName,
+      email,
+      avatarPath,
+      avatarUrl,
+    } = profile;
+
+    if (fullName) {
+      nameEl.textContent = fullName;
+    }
+    if (roleName) {
+      roleEl.textContent = roleName;
+    }
+    if (email) {
+      emailEl.textContent = email;
+    }
+
+    if (avatarPath) {
+      avatarEl.src = `${FILE_SERVER}/${avatarPath}`;
+    } else if (avatarUrl) {
+      avatarEl.src = avatarUrl;
+    } else if (fullName) {
+      avatarEl.src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(fullName)}&backgroundColor=4b5563&fontColor=ffffff`;
+    }
+  };
+
+  const loadCachedProfile = () => {
+    try {
+      const cachedProfileRaw = localStorage.getItem('userProfile');
+      if (cachedProfileRaw) {
+        const cachedProfile = JSON.parse(cachedProfileRaw);
+        applyUserProfile(cachedProfile);
+      }
+    } catch (error) {
+      console.warn('[UserMenu] Error parsing cached user profile:', error);
+    }
+  };
+
+  const fetchProfile = async () => {
+    let clientToken =
+      localStorage.getItem('token') ||
+      localStorage.getItem('accessToken') ||
+      localStorage.getItem('jwt') ||
+      null;
+
+    if (!clientToken) {
+      const match = document.cookie.match(/(?:^|; )(?:token|accessToken|jwt)=([^;]+)/);
+      clientToken = match ? decodeURIComponent(match[1]) : null;
+    }
+
+    if (!clientToken) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/me`, {
+        headers: clientToken ? { Authorization: `Bearer ${clientToken}` } : undefined,
+      });
+
+      if (!res.ok) return;
+
+      const u = await res.json();
+
+      const fullName = u.full_name ?? 'User';
+      const roleNameClient =
+        u.role ??
+        ((u.role_id === 1 || u.role_id === 3) ? 'Admin'
+          : u.role_id === 2 ? 'Client'
+          : 'Guest');
+      const email = u.email ?? '';
+
+      const profilePayload = {
+        fullName,
+        roleName: roleNameClient,
+        email,
+        avatarPath: u.avatar_path || '',
+        avatarUrl: !u.avatar_path && u.full_name
+          ? `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(u.full_name)}&backgroundColor=4b5563&fontColor=ffffff`
+          : '',
+      };
+
+      applyUserProfile(profilePayload);
+      localStorage.setItem('userProfile', JSON.stringify(profilePayload));
+    } catch (err) {
+      console.error('Client-side user fetch failed:', err);
+    }
+  };
+
+  const bootstrap = () => {
+    loadCachedProfile();
+    fetchProfile();
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootstrap, { once: true });
+  } else {
+    bootstrap();
+  }
+}

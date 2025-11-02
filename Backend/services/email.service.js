@@ -4,7 +4,7 @@ const path = require('path');
 const os = require('os');
 const Handlebars = require('handlebars');
 
-// Las variables de entorno ya se cargan automáticamente en app.js
+// Las variables de entorno ya se cargan automÃ¡ticamente en app.js
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -21,57 +21,75 @@ const transporter = nodemailer.createTransport({
 });
 
 const DOC_NAME_MAP = {
-  'Order Receipt Advice': 'Aviso de Recepción de Orden',
+  'Order Receipt Advice': 'Aviso de RecepciÃ³n de Orden',
   'Shipment Advice': 'Aviso de Embarque',
   'Order Delivery Advice': 'Aviso de Entrega',
   'Availability Advice': 'Aviso de Disponibilidad de Orden',
 };
 
-async function sendFileToClient(file, lang = 'en') {
-
-  lang = file.lang || 'en';
-
+async function sendFileToClient(file, options = {}) {
   if (!file) {
     throw new Error('Faltan datos para enviar el correo');
   }
-  
+
+  let resolvedLang = file.lang || 'en';
+  let overrideRecipients = null;
+
+  if (typeof options === 'string') {
+    resolvedLang = options || resolvedLang;
+  } else if (options && typeof options === 'object') {
+    if (options.lang) {
+      resolvedLang = options.lang;
+    }
+    if (Array.isArray(options.recipients)) {
+      overrideRecipients = options.recipients
+        .map((email) => (typeof email === 'string' ? email.trim() : ''))
+        .filter(Boolean);
+    }
+  }
+
   if (!file.path) {
     throw new Error('No hay emails disponibles para enviar el correo');
   }
 
-  // Verificar que al menos haya un email disponible
-  const emails = [];
-  if (file.customer_email) emails.push(file.customer_email);
-  if (file.contact_emails) emails.push(...file.contact_emails.split(',').filter(email => email.trim()));
-  
+  let emails = [];
+  if (overrideRecipients && overrideRecipients.length) {
+    emails = Array.from(new Set(overrideRecipients));
+  } else {
+    if (file.customer_email) emails.push(file.customer_email);
+    if (file.contact_emails) {
+      emails.push(
+        ...file.contact_emails
+          .split(',')
+          .map((email) => email.trim())
+          .filter(Boolean)
+      );
+    }
+  }
+
   if (emails.length === 0) {
     throw new Error('No hay emails disponibles para enviar el correo');
   }
 
-  // Normalizamos el path de DB (que viene con backslash de Windows)
-  const relativePath = file.path.replace(/\\/g, '/');
+  const uniqueEmails = Array.from(new Set(emails));
 
-  // Armamos el path físico local
+  const relativePath = file.path.replace(/\\/g, '/');
   const absolutePath = path.join(process.env.FILE_SERVER_ROOT, relativePath);
 
-  // Validamos existencia
   if (!fs.existsSync(absolutePath)) {
     throw new Error('Archivo no encontrado en el servidor local');
   }
 
-  // Cargar traducciones
-  const translationsPath = path.join(__dirname, '../mail-generator/i18n', `${lang}.json`);
+  const translationsPath = path.join(__dirname, '../mail-generator/i18n', `${resolvedLang}.json`);
   const translations = JSON.parse(fs.readFileSync(translationsPath, 'utf8'));
 
-  // Cargar template
   const templatePath = path.join(__dirname, '../mail-generator/template/document.hbs');
   const templateContent = fs.readFileSync(templatePath, 'utf8');
   const template = Handlebars.compile(templateContent);
-  const filename = lang == 'en' ? file.name : await translateNameOfDocument(file.name);
+  const filename = resolvedLang === 'en' ? file.name : await translateNameOfDocument(file.name);
 
-  // Datos para el template
   const templateData = {
-    lang,
+    lang: resolvedLang,
     dear: translations.mail.dear,
     subject: `📄 Gelymar: ${filename}`,
     title: filename,
@@ -98,7 +116,7 @@ async function sendFileToClient(file, lang = 'en') {
 
   const mailOptions = {
     from: `Gelymar <${process.env.SMTP_USER}>`,
-    to: emails.join(','),
+    to: uniqueEmails.join(','),
     subject: templateData.subject,
     html: htmlContent,
     attachments: [{
@@ -109,6 +127,7 @@ async function sendFileToClient(file, lang = 'en') {
 
   await transporter.sendMail(mailOptions);
 }
+
 
 async function translateNameOfDocument(name) {
   return DOC_NAME_MAP[name] || name;

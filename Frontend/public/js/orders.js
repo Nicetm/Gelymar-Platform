@@ -32,7 +32,7 @@ export async function initOrdersScript() {
       localStorage.removeItem('ordersSearchFilter');
     }
   } catch (error) {
-    console.warn('No se pudo restaurar filtro de �rdenes:', error);
+    console.warn('No se pudo restaurar filtro de �rdenes:', error);
   }
   
   // Verificar elementos necesarios (sin botón de refresh)
@@ -116,22 +116,18 @@ export async function initOrdersScript() {
       <tr data-id="${order.id}" class="hover:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition bg-white dark:bg-gray-900">
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">
           <div class="flex items-center gap-2">
-            <span>${order.pc || '-'}</span>
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" 
-                 title="${trafficLightTitle}"
-                 data-document-count="${order.document_count || 0}"
-                 data-estado-ov="${order.estado_ov || ''}"
-                 class="traffic-light-svg cursor-help">
-              <circle cx="12" cy="12" r="6" fill="${trafficLightColor === 'red' ? '#ef4444' : trafficLightColor === 'orange' ? '#f97316' : trafficLightColor === 'green' ? '#22c55e' : '#ef4444'}"/>
-            </svg>
+            <a href="/admin/clients/documents/view/${order.customer_uuid}?f=${order.id}&pc=${order.pc}&c=${order.customer_name}" 
+              class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline">
+              <span>${order.pc || '-'}</span>
+            </a>
           </div>
         </td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${order.oc || '-'}</td>
         <td class="px-4 py-3 break-all border-b border-gray-200 dark:border-gray-800">
-          <button class="customer-name-btn text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline transition-colors cursor-pointer" 
+          <a href="#" class="customer-name-btn text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline" 
                   data-customer-name="${order.customer_name || ''}">
             ${order.customer_name || '-'}
-          </button>
+          </a>
         </td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(order.fecha)}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${order.medio_envio_factura || '-'}</td>
@@ -149,76 +145,178 @@ export async function initOrdersScript() {
         </td>
         <td class="sticky right-0 bg-gray-50 dark:bg-gray-700 z-10 px-6 py-4 min-w-[120px] overflow-visible">
           <div class="flex justify-center gap-3 relative">
-            
-            <!-- Ver documentos y archivos -->
-            <div class="relative group">
-              <a href="/admin/clients/documents/view/${order.customer_uuid}?f=${order.id}&pc=${order.pc}&c=${order.customer_name}"
-                 class="go-to-order-btn text-gray-900 dark:text-white hover:text-green-500 transition">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-                  <polyline points="14 2 14 8 20 8"/>
-                </svg>
-              </a>
-              <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
-                          bg-green-600 text-white text-xs rounded px-2 py-1 shadow-lg
-                          opacity-0 group-hover:opacity-100 transition
-                          pointer-events-none whitespace-nowrap z-50">
-                ${window.translations?.carpetas?.tooltipGoToOrder || 'Ver documentos y archivos'}
-              </div>
-            </div>
-
             <!-- Ver lista de items -->
-            <div class="relative group">
+            <div class="relative">
               <a href="#" class="items-list-btn text-gray-900 dark:text-white hover:text-green-500 transition"
-                 data-order-pc="${order.pc}" data-order-oc="${order.oc}" data-factura="${order.factura}">
+                 data-order-pc="${order.pc}" data-order-oc="${order.oc}" data-factura="${order.factura}"
+                 data-tooltip="${window.translations?.carpetas?.tooltipViewItems || 'Ver lista de items'}"
+                 aria-label="${window.translations?.carpetas?.tooltipViewItems || 'Ver lista de items'}">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
                 </svg>
               </a>
-              <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
-                          bg-green-600 text-white text-xs rounded px-2 py-1 shadow-lg
-                          opacity-0 group-hover:opacity-100 transition
-                          pointer-events-none whitespace-nowrap z-50">
-                ${window.translations?.carpetas?.tooltipViewItems || 'Ver lista de items'}
-              </div>
             </div>
 
             <!-- Expandir items -->
-            <div class="relative group">
+            <div class="relative">
               <a href="#" class="expand-items-btn text-gray-900 dark:text-white hover:text-green-500 transition"
-                 data-order-pc="${order.pc}" data-order-oc="${order.oc}" data-factura="${order.factura}">
+                 data-order-pc="${order.pc}" data-order-oc="${order.oc}" data-factura="${order.factura}"
+                 data-tooltip="${window.translations?.carpetas?.tooltipExpandItems || 'Expandir items en tabla'}"
+                 aria-label="${window.translations?.carpetas?.tooltipExpandItems || 'Expandir items en tabla'}">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
                 </svg>
               </a>
-              <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
-                          bg-green-600 text-white text-xs rounded px-2 py-1 shadow-lg
-                          opacity-0 group-hover:opacity-100 transition
-                          pointer-events-none whitespace-nowrap z-50">
-                ${window.translations?.carpetas?.tooltipExpandItems || 'Expandir items en tabla'}
-              </div>
             </div>
 
             <!-- Ver detalles de orden -->
-            <div class="relative group">
+            <div class="relative">
               <a href="#" class="order-detail-btn text-gray-900 dark:text-white hover:text-green-500 transition"
-                 data-order-id="${order.id}" data-order-pc="${order.pc}" data-order-oc="${order.oc}">
+                 data-order-id="${order.id}" data-order-pc="${order.pc}" data-order-oc="${order.oc}"
+                 data-tooltip="${window.translations?.carpetas?.tooltipOrderDetails || 'Ver detalles de orden'}"
+                 aria-label="${window.translations?.carpetas?.tooltipOrderDetails || 'Ver detalles de orden'}">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
               </a>
-              <div class="absolute bottom-full right-0 mb-2
-                          bg-green-600 text-white text-xs rounded px-2 py-1 shadow-lg
-                          opacity-0 group-hover:opacity-100 transition
-                          pointer-events-none whitespace-nowrap z-50">
-                ${window.translations?.carpetas?.tooltipOrderDetails || 'Ver detalles de orden'}
-              </div>
             </div>
-
           </div>
         </td>
       </tr>
     `;
+  }
+
+  const floatingTooltipState = {
+    el: null,
+    currentTarget: null,
+    removeTimeout: null,
+    globalHandlersBound: false
+  };
+
+  function ensureFloatingTooltipElement() {
+    if (!floatingTooltipState.el) {
+      const tooltip = document.createElement('div');
+      tooltip.setAttribute('role', 'tooltip');
+      Object.assign(tooltip.style, {
+        position: 'fixed',
+        zIndex: '10',
+        backgroundColor: '#047857',
+        color: '#ffffff',
+        padding: '6px 10px',
+        borderRadius: '6px',
+        fontSize: '12px',
+        fontWeight: '500',
+        lineHeight: '1.4',
+        boxShadow: '0 8px 18px rgba(0, 0, 0, 0.25)',
+        pointerEvents: 'none',
+        whiteSpace: 'nowrap',
+        opacity: '0',
+        transition: 'opacity 120ms ease',
+        maxWidth: '320px',
+        textAlign: 'center'
+      });
+      floatingTooltipState.el = tooltip;
+    }
+    return floatingTooltipState.el;
+  }
+
+  function ensureFloatingTooltipHandlers() {
+    if (floatingTooltipState.globalHandlersBound) return;
+    floatingTooltipState.globalHandlersBound = true;
+    const hideOnChange = () => hideFloatingTooltip();
+    window.addEventListener('scroll', hideOnChange, true);
+    window.addEventListener('resize', hideOnChange, true);
+    window.addEventListener('keydown', event => {
+      if (event.key === 'Escape') {
+        hideFloatingTooltip();
+      }
+    }, true);
+  }
+
+  function positionFloatingTooltip(target, tooltipEl) {
+    const rect = target.getBoundingClientRect();
+    const tooltipRect = tooltipEl.getBoundingClientRect();
+    const spacing = 10;
+
+    let top = rect.top - tooltipRect.height - spacing;
+    if (top < spacing) {
+      top = rect.bottom + spacing;
+    }
+
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+    let left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
+    left = Math.min(Math.max(spacing, left), viewportWidth - tooltipRect.width - spacing);
+
+    tooltipEl.style.top = `${Math.round(top)}px`;
+    tooltipEl.style.left = `${Math.round(left)}px`;
+  }
+
+  function showFloatingTooltip(target) {
+    if (!target || !(target instanceof HTMLElement)) return;
+    const text = target.getAttribute('data-tooltip');
+    if (!text) return;
+
+    ensureFloatingTooltipHandlers();
+    clearTimeout(floatingTooltipState.removeTimeout);
+
+    const tooltipEl = ensureFloatingTooltipElement();
+    tooltipEl.textContent = text;
+
+    if (!tooltipEl.isConnected) {
+      document.body.appendChild(tooltipEl);
+    }
+
+    tooltipEl.style.opacity = '0';
+    tooltipEl.style.visibility = 'hidden';
+
+    requestAnimationFrame(() => {
+      tooltipEl.style.visibility = 'visible';
+      positionFloatingTooltip(target, tooltipEl);
+      requestAnimationFrame(() => {
+        tooltipEl.style.opacity = '1';
+      });
+    });
+
+    floatingTooltipState.currentTarget = target;
+  }
+
+  function hideFloatingTooltip() {
+    if (!floatingTooltipState.el) return;
+    const tooltipEl = floatingTooltipState.el;
+    tooltipEl.style.opacity = '0';
+    floatingTooltipState.currentTarget = null;
+    clearTimeout(floatingTooltipState.removeTimeout);
+    floatingTooltipState.removeTimeout = window.setTimeout(() => {
+      if (tooltipEl.parentElement) {
+        tooltipEl.parentElement.removeChild(tooltipEl);
+      }
+      tooltipEl.style.visibility = 'hidden';
+    }, 150);
+  }
+
+  function handleTooltipEnter(event) {
+    showFloatingTooltip(event.currentTarget);
+  }
+
+  function handleTooltipLeave(event) {
+    const target = event.currentTarget;
+    if (floatingTooltipState.currentTarget === target) {
+      if (event.type === 'mouseleave' && document.activeElement === target) {
+        return;
+      }
+      hideFloatingTooltip();
+    }
+  }
+
+  function setupFloatingTooltips(container) {
+    if (!container) return;
+    const tooltipTargets = container.querySelectorAll('[data-tooltip]');
+    tooltipTargets.forEach(target => {
+      target.addEventListener('mouseenter', handleTooltipEnter);
+      target.addEventListener('mouseleave', handleTooltipLeave);
+      target.addEventListener('focus', handleTooltipEnter);
+      target.addEventListener('blur', handleTooltipLeave);
+    });
   }
 
   // Función para cargar y renderizar órdenes
@@ -269,6 +367,7 @@ export async function initOrdersScript() {
     const pageData = filteredOrders.slice(start, start + itemsPerPage);
     
     // Limpiar tabla
+    hideFloatingTooltip();
     tableBody.innerHTML = '';
     
     // Renderizar filas de la página actual
@@ -300,6 +399,8 @@ export async function initOrdersScript() {
     let pageLabel = (typeof translations !== 'undefined' && translations.pageIndicator) ? translations.pageIndicator : '';
     let ofLabel = (typeof translations !== 'undefined' && translations.pageIndicatorSeparator) ? translations.pageIndicatorSeparator : ' -- ';
     pageIndicator.textContent = `${pageLabel} ${currentPage} ${ofLabel} ${totalPages}`;
+
+    setupFloatingTooltips(tableBody);
   }
 
   /**
@@ -318,47 +419,64 @@ export async function initOrdersScript() {
    * Función para ordenar las órdenes
    */
   function sortRows(column, direction) {
-    filteredOrders.sort((a, b) => {
-      let aValue, bValue;
-      
+    if (!column) return;
+
+    const dateColumns = new Set(['fecha', 'fecha_factura']);
+    const localeCompareOptions = { numeric: true, sensitivity: 'base' };
+    const multiplier = direction === 'desc' ? -1 : 1;
+
+    const getComparableValue = (order) => {
       switch (column) {
         case 'pc':
-          aValue = (a.pc || '').toLowerCase();
-          bValue = (b.pc || '').toLowerCase();
-          break;
+          return order.pc ?? '';
         case 'oc':
-          aValue = (a.oc || '').toLowerCase();
-          bValue = (b.oc || '').toLowerCase();
-          break;
+          return order.oc ?? '';
         case 'customer_name':
-          aValue = (a.customer_name || '').toLowerCase();
-          bValue = (b.customer_name || '').toLowerCase();
-          break;
+          return order.customer_name ?? '';
         case 'fecha':
-          aValue = a.fecha || '';
-          bValue = b.fecha || '';
-          break;
+          return order.fecha ?? '';
         case 'medio_envio_factura':
-          aValue = (a.medio_envio_factura || '').toLowerCase();
-          bValue = (b.medio_envio_factura || '').toLowerCase();
-          break;
+          return order.medio_envio_factura ?? '';
         case 'factura':
-          aValue = (a.factura || '').toLowerCase();
-          bValue = (b.factura || '').toLowerCase();
-          break;
+          return order.factura ?? '';
         case 'fecha_factura':
-          aValue = a.fecha_factura || '';
-          bValue = b.fecha_factura || '';
-          break;
+          return order.fecha_factura ?? '';
         default:
-          return 0;
+          return '';
       }
-      
-      if (direction === 'asc') {
-        return aValue.localeCompare(bValue);
-      } else {
-        return bValue.localeCompare(aValue);
+    };
+
+    filteredOrders.sort((aOrder, bOrder) => {
+      const rawA = getComparableValue(aOrder);
+      const rawB = getComparableValue(bOrder);
+
+      if (dateColumns.has(column)) {
+        const timeA = rawA ? new Date(rawA).getTime() : Number.NaN;
+        const timeB = rawB ? new Date(rawB).getTime() : Number.NaN;
+
+        const aInvalid = Number.isNaN(timeA);
+        const bInvalid = Number.isNaN(timeB);
+
+        if (aInvalid && bInvalid) return 0;
+        if (aInvalid) return 1 * multiplier;
+        if (bInvalid) return -1 * multiplier;
+
+        if (timeA === timeB) return 0;
+        return (timeA - timeB) * multiplier;
       }
+
+      const aValue = rawA.toString().toLowerCase();
+      const bValue = rawB.toString().toLowerCase();
+
+      const aEmpty = !aValue;
+      const bEmpty = !bValue;
+      if (aEmpty || bEmpty) {
+        if (aEmpty && bEmpty) return 0;
+        return aEmpty ? 1 * multiplier : -1 * multiplier;
+      }
+
+      const comparison = aValue.localeCompare(bValue, undefined, localeCompareOptions);
+      return comparison * multiplier;
     });
   }
 
@@ -763,57 +881,87 @@ async function openItemsModal(orderPc, orderOc, factura) {
     }
 
     const items = await response.json();
+    const normalizedItems = Array.isArray(items) ? items : [];
     
     // Actualizar header del modal
     document.getElementById('itemsInitials').textContent = 'IT';
     document.getElementById('itemsOrderTitle').textContent = `${window.translations?.carpetas?.order || 'Orden'}: ${orderOc}`;
-    document.getElementById('itemsCustomerName').textContent = `${window.translations?.carpetas?.cliente || 'Cliente'}: ${items[0]?.customer_name || '-'}`;
+    document.getElementById('itemsCustomerName').textContent = `${window.translations?.carpetas?.cliente || 'Cliente'}: ${normalizedItems[0]?.customer_name || '-'}`;
     document.getElementById('itemsOrderSubtitle').textContent = window.translations?.carpetas?.itemsList || 'Lista de Items';
     
+    const parseNumber = (value, fallback = 0) => {
+      if (value === null || value === undefined) return fallback;
+      if (typeof value === 'number' && Number.isFinite(value)) return value;
+      if (typeof value === 'string') {
+        const normalized = value.replace(/\s+/g, '').replace(',', '.');
+        const number = Number(normalized);
+        return Number.isFinite(number) ? number : fallback;
+      }
+      const number = Number(value);
+      return Number.isFinite(number) ? number : fallback;
+    };
+
     // Renderizar tabla de items
     if (itemsTableBody) {
-      const currency = items[0]?.currency || 'CLP';
-      itemsTableBody.innerHTML = items.map(item => {
-        const quantity = factura && factura !== 'null' ? parseFloat(item.kg_facturados) : parseFloat(item.kg_solicitados) || 0;
-        const unitPrice = parseFloat(item.unit_price) || 0;
-        const total = quantity * unitPrice;
-        const unit = item.unidad_medida || 'KG';
-        
-        return `
-          <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition">
-            <td class="px-6 py-4 text-xs text-gray-900 dark:text-gray-100">${item.item_code || '-'}</td>
-            <td class="px-6 py-4 text-xs text-gray-900 dark:text-gray-100">${item.item_name || '-'}</td>
-            <td class="px-6 py-4 text-xs text-center text-gray-900 dark:text-gray-100">${formatQuantity(quantity, unit)}</td>
-            <td class="px-6 py-4 text-xs text-center text-gray-900 dark:text-gray-100">${formatUnitPrice(unitPrice, currency)}</td>
-            <td class="px-6 py-4 text-xs text-center font-semibold text-gray-900 dark:text-gray-100">${formatTotal(total, currency)}</td>
+      const currency = normalizedItems[0]?.currency || 'CLP';
+
+      if (normalizedItems.length === 0) {
+        itemsTableBody.innerHTML = `
+          <tr>
+            <td colspan="5" class="px-6 py-4 text-center text-xs text-gray-500 dark:text-gray-400">
+              ${window.translations?.carpetas?.noItemsFound || 'No se encontraron items para esta orden'}
+            </td>
           </tr>
         `;
-      }).join('');
+      } else {
+        itemsTableBody.innerHTML = normalizedItems.map(item => {
+          const rawQuantity = factura && factura !== 'null' ? item.kg_facturados : item.kg_solicitados;
+          const quantity = parseNumber(rawQuantity);
+          const unitPrice = parseNumber(item.unit_price);
+          const total = quantity * unitPrice;
+          const unit = item.unidad_medida || 'KG';
+          
+          return `
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+              <td class="px-6 py-4 text-xs text-gray-900 dark:text-gray-100">${item.item_code || '-'}</td>
+              <td class="px-6 py-4 text-xs text-gray-900 dark:text-gray-100">${item.item_name || '-'}</td>
+              <td class="px-6 py-4 text-xs text-center text-gray-900 dark:text-gray-100">${formatQuantity(quantity, unit)}</td>
+              <td class="px-6 py-4 text-xs text-center text-gray-900 dark:text-gray-100">${formatUnitPrice(unitPrice, currency)}</td>
+              <td class="px-6 py-4 text-xs text-center font-semibold text-gray-900 dark:text-gray-100">${formatTotal(total, currency)}</td>
+            </tr>
+          `;
+        }).join('');
+      }
     }
 
     // Calcular y mostrar totales
-    const totalItemsCount = items.length;
-    
-    const totalQuantitySum = items.reduce((sum, item) => {
-      const quantity = factura && factura !== 'null' ? parseFloat(item.kg_facturados) : parseFloat(item.kg_solicitados) || 0;
+    const totalItemsCount = normalizedItems.length;
+
+    const totalQuantitySum = normalizedItems.reduce((sum, item) => {
+      const rawQuantity = factura && factura !== 'null' ? item.kg_facturados : item.kg_solicitados;
+      const quantity = parseNumber(rawQuantity);
       return sum + quantity;
     }, 0);
-    
-    const totalValueSum = items.reduce((sum, item) => {
-      const quantity = factura && factura !== 'null' ? parseFloat(item.kg_facturados) : parseFloat(item.kg_solicitados) || 0;
-      const price = parseFloat(item.unit_price) || 0;
-      const itemTotal = quantity * price;
-      return sum + itemTotal;
+
+    const totalValueSum = normalizedItems.reduce((sum, item) => {
+      const rawQuantity = factura && factura !== 'null' ? item.kg_facturados : item.kg_solicitados;
+      const quantity = parseNumber(rawQuantity);
+      const price = parseNumber(item.unit_price);
+      return sum + (quantity * price);
     }, 0);
 
-      const currency = items[0]?.currency || 'CLP';
-      const unit = items[0]?.unidad_medida || 'KG';
-      const gastoAdicional = parseFloat(items[0]?.gasto_adicional_flete) || 0;
-      
-      totalItems.textContent = totalItemsCount;
-      totalQuantity.textContent = formatQuantity(totalQuantitySum, unit);
-      totalValue.textContent = formatCurrency(totalValueSum.toFixed(4), currency);
-      totalGastoAdicional.textContent = formatCurrency(gastoAdicional.toFixed(4), currency);
+    const currency = (normalizedItems[0]?.currency) || 'CLP';
+    const unit = (normalizedItems[0]?.unidad_medida) || 'KG';
+    const hasFactura = factura && factura !== 'null';
+    const rawGastoAdicionalFactura = normalizedItems[0]?.gasto_adicional_flete_factura;
+    const shouldUseFacturaExpense = hasFactura && rawGastoAdicionalFactura !== null && rawGastoAdicionalFactura !== undefined && rawGastoAdicionalFactura !== '';
+    const rawGastoAdicional = shouldUseFacturaExpense ? rawGastoAdicionalFactura : normalizedItems[0]?.gasto_adicional_flete;
+    const gastoAdicional = parseNumber(rawGastoAdicional);
+    
+    if (totalItems) totalItems.textContent = totalItemsCount;
+    if (totalQuantity) totalQuantity.textContent = formatQuantity(totalQuantitySum, unit);
+    if (totalValue) totalValue.textContent = formatCurrency(totalValueSum, currency);
+    if (totalGastoAdicional) totalGastoAdicional.textContent = formatCurrency(gastoAdicional, currency);
 
     // Mostrar el modal
     itemsModal.classList.remove('hidden');
@@ -836,13 +984,13 @@ function formatCurrency(amount, currency = 'CLP') {
   };
   
   const mappedCurrency = currencyMap[currency] || currency;
+  const numericAmount = Number(typeof amount === 'string' ? amount.replace(',', '.') : amount);
+  const safeAmount = Number.isFinite(numericAmount) ? numericAmount : 0;
+  const formattedAmount = safeAmount.toLocaleString('es-CL', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
   
-  // Formatear el número sin símbolo de moneda
-  const parts = parseFloat(amount).toFixed(4).split('.');
-  const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  const formattedAmount = `${integerPart},${parts[1]}`;
-  
-  // Devolver con la moneda correcta
   return `${mappedCurrency} ${formattedAmount}`;
 }
 
@@ -860,21 +1008,29 @@ function formatQuantity(amount, unit = 'KG') {
   };
   
   const mappedUnit = unitMap[unit] || unit.toLowerCase();
-  return `${amount.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${mappedUnit}`;
+  const numericAmount = Number(typeof amount === 'string' ? amount.replace(',', '.') : amount);
+  const safeAmount = Number.isFinite(numericAmount) ? numericAmount : 0;
+  return `${safeAmount.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${mappedUnit}`;
 }
 
 // Función para formatear precio unitario
 function formatUnitPrice(amount, currency = 'CLP') {
-  const parts = amount.toFixed(4).split('.');
+  const numericAmount = Number(typeof amount === 'string' ? amount.replace(',', '.') : amount);
+  const safeAmount = Number.isFinite(numericAmount) ? numericAmount : 0;
+  const parts = safeAmount.toFixed(4).split('.');
   const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   return `${currency} ${integerPart},${parts[1]}`;
 }
 
 // Función para formatear total
 function formatTotal(amount, currency = 'CLP') {
-  const parts = amount.toFixed(4).split('.');
-  const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  return `${currency} ${integerPart},${parts[1]}`;
+  const numericAmount = Number(typeof amount === 'string' ? amount.replace(',', '.') : amount);
+  const safeAmount = Number.isFinite(numericAmount) ? numericAmount : 0;
+  const formattedAmount = safeAmount.toLocaleString('es-CL', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+  return `${currency} ${formattedAmount}`;
 }
 
 // Función para abrir el modal de detalles de orden
@@ -999,7 +1155,7 @@ async function toggleItemsExpansion(orderPc, orderOc, factura) {
     expandedRow.className = 'expanded-items-row bg-gray-50 dark:bg-gray-800';
     
     const expandedCell = document.createElement('td');
-    expandedCell.colSpan = 13; // Ajustar según el número de columnas de tu tabla
+    expandedCell.colSpan = 10; // Ajustar según el número de columnas de tu tabla
     expandedCell.className = 'px-6 py-4';
     
             // Crear tabla de items

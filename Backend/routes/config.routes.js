@@ -14,6 +14,9 @@ router.put('/notification-email-list', authMiddleware, authorizeRoles(['admin'])
 
 // Ruta para configuración del chat
 router.get('/headerBusquedaClienteChat', authMiddleware, authorizeRoles(['admin']), configController.getHeaderBusquedaClienteChat);
+router.get('/headerUsersSinCuenta', authMiddleware, authorizeRoles(['admin']), configController.getHeaderUsersSinCuenta);
+router.get('/headerNotificaciones', authMiddleware, authorizeRoles(['admin']), configController.getHeaderNotificaciones);
+router.get('/headerOrdenesSinDocumentos', authMiddleware, authorizeRoles(['admin']), configController.getHeaderOrdenesSinDocumentosConfig);
 
 // Visibilidad de opciones del panel de ajustes
 router.get('/admin-settings/visibility', authMiddleware, authorizeRoles(['admin']), configController.getAdminSettingsVisibility);

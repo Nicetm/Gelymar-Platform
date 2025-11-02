@@ -25,7 +25,7 @@ async function getAllCustomers() {
   return rows.map(row => {
     const customer = new Customer(row);
     customer.folder_count = row.folder_count;
-    customer.email = row.primary_email; // Usar el email principal de la nueva tabla
+    //customer.email = row.primary_email; // Usar el email principal de la nueva tabla
     customer.online = row.online; // Agregar campo online
     return customer;
   });

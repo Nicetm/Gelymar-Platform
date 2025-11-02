@@ -32,5 +32,72 @@
     "message_error": "Error sending message",
     "data_protection": "Data Protection",
     "data_protection_message": "All messages and data will be handled in accordance with our Privacy Policy."
+  },
+  "messaging": {
+    "shared": {
+      "done": "Completed",
+      "pending": "Pending",
+      "read": "No pending",
+      "unreadSuffix": "unread",
+      "viewAction": "View detail",
+      "docsLabel": "Documents uploaded: {count}",
+      "docsCurrent": "Documents uploaded",
+      "docsRequired": "Required documents",
+      "orderPc": "PC",
+      "orderOc": "OC",
+      "etd": "ETD",
+      "customerName": "Customer",
+      "customerRut": "RUT",
+      "customerEmail": "Email",
+      "createdAt": "Created at",
+      "unreadCount": "Pending messages",
+      "senderAdmin": "Admin",
+      "senderClient": "Client",
+      "conversationNotAvailable": "Not applicable",
+      "perPage": "Rows per page",
+      "pagination": {
+        "showing": "Showing",
+        "of": "of",
+        "empty": "No results",
+        "next": "Next",
+        "prev": "Previous"
+      }
+    },
+    "list": {
+      "pageTitle": "Messaging Center",
+      "description": "Track and manage operational alerts from a single place.",
+      "summaryTitle": "Overview",
+      "searchPlaceholder": "Search by customer, OC or PC",
+      "statusToggle": "Show pending only",
+      "emptyTitle": "Nothing to show",
+      "emptyBody": "Adjust the filters or check back later.",
+      "columns": {
+        "description": "Description",
+        "related": "Related to",
+        "date": "Date",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "tabs": {
+        "messages": "Messages",
+        "orders_missing_documents": "Orders missing documents",
+        "customers_without_account": "Clients without accounts"
+      },
+      "summary": {
+        "messages": "Pending conversations",
+        "orders_missing_documents": "Orders to complete",
+        "customers_without_account": "Clients without access"
+      }
+    },
+    "detail": {
+      "back": "Back to inbox",
+      "heading": "Message detail",
+      "metadata": "Summary",
+      "conversation": "Conversation",
+      "documents": "Required documents",
+      "customer": "Customer information",
+      "emptyConversation": "No messages yet.",
+      "missingData": "No data found for this record."
+    }
   }
 }

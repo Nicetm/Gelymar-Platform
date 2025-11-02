@@ -13,6 +13,8 @@ const swaggerSpec = require('./docs/swagger');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 const { normalizeRole } = require('./utils/role.util');
+const userService = require('./services/user.service');
+const { logger } = require('./utils/logger');
 require('module-alias/register');
 
 // Detectar si estamos en el servidor Ubuntu (172.20.10.151)
@@ -65,6 +67,7 @@ const cronConfigRoutes = require('./routes/cronConfig.routes');
 const monitoringRoutes = require('./routes/monitoring.routes');
 const fileserverRoutes = require('./routes/fileserver.routes');
 const configRoutes = require('./routes/config.routes');
+const messageRoutes = require('./routes/message.routes');
 
 
 // Configuración de rate limiting
@@ -185,6 +188,7 @@ app.use('/api/cron-config', cronConfigRoutes);
 
 // Rutas de configuración general (requieren autenticación de admin)
 app.use('/api/config', configRoutes);
+app.use('/api/messages', messageRoutes);
 
 
 // Sirve archivos estáticos desde la carpeta 'uploads'
@@ -304,7 +308,16 @@ io.on('connection', (socket) => {
   }
   
   // Manejar desconexión
-  socket.on('disconnect', () => {
+  socket.on('disconnect', async () => {
+    try {
+      if (socket?.user?.id) {
+        await userService.updateUserOnlineStatus(socket.user.id, 0);
+        io.to('admin-room').emit('updateNotifications');
+        logger.info(`Usuario ${socket.user.email || socket.user.id} marcado como offline (desconexión socket)`);
+      }
+    } catch (error) {
+      logger.error(`Error al actualizar estado online en disconnect: ${error.message}`);
+    }
   });
 });
 

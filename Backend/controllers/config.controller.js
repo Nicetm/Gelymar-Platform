@@ -34,6 +34,33 @@ async function getConfigParamsByName(name) {
 
 exports.getConfigParamsByName = getConfigParamsByName;
 
+const normalizeRoles = (roles) => {
+  if (!Array.isArray(roles)) return [];
+  return roles
+    .map((value) => Number(value))
+    .filter((value) => !Number.isNaN(value));
+};
+
+const isFeatureEnabledForUser = (params, userRoleId) => {
+  if (!params) return false;
+  const isEnabled = Number(params.enable) === 1;
+  if (!isEnabled) {
+    return false;
+  }
+
+  const allowedRoles = normalizeRoles(params.role_id || params.roles || []);
+  if (!allowedRoles.length) {
+    return true;
+  }
+
+  const numericRoleId = Number(userRoleId);
+  if (Number.isNaN(numericRoleId)) {
+    return false;
+  }
+
+  return allowedRoles.includes(numericRoleId);
+};
+
 /**
  * @route GET /api/config/pdf-mail-list
  * @desc Obtener lista de correos para PDFs
@@ -83,6 +110,33 @@ exports.getHeaderBusquedaClienteChat = async (req, res) => {
   }
 };
 
+exports.getHeaderNotificaciones = async (req, res) => {
+  try {
+    const params = await getConfigParamsByName('headerNotificaciones');
+    res.json(params || { enable: 0, role_id: [] });
+  } catch (error) {
+    console.error('[getHeaderNotificaciones] Error:', error.message);
+    res.status(500).json({ message: 'Error al obtener configuracion de notificaciones' });
+  }
+};
+
+exports.getHeaderOrdenesSinDocumentosConfig = async (req, res) => {
+  try {
+    const params = await getConfigParamsByName('headerOrdenesSinDocumentos');
+    res.json(
+      params || {
+        enable: 0,
+        role_id: [],
+        fechaAlerta: null,
+        minDocuments: null
+      }
+    );
+  } catch (error) {
+    console.error('[getHeaderOrdenesSinDocumentosConfig] Error:', error.message);
+    res.status(500).json({ message: 'Error al obtener configuracion de ordenes sin documentos' });
+  }
+};
+
 /**
  * @route GET /api/orders/alerts/missing-documents
  * @desc Obtener órdenes sin documentos suficientes
@@ -95,6 +149,13 @@ exports.getOrdersMissingDocumentsAlert = async (req, res) => {
     if (!params) {
       return res.status(404).json({
         message: 'Configuración headerOrdenesSinDocumentos no encontrada'
+      });
+    }
+
+    const canAccess = isFeatureEnabledForUser(params, req.user?.roleId);
+    if (!canAccess) {
+      return res.status(403).json({
+        message: 'Acceso a ordenes sin documentos no autorizado'
       });
     }
 
@@ -195,5 +256,15 @@ exports.getAdminSettingsVisibility = async (req, res) => {
   } catch (error) {
     console.error('[getAdminSettingsVisibility] Error:', error.message);
     res.status(500).json({ message: 'Error al obtener la visibilidad de ajustes' });
+  }
+};
+
+exports.getHeaderUsersSinCuenta = async (req, res) => {
+  try {
+    const params = await getConfigParamsByName('headerUsersSinCuenta');
+    res.json(params || { enable: 0, role_id: [] });
+  } catch (error) {
+    console.error('[getHeaderUsersSinCuenta] Error:', error.message);
+    res.status(500).json({ message: 'Error al obtener configuración de usuarios sin cuenta' });
   }
 };

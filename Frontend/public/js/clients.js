@@ -160,56 +160,166 @@ export async function initClientsScript() {
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${customer.country || '-'}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${customer.city || '-'}</td>
         <td class="px-6 py-4 text-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${customer.order_count || 0}</td>
-        <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">
-          <div class="flex justify-center items-center gap-3 text-gray-900 dark:text-white">
-            <div class="relative group">
-              <a href="/admin/clients/folders/view/${customer.uuid}?c=${customer.name}" class="hover:text-blue-500 transition">
+        <td class="sticky right-0 bg-gray-50 dark:bg-gray-700 z-10 px-6 py-4 min-w-[120px] overflow-visible border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">
+          <div class="flex justify-center gap-3 relative">
+            <div class="relative">
+              <a href="/admin/clients/folders/view/${customer.uuid}?c=${customer.name}" class="text-gray-900 dark:text-white hover:text-green-500 transition"
+                 data-tooltip="${window.translations?.clientes?.view_orders || 'Ver órdenes'}"
+                 aria-label="${window.translations?.clientes?.view_orders || 'Ver órdenes'}">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
               </a>
-              <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
-                          bg-blue-600 text-white text-xs rounded px-2 py-1 shadow-lg
-                          opacity-0 group-hover:opacity-100 transition
-                          pointer-events-none whitespace-nowrap z-50">
-                ${window.translations?.clientes?.view_orders || 'Ver órdenes'}
-              </div>
             </div>
-            <div class="relative group">
-              <a href="#" data-uuid="${customer.uuid}" class="hover:text-blue-500 transition">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 20.5C6.753 20.5 2.5 16.247 2.5 11S6.753 1.5 12 1.5 21.5 5.753 21.5 11 17.247 20.5 12 20.5z"/></svg>
-              </a>
-              <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
-                          bg-blue-600 text-white text-xs rounded px-2 py-1 shadow-lg
-                          opacity-0 group-hover:opacity-100 transition
-                          pointer-events-none whitespace-nowrap z-50">
-                ${window.translations?.clientes?.view_info || 'Ver información adicional'}
-              </div>
-            </div>
-            <div class="relative group">
-              <a href="#" data-uuid="${customer.uuid}" data-name="${customer.name}" class="hover:text-blue-500 transition manage-contacts-btn">
+            <div class="relative">
+              <a href="#" data-uuid="${customer.uuid}" data-name="${customer.name}" class="text-gray-900 dark:text-white hover:text-green-500 transition manage-contacts-btn"
+                 data-tooltip="${window.translations?.clientes?.manage_contacts || 'Gestionar contactos'}"
+                 aria-label="${window.translations?.clientes?.manage_contacts || 'Gestionar contactos'}">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
               </a>
-              <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
-                          bg-blue-600 text-white text-xs rounded px-2 py-1 shadow-lg
-                          opacity-0 group-hover:opacity-100 transition
-                          pointer-events-none whitespace-nowrap z-50">
-                ${window.translations?.clientes?.manage_contacts || 'Gestionar contactos'}
-              </div>
             </div>
-            <div class="relative group">
-              <a href="#" data-uuid="${customer.uuid}" data-name="${customer.name}" class="hover:text-blue-500 transition change-password-btn">
+            <div class="relative">
+              <a href="#" data-uuid="${customer.uuid}" data-name="${customer.name}" class="text-gray-900 dark:text-white hover:text-green-500 transition change-password-btn"
+                 data-tooltip="${window.translations?.clientes?.change_password || 'Cambiar contraseña'}"
+                 aria-label="${window.translations?.clientes?.change_password || 'Cambiar contraseña'}">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
               </a>
-              <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
-                          bg-blue-600 text-white text-xs rounded px-2 py-1 shadow-lg
-                          opacity-0 group-hover:opacity-100 transition
-                          pointer-events-none whitespace-nowrap z-50">
-                ${window.translations?.clientes?.change_password || 'Cambiar contraseña'}
-              </div>
             </div>
           </div>
         </td>
       </tr>
     `;
+  }
+
+  const floatingTooltipState = {
+    el: null,
+    currentTarget: null,
+    removeTimeout: null,
+    globalHandlersBound: false
+  };
+
+  function ensureFloatingTooltipElement() {
+    if (!floatingTooltipState.el) {
+      const tooltip = document.createElement('div');
+      tooltip.setAttribute('role', 'tooltip');
+      Object.assign(tooltip.style, {
+        position: 'fixed',
+        zIndex: '9999',
+        backgroundColor: '#047857',
+        color: '#ffffff',
+        padding: '6px 10px',
+        borderRadius: '6px',
+        fontSize: '12px',
+        fontWeight: '500',
+        lineHeight: '1.4',
+        boxShadow: '0 8px 18px rgba(0, 0, 0, 0.25)',
+        pointerEvents: 'none',
+        whiteSpace: 'nowrap',
+        opacity: '0',
+        transition: 'opacity 120ms ease',
+        maxWidth: '320px',
+        textAlign: 'center'
+      });
+      floatingTooltipState.el = tooltip;
+    }
+    return floatingTooltipState.el;
+  }
+
+  function ensureFloatingTooltipHandlers() {
+    if (floatingTooltipState.globalHandlersBound) return;
+    floatingTooltipState.globalHandlersBound = true;
+    const hideOnChange = () => hideFloatingTooltip();
+    window.addEventListener('scroll', hideOnChange, true);
+    window.addEventListener('resize', hideOnChange, true);
+    window.addEventListener('keydown', event => {
+      if (event.key === 'Escape') {
+        hideFloatingTooltip();
+      }
+    }, true);
+  }
+
+  function positionFloatingTooltip(target, tooltipEl) {
+    const rect = target.getBoundingClientRect();
+    const tooltipRect = tooltipEl.getBoundingClientRect();
+    const spacing = 10;
+
+    let top = rect.top - tooltipRect.height - spacing;
+    if (top < spacing) {
+      top = rect.bottom + spacing;
+    }
+
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+    let left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
+    left = Math.min(Math.max(spacing, left), viewportWidth - tooltipRect.width - spacing);
+
+    tooltipEl.style.top = `${Math.round(top)}px`;
+    tooltipEl.style.left = `${Math.round(left)}px`;
+  }
+
+  function showFloatingTooltip(target) {
+    if (!target || !(target instanceof HTMLElement)) return;
+    const text = target.getAttribute('data-tooltip');
+    if (!text) return;
+
+    ensureFloatingTooltipHandlers();
+    clearTimeout(floatingTooltipState.removeTimeout);
+
+    const tooltipEl = ensureFloatingTooltipElement();
+    tooltipEl.textContent = text;
+
+    if (!tooltipEl.isConnected) {
+      document.body.appendChild(tooltipEl);
+    }
+
+    tooltipEl.style.opacity = '0';
+    tooltipEl.style.visibility = 'hidden';
+
+    requestAnimationFrame(() => {
+      tooltipEl.style.visibility = 'visible';
+      positionFloatingTooltip(target, tooltipEl);
+      requestAnimationFrame(() => {
+        tooltipEl.style.opacity = '1';
+      });
+    });
+
+    floatingTooltipState.currentTarget = target;
+  }
+
+  function hideFloatingTooltip() {
+    if (!floatingTooltipState.el) return;
+    const tooltipEl = floatingTooltipState.el;
+    tooltipEl.style.opacity = '0';
+    floatingTooltipState.currentTarget = null;
+    clearTimeout(floatingTooltipState.removeTimeout);
+    floatingTooltipState.removeTimeout = window.setTimeout(() => {
+      if (tooltipEl.parentElement) {
+        tooltipEl.parentElement.removeChild(tooltipEl);
+      }
+      tooltipEl.style.visibility = 'hidden';
+    }, 150);
+  }
+
+  function handleTooltipEnter(event) {
+    showFloatingTooltip(event.currentTarget);
+  }
+
+  function handleTooltipLeave(event) {
+    const target = event.currentTarget;
+    if (floatingTooltipState.currentTarget === target) {
+      if (event.type === 'mouseleave' && document.activeElement === target) {
+        return;
+      }
+      hideFloatingTooltip();
+    }
+  }
+
+  function setupFloatingTooltips(container) {
+    if (!container) return;
+    const tooltipTargets = container.querySelectorAll('[data-tooltip]');
+    tooltipTargets.forEach(target => {
+      target.addEventListener('mouseenter', handleTooltipEnter);
+      target.addEventListener('mouseleave', handleTooltipLeave);
+      target.addEventListener('focus', handleTooltipEnter);
+      target.addEventListener('blur', handleTooltipLeave);
+    });
   }
 
   // Función para cargar y renderizar clientes
@@ -288,6 +398,7 @@ export async function initClientsScript() {
     const pageData = filteredCustomers.slice(start, start + itemsPerPage);
     
     // Limpiar tabla
+    hideFloatingTooltip();
     tableBody.innerHTML = '';
     
     // Renderizar filas de la página actual
@@ -312,6 +423,8 @@ export async function initClientsScript() {
     let pageLabel = (typeof translations !== 'undefined' && translations.pageIndicator) ? translations.pageIndicator : '';
     let ofLabel = (typeof translations !== 'undefined' && translations.pageIndicatorSeparator) ? translations.pageIndicatorSeparator : ' -- ';
     pageIndicator.textContent = `${pageLabel} ${currentPage} ${ofLabel} ${totalPages}`;
+
+    setupFloatingTooltips(tableBody);
   }
 
   /**
@@ -353,47 +466,58 @@ export async function initClientsScript() {
    * Función para ordenar los clientes
    */
   function sortCustomers(column, direction) {
-    filteredCustomers.sort((a, b) => {
-      let aValue, bValue;
-      
+    if (!column) return;
+
+    const numericColumns = new Set(['order_count']);
+    const localeCompareOptions = { numeric: true, sensitivity: 'base' };
+    const multiplier = direction === 'desc' ? -1 : 1;
+
+    const getComparableValue = (customer) => {
       switch (column) {
         case 'name':
-          aValue = (a.name || '').toLowerCase();
-          bValue = (b.name || '').toLowerCase();
-          break;
+          return customer.name ?? '';
         case 'rut':
-          aValue = (a.rut || '').toLowerCase();
-          bValue = (b.rut || '').toLowerCase();
-          break;
+          return customer.rut ?? '';
         case 'email':
-          aValue = (a.email || '').toLowerCase();
-          bValue = (b.email || '').toLowerCase();
-          break;
+          return customer.email ?? '';
         case 'phone':
-          aValue = (a.phone || '').toLowerCase();
-          bValue = (b.phone || '').toLowerCase();
-          break;
+          return customer.phone ?? '';
         case 'country':
-          aValue = (a.country || '').toLowerCase();
-          bValue = (b.country || '').toLowerCase();
-          break;
+          return customer.country ?? '';
         case 'city':
-          aValue = (a.city || '').toLowerCase();
-          bValue = (b.city || '').toLowerCase();
-          break;
+          return customer.city ?? '';
         case 'order_count':
-          aValue = parseInt(a.order_count) || 0;
-          bValue = parseInt(b.order_count) || 0;
-          break;
+          return customer.order_count ?? 0;
         default:
-          return 0;
+          return '';
       }
-      
-      if (direction === 'asc') {
-        return aValue > bValue ? 1 : -1;
-      } else {
-        return aValue < bValue ? 1 : -1;
+    };
+
+    filteredCustomers.sort((aCustomer, bCustomer) => {
+      const rawA = getComparableValue(aCustomer);
+      const rawB = getComparableValue(bCustomer);
+
+      if (numericColumns.has(column)) {
+        const numA = Number(rawA) || 0;
+        const numB = Number(rawB) || 0;
+
+        if (numA === numB) return 0;
+        return (numA - numB) * multiplier;
       }
+
+      const aValue = rawA.toString().trim().toLowerCase();
+      const bValue = rawB.toString().trim().toLowerCase();
+
+      const aEmpty = aValue.length === 0;
+      const bEmpty = bValue.length === 0;
+
+      if (aEmpty || bEmpty) {
+        if (aEmpty && bEmpty) return 0;
+        return aEmpty ? 1 * multiplier : -1 * multiplier;
+      }
+
+      const comparison = aValue.localeCompare(bValue, undefined, localeCompareOptions);
+      return comparison * multiplier;
     });
   }
 

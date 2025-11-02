@@ -15,16 +15,12 @@ function formatCurrency(amount, currency = 'CLP') {
   };
   
   const mappedCurrency = currencyMap[currency] || currency;
-  
-  const formatted = new Intl.NumberFormat('es-CL', {
-    style: 'currency',
-    currency: mappedCurrency,
-    minimumFractionDigits: 4,
-    maximumFractionDigits: 4
-  }).format(amount);
-  
-  // Agregar espacio después del código de moneda y asegurar USD
-  return formatted.replace(/([A-Z]{2,3})\$/, '$1 $').replace('US $', 'USD $');
+  const safeAmount = parseNumber(amount);
+  const formattedAmount = safeAmount.toLocaleString('es-CL', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+  return `${mappedCurrency} ${formattedAmount}`;
 }
  
 function navigateToClientsWithFilter(customerName) {
@@ -61,9 +57,24 @@ function formatUnitPrice(amount) {
 
 // Función para formatear total
 function formatTotal(amount) {
-  const parts = amount.toFixed(4).split('.');
-  const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  return `$${integerPart},${parts[1]}`;
+  const safeAmount = parseNumber(amount);
+  const formattedAmount = safeAmount.toLocaleString('es-CL', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+  return `$${formattedAmount}`;
+}
+
+function parseNumber(value, fallback = 0) {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const normalized = value.replace(/\s+/g, '').replace(',', '.');
+    const number = Number(normalized);
+    return Number.isFinite(number) ? number : fallback;
+  }
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
 }
 
 // Función para abrir modal de items (mover fuera de initFoldersScript)
@@ -96,6 +107,8 @@ async function openItemsModal(orderPc, orderOc, factura) {
     }
 
     const items = await response.json();
+    const normalizedItems = Array.isArray(items) ? items : [];
+    const hasFactura = factura && factura !== 'null';
     
     // Actualizar header del modal
     document.getElementById('itemsInitials').textContent = 'IT';
@@ -104,51 +117,68 @@ async function openItemsModal(orderPc, orderOc, factura) {
     
     // Renderizar tabla de items
     if (itemsTableBody) {
-      const currency = items[0]?.currency || 'CLP';
-      itemsTableBody.innerHTML = items.map(item => {
-        const quantity = parseFloat(item.kg_solicitados) || 0;
-        const unitPrice = parseFloat(item.unit_price) || 0;
-        const total = quantity * unitPrice;
-        const unit = item.unidad_medida || 'KG';
-        
-        return `
-          <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition">
-            <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">${item.item_code || 'N/A'}</td>
-            <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">${item.item_name || 'N/A'}</td>
-            <td class="px-6 py-4 text-sm text-center text-gray-900 dark:text-gray-100">${formatQuantity(quantity, unit)}</td>
-            <td class="px-6 py-4 text-sm text-center text-gray-900 dark:text-gray-100">${formatUnitPrice(unitPrice)}</td>
-            <td class="px-6 py-4 text-sm text-center font-semibold text-gray-900 dark:text-gray-100">${formatTotal(total)}</td>
+      const currency = normalizedItems[0]?.currency || 'CLP';
+      if (normalizedItems.length === 0) {
+        itemsTableBody.innerHTML = `
+          <tr>
+            <td colspan="5" class="px-6 py-4 text-center text-xs text-gray-500 dark:text-gray-400">
+              ${window.translations?.carpetas?.noItemsFound || 'No se encontraron items para esta orden'}
+            </td>
           </tr>
         `;
-      }).join('');
+      } else {
+        itemsTableBody.innerHTML = normalizedItems.map(item => {
+          const rawQuantity = hasFactura ? item.kg_facturados : item.kg_solicitados;
+          const quantity = parseNumber(rawQuantity);
+          const unitPrice = parseNumber(item.unit_price);
+          const total = quantity * unitPrice;
+          const unit = item.unidad_medida || 'KG';
+
+          return `
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+              <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">${item.item_code || 'N/A'}</td>
+              <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">${item.item_name || 'N/A'}</td>
+              <td class="px-6 py-4 text-sm text-center text-gray-900 dark:text-gray-100">${formatQuantity(quantity, unit)}</td>
+              <td class="px-6 py-4 text-sm text-center text-gray-900 dark:text-gray-100">${formatUnitPrice(unitPrice)}</td>
+              <td class="px-6 py-4 text-sm text-center font-semibold text-gray-900 dark:text-gray-100">${formatTotal(total)}</td>
+            </tr>
+          `;
+        }).join('');
+      }
     }
 
     // Calcular y mostrar totales
     const totalItems = document.getElementById('totalItems');
     const totalQuantity = document.getElementById('totalQuantity');
     const totalValue = document.getElementById('totalValue');
-    
-    if (totalItems && totalQuantity && totalValue) {
-      const totalItemsCount = items.length;
-      
-      const totalQuantitySum = items.reduce((sum, item) => {
-        const quantity = parseFloat(item.kg_solicitados) || 0;
-        return sum + quantity;
-      }, 0);
-      
-      const totalValueSum = items.reduce((sum, item) => {
-        const quantity = parseFloat(item.kg_solicitados) || 0;
-        const price = parseFloat(item.unit_price) || 0;
-        const itemTotal = quantity * price;
-        return sum + itemTotal;
-      }, 0);
+    const totalGastoAdicional = document.getElementById('totalGastoAdicional');
 
-      const currency = items[0]?.currency || 'CLP';
-      const unit = items[0]?.unidad_medida || 'KG';
-      totalItems.textContent = totalItemsCount;
-      totalQuantity.textContent = formatQuantity(totalQuantitySum, unit);
-      totalValue.textContent = formatCurrency(totalValueSum.toFixed(4), currency);
-    }
+    const totalItemsCount = normalizedItems.length;
+
+    const totalQuantitySum = normalizedItems.reduce((sum, item) => {
+      const rawQuantity = hasFactura ? item.kg_facturados : item.kg_solicitados;
+      const quantity = parseNumber(rawQuantity);
+      return sum + quantity;
+    }, 0);
+
+    const totalValueSum = normalizedItems.reduce((sum, item) => {
+      const rawQuantity = hasFactura ? item.kg_facturados : item.kg_solicitados;
+      const quantity = parseNumber(rawQuantity);
+      const price = parseNumber(item.unit_price);
+      return sum + (quantity * price);
+    }, 0);
+
+    const currency = normalizedItems[0]?.currency || 'CLP';
+    const unit = normalizedItems[0]?.unidad_medida || 'KG';
+    const rawGastoAdicionalFactura = normalizedItems[0]?.gasto_adicional_flete_factura;
+    const shouldUseFacturaExpense = hasFactura && rawGastoAdicionalFactura !== null && rawGastoAdicionalFactura !== undefined && rawGastoAdicionalFactura !== '';
+    const rawGastoAdicional = shouldUseFacturaExpense ? rawGastoAdicionalFactura : normalizedItems[0]?.gasto_adicional_flete;
+    const gastoAdicional = parseNumber(rawGastoAdicional);
+
+    if (totalItems) totalItems.textContent = totalItemsCount;
+    if (totalQuantity) totalQuantity.textContent = formatQuantity(totalQuantitySum, unit);
+    if (totalValue) totalValue.textContent = formatCurrency(totalValueSum, currency);
+    if (totalGastoAdicional) totalGastoAdicional.textContent = formatCurrency(gastoAdicional, currency);
 
     // Mostrar modal
     itemsModal.classList.remove('hidden');
@@ -219,123 +249,341 @@ export async function initFoldersScript() {
   const section = qs('folderSection');
   const uuID = section?.dataset?.uuid;
 
-  const allRows = Array.from(tableBody?.querySelectorAll('tr') || []);
-
+  let allFolders = [];
+  let filteredFolders = [];
   let currentPage = 1;
   let itemsPerPage = parseInt(itemsPerPageSelect?.value || '10', 10);
-  let filteredRows = [...allRows];
   let currentSort = { column: null, direction: 'asc' };
 
   const params = new URLSearchParams(window.location.search);
   const clientName = params.get('c');
 
-  function getTrafficLightColor(folder) {
-    const documentCount = folder.document_count || 0;
-    const estadoOv = (folder.estado_ov || '').toLowerCase();
+  const floatingTooltipState = {
+    el: null,
+    currentTarget: null,
+    removeTimeout: null,
+    globalHandlersBound: false
+  };
 
-    if (estadoOv === 'cerrada') {
-      return 'green';
+  function ensureFloatingTooltipElement() {
+    if (!floatingTooltipState.el) {
+      const tooltip = document.createElement('div');
+      tooltip.setAttribute('role', 'tooltip');
+      Object.assign(tooltip.style, {
+        position: 'fixed',
+        zIndex: '10',
+        backgroundColor: '#047857',
+        color: '#ffffff',
+        padding: '6px 10px',
+        borderRadius: '6px',
+        fontSize: '12px',
+        fontWeight: '500',
+        lineHeight: '1.4',
+        boxShadow: '0 8px 18px rgba(0, 0, 0, 0.25)',
+        pointerEvents: 'none',
+        whiteSpace: 'nowrap',
+        opacity: '0',
+        transition: 'opacity 120ms ease',
+        maxWidth: '320px',
+        textAlign: 'center'
+      });
+      floatingTooltipState.el = tooltip;
     }
-
-    if (estadoOv === 'abierta' && documentCount >= 4) {
-      return 'orange';
-    }
-
-    if (estadoOv === 'abierta' && documentCount === 0) {
-      return 'red';
-    }
-
-    return 'red';
+    return floatingTooltipState.el;
   }
 
-  function getTrafficLightTitle(folder) {
-    const documentCount = folder.document_count || 0;
-    const estadoOv = (folder.estado_ov || '').toLowerCase();
+  function ensureFloatingTooltipHandlers() {
+    if (floatingTooltipState.globalHandlersBound) return;
+    floatingTooltipState.globalHandlersBound = true;
+    const hideOnChange = () => hideFloatingTooltip();
+    window.addEventListener('scroll', hideOnChange, true);
+    window.addEventListener('resize', hideOnChange, true);
+    window.addEventListener('keydown', event => {
+      if (event.key === 'Escape') {
+        hideFloatingTooltip();
+      }
+    }, true);
+  }
 
-    if (estadoOv === 'cerrada') {
-      return 'Orden cerrada';
+  function positionFloatingTooltip(target, tooltipEl) {
+    const rect = target.getBoundingClientRect();
+    const tooltipRect = tooltipEl.getBoundingClientRect();
+    const spacing = 10;
+
+    let top = rect.top - tooltipRect.height - spacing;
+    if (top < spacing) {
+      top = rect.bottom + spacing;
     }
 
-    if (estadoOv === 'abierta' && documentCount >= 4) {
-      return `Orden abierta con ${documentCount} documentos`;
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+    let left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
+    left = Math.min(Math.max(spacing, left), viewportWidth - tooltipRect.width - spacing);
+
+    tooltipEl.style.top = `${Math.round(top)}px`;
+    tooltipEl.style.left = `${Math.round(left)}px`;
+  }
+
+  function showFloatingTooltip(target) {
+    if (!target || !(target instanceof HTMLElement)) return;
+    const text = target.getAttribute('data-tooltip');
+    if (!text) return;
+
+    ensureFloatingTooltipHandlers();
+    clearTimeout(floatingTooltipState.removeTimeout);
+
+    const tooltipEl = ensureFloatingTooltipElement();
+    tooltipEl.textContent = text;
+
+    if (!tooltipEl.isConnected) {
+      document.body.appendChild(tooltipEl);
     }
 
-    if (estadoOv === 'abierta' && documentCount === 0) {
-      return 'Orden abierta sin documentos';
-    }
+    tooltipEl.style.opacity = '0';
+    tooltipEl.style.visibility = 'hidden';
 
-    return `Orden ${estadoOv} con ${documentCount} documentos`;
+    requestAnimationFrame(() => {
+      tooltipEl.style.visibility = 'visible';
+      positionFloatingTooltip(target, tooltipEl);
+      requestAnimationFrame(() => {
+        tooltipEl.style.opacity = '1';
+      });
+    });
+
+    floatingTooltipState.currentTarget = target;
+  }
+
+  function hideFloatingTooltip() {
+    if (!floatingTooltipState.el) return;
+    const tooltipEl = floatingTooltipState.el;
+    tooltipEl.style.opacity = '0';
+    floatingTooltipState.currentTarget = null;
+    clearTimeout(floatingTooltipState.removeTimeout);
+    floatingTooltipState.removeTimeout = window.setTimeout(() => {
+      if (tooltipEl.parentElement) {
+        tooltipEl.parentElement.removeChild(tooltipEl);
+      }
+      tooltipEl.style.visibility = 'hidden';
+    }, 150);
+  }
+
+  function handleTooltipEnter(event) {
+    showFloatingTooltip(event.currentTarget);
+  }
+
+  function handleTooltipLeave(event) {
+    const target = event.currentTarget;
+    if (floatingTooltipState.currentTarget === target) {
+      if (event.type === 'mouseleave' && document.activeElement === target) {
+        return;
+      }
+      hideFloatingTooltip();
+    }
+  }
+
+  function setupFloatingTooltips(container) {
+    if (!container) return;
+    const tooltipTargets = container.querySelectorAll('[data-tooltip]');
+    tooltipTargets.forEach(target => {
+      target.addEventListener('mouseenter', handleTooltipEnter);
+      target.addEventListener('mouseleave', handleTooltipLeave);
+      target.addEventListener('focus', handleTooltipEnter);
+      target.addEventListener('blur', handleTooltipLeave);
+    });
+  }
+
+  function renderFolderRow(folder) {
+    const displayCustomerName = folder.customer_name || clientName || '-';
+    const escapedCustomerNameAttr = displayCustomerName.replace(/"/g, '&quot;');
+    const encodedCustomerName = encodeURIComponent(displayCustomerName);
+    const safePcAttr = (folder.pc || '').toString().replace(/"/g, '&quot;');
+    const safeOcAttr = (folder.oc || '').toString().replace(/"/g, '&quot;');
+    const safeFacturaAttr = (folder.factura || '').toString().replace(/"/g, '&quot;');
+    const documentsUrl = `/admin/clients/documents/view/${folder.customer_uuid}?f=${folder.id}&pc=${folder.pc}&c=${encodedCustomerName}`;
+
+    return `
+      <tr data-id="${folder.id}" class="hover:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition bg-white dark:bg-gray-900">
+        <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">
+          <div class="flex items-center gap-2">
+            <a href="${documentsUrl}"
+              class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline">
+              <span>${folder.pc || '-'}</span>
+            </a>
+          </div>
+        </td>
+        <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${folder.oc || '-'}</td>
+        <td class="px-4 py-3 break-all border-b border-gray-200 dark:border-gray-800">
+          <button class="customer-name-btn text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline transition-colors cursor-pointer"
+                  data-customer-name="${escapedCustomerNameAttr}">
+            ${displayCustomerName}
+          </button>
+        </td>
+        <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(folder.fecha)}</td>
+        <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${folder.medio_envio_factura || '-'}</td>
+        <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${folder.factura || '-'}</td>
+        <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(folder.fecha_factura)}</td>
+        <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(folder.fecha_etd)}</td>
+        <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(folder.fecha_eta)}</td>
+        <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${folder.incoterm || '-'}</td>
+        <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${folder.puerto_destino || '-'}</td>
+        <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">
+          <a href="${documentsUrl}"
+             class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline">
+            ${window.translations?.carpetas?.viewDocuments || 'ver documentos'}
+          </a>
+        </td>
+        <td class="sticky right-0 bg-gray-50 dark:bg-gray-700 z-10 px-6 py-4 min-w-[120px] overflow-visible">
+          <div class="flex justify-center gap-3 relative">
+            <div class="relative">
+              <a href="#" class="items-list-btn text-gray-900 dark:text-white hover:text-green-500 transition"
+                 data-order-pc="${safePcAttr}" data-order-oc="${safeOcAttr}" data-factura="${safeFacturaAttr}"
+                 data-tooltip="${window.translations?.carpetas?.tooltipViewItems || 'Ver lista de items'}"
+                 aria-label="${window.translations?.carpetas?.tooltipViewItems || 'Ver lista de items'}">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+                </svg>
+              </a>
+            </div>
+            <div class="relative">
+              <a href="#" class="expand-items-btn text-gray-900 dark:text-white hover:text-green-500 transition"
+                 data-order-pc="${safePcAttr}" data-order-oc="${safeOcAttr}" data-factura="${safeFacturaAttr}"
+                 data-tooltip="${window.translations?.carpetas?.tooltipExpandItems || 'Expandir items en tabla'}"
+                 aria-label="${window.translations?.carpetas?.tooltipExpandItems || 'Expandir items en tabla'}">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+                </svg>
+              </a>
+            </div>
+            <div class="relative">
+              <a href="#" class="order-detail-btn text-gray-900 dark:text-white hover:text-green-500 transition"
+                 data-order-id="${folder.id}" data-order-pc="${safePcAttr}" data-order-oc="${safeOcAttr}"
+                 data-tooltip="${window.translations?.carpetas?.tooltipOrderDetails || 'Ver detalles de orden'}"
+                 aria-label="${window.translations?.carpetas?.tooltipOrderDetails || 'Ver detalles de orden'}">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+              </a>
+            </div>
+          </div>
+        </td>
+      </tr>
+    `;
   }
 
   function renderTable() {
+    if (!tableBody) return;
+
+    hideFloatingTooltip();
+
+    const totalItems = filteredFolders.length;
+    const totalPages = Math.ceil(totalItems / itemsPerPage) || 0;
+
+    if (totalPages > 0 && currentPage > totalPages) {
+      currentPage = totalPages;
+    } else if (totalPages === 0) {
+      currentPage = 1;
+    }
+
     const start = (currentPage - 1) * itemsPerPage;
-    const pageData = filteredRows.slice(start, start + itemsPerPage);
+    const pageData = filteredFolders.slice(start, start + itemsPerPage);
 
-    allRows.forEach(row => {
-      row.style.display = 'none';
-    });
+    tableBody.innerHTML = '';
 
-    pageData.forEach(row => {
-      row.style.display = '';
-    });
-    
+    if (pageData.length === 0) {
+      tableBody.innerHTML = `
+        <tr class="bg-white dark:bg-gray-900">
+          <td colspan="13" class="px-6 py-8 text-center text-gray-500">
+            ${window.translations?.carpetas?.emptyState || 'No se encontraron carpetas'}
+          </td>
+        </tr>
+      `;
+    } else {
+      pageData.forEach(folder => {
+        tableBody.insertAdjacentHTML('beforeend', renderFolderRow(folder));
+      });
+    }
+
     if (pageIndicator) {
-      pageIndicator.textContent = `Page ${currentPage} of ${Math.ceil(filteredRows.length / itemsPerPage)}`;
+      const displayCurrent = totalPages === 0 ? 0 : currentPage;
+      pageIndicator.textContent = `Page ${displayCurrent} of ${totalPages}`;
     }
+
+    setupFloatingTooltips(tableBody);
   }
 
   /**
-   * Función para obtener el valor de una celda para ordenamiento
+   * Función para ordenar las carpetas
    */
-  function getCellValue(row, columnIndex) {
-    const cell = row.cells[columnIndex];
-    if (!cell) return '';
-    
-    let value = cell.textContent.trim();
-    
-    // Para las columnas de fecha, convertir a timestamp
-    if ([3, 6, 7, 8].includes(columnIndex)) {
-      if (value === '-') return 0;
-      const [day, month, year] = value.split('/');
-      if (!day || !month || !year) return 0;
-      return new Date(Number(year), Number(month) - 1, Number(day)).getTime();
-    }
-    
-    return value.toLowerCase();
-  }
+  function sortFolders(column, direction) {
+    if (!column) return;
 
-  /**
-   * Función para ordenar las filas
-   */
-  function sortRows(column, direction) {
-    const columnMap = {
-      'pc': 0,
-      'oc': 1,
-      'customer_name': 2,
-      'fecha': 3,
-      'medio_envio_factura': 4,
-      'factura': 5,
-      'fecha_factura': 6,
-      'fecha_etd': 7,
-      'fecha_eta': 8,
-      'incoterm': 9,
-      'puerto_destino': 10,
-      'certificados': 11
-    };
-    
-    const columnIndex = columnMap[column];
-    if (columnIndex === undefined) return;
-    
-    filteredRows.sort((a, b) => {
-      const valueA = getCellValue(a, columnIndex);
-      const valueB = getCellValue(b, columnIndex);
-      
-      if (direction === 'asc') {
-        return valueA > valueB ? 1 : valueA < valueB ? -1 : 0;
-      } else {
-        return valueA < valueB ? 1 : valueA > valueB ? -1 : 0;
+    const dateColumns = new Set(['fecha', 'fecha_factura', 'fecha_etd', 'fecha_eta']);
+    const localeCompareOptions = { numeric: true, sensitivity: 'base' };
+    const multiplier = direction === 'desc' ? -1 : 1;
+
+    const getComparableValue = (folder) => {
+      switch (column) {
+        case 'pc':
+          return folder.pc ?? '';
+        case 'oc':
+          return folder.oc ?? '';
+        case 'customer_name':
+          return folder.customer_name ?? '';
+        case 'fecha':
+          return folder.fecha ?? '';
+        case 'medio_envio_factura':
+          return folder.medio_envio_factura ?? '';
+        case 'factura':
+          return folder.factura ?? '';
+        case 'fecha_factura':
+          return folder.fecha_factura ?? '';
+        case 'fecha_etd':
+          return folder.fecha_etd ?? '';
+        case 'fecha_eta':
+          return folder.fecha_eta ?? '';
+        case 'incoterm':
+          return folder.incoterm ?? '';
+        case 'puerto_destino':
+          return folder.puerto_destino ?? '';
+        default:
+          return '';
       }
+    };
+
+    filteredFolders.sort((aFolder, bFolder) => {
+      const rawA = getComparableValue(aFolder);
+      const rawB = getComparableValue(bFolder);
+
+      if (dateColumns.has(column)) {
+        const timeA = rawA ? new Date(rawA).getTime() : Number.NaN;
+        const timeB = rawB ? new Date(rawB).getTime() : Number.NaN;
+
+        const aInvalid = Number.isNaN(timeA);
+        const bInvalid = Number.isNaN(timeB);
+
+        if (aInvalid && bInvalid) return 0;
+        if (aInvalid) return 1 * multiplier;
+        if (bInvalid) return -1 * multiplier;
+
+        if (timeA === timeB) return 0;
+        return (timeA - timeB) * multiplier;
+      }
+
+      const aValue = rawA.toString().trim().toLowerCase();
+      const bValue = rawB.toString().trim().toLowerCase();
+
+      const aEmpty = aValue.length === 0;
+      const bEmpty = bValue.length === 0;
+
+      if (aEmpty || bEmpty) {
+        if (aEmpty && bEmpty) return 0;
+        return aEmpty ? 1 * multiplier : -1 * multiplier;
+      }
+
+      const comparison = aValue.localeCompare(bValue, undefined, localeCompareOptions);
+      return comparison * multiplier;
     });
+
+    renderTable();
   }
 
   /**
@@ -374,150 +622,55 @@ export async function initFoldersScript() {
     });
     const folders = await res.json();
 
-    if (tableBody) {
-      tableBody.innerHTML = folders.map(folder => {
-        const trafficLightColor = getTrafficLightColor(folder);
-        const trafficLightTitle = getTrafficLightTitle(folder);
-        const displayCustomerName = folder.customer_name || clientName || '-';
-        const escapedCustomerNameAttr = displayCustomerName.replace(/"/g, '&quot;');
-        const encodedCustomerName = encodeURIComponent(displayCustomerName);
-        const safePcAttr = (folder.pc || '').toString().replace(/"/g, '&quot;');
-        const safeOcAttr = (folder.oc || '').toString().replace(/"/g, '&quot;');
-        const safeFacturaAttr = (folder.factura || '').toString().replace(/"/g, '&quot;');
-        const documentsUrl = `/admin/clients/documents/view/${folder.customer_uuid}?f=${folder.id}&pc=${folder.pc}&c=${encodedCustomerName}`;
+    allFolders = Array.isArray(folders) ? folders : [];
+    filterFolders({ resetPage: true });
+  }
 
-        return `
-          <tr data-id="${folder.id}" class="hover:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition bg-white dark:bg-gray-900">
-            <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">
-              <div class="flex items-center gap-2">
-                <span>${folder.pc || '-'}</span>
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                     title="${trafficLightTitle}"
-                     data-document-count="${folder.document_count || 0}"
-                     data-estado-ov="${folder.estado_ov || ''}"
-                     class="traffic-light-svg cursor-help">
-                  <circle cx="12" cy="12" r="6" fill="${trafficLightColor === 'red' ? '#ef4444' : trafficLightColor === 'orange' ? '#f97316' : trafficLightColor === 'green' ? '#22c55e' : '#ef4444'}"/>
-                </svg>
-              </div>
-            </td>
-            <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${folder.oc || '-'}</td>
-            <td class="px-4 py-3 break-all border-b border-gray-200 dark:border-gray-800">
-              <button class="customer-name-btn text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline transition-colors cursor-pointer"
-                      data-customer-name="${escapedCustomerNameAttr}">
-                ${displayCustomerName}
-              </button>
-            </td>
-            <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(folder.fecha)}</td>
-            <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${folder.medio_envio_factura || '-'}</td>
-            <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${folder.factura || '-'}</td>
-            <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(folder.fecha_factura)}</td>
-            <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(folder.fecha_etd)}</td>
-            <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(folder.fecha_eta)}</td>
-            <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${folder.incoterm || '-'}</td>
-            <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${folder.puerto_destino || '-'}</td>
-            <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">
-              <a href="${documentsUrl}"
-                 class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline">
-                ${window.translations?.carpetas?.viewDocuments || 'ver documentos'}
-              </a>
-            </td>
-            <td class="sticky right-0 bg-gray-50 dark:bg-gray-700 z-10 px-6 py-4 min-w-[120px] overflow-visible">
-              <div class="flex justify-center gap-3 relative">
+  function filterFolders({ resetPage = true } = {}) {
+    const query = (searchInput?.value || '').toLowerCase().trim();
 
-                <!-- Ver documentos y archivos -->
-                <div class="relative group">
-                  <a href="${documentsUrl}"
-                     class="go-to-order-btn text-gray-900 dark:text-white hover:text-green-500 transition">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-                      <polyline points="14 2 14 8 20 8"/>
-                    </svg>
-                  </a>
-                  <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
-                              bg-green-600 text-white text-xs rounded px-2 py-1 shadow-lg
-                              opacity-0 group-hover:opacity-100 transition
-                              pointer-events-none whitespace-nowrap z-50">
-                    ${window.translations?.carpetas?.tooltipGoToOrder || 'Ver documentos y archivos'}
-                  </div>
-                </div>
+    if (!query) {
+      filteredFolders = [...allFolders];
+    } else {
+      filteredFolders = allFolders.filter(folder => {
+        const searchableText = [
+          folder.pc,
+          folder.oc,
+          folder.customer_name,
+          folder.medio_envio_factura,
+          folder.factura,
+          folder.incoterm,
+          folder.puerto_destino,
+          folder.certificados,
+          folder.fecha,
+          folder.fecha_factura,
+          folder.fecha_etd,
+          folder.fecha_eta
+        ]
+          .map(value => (value ?? '').toString().toLowerCase())
+          .join(' ');
 
-                <!-- Ver lista de items -->
-                <div class="relative group">
-                  <a href="#" class="items-list-btn text-gray-900 dark:text-white hover:text-green-500 transition"
-                     data-order-pc="${safePcAttr}" data-order-oc="${safeOcAttr}" data-factura="${safeFacturaAttr}">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
-                    </svg>
-                  </a>
-                  <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
-                              bg-green-600 text-white text-xs rounded px-2 py-1 shadow-lg
-                              opacity-0 group-hover:opacity-100 transition
-                              pointer-events-none whitespace-nowrap z-50">
-                    ${window.translations?.carpetas?.tooltipViewItems || 'Ver lista de items'}
-                  </div>
-                </div>
+        return searchableText.includes(query);
+      });
+    }
 
-                <!-- Expandir items -->
-                <div class="relative group">
-                  <a href="#" class="expand-items-btn text-gray-900 dark:text-white hover:text-green-500 transition"
-                     data-order-pc="${safePcAttr}" data-order-oc="${safeOcAttr}" data-factura="${safeFacturaAttr}">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
-                    </svg>
-                  </a>
-                  <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
-                              bg-green-600 text-white text-xs rounded px-2 py-1 shadow-lg
-                              opacity-0 group-hover:opacity-100 transition
-                              pointer-events-none whitespace-nowrap z-50">
-                    ${window.translations?.carpetas?.tooltipExpandItems || 'Expandir items en tabla'}
-                  </div>
-                </div>
-
-                <!-- Ver detalles de orden -->
-                <div class="relative group">
-                  <a href="#" class="order-detail-btn text-gray-900 dark:text-white hover:text-green-500 transition"
-                     data-order-id="${folder.id}" data-order-pc="${safePcAttr}" data-order-oc="${safeOcAttr}">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                  </a>
-                  <div class="absolute bottom-full right-0 mb-2
-                              bg-green-600 text-white text-xs rounded px-2 py-1 shadow-lg
-                              opacity-0 group-hover:opacity-100 transition
-                              pointer-events-none whitespace-nowrap z-50">
-                    ${window.translations?.carpetas?.tooltipOrderDetails || 'Ver detalles de orden'}
-                  </div>
-                </div>
-
-              </div>
-            </td>
-          </tr>
-        `;
-      }).join('');
-
-      allRows.length = 0;
-      allRows.push(...Array.from(tableBody.querySelectorAll('tr')));
-      filteredRows = [...allRows];
+    if (resetPage) {
       currentPage = 1;
+    }
+
+    if (currentSort.column) {
+      sortFolders(currentSort.column, currentSort.direction);
+    } else {
       renderTable();
     }
   }
 
   searchInput?.addEventListener('input', () => {
-    const query = searchInput.value.toLowerCase();
-    filteredRows = allRows.filter(row => row.textContent.toLowerCase().includes(query));
-    
-    // Aplicar ordenamiento actual si existe
-    if (currentSort.column) {
-      sortRows(currentSort.column, currentSort.direction);
-    }
-    
-    currentPage = 1;
-    renderTable();
+    filterFolders();
   });
 
   itemsPerPageSelect?.addEventListener('change', () => {
-    itemsPerPage = parseInt(itemsPerPageSelect.value, 10);
+    itemsPerPage = parseInt(itemsPerPageSelect.value, 10) || 10;
     currentPage = 1;
     renderTable();
   });
@@ -530,8 +683,8 @@ export async function initFoldersScript() {
   });
 
   nextPageBtn?.addEventListener('click', () => {
-    const totalPages = Math.ceil(filteredRows.length / itemsPerPage);
-    if (currentPage < totalPages) {
+    const totalPages = Math.ceil(filteredFolders.length / itemsPerPage) || 0;
+    if (totalPages > 0 && currentPage < totalPages) {
       currentPage += 1;
       renderTable();
     }
@@ -548,37 +701,25 @@ export async function initFoldersScript() {
     }
   });
 
-
-
-  /**
-   * Event listeners para ordenamiento de columnas
-   */
   document.addEventListener('click', (e) => {
     const header = e.target.closest('th[data-sort]');
     if (!header) return;
-    
+
     e.preventDefault();
     const column = header.dataset.sort;
-    
-    // Cambiar dirección si es la misma columna
+
     if (currentSort.column === column) {
       currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
     } else {
       currentSort.column = column;
       currentSort.direction = 'asc';
     }
-    
-    // Ordenar las filas
-    sortRows(currentSort.column, currentSort.direction);
-    
-    // Actualizar iconos
+
+    sortFolders(currentSort.column, currentSort.direction);
     updateSortIcons(currentSort.column, currentSort.direction);
-    
-    // Re-renderizar tabla
     currentPage = 1;
     renderTable();
   });
-
   /**
    * Funcionalidad del modal de items
    */

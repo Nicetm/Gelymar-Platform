@@ -311,6 +311,8 @@ export function initFilesScript() {
     return;
   }
 
+  setupEmailRecipientsEditor(window.emailRecipients || []);
+
   function renderTable() {
     const start = (currentPage - 1) * itemsPerPage;
     const pageData = filteredRows.slice(start, start + itemsPerPage);
@@ -619,7 +621,252 @@ export function initFilesScript() {
     }
   }
 
-  async function sendDocument(fileId, orderNumber, customMessage, action) {
+  function resolveRecipientState() {
+    const editor = document.getElementById('emailRecipientsEditor');
+    const controller = window.emailRecipientController;
+    let recipients = [];
+
+    if (controller?.getActive) {
+      recipients = controller.getActive();
+    } else {
+      const hiddenInput = editor?.querySelector('#selectedEmailRecipients');
+      if (hiddenInput?.value) {
+        recipients = hiddenInput.value
+          .split(',')
+          .map((email) => email.trim())
+          .filter(Boolean);
+      }
+    }
+
+    const noRecipientsMessage =
+      controller?.getNoRecipientsMessage?.() ||
+      editor?.dataset?.noRecipients ||
+      'Debe seleccionar al menos un correo';
+
+    return {
+      recipients,
+      noRecipientsMessage,
+      editor
+    };
+  }
+
+  function setupEmailRecipientsEditor(initialEmails = []) {
+    const editor = document.getElementById('emailRecipientsEditor');
+    if (!editor) {
+      window.emailRecipientController = {
+        getActive: () => Array.isArray(initialEmails) ? [...initialEmails] : [],
+        reset: () => {},
+        setBase: () => {},
+        addToKnown: () => {},
+        getNoRecipientsMessage: () => 'Debe seleccionar al menos un correo'
+      };
+      return;
+    }
+
+    const dataset = editor.dataset || {};
+    const activeContainer = editor.querySelector('#activeEmailChips');
+    const availableWrapper = editor.querySelector('#availableEmailsWrapper');
+    const availableContainer = editor.querySelector('#availableEmailChips');
+    const newEmailInput = editor.querySelector('#newEmailInput');
+    const addEmailBtn = editor.querySelector('#addEmailBtn');
+    const hiddenInput = editor.querySelector('#selectedEmailRecipients');
+
+    const addPlaceholder = dataset.addPlaceholder || newEmailInput?.placeholder || 'Agregar correo...';
+    const addButtonLabel = dataset.addButtonLabel || 'Agregar correo';
+    const removeLabel = dataset.removeLabel || 'Eliminar correo';
+    const noActiveLabel = dataset.noActive || 'No hay correos seleccionados';
+    const invalidEmailMessage = dataset.invalidEmail || 'Correo electrónico inválido';
+    const emailExistsMessage = dataset.emailExists || 'El correo ya está en la lista';
+    const noRecipientsMessage = dataset.noRecipients || 'Debe seleccionar al menos un correo';
+
+    if (newEmailInput) {
+      newEmailInput.placeholder = addPlaceholder;
+    }
+
+    if (addEmailBtn) {
+      addEmailBtn.setAttribute('aria-label', addButtonLabel);
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
+    const normalize = (email) => (typeof email === 'string' ? email.trim() : '');
+
+    const knownEmails = new Set();
+    let baseEmails = [];
+    let activeEmails = new Set();
+
+    const syncHiddenInput = () => {
+      if (hiddenInput) {
+        hiddenInput.value = Array.from(activeEmails).join(',');
+      }
+    };
+
+    const renderActive = () => {
+      if (!activeContainer) return;
+      activeContainer.innerHTML = '';
+
+      if (activeEmails.size === 0) {
+        const empty = document.createElement('span');
+        empty.className = 'text-xs text-gray-500 dark:text-gray-400';
+        empty.textContent = noActiveLabel;
+        activeContainer.appendChild(empty);
+        return;
+      }
+
+      Array.from(activeEmails).forEach((email) => {
+        const chip = document.createElement('span');
+        chip.className = 'inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 dark:bg-blue-900/40 dark:text-blue-200';
+
+        const text = document.createElement('span');
+        text.textContent = email;
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'text-blue-600 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-100 focus:outline-none';
+        removeBtn.setAttribute('aria-label', `${removeLabel} ${email}`);
+        removeBtn.innerHTML = '&times;';
+        removeBtn.addEventListener('click', () => {
+          activeEmails.delete(email);
+          renderAll();
+        });
+
+        chip.append(text, removeBtn);
+        activeContainer.appendChild(chip);
+      });
+    };
+
+    const renderAvailable = () => {
+      if (!availableWrapper || !availableContainer) return;
+      availableContainer.innerHTML = '';
+
+      const availableList = Array.from(knownEmails).filter((email) => !activeEmails.has(email));
+      if (!availableList.length) {
+        availableWrapper.classList.add('hidden');
+        return;
+      }
+
+      availableWrapper.classList.remove('hidden');
+
+      availableList.forEach((email) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'inline-flex items-center gap-1 rounded-full border border-dashed border-blue-300 px-3 py-1 text-xs text-blue-600 transition hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/30';
+        button.setAttribute('aria-label', `${addButtonLabel} ${email}`);
+        button.innerHTML = `<svg class="w-3 h-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg><span>${email}</span>`;
+        button.addEventListener('click', () => {
+          activeEmails.add(email);
+          renderAll();
+        });
+        availableContainer.appendChild(button);
+      });
+    };
+
+    const renderAll = () => {
+      renderActive();
+      renderAvailable();
+      syncHiddenInput();
+    };
+
+    const addEmailToActive = (email) => {
+      const normalized = normalize(email);
+      if (!normalized) return;
+
+      if (!emailRegex.test(normalized)) {
+        showNotification(invalidEmailMessage, 'error');
+        return;
+      }
+
+      if (activeEmails.has(normalized)) {
+        showNotification(emailExistsMessage, 'warning');
+        return;
+      }
+
+      activeEmails.add(normalized);
+      knownEmails.add(normalized);
+      renderAll();
+    };
+
+    const addFromInput = () => {
+      if (!newEmailInput) return;
+      const value = normalize(newEmailInput.value);
+      if (!value) return;
+
+      addEmailToActive(value);
+      newEmailInput.value = '';
+      newEmailInput.focus();
+    };
+
+    if (addEmailBtn) {
+      addEmailBtn.addEventListener('click', addFromInput);
+    }
+
+    if (newEmailInput) {
+      newEmailInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          addFromInput();
+        }
+      });
+    }
+
+    const setActiveFrom = (list) => {
+      activeEmails.clear();
+      if (Array.isArray(list)) {
+        list.map(normalize).filter(Boolean).forEach((email) => {
+          activeEmails.add(email);
+          knownEmails.add(email);
+        });
+      }
+      renderAll();
+    };
+
+    const setBaseEmails = (list) => {
+      const normalizedList = Array.isArray(list)
+        ? list.map(normalize).filter(Boolean)
+        : [];
+      baseEmails = Array.from(new Set(normalizedList));
+      baseEmails.forEach((email) => knownEmails.add(email));
+      setActiveFrom(baseEmails);
+    };
+
+    const initialNormalized = Array.isArray(initialEmails)
+      ? initialEmails.map(normalize).filter(Boolean)
+      : [];
+
+    initialNormalized.forEach((email) => knownEmails.add(email));
+    baseEmails = Array.from(new Set(initialNormalized));
+    setActiveFrom(baseEmails);
+
+    window.emailRecipientController = {
+      getActive: () => Array.from(activeEmails),
+      reset: (list) => {
+        if (Array.isArray(list) && list.length) {
+          setActiveFrom(list);
+        } else {
+          setActiveFrom(baseEmails);
+        }
+      },
+      setBase: (list) => {
+        setBaseEmails(list);
+      },
+      addToKnown: (list) => {
+        if (!Array.isArray(list)) return;
+        list.map(normalize).filter(Boolean).forEach((email) => knownEmails.add(email));
+        renderAvailable();
+      },
+      getNoRecipientsMessage: () => noRecipientsMessage
+    };
+  }
+
+  async function sendDocument(fileId, orderNumber, customMessage, action, providedRecipients = null, providedNoRecipientsMessage = null) {
+    const state = resolveRecipientState();
+    const recipients = Array.isArray(providedRecipients) ? providedRecipients : state.recipients;
+    const emptyMessage = providedNoRecipientsMessage || state.noRecipientsMessage;
+
+    if (!recipients.length) {
+      showNotification(emptyMessage, 'warning');
+      return false;
+    }
+
     try {
       const res = await fetch(`${apiBase}/api/files/${action}/${fileId}`, {
         method: 'POST',
@@ -627,41 +874,58 @@ export function initFilesScript() {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ orderNumber, customMessage })
+        body: JSON.stringify({ orderNumber, customMessage, emails: recipients })
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        // Si es error específico de email no configurado
         if (data.error === 'NO_EMAIL_CONFIGURED') {
           showNotification(data.message, 'error');
-          return;
+          return false;
         }
         showNotification(data.message || 'Error al enviar documento', 'error');
-        return;
+        return false;
       }
 
-      const message = action === 'send' ? 'Documento enviado correctamente' : 'Documento reenviado correctamente';
-      showNotification(message, 'success');
+      const successMessage =
+        data.message ||
+        (action === 'send' ? 'Documento enviado correctamente' : 'Documento reenviado correctamente');
+      showNotification(successMessage, 'success');
+
+      window.emailRecipients = recipients;
+      if (recipientsController?.setBase) {
+        recipientsController.setBase(recipients);
+      }
+
       await refreshFiles();
+      return true;
     } catch (error) {
       console.error('Error enviando documento:', error);
       showNotification('Error al enviar documento', 'error');
+      return false;
     }
   }
-
   function openMessageModal(fileId, fileName, order, action) {
-    const orderInput = qs('#orderNumber');
-    const docInput = qs('#orderDocument');
+    const orderDisplay = qs('#orderNumberDisplay');
+    const docDisplay = qs('#orderDocumentDisplay');
     const messageInput = qs('#customMessage');
 
-    if (orderInput) orderInput.value = order || '';
-    if (docInput) docInput.value = fileName || '';
+    if (orderDisplay) orderDisplay.textContent = order || '-';
+    if (docDisplay) docDisplay.textContent = fileName || '-';
     if (messageInput) messageInput.value = '';
+    if (window.emailRecipientController?.reset) {
+      const baseRecipients = Array.isArray(window.emailRecipients)
+        ? window.emailRecipients
+        : [];
+      window.emailRecipientController.reset(baseRecipients);
+    }
     
-    // Guardar datos para usar en el event listener
-    window.currentMessageData = { fileId, action };
+    window.currentMessageData = {
+      fileId,
+      action,
+      order: order || ''
+    };
     
     showModal('#messageModal');
   }
@@ -1494,41 +1758,50 @@ export function initFilesScript() {
 
   if (confirmMessageBtn) {
     confirmMessageBtn.addEventListener('click', async () => {
-      const orderInput = qs('#orderNumber');
       const messageInput = qs('#customMessage');
-      
+
       if (!window.currentMessageData) {
         showNotification('Error: No hay datos de mensaje', 'error');
         return;
       }
 
-      // Cerrar modal primero
-      hideModal('#messageModal');
+      const { recipients, noRecipientsMessage } = resolveRecipientState();
+      if (!recipients.length) {
+        showNotification(noRecipientsMessage, 'warning');
+        return;
+      }
 
-      // Mostrar confirmación
       const confirmed = await confirmAction(
         '¿Enviar documento?',
         'El documento se enviará por correo al cliente.',
         'question'
       );
 
-      if (confirmed) {
-        // Mostrar loading global
-        showGlobalSpinner();
-        
-        try {
-          await sendDocument(
-            window.currentMessageData.fileId, 
-            orderInput?.value?.trim() || '', 
-            messageInput?.value?.trim() || '', 
-            window.currentMessageData.action
-          );
-        } finally {
-          hideGlobalSpinner();
-          window.currentMessageData = null;
+      if (!confirmed) {
+        return;
+      }
+
+      hideModal('#messageModal');
+      showGlobalSpinner();
+      
+      try {
+        const success = await sendDocument(
+          window.currentMessageData.fileId,
+          window.currentMessageData.order || '',
+          messageInput?.value?.trim() || '',
+          window.currentMessageData.action,
+          recipients,
+          noRecipientsMessage
+        );
+
+        if (!success) {
+          showModal('#messageModal');
+          return;
         }
-      } else {
+
         window.currentMessageData = null;
+      } finally {
+        hideGlobalSpinner();
       }
     });
   }
@@ -1621,3 +1894,11 @@ export function initFilesScript() {
     });
   }
 }
+
+
+
+
+
+
+
+

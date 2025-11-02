@@ -77,103 +77,12 @@ const avatarUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURICom
   </div>
 </div>
 
-<script is:inline define:vars={{ apiBase, fileServer, lang }}>
-  const API_BASE = apiBase;
-  const FILE_SERVER = fileServer;
-  const LANG = lang;
 
-
-  /* ---------- Logout ---------- */
-  document.getElementById('logoutButton')?.addEventListener('click', async () => {
-    try {
-      const token = localStorage.getItem('token');
-      
-      // Llamar al endpoint de logout del backend si hay token
-      if (token) {
-        try {
-          await fetch(`${API_BASE}/api/auth/logout`, {
-            method: 'POST',
-            headers: { 
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
-          });
-        } catch (error) {
-          console.error('Error calling logout endpoint:', error);
-          // Continuar con logout local aunque falle el endpoint
-        }
-      }
-      
-      // Logout local
-      localStorage.removeItem('token');
-      localStorage.removeItem('userRole');
-      localStorage.removeItem('userEmail');
-      document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-      window.location.href = '/authentication/sign-in';
-    } catch (err) {
-      console.error('Error logging out:', err);
-      // Fallback: redirigir directamente
-      window.location.href = '/authentication/sign-in';
-    }
-  });
-
-  /* ---------- Hidratación en cliente ---------- */
-  document.addEventListener('DOMContentLoaded', async () => {
-    const nameEl  = document.querySelector('#userFullName');
-    const roleEl  = document.querySelector('#userRole');
-    const emailEl = document.querySelector('#userEmail');
-    /** @type {HTMLImageElement|null} */
-    const avatarEl = document.querySelector('#userAvatar');
-
-    if (!nameEl || !emailEl || !avatarEl) return;
-
-    // Busca token en localStorage con distintos nombres
-    let clientToken =
-      localStorage.getItem('token') ||
-      localStorage.getItem('accessToken') ||
-      localStorage.getItem('jwt') ||
-      null;
-
-    // Si no está en localStorage, intenta leer cookies accesibles por JS
-    if (!clientToken) {
-      const match = document.cookie.match(/(?:^|; )(?:token|accessToken|jwt)=([^;]+)/);
-      clientToken = match ? decodeURIComponent(match[1]) : null;
-    }
-    if (!clientToken) return;
-
-    try {
-      const res = await fetch(`${API_BASE}/api/auth/me`, {
-        headers: clientToken ? { Authorization: `Bearer ${clientToken}` } : undefined
-      });
-      if (!res.ok) return;
-
-      const u = await res.json();
-
-      const fullName = u.full_name ?? 'User';
-      const roleNameClient =
-        u.role ??
-        ((u.role_id === 1 || u.role_id === 3) ? 'Admin'
-         : u.role_id === 2 ? 'Client'
-         : 'Guest');
-      const email = u.email ?? '';
-
-      // Actualizar elementos del dropdown
-      nameEl.textContent = fullName;
-      roleEl.textContent = roleNameClient;
-      emailEl.textContent = email;
-
-      // Actualizar avatar
-      if (u.avatar_path) {
-        const avatarUrl = `${FILE_SERVER}/${u.avatar_path}`;
-        avatarEl.src = avatarUrl;
-      } else if (u.full_name) {
-        const fallbackUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(u.full_name)}&backgroundColor=4b5563&fontColor=ffffff`;
-        avatarEl.src = fallbackUrl;
-      }
-    } catch (err) {
-      console.error('Client-side user fetch failed:', err);
-    }
-  });
-
-
+<script
+  type="module"
+  define:vars={{ apiBase, fileServer, lang }}
+>
+  import { initUserMenu } from '/js/user-menu.js';
+  initUserMenu({ apiBase, fileServer, lang });
 </script>
+

@@ -6,21 +6,109 @@ import ColorModeSwitcher from '../components/ColorModeSwitcher.astro';
 import UserMenu from '../components/UserMenu.astro';
 import NotificationBell from '../components/NotificationBell.astro';
 
-// Obtener configuración del parámetro headerBusquedaClienteChat
-let chatEnabled = true;
+// Obtener configuración del parámetro headerBusquedaClienteChat y datos del usuario
+const apiBaseUrl = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
+const authToken = Astro.cookies.get('token')?.value || '';
+let chatEnabled = false;
+let notificationsEnabled = false;
+let roleId = null;
+let notificationSettings = {
+  orders: { enabled: false, config: null },
+  users: { enabled: false, config: null }
+};
+
 try {
-  const response = await fetch(`${import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL}/api/config/headerBusquedaClienteChat`, {
+  const meResponse = await fetch(`${apiBaseUrl}/api/auth/me`, {
     headers: {
-      'Authorization': `Bearer ${Astro.cookies.get('token')?.value || ''}`
+      'Authorization': `Bearer ${authToken}`
+    }
+  });
+
+  if (meResponse.ok) {
+    const meData = await meResponse.json();
+    roleId = Number(meData?.role_id ?? meData?.roleId ?? null);
+  }
+} catch (error) {
+  console.warn('Error obteniendo datos del usuario:', error);
+}
+
+const hasRole = (roles: unknown): boolean => {
+  if (!roleId || !Array.isArray(roles)) return false;
+  const normalized = (roles as Array<number | string>).map((value) => Number(value));
+  return normalized.includes(roleId);
+};
+
+try {
+  const response = await fetch(`${apiBaseUrl}/api/config/headerBusquedaClienteChat`, {
+    headers: {
+      'Authorization': `Bearer ${authToken}`
     }
   });
   if (response.ok) {
     const config = await response.json();
-    chatEnabled = config.enable === 1;
+    chatEnabled = config.enable === 1 && hasRole(config.role_id || config.roles || []);
   }
 } catch (error) {
   console.warn('Error obteniendo configuración de chat:', error);
 }
+
+const normalizeEnable = (value: unknown): boolean => {
+  if (value === undefined || value === null) return false;
+  const numeric = Number(value);
+  if (!Number.isNaN(numeric)) {
+    return numeric === 1;
+  }
+  return String(value).toLowerCase() === 'true';
+};
+
+const isFeatureEnabledForRole = (config: Record<string, unknown> | null): boolean => {
+  if (!config) return false;
+  if (!normalizeEnable(config.enable)) return false;
+  const roles = (config.role_id || config.roles || []) as unknown;
+  if (!Array.isArray(roles) || roles.length === 0) {
+    return true;
+  }
+  return hasRole(roles);
+};
+
+const fetchConfig = async (endpoint: string) => {
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/config/${endpoint}`, {
+      headers: {
+        'Authorization': `Bearer ${authToken}`
+      }
+    });
+    if (response.ok) {
+      return await response.json();
+    }
+  } catch (error) {
+    console.warn(`Error obteniendo configuración ${endpoint}:`, error);
+  }
+  return null;
+};
+
+const [
+  headerNotificacionesConfig,
+  headerOrdenesSinDocumentosConfig,
+  headerUsersSinCuentaConfig
+] = await Promise.all([
+  fetchConfig('headerNotificaciones'),
+  fetchConfig('headerOrdenesSinDocumentos'),
+  fetchConfig('headerUsersSinCuenta')
+]);
+
+notificationsEnabled = isFeatureEnabledForRole(headerNotificacionesConfig);
+
+notificationSettings = {
+  orders: {
+    enabled: isFeatureEnabledForRole(headerOrdenesSinDocumentosConfig),
+    config: headerOrdenesSinDocumentosConfig
+  },
+  users: {
+    enabled: isFeatureEnabledForRole(headerUsersSinCuentaConfig),
+    config: headerUsersSinCuentaConfig
+  }
+};
 ---
 
 <nav
@@ -116,7 +204,13 @@ try {
           </div>
         </div>
         )}
-        <NotificationBell unreadCount={0} />
+        {notificationsEnabled && (
+          <NotificationBell
+            unreadCount={0}
+            roleId={roleId}
+            notificationSettings={notificationSettings}
+          />
+        )}
         <ColorModeSwitcher />
         <UserMenu />
       </div>
@@ -125,8 +219,9 @@ try {
 </nav>
 
 <!-- Script que maneja los dropdowns -->
-<script is:inline>
-// @ts-nocheck
+<script is:inline define:vars={{ chatFeatureEnabled: chatEnabled }}>
+  // @ts-nocheck
+  const CHAT_FEATURE_ENABLED = chatFeatureEnabled;
   window.addEventListener("DOMContentLoaded", () => {
     const toggles = document.querySelectorAll("[data-dropdown-toggle]");
 
@@ -150,125 +245,127 @@ try {
       });
     });
 
-    // Manejo del dropdown de chat
-    const chatIcon = document.getElementById('chat-icon');
-    const chatDropdown = document.getElementById('chat-dropdown');
-    const chatSearch = document.getElementById('chat-search');
-    const chatClientList = document.getElementById('chat-client-list');
-    const chatEmptyState = document.getElementById('chat-empty-state');
-    
-    let allClients = [];
-    let filteredClients = [];
-
-    // Cargar clientes
-    async function loadClients() {
-      try {
-        const token = localStorage.getItem('token');
-        const apiBase = window.apiBase || window.location.origin.replace(':4321', ':3000');
-        
-        if (!token) {
-          console.error('No token found');
-          return;
-        }
-        
-        const response = await fetch(`${apiBase}/api/customers`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        
-        if (!response.ok) {
-          console.error('HTTP error:', response.status, response.statusText);
-          return;
-        }
-        
-        const contentType = response.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-          console.error('Response is not JSON:', contentType);
-          return;
-        }
-        
-        const data = await response.json();
-        allClients = data || [];
-        filteredClients = [...allClients];
-        renderClients();
-      } catch (error) {
-        console.error('Error cargando clientes:', error);
-      }
-    }
-
-    // Renderizar clientes
-    function renderClients() {
-      if (filteredClients.length === 0) {
-        chatClientList.innerHTML = `
-          <div id="chat-empty-state" class="p-4 text-center text-gray-500 dark:text-gray-400">
-            <svg class="w-6 h-6 mx-auto mb-2 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-            </svg>
-            <p class="text-sm">No se encontraron clientes</p>
-          </div>
-        `;
-        return;
-      }
+    if (CHAT_FEATURE_ENABLED) {
+      // Manejo del dropdown de chat
+      const chatIcon = document.getElementById('chat-icon');
+      const chatDropdown = document.getElementById('chat-dropdown');
+      const chatSearch = document.getElementById('chat-search');
+      const chatClientList = document.getElementById('chat-client-list');
+      const chatEmptyState = document.getElementById('chat-empty-state');
       
-      const clientsHTML = filteredClients.map(client => `
-        <div class="flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-700">
-          <div class="flex-1 flex items-center gap-2">
-            <div class="w-2 h-2 rounded-full ${client.online === 1 ? 'bg-green-500' : 'bg-red-500'}"></div>
-            <p class="text-xs font-medium text-gray-900 dark:text-white">${client.name.toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}</p>
-          </div>
-          <button 
-            class="ml-3 px-3 py-1 text-xs font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 rounded-md transition-colors"
-            onclick="openChat('${client.id}', '${client.name}', ${client.online === 1})"
-          >
-            Chatear
-          </button>
-        </div>
-      `).join('');
-      
-      chatClientList.innerHTML = clientsHTML;
-    }
+      let allClients = [];
+      let filteredClients = [];
 
-    // Filtrar clientes
-    function filterClients(searchTerm) {
-      filteredClients = allClients.filter(client => 
-        client.name.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-      renderClients();
-    }
-
-    // Función para abrir chat (global)
-    window.openChat = function(customerId, customerName, isOnline = false) {
-      // Cerrar el dropdown de clientes
-      chatDropdown.classList.add('hidden');
-      
-      // Abrir el chat del admin con el cliente seleccionado
-      if (window.openAdminChat) {
-        window.openAdminChat(customerId, customerName, isOnline);
-      }
-    };
-
-    if (chatIcon && chatDropdown) {
-      chatIcon.addEventListener('click', function(e) {
-        e.stopPropagation();
-        chatDropdown.classList.toggle('hidden');
-        
-        // Cargar clientes cada vez que se abre el dropdown para obtener datos actualizados
-        if (!chatDropdown.classList.contains('hidden')) {
-          loadClients();
-          // Limpiar el buscador
-          if (chatSearch) {
-            chatSearch.value = '';
-            filteredClients = [...allClients];
-            renderClients();
+      // Cargar clientes
+      async function loadClients() {
+        try {
+          const token = localStorage.getItem('token');
+          const apiBase = window.apiBase || window.location.origin.replace(':4321', ':3000');
+          
+          if (!token) {
+            console.error('No token found');
+            return;
           }
+          
+          const response = await fetch(`${apiBase}/api/customers`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          
+          if (!response.ok) {
+            console.error('HTTP error:', response.status, response.statusText);
+            return;
+          }
+          
+          const contentType = response.headers.get('content-type');
+          if (!contentType || !contentType.includes('application/json')) {
+            console.error('Response is not JSON:', contentType);
+            return;
+          }
+          
+          const data = await response.json();
+          allClients = data || [];
+          filteredClients = [...allClients];
+          renderClients();
+        } catch (error) {
+          console.error('Error cargando clientes:', error);
         }
-      });
-    }
+      }
 
-    // Buscar clientes
-    if (chatSearch) {
-      chatSearch.addEventListener('input', function(e) {
-        filterClients(e.target.value);
-      });
+      // Renderizar clientes
+      function renderClients() {
+        if (filteredClients.length === 0) {
+          chatClientList.innerHTML = `
+            <div id="chat-empty-state" class="p-4 text-center text-gray-500 dark:text-gray-400">
+              <svg class="w-6 h-6 mx-auto mb-2 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+              <p class="text-sm">No se encontraron clientes</p>
+            </div>
+          `;
+          return;
+        }
+        
+        const clientsHTML = filteredClients.map(client => `
+          <div class="flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-700">
+            <div class="flex-1 flex items-center gap-2">
+              <div class="w-2 h-2 rounded-full ${client.online === 1 ? 'bg-green-500' : 'bg-red-500'}"></div>
+              <p class="text-xs font-medium text-gray-900 dark:text-white">${client.name.toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}</p>
+            </div>
+            <button 
+              class="ml-3 px-3 py-1 text-xs font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 rounded-md transition-colors"
+              onclick="openChat('${client.id}', '${client.name}', ${client.online === 1})"
+            >
+              Chatear
+            </button>
+          </div>
+        `).join('');
+        
+        chatClientList.innerHTML = clientsHTML;
+      }
+
+      // Filtrar clientes
+      function filterClients(searchTerm) {
+        filteredClients = allClients.filter(client => 
+          client.name.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+        renderClients();
+      }
+
+      // Función para abrir chat (global)
+      window.openChat = function(customerId, customerName, isOnline = false) {
+        // Cerrar el dropdown de clientes
+        chatDropdown.classList.add('hidden');
+        
+        // Abrir el chat del admin con el cliente seleccionado
+        if (window.openAdminChat) {
+          window.openAdminChat(customerId, customerName, isOnline);
+        }
+      };
+
+      if (chatIcon && chatDropdown) {
+        chatIcon.addEventListener('click', function(e) {
+          e.stopPropagation();
+          chatDropdown.classList.toggle('hidden');
+          
+          // Cargar clientes cada vez que se abre el dropdown para obtener datos actualizados
+          if (!chatDropdown.classList.contains('hidden')) {
+            loadClients();
+            // Limpiar el buscador
+            if (chatSearch) {
+              chatSearch.value = '';
+              filteredClients = [...allClients];
+              renderClients();
+            }
+          }
+        });
+      }
+
+      // Buscar clientes
+      if (chatSearch) {
+        chatSearch.addEventListener('input', function(e) {
+          filterClients(e.target.value);
+        });
+      }
     }
 
     // Cierra todos si haces clic afuera

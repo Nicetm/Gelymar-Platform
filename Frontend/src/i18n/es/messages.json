@@ -32,5 +32,72 @@
     "message_error": "Error al enviar mensaje",
     "data_protection": "Protección de Datos",
     "data_protection_message": "Todos los mensajes y datos serán tratados de acuerdo con nuestra Política de Privacidad."
+  },
+  "messaging": {
+    "shared": {
+      "done": "Completado",
+      "pending": "Pendiente",
+      "read": "Sin pendientes",
+      "unreadSuffix": "sin leer",
+      "viewAction": "Ver detalle",
+      "docsLabel": "Documentos cargados: {count}",
+      "docsCurrent": "Documentos cargados",
+      "docsRequired": "Documentos requeridos",
+      "orderPc": "PC",
+      "orderOc": "OC",
+      "etd": "ETD",
+      "customerName": "Cliente",
+      "customerRut": "RUT",
+      "customerEmail": "Correo electrónico",
+      "createdAt": "Creado",
+      "unreadCount": "Mensajes pendientes",
+      "senderAdmin": "Admin",
+      "senderClient": "Cliente",
+      "conversationNotAvailable": "No aplica",
+      "perPage": "Filas por página",
+      "pagination": {
+        "showing": "Mostrando",
+        "of": "de",
+        "empty": "Sin resultados",
+        "next": "Siguiente",
+        "prev": "Anterior"
+      }
+    },
+    "list": {
+      "pageTitle": "Centro de Mensajes",
+      "description": "Revisa y administra las alertas operativas en un solo lugar.",
+      "summaryTitle": "Resumen",
+      "searchPlaceholder": "Buscar por cliente, OC o PC",
+      "statusToggle": "Mostrar solo pendientes",
+      "emptyTitle": "No hay elementos para mostrar",
+      "emptyBody": "Cambia los filtros o revisa más tarde.",
+      "columns": {
+        "description": "Descripción",
+        "related": "Relacionado con",
+        "date": "Fecha",
+        "status": "Estado",
+        "actions": "Acciones"
+      },
+      "tabs": {
+        "messages": "Mensajes",
+        "orders_missing_documents": "Órdenes sin documentos",
+        "customers_without_account": "Clientes sin cuentas"
+      },
+      "summary": {
+        "messages": "Conversaciones pendientes",
+        "orders_missing_documents": "Órdenes por completar",
+        "customers_without_account": "Clientes sin acceso"
+      }
+    },
+    "detail": {
+      "back": "Volver a la bandeja",
+      "heading": "Detalle del mensaje",
+      "metadata": "Resumen",
+      "conversation": "Conversación",
+      "documents": "Documentos requeridos",
+      "customer": "Información del cliente",
+      "emptyConversation": "No hay mensajes registrados todavía.",
+      "missingData": "No se encontró información para este registro."
+    }
   }
 }
