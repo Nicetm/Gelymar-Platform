@@ -54,7 +54,11 @@ ENV PUBLIC_RECAPTCHA_SITE_KEY=${PUBLIC_RECAPTCHA_SITE_KEY}
 ENV DEV_PORT=${DEV_PORT}
 
 # Hacer build de Astro
-RUN if [ "${APP_CONTEXT}" = "client" ]; then npm run build:client; elif [ "${APP_CONTEXT}" = "admin" ]; then npm run build:admin; else npm run build; fi
+RUN if [ "${APP_CONTEXT}" = "client" ]; then npm run build:client; \
+  elif [ "${APP_CONTEXT}" = "admin" ]; then npm run build:admin; \
+  elif [ "${APP_CONTEXT}" = "seller" ]; then npm run build:seller; \
+  else npm run build; \
+fi
 
 # Exponer puerto
 EXPOSE 2121

@@ -9,6 +9,34 @@ export function initUserMenu(config = {}) {
   const API_BASE = apiBase || window.apiBase || '';
   const FILE_SERVER = fileServer || window.fileServer || '';
 
+  const ADMIN_ROLE_NAMES = ['admin', 'administrador'];
+  const SELLER_ROLE_NAMES = ['seller', 'ventas', 'vendedor'];
+  const CLIENT_ROLE_NAMES = ['client', 'cliente'];
+
+  const normalizeRoleName = (value) => (value || '').toString().toLowerCase().trim();
+
+  const inferUserRole = (user = {}) => {
+    const roleId = Number(user.role_id);
+    const normalizedRole = normalizeRoleName(user.role);
+
+    if (roleId === 1) return 'admin';
+    if (roleId === 2) return 'client';
+    if (roleId === 3) return 'seller';
+
+    if (ADMIN_ROLE_NAMES.includes(normalizedRole)) return 'admin';
+    if (SELLER_ROLE_NAMES.includes(normalizedRole)) return 'seller';
+    if (CLIENT_ROLE_NAMES.includes(normalizedRole)) return 'client';
+
+    return normalizedRole || 'client';
+  };
+
+  const resolveRoleLabel = (roleKey) => {
+    if (roleKey === 'admin') return 'Admin';
+    if (roleKey === 'seller') return 'Seller';
+    if (roleKey === 'client') return 'Client';
+    return 'Guest';
+  };
+
   const logoutButton = document.getElementById('logoutButton');
   const nameEl = document.querySelector('#userFullName');
   const roleEl = document.querySelector('#userRole');
@@ -115,11 +143,8 @@ export function initUserMenu(config = {}) {
       const u = await res.json();
 
       const fullName = u.full_name ?? 'User';
-      const roleNameClient =
-        u.role ??
-        ((u.role_id === 1 || u.role_id === 3) ? 'Admin'
-          : u.role_id === 2 ? 'Client'
-          : 'Guest');
+      const userRole = inferUserRole(u);
+      const roleNameClient = u.role ?? resolveRoleLabel(userRole);
       const email = u.email ?? '';
 
       const profilePayload = {
@@ -133,6 +158,7 @@ export function initUserMenu(config = {}) {
       };
 
       applyUserProfile(profilePayload);
+      localStorage.setItem('userRole', userRole);
       localStorage.setItem('userProfile', JSON.stringify(profilePayload));
     } catch (err) {
       console.error('Client-side user fetch failed:', err);

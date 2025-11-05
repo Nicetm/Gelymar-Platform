@@ -6,6 +6,10 @@ const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL
 const apiPublic = import.meta.env.PUBLIC_API_URL;
 const fileServer = import.meta.env.PUBLIC_FILE_SERVER_URL;
 const lang = getServerLang(Astro.cookies);
+const { basePath = '/admin' } = Astro.props;
+const homeHref = basePath;
+const clientsPath = `${basePath}/clients`;
+const documentsPath = `${clientsPath}/documents/view`;
 
 const url = new URL(Astro.url.href);
 const clientName = url.searchParams.get('c') ?? '';
@@ -31,13 +35,22 @@ try {
 
 ---
 
-<section id="folderSection" data-api-base={apiBase} data-file-server={fileServer} data-uuid={id} class="px-4 pt-20 pb-6 sm:px-6 lg:px-8">
+<section
+  id="folderSection"
+  data-api-base={apiBase}
+  data-file-server={fileServer}
+  data-uuid={id}
+  data-base-path={basePath}
+  data-clients-path={clientsPath}
+  data-documents-path={documentsPath}
+  class="px-4 pt-20 pb-6 sm:px-6 lg:px-8"
+>
 	<!-- Encabezado y breadcrumb -->
 	<header class="flex flex-col gap-4 border-b border-gray-200 dark:border-gray-700 pb-4">
 		<nav class="text-sm text-gray-500 dark:text-gray-400" aria-label="Breadcrumb">
 			<ol class="inline-flex items-center space-x-1 md:space-x-2">
 				<li class="inline-flex items-center">
-					<a href="/admin" class="inline-flex items-center gap-1 hover:text-primary-600 dark:hover:text-white">
+					<a href={homeHref} class="inline-flex items-center gap-1 hover:text-primary-600 dark:hover:text-white">
 						<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
 							<path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
 						</svg>
@@ -45,7 +58,7 @@ try {
 					</a>
 				</li>
 				<li aria-current="page" class="flex items-center text-gray-400 dark:text-gray-300 font-medium">
-					<span class="mx-1">/ <a href="/admin/clients">{t.carpetas.customers} </a> / </span>{t.carpetas.title}
+					<span class="mx-1">/ <a href={clientsPath}>{t.carpetas.customers} </a> / </span>{t.carpetas.title}
 				</li>
 			</ol>
 		</nav>

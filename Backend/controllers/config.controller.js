@@ -41,6 +41,16 @@ const normalizeRoles = (roles) => {
     .filter((value) => !Number.isNaN(value));
 };
 
+exports.getSidebarMenuConfig = async (req, res) => {
+  try {
+    const params = await getConfigParamsByName('sidebarMenuPorRol');
+    res.json(params || { enable: 0, menu: [] });
+  } catch (error) {
+    console.error('[getSidebarMenuConfig] Error:', error.message);
+    res.status(500).json({ message: 'Error al obtener configuraci�n del men� lateral' });
+  }
+};
+
 const isFeatureEnabledForUser = (params, userRoleId) => {
   if (!params) return false;
   const isEnabled = Number(params.enable) === 1;
@@ -234,10 +244,7 @@ exports.getAdminSettingsVisibility = async (req, res) => {
   try {
     const pdfParams = await getConfigParamsByName('settingPdfEmailConsultas');
     const profileParams = await getConfigParamsByName('settingEdicionPerfil');
-    let notificationParams = await getConfigParamsByName('settingEmailNotificacion');
-    if (!notificationParams) {
-      notificationParams = await getConfigParamsByName('settingEmailNotificación');
-    }
+    const notificationParams = await getConfigParamsByName('settingEmailNotificacion');
 
     const isEnabled = (value) => {
       if (value === undefined || value === null) return false;

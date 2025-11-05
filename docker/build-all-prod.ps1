@@ -51,6 +51,7 @@ Write-Host "   Fileserver: docker-compose -f docker-compose-prod.yml --env-file 
 Write-Host "   Backend:    docker-compose -f docker-compose-prod.yml --env-file .env.production build --no-cache backend" -ForegroundColor Gray
 Write-Host "   Frontend (admin): docker-compose -f docker-compose-prod.yml --env-file .env.production build --no-cache frontend" -ForegroundColor Gray
 Write-Host "   Frontend (cliente): docker-compose -f docker-compose-prod.yml --env-file .env.production build --no-cache frontend-client" -ForegroundColor Gray
+Write-Host "   Frontend (vendedor): docker-compose -f docker-compose-prod.yml --env-file .env.production build --no-cache frontend-seller" -ForegroundColor Gray
 Write-Host "   Cron:       docker-compose -f docker-compose-prod.yml --env-file .env.production build --no-cache cron" -ForegroundColor Gray
 Write-Host "   Config Manager: docker-compose -f docker-compose-prod.yml --env-file .env.production build --no-cache config-manager" -ForegroundColor Gray
 Write-Host "   phpMyAdmin: docker tag phpmyadmin/phpmyadmin:latest nicetm/gelymar-platform:phpmyadmin-prod" -ForegroundColor Gray

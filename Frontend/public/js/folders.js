@@ -4,6 +4,19 @@ import {
   formatDateShort
 } from './utils.js';
 
+function getFolderSectionContext() {
+  const section = document.getElementById('folderSection');
+  const basePath = section?.dataset?.basePath || '/admin';
+  const clientsPath = section?.dataset?.clientsPath || `${basePath}/clients`;
+  const documentsPath = section?.dataset?.documentsPath || `${clientsPath}/documents/view`;
+  const apiBase = window.apiBase || section?.dataset?.apiBase;
+  const fileServer = section?.dataset?.fileServer;
+  const folderUuid = section?.dataset?.uuid;
+  const folderId = section?.dataset?.folderId;
+
+  return { section, basePath, clientsPath, documentsPath, apiBase, fileServer, folderUuid, folderId };
+}
+
 // Función para formatear moneda
 function formatCurrency(amount, currency = 'CLP') {
   const currencyMap = {
@@ -26,7 +39,8 @@ function formatCurrency(amount, currency = 'CLP') {
 function navigateToClientsWithFilter(customerName) {
   try {
     localStorage.setItem('clientSearchFilter', customerName);
-    window.location.href = '/admin/clients';
+    const { clientsPath } = getFolderSectionContext();
+    window.location.href = clientsPath;
   } catch (error) {
     console.error('Error navegando a clientes:', error);
     showNotification('Error al navegar a la página de clientes', 'error');
@@ -109,6 +123,21 @@ async function openItemsModal(orderPc, orderOc, factura) {
     const items = await response.json();
     const normalizedItems = Array.isArray(items) ? items : [];
     const hasFactura = factura && factura !== 'null';
+    const formatModalQuantity = (amount, unit = 'KG') => {
+      const unitMap = {
+        'KG': 'kg',
+        'KILOGRAMOS': 'kg',
+        'TON': 'ton',
+        'TONELADAS': 'ton',
+        'LITROS': 'L',
+        'L': 'L',
+        'UNIDADES': 'un',
+        'UN': 'un'
+      };
+      const mappedUnit = typeof unit === 'string' ? (unitMap[unit] || unit.toLowerCase()) : 'kg';
+      const safeAmount = parseNumber(amount);
+      return `${safeAmount.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ${mappedUnit}`;
+    };
     
     // Actualizar header del modal
     document.getElementById('itemsInitials').textContent = 'IT';
@@ -138,7 +167,7 @@ async function openItemsModal(orderPc, orderOc, factura) {
             <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition">
               <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">${item.item_code || 'N/A'}</td>
               <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">${item.item_name || 'N/A'}</td>
-              <td class="px-6 py-4 text-sm text-center text-gray-900 dark:text-gray-100">${formatQuantity(quantity, unit)}</td>
+              <td class="px-6 py-4 text-sm text-center text-gray-900 dark:text-gray-100">${formatModalQuantity(quantity, unit)}</td>
               <td class="px-6 py-4 text-sm text-center text-gray-900 dark:text-gray-100">${formatUnitPrice(unitPrice)}</td>
               <td class="px-6 py-4 text-sm text-center font-semibold text-gray-900 dark:text-gray-100">${formatTotal(total)}</td>
             </tr>
@@ -176,7 +205,7 @@ async function openItemsModal(orderPc, orderOc, factura) {
     const gastoAdicional = parseNumber(rawGastoAdicional);
 
     if (totalItems) totalItems.textContent = totalItemsCount;
-    if (totalQuantity) totalQuantity.textContent = formatQuantity(totalQuantitySum, unit);
+    if (totalQuantity) totalQuantity.textContent = formatModalQuantity(totalQuantitySum, unit);
     if (totalValue) totalValue.textContent = formatCurrency(totalValueSum, currency);
     if (totalGastoAdicional) totalGastoAdicional.textContent = formatCurrency(gastoAdicional, currency);
 
@@ -398,7 +427,8 @@ export async function initFoldersScript() {
     const safePcAttr = (folder.pc || '').toString().replace(/"/g, '&quot;');
     const safeOcAttr = (folder.oc || '').toString().replace(/"/g, '&quot;');
     const safeFacturaAttr = (folder.factura || '').toString().replace(/"/g, '&quot;');
-    const documentsUrl = `/admin/clients/documents/view/${folder.customer_uuid}?f=${folder.id}&pc=${folder.pc}&c=${encodedCustomerName}`;
+    const { documentsPath } = getFolderSectionContext();
+    const documentsUrl = `${documentsPath}/${folder.customer_uuid}?f=${folder.id}&pc=${folder.pc}&c=${encodedCustomerName}`;
 
     return `
       <tr data-id="${folder.id}" class="hover:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition bg-white dark:bg-gray-900">

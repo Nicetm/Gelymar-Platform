@@ -1,6 +1,64 @@
 const { poolPromise } = require('../config/db');
 const { sendFileToClient } = require('./email.service');
+const configService = require('./config.service');
 const { logger } = require('../utils/logger');
+
+function parseConfigParams(rawParams) {
+  if (rawParams == null) {
+    return {};
+  }
+
+  let params = rawParams;
+
+  if (Buffer.isBuffer(params)) {
+    params = params.toString('utf8');
+  }
+
+  if (typeof params === 'string') {
+    const trimmed = params.trim();
+    if (!trimmed) {
+      return {};
+    }
+    try {
+      params = JSON.parse(trimmed);
+    } catch (error) {
+      logger.error(`Error parseando parametros de configuracion sendAutomaticOrderReception: ${error.message}`);
+      return {};
+    }
+  }
+
+  if (typeof params !== 'object' || params === null) {
+    return {};
+  }
+
+  return params;
+}
+
+async function isSendOrderReceptionEnabled() {
+  try {
+    const config = await configService.getConfigByName('sendAutomaticOrderReception');
+    if (!config) {
+      return false;
+    }
+
+    const params = parseConfigParams(config.params);
+    const { enable } = params;
+
+    if (enable === undefined || enable === null) {
+      return false;
+    }
+
+    const numericEnable = Number(enable);
+    if (!Number.isNaN(numericEnable)) {
+      return numericEnable === 1;
+    }
+
+    return String(enable).toLowerCase() === 'true';
+  } catch (error) {
+    logger.error(`Error obteniendo configuracion sendAutomaticOrderReception: ${error.message}`);
+    return false;
+  }
+}
 
 /**
  * Obtiene todos los order_id de la tabla new_orders que no han sido enviadas
@@ -80,19 +138,20 @@ async function getCustomerEmail(customerId, rut) {
  * Se ejecuta diariamente a las 8 AM para enviar documentos de órdenes del día anterior
  */
 async function sendOrderReceptionDocuments() {
+  const enabled = await isSendOrderReceptionEnabled();
+  if (!enabled) {
+    logger.info('Envio automatico de recepcion de orden deshabilitado por configuracion');
+    return { skipped: true, processed: 0 };
+  }
   const pool = await poolPromise;
-  
   try {
-    logger.info('Iniciando envío de documentos de recepción de orden...');
-    
+    logger.info('Iniciando envio de documentos de recepcion de orden...');
     // Obtener fecha de ayer
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     const yesterdayStr = yesterday.toISOString().split('T')[0]; // YYYY-MM-DD
-    
-    logger.info(`Buscando órdenes con fecha: ${yesterdayStr}`);
-    
-    // Consultar órdenes del día anterior
+    logger.info(`Buscando ordenes con fecha: ${yesterdayStr}`);
+    // Consultar ordenes del dia anterior
     const [orders] = await pool.query(`
       SELECT 
         o.id,
@@ -106,14 +165,11 @@ async function sendOrderReceptionDocuments() {
       INNER JOIN customers c ON c.id = o.customer_id
       WHERE DATE(o.fecha_ingreso) = ?
     `, [yesterdayStr]);
-    
     if (orders.length === 0) {
-      logger.info('No se encontraron órdenes para el día anterior');
-      return;
+      logger.info('No se encontraron ordenes para el dia anterior');
+      return { skipped: false, processed: 0 };
     }
-    
-    logger.info(`Se encontraron ${orders.length} órdenes para procesar`);
-    
+    logger.info(`Se encontraron ${orders.length} ordenes para procesar`);
     // Procesar cada orden
     for (const order of orders) {
       try {
@@ -123,9 +179,8 @@ async function sendOrderReceptionDocuments() {
         // Continuar con la siguiente orden
       }
     }
-    
-    logger.info('Envío de documentos de recepción completado');
-    
+    logger.info('Envio de documentos de recepcion completado');
+    return { skipped: false, processed: orders.length };
   } catch (error) {
     logger.error(`Error en sendOrderReceptionDocuments: ${error.message}`);
     throw error;
@@ -230,5 +285,6 @@ module.exports = {
   getOrderData,
   getReceptionFile,
   getCustomerEmail,
-  markOrderAsSent
+  markOrderAsSent,
+  isSendOrderReceptionEnabled
 };

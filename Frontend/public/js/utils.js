@@ -313,7 +313,7 @@ const confirmAction = async (title, message, type = 'warning') => {
         
         // Colores de botones según el tipo
         const buttonColors = {
-            warning: 'bg-amber-600 hover:bg-amber-700 focus:ring-amber-500',
+            warning: 'bg-orange-600 hover:bg-orange-700 focus:ring-orange-500',
             error: 'bg-red-600 hover:bg-red-700 focus:ring-red-500',
             info: 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500',
             success: 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
@@ -331,7 +331,7 @@ const confirmAction = async (title, message, type = 'warning') => {
                         <button id="confirmCancel" class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500">
                             Cancelar
                         </button>
-                        <button id="confirmAccept" class="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 bg-amber-600 hover:bg-amber-700 focus:ring-amber-500">
+                        <button id="confirmAccept" class="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 bg-blue-600 hover:bg-blue-700 focus:ring-amber-500">
                             Sí, continuar
                         </button>
                     </div>

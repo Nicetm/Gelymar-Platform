@@ -6,6 +6,146 @@ const MESSAGE_TYPES = {
 
 const DEFAULT_LIMIT = 10;
 
+function escapeHtml(value) {
+  if (value === null || value === undefined) return '';
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function escapeRegExp(value) {
+  if (!value) return '';
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function getOrderPc(item) {
+  if (!item || typeof item !== 'object') return null;
+
+  const candidates = [
+    item.related?.pc,
+    item.order?.pc,
+    item.raw?.pc,
+    item.pc
+  ];
+
+  for (const candidate of candidates) {
+    if (candidate !== null && candidate !== undefined) {
+      const value = String(candidate).trim();
+      if (value) return value;
+    }
+  }
+
+  const textSources = [item.title, item.description];
+  for (const text of textSources) {
+    if (typeof text === 'string') {
+      const match = text.match(/PC\s*[#:|\-]?\s*([A-Za-z0-9\-]+)/i);
+      if (match && match[1]) {
+        return match[1].trim();
+      }
+    }
+  }
+
+  return null;
+}
+
+function buildPcLink(orderPc) {
+  const safePc = escapeHtml(orderPc);
+  return `<a href="/admin/orders" class="orders-link text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline font-semibold" data-search="${safePc}">PC ${safePc}</a>`;
+}
+
+function getOrderOc(item) {
+  if (!item || typeof item !== 'object') return null;
+
+  const candidates = [
+    item.related?.oc,
+    item.order?.oc,
+    item.raw?.oc,
+    item.oc
+  ];
+
+  for (const candidate of candidates) {
+    if (candidate !== null && candidate !== undefined) {
+      const value = String(candidate).trim();
+      if (value) return value;
+    }
+  }
+
+  const textSources = [item.title, item.description];
+  for (const text of textSources) {
+    if (typeof text === 'string') {
+      const match = text.match(/OC\s*[#:|\-]?\s*([A-Za-z0-9\-]+)/i);
+      if (match && match[1]) {
+        return match[1].trim();
+      }
+    }
+  }
+
+  return null;
+}
+
+function buildOcLink(orderOc) {
+  const safeOc = escapeHtml(orderOc);
+  return `<a href="/admin/orders" class="orders-link text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline" data-search="${safeOc}">OC ${safeOc}</a>`;
+}
+
+function buildClientLink(value, label = null, extraClasses = 'font-semibold') {
+  if (!value) return '';
+  const safeValue = escapeHtml(value);
+  const safeLabel = escapeHtml(label ?? value);
+  const classList = `clients-link ${extraClasses}`.trim();
+  return `<a href="/admin/clients" class="${classList} text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline" data-search="${safeValue}">${safeLabel}</a>`;
+}
+
+function replaceLabelsWithLinks(text, replacements) {
+  const defaultResult = {
+    html: escapeHtml(text || ''),
+    matchedLabels: new Set(),
+  };
+
+  if (typeof text !== 'string' || !text.trim() || !replacements.length) {
+    return defaultResult;
+  }
+
+  const pattern = replacements
+    .map(({ label, value }) => `${label}\\s*[#:|\\-]*\\s*${escapeRegExp(value)}`)
+    .join('|');
+  const regex = new RegExp(pattern, 'gi');
+
+  let lastIndex = 0;
+  let html = '';
+  const matchedLabels = new Set();
+  let match;
+
+  while ((match = regex.exec(text)) !== null) {
+    const before = text.slice(lastIndex, match.index);
+    html += escapeHtml(before);
+
+    const matchedText = match[0];
+    const replacement = replacements.find(({ label, value }) =>
+      new RegExp(`${label}\\s*[#:|\\-]*\\s*${escapeRegExp(value)}`, 'i').test(matchedText)
+    );
+
+    if (replacement) {
+      html += replacement.link;
+      matchedLabels.add(replacement.label.toUpperCase());
+    } else {
+      html += escapeHtml(matchedText);
+    }
+
+    lastIndex = regex.lastIndex;
+  }
+
+  html += escapeHtml(text.slice(lastIndex));
+
+  return {
+    html: html || escapeHtml(text || ''),
+    matchedLabels,
+  };
+}
+
 function getToken() {
   const storages = ['token', 'accessToken', 'jwt'];
   for (const key of storages) {
@@ -48,16 +188,6 @@ async function fetchJSON(url, options = {}) {
   }
 
   return response.json();
-}
-
-function escapeHtml(value) {
-  if (value === null || value === undefined) return '';
-  return String(value)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
 }
 
 function formatDate(value, lang = 'es') {
@@ -145,7 +275,11 @@ function renderPagination(container, pagination, state, labels) {
 }
 
 function buildMessagesRow(item, labels, lang) {
-  const relatedName = item.related?.customerName || `ID ${item.related?.customerId || '-'}`;
+  const hasCustomerName = !!item.related?.customerName;
+  const relatedName = hasCustomerName
+    ? item.related.customerName
+    : `ID ${item.related?.customerId || '-'}`;
+  const relatedNameContent = hasCustomerName ? buildClientLink(item.related.customerName) : escapeHtml(relatedName);
   const unread = Number(item.unreadCount || 0);
   const subtitle =
     unread > 0
@@ -163,7 +297,7 @@ function buildMessagesRow(item, labels, lang) {
         </div>
       </td>
       <td class="px-6 py-4 align-middle">
-        <p class="font-medium text-gray-800 dark:text-gray-200">${escapeHtml(relatedName)}</p>
+        <p class="font-medium text-gray-800 dark:text-gray-200">${relatedNameContent}</p>
       </td>
       <td class="px-6 py-4 text-xs text-gray-500 dark:text-gray-400 align-middle">${formatDate(
         item.timestamp,
@@ -191,19 +325,43 @@ function buildMessagesRow(item, labels, lang) {
 function buildOrdersRow(item, labels, lang) {
   const relatedName = item.related?.customerName || '-';
   const docCount = `${item.documentCount ?? 0}/${item.minDocuments ?? 5}`;
+  const orderPc = getOrderPc(item);
+  const orderOc = getOrderOc(item);
+
+  const replacements = [];
+  if (orderPc) replacements.push({ label: 'PC', value: orderPc, link: buildPcLink(orderPc) });
+  if (orderOc) replacements.push({ label: 'OC', value: orderOc, link: buildOcLink(orderOc) });
+
+  const { html: linkedTitle, matchedLabels } = replaceLabelsWithLinks(item.title || '', replacements);
+  const titleContent = linkedTitle || escapeHtml(item.title || '-');
+
+  const docsLabel = labels.docsLabel
+    ? labels.docsLabel.replace('{count}', docCount)
+    : `Documentos cargados: ${docCount}`;
+
+  const relatedNameContent =
+    relatedName && relatedName !== '-'
+      ? buildClientLink(relatedName)
+      : escapeHtml(relatedName);
+
+  const ocColumnContent =
+    orderOc && matchedLabels.has('OC')
+      ? ''
+      : orderOc
+      ? buildOcLink(orderOc)
+      : escapeHtml(item.related?.oc || '');
+
   return `
     <tr class="transition-colors hover:bg-gray-50 dark:hover:bg-gray-800">
       <td class="px-6 py-4 align-middle">
         <div class="flex flex-col gap-1">
-          <p class="font-semibold text-gray-900 dark:text-white">${escapeHtml(item.title || '-')}</p>
-          <span class="text-xs text-gray-500 dark:text-gray-400">${escapeHtml(
-            labels.docsLabel ? labels.docsLabel.replace('{count}', docCount) : `Documentos cargados: ${docCount}`
-          )}</span>
+          <p class="font-semibold text-gray-900 dark:text-white leading-tight">${titleContent}</p>
+          <span class="text-xs text-gray-500 dark:text-gray-400">${escapeHtml(docsLabel)}</span>
         </div>
       </td>
       <td class="px-6 py-4 align-middle">
-        <p class="font-medium text-gray-800 dark:text-gray-200">${escapeHtml(relatedName)}</p>
-        <p class="text-xs text-gray-400 dark:text-gray-500">${escapeHtml(item.related?.oc || '')}</p>
+        <p class="font-medium text-gray-800 dark:text-gray-200">${relatedNameContent}</p>
+        <p class="text-xs text-gray-400 dark:text-gray-500">${ocColumnContent}</p>
       </td>
       <td class="px-6 py-4 text-xs text-gray-500 dark:text-gray-400 align-middle">${formatDate(
         item.timestamp,
@@ -399,12 +557,43 @@ async function loadMessages(state, { apiBase, labels, lang }) {
 
 function handleNavigation(container) {
   container.addEventListener('click', (event) => {
+    const clientsLink = event.target.closest('.clients-link');
+    if (clientsLink) {
+      event.preventDefault();
+      const { search: searchValue } = clientsLink.dataset;
+      if (searchValue) {
+        try {
+          localStorage.setItem('clientSearchFilter', searchValue);
+        } catch (error) {
+          console.warn('No se pudo guardar filtro de clientes:', error);
+        }
+      }
+      window.location.href = '/admin/clients';
+      return;
+    }
+
+    const ordersLink = event.target.closest('.orders-link');
+    if (ordersLink) {
+      event.preventDefault();
+      const { search: searchValue } = ordersLink.dataset;
+      if (searchValue) {
+        try {
+          localStorage.setItem('ordersSearchFilter', searchValue);
+        } catch (error) {
+          console.warn('No se pudo guardar filtro de órdenes:', error);
+        }
+      }
+      window.location.href = '/admin/orders';
+      return;
+    }
+
     const button = event.target.closest('.message-view-button');
     if (!button) return;
     const { id, type } = button.dataset;
     if (!id || !type) return;
-      event.preventDefault();
-      const url = new URL(window.location.origin + `/admin/messaging/message/${id}`);
+
+    event.preventDefault();
+    const url = new URL(window.location.origin + `/admin/messaging/message/${id}`);
     url.searchParams.set('type', type);
     window.location.href = url.toString();
   });
@@ -513,7 +702,6 @@ function renderDetailHeader(detail, labels, lang) {
   const typeLabel = document.getElementById('messageDetailType');
   const titleEl = document.getElementById('messageDetailTitle');
   const subtitleEl = document.getElementById('messageDetailSubtitle');
-  const timestampEl = document.getElementById('messageDetailTimestamp');
 
   if (!detail?.item) {
     if (titleEl) titleEl.textContent = labels.missingData || 'Sin datos disponibles';
@@ -540,10 +728,6 @@ function renderDetailHeader(detail, labels, lang) {
 
   if (subtitleEl) {
     subtitleEl.textContent = detail.item.description || '';
-  }
-
-  if (timestampEl) {
-    timestampEl.textContent = formatDate(detail.item.timestamp, lang);
   }
 }
 
@@ -619,52 +803,6 @@ function renderDetailMeta(detail, labels, lang) {
       )}</p>`
     );
   }
-
-  container.innerHTML = rows.join('');
-}
-
-function renderDetailConversation(detail, labels, lang) {
-  const container = document.getElementById('messageDetailConversation');
-  if (!container) return;
-
-  if (detail?.item?.type !== MESSAGE_TYPES.MESSAGES) {
-    container.innerHTML = `<div class="text-gray-400 dark:text-gray-500">${escapeHtml(
-      labels.conversationNotAvailable || 'No aplica'
-    )}</div>`;
-    return;
-  }
-
-  const messages = detail.conversation || [];
-  if (!messages.length) {
-    container.innerHTML = `<div class="text-gray-400 dark:text-gray-500">${escapeHtml(
-      labels.emptyConversation || 'No hay mensajes registrados.'
-    )}</div>`;
-    return;
-  }
-
-  const rows = messages.map((msg) => {
-    const sender =
-      msg.sender === 'admin'
-        ? labels.senderAdmin || 'Admin'
-        : msg.sender === 'client'
-        ? labels.senderClient || 'Cliente'
-        : msg.sender || 'Sistema';
-
-    const isAdmin = msg.sender === 'admin';
-    const alignment = isAdmin ? 'justify-end' : 'justify-start';
-    const bubbleClasses = isAdmin
-      ? 'bg-blue-600 text-white text-right rounded-br-sm rounded-tl-2xl'
-      : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-bl-sm rounded-tr-2xl';
-
-    return `
-      <div class="flex ${alignment}">
-        <div class="max-w-[75%] px-4 py-2 rounded-2xl shadow-sm ${bubbleClasses}">
-          <p class="text-xs opacity-80 mb-1">${escapeHtml(sender)} · ${formatDate(msg.createdAt, lang)}</p>
-          <p class="leading-5 whitespace-pre-wrap">${escapeHtml(msg.message || '')}</p>
-        </div>
-      </div>
-    `;
-  });
 
   container.innerHTML = rows.join('');
 }
@@ -745,7 +883,6 @@ export async function initMessagingDetail(config = {}) {
 
     renderDetailHeader(detail, labels, lang);
     renderDetailMeta(detail, labels, lang);
-    renderDetailConversation(detail, labels, lang);
     renderDetailSidebar(detail, labels, lang);
 
     if (typeof window.lucide !== 'undefined') {

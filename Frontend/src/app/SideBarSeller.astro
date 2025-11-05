@@ -1,0 +1,191 @@
+---
+import { loadTranslations, getServerLang } from '../lib/i18n.js';
+import { getApiBase, getPublicApiUrl, getFileServerUrl } from './constants.ts';
+
+const apiBase = getApiBase();
+const clientApiBase = getPublicApiUrl();
+const fileServer = getFileServerUrl();
+const lang = getServerLang(Astro.cookies);
+
+const t: any = {
+  sidebar: await loadTranslations(lang, 'sidebar'),
+};
+
+const token =
+  Astro.cookies.get('token')?.value ??
+  Astro.cookies.get('accessToken')?.value ??
+  Astro.cookies.get('jwt')?.value ??
+  null;
+
+let user = null;
+
+if (token) {
+  try {
+    const meResponse = await fetch(`${apiBase}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (meResponse.ok) {
+      user = await meResponse.json();
+    }
+  } catch (error) {
+    console.warn('[SideBarSeller] Error fetching user info:', error);
+  }
+}
+
+const activePath = Astro.url.pathname;
+
+const links = [
+	{
+    href: '/seller/clients',
+    icon: 'users',
+    label: t.sidebar.customers,
+  },
+  {
+    href: '/seller/orders',
+    icon: 'file-text',
+    label: t.sidebar.orders,
+  },
+];
+---
+
+<!-- Carga Lucide diferido y renderiza íconos al terminar -->
+<script src="https://unpkg.com/lucide@latest" defer onload="window.lucide?.createIcons?.()"></script>
+
+<aside
+  id="sidebar"
+  class="fixed top-0 left-0 z-20 flex-col flex-shrink-0 hidden w-56 h-full pt-16 font-normal lg:flex transition-width bg-white border-r border-gray-200 dark:bg-gray-800 dark:border-gray-700"
+  aria-label="Seller Sidebar"
+  data-api-base={apiBase}
+  data-file-server={fileServer}
+  data-client-api-base={clientApiBase}
+>
+  <div class="flex-1 overflow-y-auto scrollbar scrollbar-w-2 scrollbar-thumb-rounded-md scrollbar-thumb-slate-200 scrollbar-track-gray-400 dark:scrollbar-thumb-slate-900 dark:scrollbar-track-gray-800">
+    <div id="SidebarUserDescription" class="px-4 py-5 border-b border-gray-100 dark:border-gray-700">
+      <p class="text-xs uppercase text-gray-400 dark:text-gray-500">Seller</p>
+      <p class="mt-1 text-sm font-semibold text-gray-900 dark:text-gray-100">
+        {user?.full_name || 'Vendedor'}
+      </p>
+      <p class="text-xs text-gray-500 dark:text-gray-400">
+        {user?.email || ''}
+      </p>
+    </div>
+
+    <nav class="pt-4 space-y-2">
+      {links.map(({ href, icon, label }) => {
+        const isActive = activePath.startsWith(href);
+        return (
+          <a
+            href={href}
+            class={`sidebar-link group flex items-center gap-3 px-4 py-3 transition-all duration-200 ${
+              isActive
+                ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+            }`}
+          >
+            <div class="icon-container w-8 h-8 aspect-square rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center flex-shrink-0 transition-all duration-200">
+              <i data-lucide={icon} class="w-4 h-4"></i>
+            </div>
+            <span class="nav-text font-medium text-xs transition-colors duration-200 w-full">
+              {label}
+            </span>
+          </a>
+        );
+      })}
+    </nav>
+  </div>
+	<!-- Footer: language -->
+  <div
+    class="absolute bottom-0 left-0 w-full p-3 bg-white border-t border-gray-200 flex gap-2 dark:bg-gray-800 dark:border-gray-700">
+    <!-- Idioma -->
+    <div class="relative w-full">
+      <button
+        type="button"
+        data-dropdown-toggle="language-dropdown"
+        class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-2 h-10 hover:scale-[1.02] transition-all duration-200 group"
+        id="currentLangBtn"
+      >
+        <div class="flex items-center justify-center gap-2">
+          <!-- ⬇️ REEMPLAZO #1: flag actual (US por defecto) -->
+          <svg id="currentLangFlag" class="w-5 h-4 text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white" viewBox="0 0 64 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="USA">
+            <rect x="1.5" y="1.5" width="61" height="45" rx="4" stroke="currentColor" stroke-width="3"/>
+            <g fill="currentColor">
+              <rect x="6" y="6"  width="52" height="3" rx="1.5"/>
+              <rect x="6" y="12" width="52" height="3" rx="1.5"/>
+              <rect x="6" y="18" width="52" height="3" rx="1.5"/>
+              <rect x="6" y="24" width="52" height="3" rx="1.5"/>
+              <rect x="6" y="30" width="52" height="3" rx="1.5"/>
+              <rect x="6" y="36" width="52" height="3" rx="1.5"/>
+              <rect x="6" y="42" width="52" height="3" rx="1.5"/>
+            </g>
+            <rect x="6" y="6" width="20" height="15" rx="2" fill="currentColor"/>
+            <g fill="none" stroke="white" stroke-linecap="round" stroke-width="1.8">
+              <path d="M10 9h0"/><path d="M14 9h0"/><path d="M18 9h0"/>
+              <path d="M12 12h0"/><path d="M16 12h0"/>
+              <path d="M10 15h0"/><path d="M14 15h0"/><path d="M18 15h0"/>
+            </g>
+          </svg>
+    
+          <span id="currentLangText" class="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors duration-200">EN</span>
+          <i data-lucide="chevron-up" class="w-3 h-3 text-gray-500 transform transition-transform duration-200"></i>
+        </div>
+      </button>
+    
+      <div
+        id="language-dropdown"
+        class="absolute bottom-14 left-0 right-0 z-50 hidden bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg"
+      >
+        <div class="flex flex-col p-1">
+          <a
+            href="#"
+            data-lang="en"
+            class="language-option flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200"
+          >
+            <!-- ⬇️ REEMPLAZO #2: opción EN -->
+            <svg class="w-4 h-3" viewBox="0 0 64 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="USA">
+              <rect x="1.5" y="1.5" width="61" height="45" rx="4" stroke="currentColor" stroke-width="3"/>
+              <g fill="currentColor">
+                <rect x="6" y="6"  width="52" height="3" rx="1.5"/>
+                <rect x="6" y="12" width="52" height="3" rx="1.5"/>
+                <rect x="6" y="18" width="52" height="3" rx="1.5"/>
+                <rect x="6" y="24" width="52" height="3" rx="1.5"/>
+                <rect x="6" y="30" width="52" height="3" rx="1.5"/>
+                <rect x="6" y="36" width="52" height="3" rx="1.5"/>
+                <rect x="6" y="42" width="52" height="3" rx="1.5"/>
+              </g>
+              <rect x="6" y="6" width="20" height="15" rx="2" fill="currentColor"/>
+              <g fill="none" stroke="white" stroke-linecap="round" stroke-width="1.8">
+                <path d="M10 9h0"/><path d="M14 9h0"/><path d="M18 9h0"/>
+                <path d="M12 12h0"/><path d="M16 12h0"/>
+                <path d="M10 15h0"/><path d="M14 15h0"/><path d="M18 15h0"/>
+              </g>
+            </svg>
+            EN
+          </a>
+    
+          <a
+            href="#"
+            data-lang="es"
+            class="language-option flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200"
+          >
+            <!-- ⬇️ REEMPLAZO #3: opción ES -->
+            <svg class="w-4 h-3" viewBox="0 0 64 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Chile">
+              <rect x="1.5" y="1.5" width="61" height="45" rx="4" stroke="currentColor" stroke-width="3"/>
+              <rect x="4" y="26" width="56" height="18" rx="2" fill="currentColor"/>
+              <rect x="4" y="4" width="18" height="18" rx="2" fill="currentColor"/>
+              <path d="M13 9.2l1.2 3.5h3.7l-3 2.1 1.2 3.6-3.1-2.2-3.1 2.2 1.2-3.6-3-2.1h3.7L13 9.2z" fill="white"/>
+              <line x1="24" y1="22" x2="60" y2="22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            ES
+          </a>
+        </div>
+      </div>
+    </div>  
+  </div>
+</aside>
+
+<!-- Use inline module with define:vars to import and initialize sidebar-seller on the client -->
+<script type="module" define:vars={{ apiBase, clientApiBase, fileServer, t, token, lang }}>
+  import { initSidebarSeller } from '/js/sidebar-seller.js';
+  // Inicializar el sidebar seller con la configuración del servidor
+  initSidebarSeller({ apiBase, clientApiBase, fileServer, t, token, lang });
+</script>

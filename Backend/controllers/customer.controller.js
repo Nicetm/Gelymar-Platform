@@ -10,9 +10,22 @@ const bcrypt = require('bcrypt');
  */
 exports.getAllCustomers = async (req, res) => {
   logger.info('Petición recibida: obtener todos los clientes');
+  logger.info('User info:', { 
+    role_id: req.user?.role_id, 
+    roleId: req.user?.roleId, 
+    email: req.user?.email,
+    role: req.user?.role 
+  });
 
   try {
-    const customers = await customerService.getAllCustomers();
+    const options = {};
+    const roleId = req.user?.role_id || req.user?.roleId;
+    if ((roleId === 3 || req.user?.role === 'seller') && req.user?.email) {
+      options.salesRut = req.user.email;
+      logger.info(`Filtrando por seller con rut: ${options.salesRut}`);
+    }
+
+    const customers = await customerService.getAllCustomers(options);
     logger.info(`Se obtuvieron ${customers.length} clientes`);
     res.json(customers);
   } catch (error) {

@@ -4,11 +4,44 @@ const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL
 const apiPublic = import.meta.env.PUBLIC_API_URL;
 const adminAppUrl = import.meta.env.PUBLIC_ADMIN_APP_URL || '';
 const clientAppUrl = import.meta.env.PUBLIC_CLIENT_APP_URL || '';
-const appContext = import.meta.env.PUBLIC_APP_CONTEXT || 'both';
+const sellerAppUrl = import.meta.env.PUBLIC_SELLER_APP_URL || '';
+const rawAppContext = (import.meta.env.PUBLIC_APP_CONTEXT || 'both').toLowerCase();
 const recaptchaSiteKey = import.meta.env.PUBLIC_RECAPTCHA_SITE_KEY || '';
 
+const requestUrl = Astro.request?.url ? new URL(Astro.request.url) : null;
+const requestOrigin = requestUrl?.origin ?? '';
+
+const getOrigin = (value) => {
+  if (!value) return '';
+  try {
+    return new URL(value, requestOrigin || 'http://localhost').origin;
+  } catch {
+    return '';
+  }
+};
+
+const contextCandidates = [
+  { key: 'admin', url: adminAppUrl },
+  { key: 'client', url: clientAppUrl },
+  { key: 'seller', url: sellerAppUrl },
+];
+
+const matchedByOrigin = contextCandidates.find(({ url }) => url && getOrigin(url) === requestOrigin)?.key;
+const matchedByPath = (() => {
+  const pathname = requestUrl?.pathname ?? '';
+  if (pathname.startsWith('/admin')) return 'admin';
+  if (pathname.startsWith('/client')) return 'client';
+  if (pathname.startsWith('/seller')) return 'seller';
+  return null;
+})();
+
+const activeAppContext =
+  rawAppContext !== 'both'
+    ? rawAppContext
+    : matchedByOrigin || matchedByPath || 'admin';
+
 const contextInfo = (() => {
-  const normalized = appContext.toLowerCase();
+  const normalized = activeAppContext;
   if (normalized === 'admin') {
     return {
       label: 'Admin Portal',
@@ -21,6 +54,13 @@ const contextInfo = (() => {
       label: 'Client Portal',
       helper: 'Login for external customers',
       badgeClasses: 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+    };
+  }
+  if (normalized === 'seller') {
+    return {
+      label: 'Seller Portal',
+      helper: 'Login for external sellers',
+      badgeClasses: 'bg-blue-100 text-blue-700 border border-blue-200'
     };
   }
   return null;
@@ -147,7 +187,7 @@ const contextInfo = (() => {
   }
 </style>
 
-<script type="module" define:vars={{ apiPublic, apiBase, adminAppUrl, clientAppUrl, appContext, recaptchaSiteKey }}>
+<script type="module" define:vars={{ apiPublic, apiBase, adminAppUrl, clientAppUrl, sellerAppUrl, appContext: activeAppContext, recaptchaSiteKey }}>
   import { initSignIn } from '/js/sign-in.js';
 
   initSignIn({
@@ -155,6 +195,7 @@ const contextInfo = (() => {
     apiBase,
     adminAppUrl,
     clientAppUrl,
+    sellerAppUrl,
     appContext,
     recaptchaSiteKey,
   });

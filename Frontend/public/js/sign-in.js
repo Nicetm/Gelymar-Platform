@@ -4,6 +4,7 @@ export function initSignIn(config = {}) {
     apiBase = '',
     adminAppUrl = '',
     clientAppUrl = '',
+    sellerAppUrl = '',
     appContext = 'both',
     recaptchaSiteKey = '',
   } = config;
@@ -14,7 +15,13 @@ export function initSignIn(config = {}) {
     adminAppUrl && adminAppUrl.trim() !== '' ? adminAppUrl.trim() : '/admin/';
   const normalizedClientUrl =
     clientAppUrl && clientAppUrl.trim() !== '' ? clientAppUrl.trim() : '/client/';
+  const normalizedSellerUrl =
+    sellerAppUrl && sellerAppUrl.trim() !== '' ? sellerAppUrl.trim() : '/seller/';
   const normalizedAppContext = (appContext || 'both').toLowerCase();
+
+  const ADMIN_ROLE_NAMES = ['admin', 'administrador'];
+  const SELLER_ROLE_NAMES = ['seller', 'ventas', 'vendedor'];
+  const CLIENT_ROLE_NAMES = ['client', 'cliente'];
 
   localStorage.removeItem('token');
   localStorage.removeItem('orders_cache');
@@ -34,6 +41,34 @@ export function initSignIn(config = {}) {
     }
   };
 
+  const normalizeRoleName = (value) => (value || '').toString().toLowerCase().trim();
+
+  const inferUserRole = (user = {}) => {
+    const roleId = Number(user.role_id);
+    const normalizedRole = normalizeRoleName(user.role);
+
+    if (roleId === 1) return 'admin';
+    if (roleId === 2) return 'client';
+    if (roleId === 3) return 'seller';
+
+    if (ADMIN_ROLE_NAMES.includes(normalizedRole)) return 'admin';
+    if (SELLER_ROLE_NAMES.includes(normalizedRole)) return 'seller';
+    if (CLIENT_ROLE_NAMES.includes(normalizedRole)) return 'client';
+
+    return normalizedRole || 'client';
+  };
+
+  const resolveOrigin = (url) => {
+    if (typeof window === 'undefined') {
+      return '';
+    }
+    try {
+      return new URL(url || '', window.location.origin).origin;
+    } catch {
+      return '';
+    }
+  };
+
   const showPortalMismatchMessage = (message) => {
     const msg = document.getElementById('loginMessage');
     if (!msg) return;
@@ -41,6 +76,14 @@ export function initSignIn(config = {}) {
     msg.classList.remove('hidden');
     msg.classList.remove('text-green-600', 'text-blue-600');
     msg.classList.add('text-red-500');
+  };
+
+  const clearSessionAfterMismatch = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('userProfile');
+    localStorage.removeItem('cfg');
+    document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
   };
 
   const ensureResetMessage = () => {
@@ -177,8 +220,7 @@ export function initSignIn(config = {}) {
 
         if (meRes.ok) {
           const user = await meRes.json();
-          const userRole =
-            user.role || (user.role_id === 1 || user.role_id === 3 ? 'admin' : 'client');
+          const userRole = inferUserRole(user);
 
           if (user.change_pw === 0) {
             localStorage.setItem('userRole', userRole);
@@ -189,15 +231,18 @@ export function initSignIn(config = {}) {
           localStorage.setItem('cfg', user.role_cfg);
           localStorage.setItem('userRole', userRole);
 
+          const resolveRoleLabel = (role) => {
+            if (role === 'admin') return 'Admin';
+            if (role === 'seller') return 'Seller';
+            if (role === 'client') return 'Client';
+            return 'Guest';
+          };
+
           const profilePayload = {
             fullName: user.full_name ?? '',
             roleName:
               user.role ||
-              (user.role_id === 1 || user.role_id === 3
-                ? 'Admin'
-                : user.role_id === 2
-                ? 'Client'
-                : 'Guest'),
+              resolveRoleLabel(userRole),
             email: user.email ?? '',
             avatarPath: user.avatar_path || '',
             avatarUrl:
@@ -209,19 +254,71 @@ export function initSignIn(config = {}) {
           };
           localStorage.setItem('userProfile', JSON.stringify(profilePayload));
 
+          const isAdminContext = normalizedAppContext === 'admin';
+          const isClientContext = normalizedAppContext === 'client';
+          const isSellerContext = normalizedAppContext === 'seller';
+          const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+          const adminOrigin = resolveOrigin(normalizedAdminUrl);
+          const clientOrigin = resolveOrigin(normalizedClientUrl);
+          const sellerOrigin = resolveOrigin(normalizedSellerUrl);
+          const isAdminHost = adminOrigin && currentOrigin === adminOrigin;
+          const isClientHost = clientOrigin && currentOrigin === clientOrigin;
+          const isSellerHost = sellerOrigin && currentOrigin === sellerOrigin;
+
+          const allowAdminAccess = isAdminContext || isAdminHost;
+          const allowSellerAccess = isSellerContext || isSellerHost;
+          const allowClientAccess = isClientContext || isClientHost;
+
+          const sellerLandingUrl = (() => {
+            const trimmed = normalizedSellerUrl.trim();
+            const defaultLandingPath = '/seller/orders';
+            if (!trimmed) {
+              return defaultLandingPath;
+            }
+            if (isAbsoluteUrl(trimmed)) {
+              try {
+                const parsed = new URL(trimmed);
+                const normalizedPath = parsed.pathname.replace(/\/+$/, '');
+                if (normalizedPath === '/seller') {
+                  return `${parsed.origin}${defaultLandingPath}`;
+                }
+                return trimmed;
+              } catch {
+                return trimmed;
+              }
+            }
+            const normalizedPath = trimmed.replace(/\/+$/, '');
+            return normalizedPath === '/seller' ? defaultLandingPath : trimmed;
+          })();
+
           if (userRole === 'admin') {
-            if (normalizedAppContext === 'client' && !isAbsoluteUrl(normalizedAdminUrl)) {
+            if (!allowAdminAccess) {
+              clearSessionAfterMismatch();
               showPortalMismatchMessage(
                 'Acceso de administracion disponible solo desde la intranet. Usa el portal interno.'
               );
               return;
             }
             navigateTo(normalizedAdminUrl);
+          } else if (userRole === 'seller') {
+            if (!allowSellerAccess) {
+              clearSessionAfterMismatch();
+              const mismatchMessage =
+                isAdminContext || isAdminHost
+                  ? 'Acceso de vendedores disponible solo desde el portal de vendedores. Usa la URL de vendedores.'
+                  : 'Portal de clientes disponible solo para clientes. Usa la URL de vendedores.';
+              showPortalMismatchMessage(mismatchMessage);
+              return;
+            }
+            navigateTo(sellerLandingUrl);
           } else {
-            if (normalizedAppContext === 'admin' && !isAbsoluteUrl(normalizedClientUrl)) {
-              showPortalMismatchMessage(
-                'Portal de clientes disponible en el dominio publico. Usa la URL de clientes.'
-              );
+            if (!allowClientAccess) {
+              clearSessionAfterMismatch();
+              const mismatchMessage =
+                isAdminContext || isAdminHost
+                  ? 'Portal de clientes disponible en el dominio publico. Usa la URL de clientes.'
+                  : 'Portal de vendedores disponible solo para vendedores. Usa la URL de clientes.';
+              showPortalMismatchMessage(mismatchMessage);
               return;
             }
             navigateTo(normalizedClientUrl);

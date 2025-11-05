@@ -210,6 +210,57 @@ services:
       backend:
         condition: service_started
 
+  frontend-seller:
+    build:
+      context: ../Frontend
+      dockerfile: Dockerfile
+      args:
+        - NODE_ENV=${NODE_ENV}
+        - PUBLIC_API_URL=${PUBLIC_API_URL}
+        - PUBLIC_FILE_SERVER_URL=${PUBLIC_FILE_SERVER_URL}
+        - PUBLIC_API_BASE_URL=${PUBLIC_API_BASE_URL}
+        - PUBLIC_FRONTEND_BASE_URL=${PUBLIC_SELLER_FRONTEND_BASE_URL}
+        - PUBLIC_LANG=${PUBLIC_LANG}
+        - SITE=${SITE}
+        - BASE_URL=${BASE_URL}
+        - REMOTE_ASSETS_BASE_URL=${REMOTE_ASSETS_BASE_URL}
+        - SERVER_API_URL=${SERVER_API_URL}
+        - CI=${CI}
+        - APP_CONTEXT=seller
+        - PUBLIC_APP_CONTEXT=seller
+        - PUBLIC_ADMIN_APP_URL=${PUBLIC_ADMIN_APP_URL}
+        - PUBLIC_SELLER_APP_URL=${PUBLIC_SELLER_APP_URL}
+        - DEV_PORT=2123
+        - PUBLIC_RECAPTCHA_SITE_KEY=${PUBLIC_RECAPTCHA_SITE_KEY}
+    image: nicetm/gelymar-platform:frontend-seller-dev
+    container_name: gelymar-platform-frontend-seller-dev
+    restart: unless-stopped
+    ports:
+      - "2123:2123"
+    environment:
+      - TZ=America/Santiago
+      - PUBLIC_API_URL=${PUBLIC_API_URL}
+      - PUBLIC_FILE_SERVER_URL=${PUBLIC_FILE_SERVER_URL}
+      - PUBLIC_API_BASE_URL=${PUBLIC_API_BASE_URL}
+      - PUBLIC_FRONTEND_BASE_URL=${PUBLIC_SELLER_FRONTEND_BASE_URL}
+      - PUBLIC_LANG=${PUBLIC_LANG}
+      - SITE=${SITE}
+      - BASE_URL=${BASE_URL}
+      - REMOTE_ASSETS_BASE_URL=${REMOTE_ASSETS_BASE_URL}
+      - SERVER_API_URL=${SERVER_API_URL}
+      - CI=${CI}
+      - APP_CONTEXT=seller
+      - PUBLIC_APP_CONTEXT=seller
+      - PUBLIC_ADMIN_APP_URL=${PUBLIC_ADMIN_APP_URL}
+      - PUBLIC_SELLER_APP_URL=${PUBLIC_SELLER_APP_URL}
+      - PUBLIC_RECAPTCHA_SITE_KEY=${PUBLIC_RECAPTCHA_SITE_KEY}
+      - DEV_PORT=2123
+    networks:
+      - gelymar-network-dev
+    depends_on:
+      backend:
+        condition: service_started
+
   # Capa Cron (Separada)
   cron:
     build:

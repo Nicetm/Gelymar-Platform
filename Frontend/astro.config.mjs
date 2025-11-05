@@ -46,7 +46,11 @@ if (!process.env.PUBLIC_APP_CONTEXT) {
   process.env.PUBLIC_APP_CONTEXT = appContext;
 }
 
-const DEFAULT_DEV_PORT = appContext === 'client' ? 2122 : 2121;
+const DEFAULT_DEV_PORT = appContext === 'client'
+  ? 2122
+  : appContext === 'seller'
+  ? 2123
+  : 2121;
 const DEV_PORT = Number(process.env.PORT || process.env.DEV_PORT || DEFAULT_DEV_PORT);
 
 // Elimina archivos *.astro.tsx físicos antes de iniciar (si existieran)
@@ -98,6 +102,7 @@ export default defineConfig({
       PUBLIC_APP_CONTEXT: envField.string({ context: 'client', access: 'public', optional: true }),
       PUBLIC_ADMIN_APP_URL: envField.string({ context: 'client', access: 'public', optional: true }),
       PUBLIC_CLIENT_APP_URL: envField.string({ context: 'client', access: 'public', optional: true }),
+      PUBLIC_SELLER_APP_URL: envField.string({ context: 'client', access: 'public', optional: true }),
       SERVER_API_URL: envField.string({ context: 'server', access: 'public' }),
       
       // Configuración del sitio

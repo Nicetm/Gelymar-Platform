@@ -24,7 +24,18 @@ async function processNewOrdersAndSendEmails() {
         'Content-Type': 'application/json'
       }
     });
-    
+    const data = response.data || {};
+
+    if (data.skipped) {
+      console.log('Envio automatico de recepcion deshabilitado por configuracion');
+      return;
+    }
+
+    if (data.processed === 0) {
+      console.log('No se encontraron ordenes nuevas para enviar recepcion');
+    } else {
+      console.log(`Envio de documentos de recepcion completado. Ordenes procesadas: ${data.processed}`);
+    }
   } catch (error) {
     console.error('Error en procesamiento de órdenes nuevas:', error.message);
     if (error.response) {

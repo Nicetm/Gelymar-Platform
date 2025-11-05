@@ -58,7 +58,7 @@ async function getPDFData(file, lang = 'es') {
   `, [file.order_id]);
 
   // Obtener items de la orden usando la misma query que order.service.js
-  const [orderItems] = await pool.query(`
+  let [orderItems] = await pool.query(`
     SELECT DISTINCT
       oi.id,
       oi.order_id,
@@ -82,6 +82,34 @@ async function getPDFData(file, lang = 'es') {
     WHERE oi.pc = ? AND o.oc = ? AND (oi.factura = ? OR (oi.factura IS NULL AND ? IS NULL))
     ORDER BY oi.id
   `, [order.pc, order.oc, order.factura, order.factura]);
+
+  if (!orderItems.length && order?.id) {
+    const [fallbackItems] = await pool.query(`
+      SELECT
+        oi.id,
+        oi.order_id,
+        oi.item_id,
+        oi.kg_solicitados,
+        oi.unit_price,
+        oi.volumen,
+        oi.tipo,
+        oi.mercado,
+        oi.kg_despachados,
+        oi.kg_facturados,
+        oi.fecha_etd,
+        oi.fecha_eta,
+        i.item_code,
+        i.item_name,
+        i.unidad_medida,
+        oi.factura
+      FROM order_items oi
+      JOIN items i ON oi.item_id = i.id
+      WHERE oi.order_id = ?
+      ORDER BY oi.id
+    `, [order.id]);
+
+    orderItems = fallbackItems;
+  }
 
   // Fechas actuales
   const currentDate = new Date();
@@ -1042,11 +1070,23 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
       getOrderData,
       getReceptionFile,
       getCustomerEmail,
-      markOrderAsSent
+      markOrderAsSent,
+      isSendOrderReceptionEnabled
     } = require('../services/checkOrderReception.service');
     const { sendFileToClient } = require('../services/email.service');
     const fs = require('fs');
     const path = require('path');
+
+    const automaticReceptionEnabled = await isSendOrderReceptionEnabled();
+    if (!automaticReceptionEnabled) {
+      return res.status(200).json({
+        message: 'Envio de recepcion de orden deshabilitado por configuracion',
+        processed: 0,
+        errors: 0,
+        total: 0,
+        skipped: true
+      });
+    }
     
     // 1. Obtener order_ids de new_orders
     const orderIds = await getNewOrders();

@@ -185,7 +185,7 @@ class ChatMessage {
     const query = `
       SELECT id, full_name, online 
       FROM users 
-      WHERE role_id = 1 
+      WHERE role_id = 1 AND agent = 1
       ORDER BY full_name ASC
     `;
     

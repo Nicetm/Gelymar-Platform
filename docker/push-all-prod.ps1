@@ -100,6 +100,7 @@ Write-Host "   Fileserver: docker push nicetm/gelymar-platform:fileserver-prod" 
 Write-Host "   Backend:    docker push nicetm/gelymar-platform:backend-prod" -ForegroundColor Gray
 Write-Host "   Frontend (admin):   docker push nicetm/gelymar-platform:frontend-prod" -ForegroundColor Gray
 Write-Host "   Frontend (cliente): docker push nicetm/gelymar-platform:frontend-client-prod" -ForegroundColor Gray
+Write-Host "   Frontend (vendedor): docker push nicetm/gelymar-platform:frontend-seller-prod" -ForegroundColor Gray
 Write-Host "   Cron:       docker push nicetm/gelymar-platform:cron-prod" -ForegroundColor Gray
 # Write-Host "   Config Manager: docker push nicetm/gelymar-platform:config-manager-prod" -ForegroundColor Gray
 Write-Host "   phpMyAdmin: docker push nicetm/gelymar-platform:phpmyadmin-prod" -ForegroundColor Gray

@@ -2,6 +2,7 @@ const translationsMap = {
   es: {
     comond: () => import('../i18n/es/comond.json'),
     clientes: () => import('../i18n/es/clientes.json'),
+    vendedores: () => import('../i18n/es/vendedores.json'),
     carpetas: () => import('../i18n/es/carpetas.json'),
     documentos: () => import('../i18n/es/documentos.json'),
     support: () => import('../i18n/es/support.json'), 
@@ -14,6 +15,7 @@ const translationsMap = {
   en: {
     comond: () => import('../i18n/en/comond.json'),
     clientes: () => import('../i18n/en/clientes.json'),
+    vendedores: () => import('../i18n/en/vendedores.json'),
     carpetas: () => import('../i18n/en/carpetas.json'),
     documentos: () => import('../i18n/en/documentos.json'),
     support: () => import('../i18n/en/support.json'), 
@@ -103,6 +105,7 @@ export async function loadTranslations(lang = 'es', section = 'clientes') {
         es: {
           comond: () => import('../i18n/es/comond.json'),
           clientes: () => import('../i18n/es/clientes.json'),
+          vendedores: () => import('../i18n/es/vendedores.json'),
           carpetas: () => import('../i18n/es/carpetas.json'),
           documentos: () => import('../i18n/es/documentos.json'),
           support: () => import('../i18n/es/support.json'), 
@@ -115,6 +118,7 @@ export async function loadTranslations(lang = 'es', section = 'clientes') {
         en: {
           comond: () => import('../i18n/en/comond.json'),
           clientes: () => import('../i18n/en/clientes.json'),
+          vendedores: () => import('../i18n/en/vendedores.json'),
           carpetas: () => import('../i18n/en/carpetas.json'),
           documentos: () => import('../i18n/en/documentos.json'),
           support: () => import('../i18n/en/support.json'), 

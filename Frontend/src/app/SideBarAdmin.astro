@@ -1,15 +1,16 @@
 ---
 import { loadTranslations, getServerLang } from '../lib/i18n.js';
 import { getApiBase, getPublicApiUrl, getFileServerUrl } from './constants.ts';
+import { inferUserRole, resolveRoleLabel } from '../lib/roles.ts';
 
 const apiBase = getApiBase();
-const clientApiBase = getPublicApiUrl(); // Para JavaScript del cliente
+const clientApiBase = getPublicApiUrl();
 const fileServer = getFileServerUrl();
-const lang       = getServerLang(Astro.cookies);   // idioma dinámico
+const lang = getServerLang(Astro.cookies);
 
 const t: any = {
-  sidebar        : await loadTranslations(lang, 'sidebar'),
-  admin_settings : await loadTranslations(lang, 'admin_settings'),
+  sidebar: await loadTranslations(lang, 'sidebar'),
+  admin_settings: await loadTranslations(lang, 'admin_settings'),
 };
 
 // ── Datos del usuario autenticado ───────────────────────────────────────────────
@@ -30,10 +31,9 @@ try {
       headers: { Authorization: `Bearer ${token}` }
     }).then(r => (r.ok ? r.json() : null));
     user = Array.isArray(data) ? data[0] ?? null : data;
-    if (user && !user.role && user.role_id !== undefined) {
-      user.role = (user.role_id === 1 || user.role_id === 3) ? 'admin'
-                : user.role_id === 2 ? 'client'
-                : String(user.role_id);
+    if (user) {
+      const normalizedRole = inferUserRole(user);
+      user.role = normalizedRole;
     }
   }
 } catch (err) {
@@ -44,305 +44,196 @@ if (!user) {
   user = { full_name: 'Admin', email: 'admin@example.com', role: 'admin', avatar: '' };
 }
 
-// ── Avatares por defecto ───────────────────────────────────────────────────────
-const avatarUrl = user.avatar
+if (user) {
+  const normalizedRole = inferUserRole(user);
+  user.role = normalizedRole;
+
+  if (user.role_id === undefined || user.role_id === null) {
+    if (normalizedRole === 'admin') {
+      user.role_id = 1;
+    } else if (normalizedRole === 'seller') {
+      user.role_id = 3;
+    } else if (normalizedRole === 'client') {
+      user.role_id = 2;
+    }
+  }
+
+  user.role_label = resolveRoleLabel(normalizedRole);
+}
+
+let sidebarMenuConfig = null;
+try {
+  if (token) {
+    const menuResponse = await fetch(`${apiBase}/api/config/sidebar-menu`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (menuResponse.ok) {
+      sidebarMenuConfig = await menuResponse.json();
+    }
+  }
+} catch (error) {
+  console.warn('Error obteniendo configuración del menú lateral:', error);
+}
+
+const toRoleList = (roles: any): number[] => {
+  if (!Array.isArray(roles)) return [];
+  return roles
+    .map((value: any) => Number(value))
+    .filter((value: number) => Number.isFinite(value));
+};
+
+const menuConfigMap = (() => {
+  if (!sidebarMenuConfig || Number(sidebarMenuConfig.enable) !== 1 || !Array.isArray(sidebarMenuConfig.menu)) {
+    return null;
+  }
+  const map = new Map();
+  sidebarMenuConfig.menu.forEach((entry: any) => {
+    if (!entry || !entry.name) return;
+    const key = String(entry.name).toLowerCase().trim();
+    if (!key) return;
+    map.set(key, toRoleList(entry.role_id || entry.roles || []));
+  });
+  return map;
+})();
+
+const MENU_KEY_ALIASES = {
+  dashboard: ['dashboard'],
+  clientes: ['clientes', 'clients'],
+  vendedores: ['vendedores', 'sellers'],
+  ordenes: ['ordenes', 'órdenes', 'orders'],
+  messaging: ['messaging', 'mensajes', 'messages'],
+  shipments: ['shipments', 'envios', 'envíos'],
+};
+
+const userRoleId = Number(user?.role_id ?? user?.roleId ?? null);
+const hasValidRoleId = Number.isFinite(userRoleId);
+
+const getConfigRolesForKey = (key: string): number[] | null => {
+  if (!menuConfigMap) return null;
+  const aliases = (MENU_KEY_ALIASES as Record<string, string[]>)[key] || [key];
+  for (const alias of aliases) {
+    const normalized = String(alias).toLowerCase();
+    if (menuConfigMap.has(normalized)) {
+      return menuConfigMap.get(normalized) || null;
+    }
+  }
+  return null;
+};
+
+const isRoleAllowed = (roles: number[] | null): boolean => {
+  if (!hasValidRoleId) return false;
+  if (!roles || roles.length === 0) return true;
+  return roles.includes(userRoleId);
+};
+
+const canShowMenu = (key: string, fallbackRoles: number[] = []): boolean => {
+  const normalizedFallback = toRoleList(fallbackRoles);
+  const fallbackAllowed =
+    normalizedFallback.length === 0 ? hasValidRoleId : normalizedFallback.includes(userRoleId);
+
+  if (!fallbackAllowed) {
+    return false;
+  }
+
+  if (!menuConfigMap) {
+    return fallbackAllowed;
+  }
+
+  const configRoles = getConfigRolesForKey(key);
+  if (!configRoles) {
+    return false;
+  }
+
+  return isRoleAllowed(configRoles);
+};
+
+const showClients = canShowMenu('clientes', [1, 3]);
+const showSellers = canShowMenu('vendedores', [1]);
+const showOrders = canShowMenu('ordenes', [1, 3]);
+
+const activePath = Astro.url.pathname;
+
+const links = [
+  {
+    href: '/admin/clients',
+    icon: 'briefcase',
+    label: t.sidebar.customers,
+    show: showClients,
+  },
+  {
+    href: '/admin/sellers',
+    icon: 'users',
+    label: t.sidebar.sellers,
+    show: showSellers,
+  },
+  {
+    href: '/admin/orders',
+    icon: 'file-text',
+    label: t.sidebar.orders,
+    show: showOrders,
+  },
+].filter(link => link.show);
+
+const avatarUrl = user?.avatar
   ? (user.avatar.startsWith('http') ? user.avatar : `${fileServer}/${user.avatar}`)
-  // Fallback: avatar con iniciales (modo claro)
-  : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.full_name)}&backgroundColor=4b5563&fontColor=ffffff`;
+  : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user?.full_name || 'Admin')}&backgroundColor=4b5563&fontColor=ffffff`;
 
 let avatarLightSrc = avatarUrl;
-let avatarDarkSrc  = user.avatar 
+let avatarDarkSrc = user?.avatar 
   ? avatarUrl 
-  : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.full_name)}&backgroundColor=1e293b&fontColor=ffffff`;
+  : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user?.full_name || 'Admin')}&backgroundColor=1e293b&fontColor=ffffff`;
 ---
 
-<style>
-/* ── Estilos del Sidebar ─────────────────────────────────────────────────────── */
-
-/* Fondo sólido y sombra */
-#sidebar {
-  @apply bg-white dark:bg-gray-800 border-r border-gray-300 dark:border-gray-700 transition-all duration-500;
-}
-
-/* Hover animado y barra de acento */
-.sidebar-link {
-  @apply flex items-center gap-2 p-2 px-4 text-sm border-transparent transition-all duration-200 ease-out relative;
-  @apply text-black hover:bg-gray-300 dark:text-gray-200 dark:hover:bg-gray-700;
-  overflow: hidden;
-}
-
-.sidebar-link.active::before {
-  content: '';
-  position: absolute;
-  left: 0; top: 0; bottom: 0;
-  width: 4px;
-  background: #6b7280;
-  border-radius: 0;
-  transition: background 0.3s;
-}
-
-.sidebar-link i {
-  @apply w-6 h-6 text-gray-700 dark:text-gray-400 transition-colors duration-200;
-}
-
-.sidebar-link.active {
-  @apply bg-blue-50 text-black border-[#00538C] dark:bg-blue-900/40 dark:text-blue-300;
-}
-
-/* Estilos específicos para elementos activos en modo claro */
-.sidebar-link.active {
-  @apply bg-gray-100 border-gray-400 text-gray-800 dark:bg-gray-700 dark:border-gray-500 dark:text-gray-200;
-}
-
-/* Estilos para el contenedor del ícono cuando está activo */
-.sidebar-link.active .icon-container {
-  @apply bg-gray-300 dark:bg-gray-600;
-}
-
-/* Estilos para el texto cuando está activo */
-.sidebar-link.active .nav-text {
-  @apply text-gray-800 dark:text-gray-200 font-semibold;
-}
-
-/* Estilos para el ícono cuando está activo */
-.sidebar-link.active .icon-container i {
-  @apply text-gray-700 dark:text-gray-300;
-}
-
-/* Estilos específicos para el botón de soporte cuando está activo */
-.support-link.active {
-  transform: scale(1.05);
-}
-
-.support-link.active > div {
-  @apply bg-gradient-to-br from-green-100 to-blue-100 dark:from-green-800/40 dark:to-blue-800/40;
-  @apply border-green-300 dark:border-green-600;
-  @apply ring-2 ring-green-400/50 dark:ring-green-500/50;
-}
-
-.support-link.active span:last-child {
-  @apply text-green-800 dark:text-green-200 font-semibold;
-}
-
-/* Transición suave para el sidebar */
-#sidebar, .sidebar-link, .sidebar-link i {
-  transition: all 0.3s cubic-bezier(.4,0,.2,1);
-}
-
-/* Dropdown de idioma simple */
-#language-dropdown {
-  display: block !important;
-}
-
-#language-dropdown.hidden {
-  display: none !important;
-}
-
-/* Opciones de idioma */
-.language-option {
-  @apply rounded-lg transition-all duration-200;
-  @apply hover:bg-gray-50 dark:hover:bg-gray-800;
-}
-
-/* Rotar chevron cuando dropdown está abierto */
-button[data-dropdown-toggle="language-dropdown"][aria-expanded="true"] i[data-lucide="chevron-up"] {
-  transform: rotate(180deg);
-}
-
-/* ── Scrollbar personalizada ────────────────────────────────────────────────── */
-.scrollbar::-webkit-scrollbar {
-  @apply w-2;
-}
-
-.scrollbar::-webkit-scrollbar-track {
-  @apply bg-gray-400 dark:bg-gray-800;
-}
-
-.scrollbar::-webkit-scrollbar-thumb {
-  @apply bg-slate-200 dark:bg-slate-900 rounded-md;
-}
-
-.scrollbar::-webkit-scrollbar-thumb:hover {
-  @apply bg-slate-300 dark:bg-slate-700;
-}
-
-/* ── Panel de Usuario Moderno ───────────────────────────────────────────────── */
-.user-panel-container {
-  @apply mx-0;
-}
-
-.user-panel-admin {
-  @apply bg-gray-100 dark:bg-gray-800 p-4 border-b border-gray-200 dark:border-gray-700 w-full min-h-[140px];
-}
-
-.user-panel-client {
-  @apply bg-gray-100 dark:bg-gray-800 p-4 border-b border-gray-200 dark:border-gray-700 w-full min-h-[140px];
-}
-
-.user-panel-header {
-  @apply flex items-center justify-between mb-4;
-}
-
-.user-panel-title {
-  @apply flex items-center gap-2;
-}
-
-.user-panel-indicator {
-  @apply w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-lg;
-}
-
-.user-panel-title-text-admin {
-  @apply text-sm font-semibold text-gray-700 dark:text-gray-300;
-}
-
-.user-panel-title-text-client {
-  @apply text-sm font-semibold text-gray-700 dark:text-gray-300;
-}
-
-.user-panel-icon-admin {
-  @apply w-6 h-6 bg-gray-500 dark:bg-gray-600 rounded flex items-center justify-center;
-}
-
-.user-panel-icon-client {
-  @apply w-6 h-6 bg-gray-500 dark:bg-gray-600 rounded flex items-center justify-center;
-}
-
-.user-panel-icon-svg {
-  @apply w-3 h-3 text-white;
-}
-
-.user-panel-content {
-  @apply text-left;
-}
-
-.user-panel-name {
-  @apply text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3;
-}
-
-.user-panel-session {
-  @apply flex items-center gap-1;
-}
-
-.user-panel-session-dot {
-  @apply w-1.5 h-1.5 bg-green-400 rounded-full;
-}
-
-.user-panel-session-text {
-  @apply text-xs text-gray-600 dark:text-gray-400;
-}
-</style>
 
 <!-- Carga Lucide diferido y renderiza íconos al terminar -->
 <script src="https://unpkg.com/lucide@latest" defer onload="window.lucide?.createIcons?.()"></script>
 
 <aside
   id="sidebar"
-  class="fixed top-0 left-0 z-20 flex-col flex-shrink-0 hidden w-56 h-full pt-16 font-normal lg:flex transition-width bg-white border-r border-gray-200 dark:bg-gray-800 dark:border-gray-700 -px-2"
-  aria-label="Sidebar"
+  class="fixed top-0 left-0 z-20 flex-col flex-shrink-0 hidden w-56 h-full pt-16 font-normal lg:flex transition-width bg-white border-r border-gray-200 dark:bg-gray-800 dark:border-gray-700"
+  aria-label="Admin Sidebar"
   data-api-base={apiBase}
   data-file-server={fileServer}
+  data-client-api-base={clientApiBase}
 >
-  <!-- Scrollable content -->
-  <div
-    class="flex-1 overflow-y-auto scrollbar scrollbar-w-2 scrollbar-thumb-rounded-md scrollbar-thumb-slate-200 scrollbar-track-gray-400 dark:scrollbar-thumb-slate-900 dark:scrollbar-track-gray-800"
-  >
-    <!-- Modern Admin Panel -->
-    <div class="user-panel-container">
-      <div class="user-panel-admin">
-        <div class="user-panel-header">
-          <div class="user-panel-title">
-            <div class="user-panel-indicator"></div>
-            <span class="user-panel-title-text-admin">Admin Panel</span>
-          </div>
-          <div class="user-panel-icon-admin">
-            <i data-lucide="shield" class="user-panel-icon-svg"></i>
-          </div>
-        </div>
-        <div class="user-panel-content">
-          <div class="user-panel-name">{user?.full_name || 'Admin'}</div>
-          <div class="user-panel-session">
-            <div class="user-panel-session-dot"></div>
-            <span class="user-panel-session-text">Active Session</span>
-          </div>
-        </div>
-      </div>
+  <div class="flex-1 overflow-y-auto scrollbar scrollbar-w-2 scrollbar-thumb-rounded-md scrollbar-thumb-slate-200 scrollbar-track-gray-400 dark:scrollbar-thumb-slate-900 dark:scrollbar-track-gray-800">
+    <div id="SidebarUserDescription" class="px-4 py-5 border-b border-gray-100 dark:border-gray-700">
+      <p class="text-xs uppercase text-gray-400 dark:text-gray-500">Admin</p>
+      <p class="mt-1 text-sm font-semibold text-gray-900 dark:text-gray-100">
+        {user?.full_name || 'Admin'}
+      </p>
+      <p class="text-xs text-gray-500 dark:text-gray-400">
+        {user?.email || ''}
+      </p>
     </div>
-  
-    <div class="pt-3 space-y-3">
-      <!-- dashboard -->
-      <a
-        href="/admin/dashboard"
-        class="sidebar-link group flex items-center gap-3 p-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 border-transparent hover:border-gray-400 dark:hover:border-gray-500"
-        style="display: none;"
-      >
-        <div class="icon-container w-8 h-8 bg-gray-200 dark:bg-gray-600 flex items-center justify-center transition-all duration-200">
-          <i data-lucide="layout-dashboard" class="w-4 h-4 text-gray-600 dark:text-gray-300"></i>
-        </div>
-        <span class="nav-text font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors duration-200">
-          {t.sidebar.dashboard}
-        </span>
-      </a>
 
-      <!-- clients -->
-      <a
-        href="/admin/clients"
-        class="sidebar-link group flex items-center gap-3 px-4 py-3 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-all duration-300 ease-out"
-      >
-        <div class="icon-container w-8 h-8 bg-emerald-500 dark:bg-emerald-600 flex items-center justify-center group-hover:scale-105 transition-all duration-300 ease-out">
-          <i data-lucide="briefcase" class="w-4 h-4 text-white"></i>
-        </div>
-        <span class="nav-text font-medium text-gray-700 dark:text-gray-300 group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-all duration-300 ease-out">
-          {t.sidebar.customers}
-        </span>
-      </a>
-
-      <!-- orders -->
-      <a
-        href="/admin/orders"
-        class="sidebar-link group flex items-center gap-3 px-4 py-3 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all duration-300 ease-out"
-      >
-        <div class="icon-container w-8 h-8 bg-purple-500 dark:bg-purple-600 flex items-center justify-center group-hover:scale-105 transition-all duration-300 ease-out">
-          <i data-lucide="file-text" class="w-4 h-4 text-white"></i>
-        </div>
-        <span class="nav-text font-medium text-gray-700 dark:text-gray-300 group-hover:text-purple-700 dark:group-hover:text-purple-300 transition-all duration-300 ease-out">
-          {t.sidebar.orders}
-        </span>
-      </a>
-
-      <!-- messaging -->
-      <a
-        href="/admin/messaging"
-        class="sidebar-link group flex items-center gap-3 p-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 border-transparent hover:border-gray-400 dark:hover:border-gray-500"
-        style="display: none;"
-      >
-        <div class="icon-container w-8 h-8 bg-gray-200 dark:bg-gray-600 flex items-center justify-center transition-all duration-200">
-          <i data-lucide="message-circle" class="w-4 h-4 text-gray-600 dark:text-gray-300"></i>
-        </div>
-        <span class="nav-text font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors duration-200">
-          {t.sidebar.messaging}
-        </span>
-      </a>
-
-      <!-- shipments -->
-      <a
-        href="/admin/shipments"
-        class="sidebar-link group flex items-center gap-3 p-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 border-transparent hover:border-gray-400 dark:hover:border-gray-500"
-        style="display: none;"
-      >
-        <div class="icon-container w-8 h-8 bg-gray-200 dark:bg-gray-600 flex items-center justify-center transition-all duration-200">
-          <i data-lucide="ship" class="w-4 h-4 text-gray-600 dark:text-gray-300"></i>
-        </div>
-        <span class="nav-text font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors duration-200">
-          {t.sidebar.shipments}
-        </span>
-      </a>
-    </div>
+    <nav class="pt-4 space-y-2">
+      {links.map(({ href, icon, label }) => {
+        const isActive = activePath.startsWith(href);
+        return (
+          <a
+            href={href}
+            class={`sidebar-link group flex items-center gap-3 px-4 py-3 transition-all duration-200 ${
+              isActive
+                ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+            }`}
+          >
+            <div class="icon-container w-8 h-8 aspect-square rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center flex-shrink-0 transition-all duration-200">
+              <i data-lucide={icon} class="w-4 h-4"></i>
+            </div>
+            <span class="nav-text font-medium text-xs transition-colors duration-200 w-full">
+              {label}
+            </span>
+          </a>
+        );
+      })}
+    </nav>
   </div>
 
   <!-- Footer: settings + language -->
   <div
-    class="absolute bottom-0 left-0 w-full p-3 bg-white border-t border-gray-200 flex gap-2 dark:bg-gray-800 dark:border-gray-700"
-  >
+    class="absolute bottom-0 left-0 w-full p-3 bg-white border-t border-gray-200 flex gap-2 dark:bg-gray-800 dark:border-gray-700">
     <!-- Settings dropdown -->
     <div class="relative flex-1">
       <button
@@ -690,10 +581,9 @@ button[data-dropdown-toggle="language-dropdown"][aria-expanded="true"] i[data-lu
   id="sidebarBackdrop"
 ></div>
 
-<!-- SCRIPTS -->
+<!-- Use inline module with define:vars to import and initialize sidebar-admin on the client -->
 <script type="module" define:vars={{ apiBase, clientApiBase, fileServer, t, token, lang }}>
   import { initSidebarAdmin } from '/js/sidebar-admin.js';
-  
-  // Inicializar el sidebar admin con la configuración
+  // Inicializar el sidebar admin con la configuración del servidor
   initSidebarAdmin({ apiBase, clientApiBase, fileServer, t, token, lang });
 </script>

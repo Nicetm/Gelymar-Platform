@@ -17,6 +17,7 @@ router.get('/headerBusquedaClienteChat', authMiddleware, authorizeRoles(['admin'
 router.get('/headerUsersSinCuenta', authMiddleware, authorizeRoles(['admin']), configController.getHeaderUsersSinCuenta);
 router.get('/headerNotificaciones', authMiddleware, authorizeRoles(['admin']), configController.getHeaderNotificaciones);
 router.get('/headerOrdenesSinDocumentos', authMiddleware, authorizeRoles(['admin']), configController.getHeaderOrdenesSinDocumentosConfig);
+router.get('/sidebar-menu', authMiddleware, authorizeRoles(['admin', 'client']), configController.getSidebarMenuConfig);
 
 // Visibilidad de opciones del panel de ajustes
 router.get('/admin-settings/visibility', authMiddleware, authorizeRoles(['admin']), configController.getAdminSettingsVisibility);

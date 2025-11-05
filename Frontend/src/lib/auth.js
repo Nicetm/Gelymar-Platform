@@ -1,6 +1,7 @@
 // src/lib/auth.js - Manejo centralizado de autenticación
 
 import { AUTH_CONFIG, getApiUrl, getAuthHeaders } from './authConfig.js';
+import { inferUserRole } from './roles.js';
 
 /**
  * Valida si el token está presente y es válido
@@ -56,7 +57,7 @@ export async function getUserRole() {
     }
 
     const user = await response.json();
-    return user.role || ((user.role_id === 1 || user.role_id === 3) ? 'admin' : 'client');
+    return inferUserRole(user);
   } catch (error) {
     console.error('Error obteniendo rol:', error);
     return null;
@@ -65,7 +66,7 @@ export async function getUserRole() {
 
 /**
  * Valida el rol del usuario contra el backend
- * @param {string} requiredRole - Rol requerido ('admin' o 'client')
+ * @param {string} requiredRole - Rol requerido ('admin', 'client' o 'seller')
  * @returns {Promise<boolean>}
  */
 export async function validateUserRole(requiredRole) {
@@ -82,6 +83,8 @@ export function redirectByRole(userRole) {
   
   if (userRole === 'admin') {
     window.location.href = AUTH_CONFIG.ADMIN_URL;
+  } else if (userRole === 'seller') {
+    window.location.href = AUTH_CONFIG.SELLER_URL;
   } else if (userRole === 'client') {
     window.location.href = AUTH_CONFIG.CLIENT_URL;
   } else {
@@ -199,9 +202,18 @@ export async function validateRole(Astro, requiredRole) {
     }
 
     const user = await response.json();
-    const userRole = user.role || ((user.role_id === 1 || user.role_id === 3) ? 'admin' : 'client');
+    const userRole = inferUserRole(user);
     
     if (userRole !== requiredRole) {
+      if (userRole === 'admin') {
+        return Astro.redirect(AUTH_CONFIG.ADMIN_URL);
+      }
+      if (userRole === 'seller') {
+        return Astro.redirect(AUTH_CONFIG.SELLER_URL);
+      }
+      if (userRole === 'client') {
+        return Astro.redirect(AUTH_CONFIG.CLIENT_URL);
+      }
       return Astro.redirect('/authentication/sign-in');
     }
     

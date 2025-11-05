@@ -3,313 +3,97 @@ import { loadTranslations, getServerLang } from '../lib/i18n.js';
 import { getApiBase, getPublicApiUrl, getFileServerUrl } from './constants.ts';
 
 const apiBase = getApiBase();
-const clientApiBase = getPublicApiUrl(); // Para JavaScript del cliente
+const clientApiBase = getPublicApiUrl();
 const fileServer = getFileServerUrl();
-const lang       = getServerLang(Astro.cookies);   // idioma dinámico
+const lang = getServerLang(Astro.cookies);
 
 const t: any = {
-  sidebar        : await loadTranslations(lang, 'sidebar'),
-  admin_settings : await loadTranslations(lang, 'admin_settings'),
+  sidebar: await loadTranslations(lang, 'sidebar'),
 };
 
-// ── Datos del usuario autenticado ───────────────────────────────────────────────
 const token =
   Astro.cookies.get('token')?.value ??
   Astro.cookies.get('accessToken')?.value ??
   Astro.cookies.get('jwt')?.value ??
   null;
 
-/** @type {import('../types/entities.js').Users | null} */
 let user = null;
 
-try {
-  // En SSR (Node), 'credentials' no es soportado por los tipos de fetch, y las cookies httpOnly
-  // no se envían automáticamente. Solo usamos el header Authorization si tenemos token.
-  if (token) {
-    const data = await fetch(`${apiBase}/api/auth/me`, {
-      headers: { Authorization: `Bearer ${token}` }
-    }).then(r => (r.ok ? r.json() : null));
-    user = Array.isArray(data) ? data[0] ?? null : data;
-    if (user && !user.role && user.role_id !== undefined) {
-      user.role = (user.role_id === 1 || user.role_id === 3) ? 'admin'
-                : user.role_id === 2 ? 'client'
-                : String(user.role_id);
+if (token) {
+  try {
+    const meResponse = await fetch(`${apiBase}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (meResponse.ok) {
+      user = await meResponse.json();
     }
+  } catch (error) {
+    console.warn('[SideBarClient] Error fetching user info:', error);
   }
-} catch (err) {
-  console.error('Error fetching user (SSR):', err);
 }
 
-if (!user) {
-  user = { full_name: 'User', email: 'user@example.com', role: 'guest', avatar: '' };
-}
+const activePath = Astro.url.pathname;
 
-// ── Avatares por defecto ───────────────────────────────────────────────────────
-const avatarUrl = user.avatar
-  ? (user.avatar.startsWith('http') ? user.avatar : `${fileServer}/${user.avatar}`)
-  // Fallback: avatar con iniciales (modo claro)
-  : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.full_name)}&backgroundColor=4b5563&fontColor=ffffff`;
-
-let avatarLightSrc = avatarUrl;
-let avatarDarkSrc  = user.avatar 
-  ? avatarUrl 
-  : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.full_name)}&backgroundColor=1e293b&fontColor=ffffff`;
+const links = [
+  {
+    href: '/client/documents',
+    icon: 'folder-open',
+    label: t.sidebar.documents,
+  },
+];
 ---
-
-<style>
-/* ── Estilos del Sidebar ─────────────────────────────────────────────────────── */
-
-/* Fondo sólido y sombra */
-#sidebar {
-  @apply bg-white dark:bg-gray-800 border-r border-gray-300 dark:border-gray-700 transition-all duration-500;
-}
-
-/* Hover animado y barra de acento */
-.sidebar-link {
-  @apply flex items-center gap-2 p-2 px-4 text-sm border-transparent transition-all duration-200 ease-out relative;
-  @apply text-black hover:bg-gray-300 dark:text-gray-200 dark:hover:bg-gray-700;
-  overflow: hidden;
-}
-
-.sidebar-link.active::before {
-  content: '';
-  position: absolute;
-  left: 0; top: 0; bottom: 0;
-  width: 4px;
-  background: #6b7280;
-  border-radius: 0;
-  transition: background 0.3s;
-}
-
-.sidebar-link i {
-  @apply w-6 h-6 text-gray-700 dark:text-gray-400 transition-colors duration-200;
-}
-
-.sidebar-link.active {
-  @apply bg-blue-50 text-black border-[#00538C] dark:bg-blue-900/40 dark:text-blue-300;
-}
-
-/* Estilos específicos para elementos activos en modo claro */
-.sidebar-link.active {
-  @apply bg-gray-100 border-gray-400 text-gray-800 dark:bg-gray-700 dark:border-gray-500 dark:text-gray-200;
-}
-
-/* Estilos para el contenedor del ícono cuando está activo */
-.sidebar-link.active .icon-container {
-  @apply bg-gray-300 dark:bg-gray-600;
-}
-
-/* Estilos para el texto cuando está activo */
-.sidebar-link.active .nav-text {
-  @apply text-gray-800 dark:text-gray-200 font-semibold;
-}
-
-/* Estilos para el ícono cuando está activo */
-.sidebar-link.active .icon-container i {
-  @apply text-gray-700 dark:text-gray-300;
-}
-
-/* Estilos específicos para el botón de soporte cuando está activo */
-.support-link.active {
-  transform: scale(1.05);
-}
-
-.support-link.active > div {
-  @apply bg-gradient-to-br from-green-100 to-blue-100 dark:from-green-800/40 dark:to-blue-800/40;
-  @apply border-green-300 dark:border-green-600;
-  @apply ring-2 ring-green-400/50 dark:ring-green-500/50;
-}
-
-.support-link.active span:last-child {
-  @apply text-green-800 dark:text-green-200 font-semibold;
-}
-
-/* Transición suave para el sidebar */
-#sidebar, .sidebar-link, .sidebar-link i {
-  transition: all 0.3s cubic-bezier(.4,0,.2,1);
-}
-
-/* Dropdown de idioma simple */
-#language-dropdown {
-  display: block !important;
-}
-
-#language-dropdown.hidden {
-  display: none !important;
-}
-
-/* Opciones de idioma */
-.language-option {
-  @apply rounded-lg transition-all duration-200;
-  @apply hover:bg-gray-50 dark:hover:bg-gray-800;
-}
-
-/* Rotar chevron cuando dropdown está abierto */
-button[data-dropdown-toggle="language-dropdown"][aria-expanded="true"] i[data-lucide="chevron-up"] {
-  transform: rotate(180deg);
-}
-
-/* ── Scrollbar personalizada ────────────────────────────────────────────────── */
-.scrollbar::-webkit-scrollbar {
-  @apply w-2;
-}
-
-.scrollbar::-webkit-scrollbar-track {
-  @apply bg-gray-400 dark:bg-gray-800;
-}
-
-.scrollbar::-webkit-scrollbar-thumb {
-  @apply bg-slate-200 dark:bg-slate-900 rounded-md;
-}
-
-.scrollbar::-webkit-scrollbar-thumb:hover {
-  @apply bg-slate-300 dark:bg-slate-700;
-}
-
-/* ── Panel de Usuario Moderno ───────────────────────────────────────────────── */
-.user-panel-container {
-  @apply mx-0;
-}
-
-.user-panel-admin {
-  @apply bg-gray-100 dark:bg-gray-800 p-4 border-b border-gray-200 dark:border-gray-700 w-full min-h-[140px];
-}
-
-.user-panel-client {
-  @apply bg-gray-100 dark:bg-gray-800 p-4 border-b border-gray-200 dark:border-gray-700 w-full min-h-[140px];
-}
-
-.user-panel-header {
-  @apply flex items-center justify-between mb-4;
-}
-
-.user-panel-title {
-  @apply flex items-center gap-2;
-}
-
-.user-panel-indicator {
-  @apply w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-lg;
-}
-
-.user-panel-title-text-admin {
-  @apply text-sm font-semibold text-gray-700 dark:text-gray-300;
-}
-
-.user-panel-title-text-client {
-  @apply text-sm font-semibold text-gray-700 dark:text-gray-300;
-}
-
-.user-panel-icon-admin {
-  @apply w-6 h-6 bg-gray-500 dark:bg-gray-600 rounded flex items-center justify-center;
-}
-
-.user-panel-icon-client {
-  @apply w-6 h-6 bg-gray-500 dark:bg-gray-600 rounded flex items-center justify-center;
-}
-
-.user-panel-icon-svg {
-  @apply w-3 h-3 text-white;
-}
-
-.user-panel-content {
-  @apply text-left;
-}
-
-.user-panel-name {
-  @apply text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3;
-}
-
-.user-panel-session {
-  @apply flex items-center gap-1;
-}
-
-.user-panel-session-dot {
-  @apply w-1.5 h-1.5 bg-green-400 rounded-full;
-}
-
-.user-panel-session-text {
-  @apply text-xs text-gray-600 dark:text-gray-400;
-}
-</style>
 
 <!-- Carga Lucide diferido y renderiza íconos al terminar -->
 <script src="https://unpkg.com/lucide@latest" defer onload="window.lucide?.createIcons?.()"></script>
 
 <aside
   id="sidebar"
-  class="fixed top-0 left-0 z-20 flex-col flex-shrink-0 hidden w-56 h-full pt-16 font-normal lg:flex transition-width bg-white border-r border-gray-200 dark:bg-gray-800 dark:border-gray-700 -px-2"
-  aria-label="Sidebar"
+  class="fixed top-0 left-0 z-20 flex-col flex-shrink-0 hidden w-56 h-full pt-16 font-normal lg:flex transition-width bg-white border-r border-gray-200 dark:bg-gray-800 dark:border-gray-700"
+  aria-label="Client Sidebar"
   data-api-base={apiBase}
   data-file-server={fileServer}
+  data-client-api-base={clientApiBase}
 >
-  <!-- Scrollable content -->
-  <div
-    class="flex-1 overflow-y-auto scrollbar scrollbar-w-2 scrollbar-thumb-rounded-md scrollbar-thumb-slate-200 scrollbar-track-gray-400 dark:scrollbar-thumb-slate-900 dark:scrollbar-track-gray-800"
-  >
-    <!-- Modern Client Panel -->
-    <div class="user-panel-container">
-      <div class="user-panel-client">
-        <div class="user-panel-header">
-          <div class="user-panel-title">
-            <div class="user-panel-indicator"></div>
-            <span class="user-panel-title-text-client">Client Panel</span>
-          </div>
-          <div class="user-panel-icon-client">
-            <i data-lucide="user" class="user-panel-icon-svg"></i>
-          </div>
-        </div>
-        <div class="user-panel-content">
-          <div class="user-panel-name">{user?.full_name || 'Cliente'}</div>
-          <div class="user-panel-session">
-            <div class="user-panel-session-dot"></div>
-            <span class="user-panel-session-text">Active Session</span>
-          </div>
-        </div>
-      </div>
+  <div class="flex-1 overflow-y-auto scrollbar scrollbar-w-2 scrollbar-thumb-rounded-md scrollbar-thumb-slate-200 scrollbar-track-gray-400 dark:scrollbar-thumb-slate-900 dark:scrollbar-track-gray-800">
+    <div id="SidebarUserDescription" class="px-4 py-5 border-b border-gray-100 dark:border-gray-700">
+      <p class="text-xs uppercase text-gray-400 dark:text-gray-500">Client</p>
+      <p class="mt-1 text-sm font-semibold text-gray-900 dark:text-gray-100">
+        {user?.full_name || 'Cliente'}
+      </p>
+      <p class="text-xs text-gray-500 dark:text-gray-400">
+        {user?.email || ''}
+      </p>
     </div>
     
-    <div class="pt-3 space-y-3">
-      <!-- dashboard -->
-      <a
-        href="/client/dashboard"
-        class="sidebar-link group flex items-center gap-3 px-4 py-3 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-300 ease-out"
-        style="display: none;"
-      >
-        <div class="icon-container w-8 h-8 bg-blue-500 dark:bg-blue-600 rounded-lg flex items-center justify-center shadow-md group-hover:shadow-lg group-hover:scale-105 transition-all duration-300 ease-out">
-          <i data-lucide="layout-dashboard" class="w-4 h-4 text-white"></i>
+    <nav class="pt-4 space-y-2">
+      {links.map(({ href, icon, label }) => {
+        const isActive = activePath.startsWith(href);
+        return (
+          <a
+            href={href}
+            class={`sidebar-link group flex items-center gap-3 px-4 py-3 transition-all duration-200 ${
+              isActive
+                ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+            }`}
+          >
+            <div class="icon-container w-8 h-8 aspect-square rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center flex-shrink-0 transition-all duration-200">
+              <i data-lucide={icon} class="w-4 h-4"></i>
         </div>
-        <span class="nav-text font-semibold text-gray-700 dark:text-gray-300 group-hover:text-blue-700 dark:group-hover:text-blue-300 transition-all duration-300 ease-out">
-          {t.sidebar.dashboard}
+            <span class="nav-text font-medium text-xs transition-colors duration-200 w-full">
+              {label}
         </span>
       </a>
-
-      <!-- documents -->
-      <a href="/client/documents" class="sidebar-link group flex items-center gap-3 px-4 py-3 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-all duration-300 ease-out">
-        <div class="icon-container w-8 h-8 bg-emerald-500 dark:bg-emerald-600 flex items-center justify-center group-hover:scale-105 transition-all duration-300 ease-out">
-          <i data-lucide="folder-open" class="w-4 h-4 text-white"></i>
-        </div>
-        <span class="nav-text font-medium text-gray-700 dark:text-gray-300 group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-all duration-300 ease-out">
-          {t.sidebar.documents}
-        </span>
-      </a>
-    </div>
+        );
+      })}
+    </nav>
   </div>
 
-  <!-- Footer: settings + language -->
+  <!-- Footer: language -->
   <div
     class="absolute bottom-0 left-0 w-full p-3 bg-white border-t border-gray-200 flex gap-2 dark:bg-gray-800 dark:border-gray-700">
-    <!-- Botón de configuración que abre modal -->
-    <a href="#" id="openClientSettings" class="flex-1 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-2 h-10 hover:scale-[1.02] transition-all duration-200 group">
-      <div class="flex items-center justify-center gap-2">
-        <div class="w-5 h-5 bg-gray-200 dark:bg-gray-600 rounded flex items-center justify-center group-hover:bg-gray-300 dark:group-hover:bg-gray-500 transition-colors duration-200">
-          <i data-lucide="user-cog" class="w-3 h-3 text-gray-600 dark:text-gray-300"></i>
-        </div>
-        <span class="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors duration-200">Settings</span>
-      </div>
-    </a>
-
     <!-- Idioma -->
-    <div class="relative flex-1">
+    <div class="relative w-full">
       <button
         type="button"
         data-dropdown-toggle="language-dropdown"
@@ -395,116 +179,9 @@ button[data-dropdown-toggle="language-dropdown"][aria-expanded="true"] i[data-lu
   </div>
 </aside>
 
-<!-- MODAL DE CONFIGURACIÓN DE CLIENTE -->
-<div
-  id="clientSettingsModal"
-  class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 flex backdrop-blur-sm opacity-0 transition-opacity duration-500"
->
-  <div
-    class="modal-card bg-white/95 dark:bg-gray-800/95 rounded-2xl p-8 w-full max-w-lg relative shadow-2xl ring-1 ring-gray-200 dark:ring-white/10 transform opacity-0 scale-90 translate-y-6 transition-all duration-500 ease-[cubic-bezier(.22,1,.36,1)]"
-  >
-    <button
-      id="closeClientSettings"
-      class="absolute top-4 right-4 text-gray-500 hover:text-red-600 transition"
-    >
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-      </svg>
-    </button>
-
-    <div class="flex items-center gap-3 mb-6">
-      <i data-lucide="user" class="w-6 h-6 text-blue-600"></i>
-      <h2 class="text-xl font-semibold text-gray-900 dark:text-white">{t.admin_settings.title}</h2>
-    </div>
-
-    <form id="clientSettingsForm" class="space-y-5">
-      <!-- Foto / Avatar -->
-      <div class="flex items-center gap-4">
-        <div class="w-16 h-16 relative">
-          <!-- Modo claro -->
-          <img id="clientAvatarLight" class="w-16 h-16 rounded-full object-contain dark:hidden"
-               src={avatarLightSrc} alt="Avatar cliente">
-          <!-- Modo oscuro -->
-          <img id="clientAvatarDark"  class="w-16 h-16 rounded-full object-contain hidden dark:inline"
-               src={avatarDarkSrc}  alt="Avatar cliente">
-        </div>
-
-        <label class="cursor-pointer px-3 py-2 text-sm bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 transition dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600">
-          <input id="clientAvatarInput" type="file" accept="image/*" class="hidden" />
-          {t.admin_settings.change_photo}
-        </label>
-      </div>
-
-      <!-- Nombre -->
-      <div>
-        <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
-          <i data-lucide="user" class="w-4 h-4 inline mr-1.5"></i>
-          {t.admin_settings.full_name}
-        </label>
-        <input
-          id="clientNameInput"
-          type="text"
-          placeholder={t.admin_settings.placeholder_full_name}
-          class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white dark:border-gray-600"
-          value={user?.full_name ?? ''}
-        />
-      </div>
-
-      <!-- Email (solo lectura) -->
-      <div>
-        <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
-          <i data-lucide="mail" class="w-4 h-4 inline mr-1.5"></i>
-          {t.admin_settings.corporate_email}
-        </label>
-        <input
-          id="clientEmailInput"
-          type="email"
-          readonly
-          class="w-full p-3 border bg-gray-100 text-gray-500 rounded-lg cursor-not-allowed dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600"
-          value={user?.email ?? ''}
-        />
-        <p class="text-xs text-gray-500 mt-1">{t.admin_settings.email_cannot_be_changed}</p>
-      </div>
-
-      <!-- Teléfono -->
-      <div>
-        <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
-          <i data-lucide="phone" class="w-4 h-4 inline mr-1.5"></i>
-          {t.admin_settings.contact_phone}
-        </label>
-        <input
-          id="clientPhoneInput"
-          type="tel"
-          placeholder="+56 9 1234 5678"
-          class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white dark:border-gray-600"
-          value={user?.phone ?? ''}
-        />
-      </div>
-
-      <!-- Botones -->
-      <div class="flex justify-end gap-3 pt-2">
-        <button type="button" id="cancelClientEdit"
-          class="px-4 py-2 bg-gray-200/70 rounded-lg hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">
-          {t.admin_settings.cancel}
-        </button>
-        <button type="submit" id="saveClientChanges"
-          class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
-          <i data-lucide="save" class="w-4 h-4"></i> {t.admin_settings.save_changes}
-        </button>
-      </div>
-    </form>
-  </div>
-</div>
-<!-- Backdrop móvil -->
-<div
-  class="fixed inset-0 z-10 hidden bg-gray-900/50 dark:bg-gray-900/90"
-  id="sidebarBackdrop"
-></div>
-
-<!-- SCRIPTS -->
+<!-- Use inline module with define:vars to import and initialize sidebar-client on the client -->
 <script type="module" define:vars={{ apiBase, clientApiBase, fileServer, t, token, lang }}>
   import { initSidebarClient } from '/js/sidebar-client.js';
-  
-  // Inicializar el sidebar client con la configuración
+  // Inicializar el sidebar client con la configuración del servidor
   initSidebarClient({ apiBase, clientApiBase, fileServer, t, token, lang });
 </script>

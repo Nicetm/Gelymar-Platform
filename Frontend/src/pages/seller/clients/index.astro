@@ -1,0 +1,10 @@
+---
+export const prerender = false;
+
+import LayoutSeller from '../../../app/LayoutSeller.astro';
+import Clients from '../../../modules/admin/Clients.astro';
+---
+
+<LayoutSeller>
+  <Clients basePath="/seller" />
+</LayoutSeller>

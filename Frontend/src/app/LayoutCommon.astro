@@ -4,7 +4,7 @@ import { url } from '../lib/data.js';
 import { SITE_TITLE } from './constants.js';
 import AuthGuard from '../components/AuthGuard.astro';
 
-const { class: clazz } = Astro.props;
+const { class: clazz, authRole = undefined } = Astro.props;
 
 // Construir CSP dinámica para connect-src según entornos
 const apiPublic = import.meta.env.PUBLIC_API_URL || '';
@@ -147,7 +147,7 @@ const connectSrc = [
     <div id="globalSpinnerInit">
       <div class="w-16 h-16 border-4 border-blue-600 border-t-transparent border-solid rounded-full animate-spin"></div>
     </div>
-    <AuthGuard />
+    <AuthGuard role={authRole} />
     <slot />
 
     <!-- MODAL DE SESIÓN -->

@@ -7,20 +7,61 @@ const Customer = require('../models/customer.model');
  * Obtiene todos los clientes con un conteo de carpetas asociadas (folder_count)
  * @returns {Array<Customer>} Lista de clientes con propiedad adicional folder_count
  */
-async function getAllCustomers() {
+async function getAllCustomers(options = {}) {
+  const { salesRut = null } = options;
   const pool = await poolPromise;
-  const [rows] = await pool.query(`
-    SELECT 
-      c.*, 
-      COUNT(o.id) AS order_count,
-      cc.primary_email,
-      u.online
-    FROM customers c
-    LEFT JOIN orders o ON o.customer_id = c.id
-    LEFT JOIN customer_contacts cc ON cc.customer_id = c.id
-    LEFT JOIN users u ON u.email = c.rut
-    GROUP BY c.id, cc.primary_email
-  `);
+  const params = [];
+
+  console.log('[getAllCustomers] salesRut recibido:', salesRut);
+  
+  let query = '';
+  
+  if (salesRut) {
+    // Para sellers: solo clientes que tienen órdenes relacionadas con este vendedor
+    query = `
+      SELECT 
+        c.*, 
+        COUNT(DISTINCT o.id) AS order_count,
+        cc.primary_email,
+        u.online
+      FROM customers c
+      INNER JOIN orders o ON o.customer_id = c.id AND o.rut = c.rut
+      LEFT JOIN customer_contacts cc ON cc.customer_id = c.id
+      LEFT JOIN users u ON u.email = c.rut
+      WHERE EXISTS (
+        SELECT 1 
+        FROM order_detail od
+        INNER JOIN sellers s ON s.codigo = od.vendedor
+        WHERE od.order_id = o.id AND s.rut = ?
+      )
+      GROUP BY c.id, cc.primary_email, u.online
+    `;
+    params.push(salesRut);
+    console.log('[getAllCustomers] Query para seller ejecutada con salesRut:', salesRut);
+  } else {
+    // Para admin: todos los clientes
+    query = `
+      SELECT 
+        c.*, 
+        COUNT(DISTINCT o.id) AS order_count,
+        cc.primary_email,
+        u.online
+      FROM customers c
+      LEFT JOIN orders o ON o.customer_id = c.id
+      LEFT JOIN order_detail od ON od.order_id = o.id
+      LEFT JOIN sellers s ON s.codigo = od.vendedor
+      LEFT JOIN customer_contacts cc ON cc.customer_id = c.id
+      LEFT JOIN users u ON u.email = c.rut
+      GROUP BY c.id, cc.primary_email, u.online
+    `;
+  }
+
+  const [rows] = await pool.query(query, params);
+  
+  console.log('[getAllCustomers] Resultados obtenidos:', rows.length, 'clientes');
+  if (salesRut && rows.length > 0) {
+    console.log('[getAllCustomers] Primer cliente encontrado:', { id: rows[0].id, name: rows[0].name, rut: rows[0].rut });
+  }
 
   return rows.map(row => {
     const customer = new Customer(row);
@@ -52,7 +93,7 @@ async function getCustomerById(id) {
   if (rows.length === 0) return null;
 
   const customer = new Customer(rows[0]);
-  customer.email = rows[0].primary_email;
+  customer.email = rows[0].email || rows[0].primary_email;
   if (typeof rows[0].online !== 'undefined') {
     customer.online = rows[0].online;
   }
@@ -81,7 +122,7 @@ async function getCustomerByUUID(uuid) {
   if (rows.length === 0) return null;
 
   const customer = new Customer(rows[0]);
-  customer.email = rows[0].primary_email;
+  customer.email = rows[0].email || rows[0].primary_email;
   if (typeof rows[0].online !== 'undefined') {
     customer.online = rows[0].online;
   }
@@ -116,7 +157,7 @@ async function getCustomerByRut(rut) {
     }
 
     const customer = new Customer(rows[0]);
-    customer.email = rows[0].primary_email;
+    customer.email = rows[0].email || rows[0].primary_email;
     if (typeof rows[0].online !== 'undefined') {
       customer.online = rows[0].online;
     }
@@ -219,36 +260,31 @@ async function createCustomerContacts(customer_uuid, contacts) {
   const pool = await poolPromise;
   
   // Buscar el cliente por UUID
-  const [customer] = await pool.query('SELECT id, rut FROM customers WHERE uuid = ?', [customer_uuid]);
-  if (!customer[0]) throw new Error('Cliente no encontrado');
+  const [customerRows] = await pool.query('SELECT id, rut, email FROM customers WHERE uuid = ?', [customer_uuid]);
+  const customer = customerRows[0];
+  if (!customer) throw new Error('Cliente no encontrado');
   
-  const customer_id = customer[0].id;
-  const customer_rut = customer[0].rut;
-  
-  // Verificar si existe un registro en la tabla de contactos
-  const [existingContact] = await pool.query(
-    'SELECT id, primary_email, contact_email FROM customer_contacts WHERE customer_id = ?', 
-    [customer_id]
+  if (!customer.email) {
+    throw new Error('Para ingresar contactos adicionales debe ingresar el mail principal');
+  }
+
+  const customerId = customer.id;
+
+  // Obtener (si existe) el registro de contactos para el cliente
+  const [contactRows] = await pool.query(
+    'SELECT id, contact_email, primary_email, role FROM customer_contacts WHERE customer_id = ?',
+    [customerId]
   );
+  const contactRecord = contactRows[0];
   
-  if (!existingContact[0]) {
-    throw new Error('Para ingresar contactos adicionales debe ingresar el mail principal');
-  }
-  
-  if (!existingContact[0].primary_email) {
-    throw new Error('Para ingresar contactos adicionales debe ingresar el mail principal');
-  }
-  
-  // Obtener contactos existentes del JSON
+  // Obtener contactos existentes del JSON almacenado
   let existingContacts = [];
-  if (existingContact[0].contact_email) {
+  if (contactRecord && contactRecord.contact_email) {
     try {
-      // Si ya es un objeto, usarlo directamente
-      if (typeof existingContact[0].contact_email === 'object') {
-        existingContacts = existingContact[0].contact_email;
+      if (typeof contactRecord.contact_email === 'object') {
+        existingContacts = contactRecord.contact_email;
       } else {
-        // Si es string, parsearlo
-        existingContacts = JSON.parse(existingContact[0].contact_email);
+        existingContacts = JSON.parse(contactRecord.contact_email);
       }
     } catch (error) {
       existingContacts = [];
@@ -267,19 +303,28 @@ async function createCustomerContacts(customer_uuid, contacts) {
   // Combinar contactos existentes con nuevos
   const allContacts = [...existingContacts, ...newContacts];
   
-  // Actualizar el registro con los nuevos contactos
-  await pool.query(
-    'UPDATE customer_contacts SET contact_email = ? WHERE customer_id = ?',
-    [JSON.stringify(allContacts), customer_id]
-  );
+  if (contactRecord) {
+    // Actualizar registro existente
+    await pool.query(
+      'UPDATE customer_contacts SET contact_email = ?, primary_email = ? WHERE customer_id = ?',
+      [JSON.stringify(allContacts), customer.email, customerId]
+    );
+  } else {
+    // Crear registro si no existe aún
+    await pool.query(
+      'INSERT INTO customer_contacts (customer_id, rut, primary_email, contact_email, role) VALUES (?, ?, ?, ?, ?)',
+      [customerId, customer.rut, customer.email, JSON.stringify(allContacts), '3']
+    );
+  }
 }
 
 async function getContactsByCustomerUUID(uuid) {
   const pool = await poolPromise;
   
   // Buscar el cliente por UUID
-  const [customer] = await pool.query('SELECT id FROM customers WHERE uuid = ?', [uuid]);
-  if (!customer[0]) {
+  const [customerRows] = await pool.query('SELECT id, email FROM customers WHERE uuid = ?', [uuid]);
+  const customer = customerRows[0];
+  if (!customer) {
     return {
       id: null,
       primary_email: null,
@@ -288,39 +333,29 @@ async function getContactsByCustomerUUID(uuid) {
     };
   }
   
-  const customerId = customer[0].id;
+  const customerId = customer.id;
   
   // Buscar en la tabla de contactos
-  const [contactRecord] = await pool.query(
+  const [contactRows] = await pool.query(
     'SELECT id, primary_email, contact_email, role FROM customer_contacts WHERE customer_id = ?', 
     [customerId]
   );
-  
-  if (!contactRecord[0]) {
-    return {
-      id: null,
-      primary_email: null,
-      role: null,
-      additional_contacts: []
-    };
-  }
+  const contactRecord = contactRows[0];
   
   const result = {
-    id: contactRecord[0].id,
-    primary_email: contactRecord[0].primary_email,
-    role: contactRecord[0].role,
+    id: contactRecord ? contactRecord.id : null,
+    primary_email: customer.email || null,
+    role: contactRecord ? contactRecord.role : null,
     additional_contacts: []
   };
   
   // Parsear contactos adicionales del JSON
-  if (contactRecord[0].contact_email) {
+  if (contactRecord && contactRecord.contact_email) {
     try {
-      // Si ya es un objeto, usarlo directamente
-      if (typeof contactRecord[0].contact_email === 'object') {
-        result.additional_contacts = contactRecord[0].contact_email;
+      if (typeof contactRecord.contact_email === 'object') {
+        result.additional_contacts = contactRecord.contact_email;
       } else {
-        // Si es string, parsearlo
-        result.additional_contacts = JSON.parse(contactRecord[0].contact_email);
+        result.additional_contacts = JSON.parse(contactRecord.contact_email);
       }
     } catch (error) {
       result.additional_contacts = [];

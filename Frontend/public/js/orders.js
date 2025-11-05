@@ -2,8 +2,12 @@
 import { qs, showNotification } from './utils.js';
 
 export async function initOrdersScript() {
+  const section = document.getElementById('OrderSection');
+  const basePath = section?.dataset?.basePath || '/admin';
+  const clientsPath = section?.dataset?.clientsPath || `${basePath}/clients`;
+  const documentsPath = section?.dataset?.documentsPath || `${clientsPath}/documents/view`;
   // Obtener apiBase - usar localhost para JavaScript del cliente
-  const apiBase = window.apiBase || section?.dataset.apiBase;
+  const apiBase = window.apiBase || section?.dataset?.apiBase;
   
   // Usar traducciones ya cargadas por Astro
   const translations = window.translations || {};
@@ -111,12 +115,14 @@ export async function initOrdersScript() {
   function renderOrderRow(order) {
     const trafficLightColor = getTrafficLightColor(order);
     const trafficLightTitle = getTrafficLightTitle(order);
+    const encodedCustomerName = encodeURIComponent(order.customer_name || '');
+    const documentUrl = `${documentsPath}/${order.customer_uuid}?f=${order.id}&pc=${order.pc}&c=${encodedCustomerName}`;
     
     return `
       <tr data-id="${order.id}" class="hover:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition bg-white dark:bg-gray-900">
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">
           <div class="flex items-center gap-2">
-            <a href="/admin/clients/documents/view/${order.customer_uuid}?f=${order.id}&pc=${order.pc}&c=${order.customer_name}" 
+            <a href="${documentUrl}" 
               class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline">
               <span>${order.pc || '-'}</span>
             </a>
@@ -138,7 +144,7 @@ export async function initOrdersScript() {
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${order.incoterm || '-'}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${order.puerto_destino || '-'}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">
-          <a href="/admin/clients/documents/view/${order.customer_uuid}?f=${order.id}&pc=${order.pc}&c=${order.customer_name}" 
+          <a href="${documentUrl}" 
              class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline">
             ${window.translations?.carpetas?.viewDocuments || 'ver documentos'}
           </a>
@@ -597,24 +603,32 @@ export async function initOrdersScript() {
 
     // Definir los encabezados de las columnas
     const headers = [
-      'PC',
-      'OC',
-      window.translations?.clientes?.client_name || 'Cliente',
-      window.translations?.carpetas?.fechaIngreso || 'Fecha Ingreso',
-      window.translations?.carpetas?.shippingMethod || 'Shipping Method',
-      window.translations?.carpetas?.factura || 'Factura',
-      window.translations?.carpetas?.fechaFactura || 'Fecha Factura'
+      'N° PC',
+      'Order',
+      'Customer Name',
+      'Entry Date',
+      'Shipping Method',
+      'Invoice',
+      'Invoice Date',
+      'ETD Date',
+      'ETA Date',
+      'Incoterm',
+      'Destination Port'
     ];
 
     // Preparar los datos para exportar
     const data = ordersToExport.map(order => [
-      order.pc || '', // PC
-      order.oc || '', // OC
-      order.customer_name || '', // Cliente
-      formatDateShort(order.fecha) || '', // Date (fecha)
-      order.medio_envio_factura || '', // Shipping Method (medio_envio_factura)
-      order.factura || '', // Factura
-      formatDateShort(order.fecha_factura) || ''  // Fecha Factura
+      order.pc || '', // N° PC
+      order.oc || '', // Order
+      order.customer_name || '', // Customer Name
+      formatDateShort(order.fecha) || '', // Entry Date
+      order.medio_envio_factura || '', // Shipping Method
+      order.factura || '', // Invoice
+      formatDateShort(order.fecha_factura) || '', // Invoice Date
+      formatDateShort(order.fecha_etd) || '', // ETD Date
+      formatDateShort(order.fecha_eta) || '', // ETA Date
+      order.incoterm || '', // Incoterm
+      order.puerto_destino || '' // Destination Port
     ]);
 
     // Crear el contenido con formato Excel compatible
@@ -862,7 +876,9 @@ async function openItemsModal(orderPc, orderOc, factura) {
   try {
     // Cargar items de la orden usando endpoint diferente según si tiene factura o no
     const token = localStorage.getItem('token');
-    const apiBase = window.apiBase;
+    const section = document.getElementById('OrderSection');
+    const datasetApiBase = section?.dataset?.apiBase;
+    const apiBase = window.apiBase || datasetApiBase;
 
     const safeOrderOc = orderOc ? encodeURIComponent(orderOc) : '';
     const safeFactura = factura && factura !== 'null' ? encodeURIComponent(factura) : '';
@@ -900,6 +916,21 @@ async function openItemsModal(orderPc, orderOc, factura) {
       const number = Number(value);
       return Number.isFinite(number) ? number : fallback;
     };
+    const formatModalQuantity = (amount, unit = 'KG') => {
+      const unitMap = {
+        'KG': 'kg',
+        'KILOGRAMOS': 'kg',
+        'TON': 'ton',
+        'TONELADAS': 'ton',
+        'LITROS': 'L',
+        'L': 'L',
+        'UNIDADES': 'un',
+        'UN': 'un'
+      };
+      const mappedUnit = typeof unit === 'string' ? (unitMap[unit] || unit.toLowerCase()) : 'kg';
+      const safeAmount = parseNumber(amount);
+      return `${safeAmount.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ${mappedUnit}`;
+    };
 
     // Renderizar tabla de items
     if (itemsTableBody) {
@@ -925,7 +956,7 @@ async function openItemsModal(orderPc, orderOc, factura) {
             <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition">
               <td class="px-6 py-4 text-xs text-gray-900 dark:text-gray-100">${item.item_code || '-'}</td>
               <td class="px-6 py-4 text-xs text-gray-900 dark:text-gray-100">${item.item_name || '-'}</td>
-              <td class="px-6 py-4 text-xs text-center text-gray-900 dark:text-gray-100">${formatQuantity(quantity, unit)}</td>
+              <td class="px-6 py-4 text-xs text-center text-gray-900 dark:text-gray-100">${formatModalQuantity(quantity, unit)}</td>
               <td class="px-6 py-4 text-xs text-center text-gray-900 dark:text-gray-100">${formatUnitPrice(unitPrice, currency)}</td>
               <td class="px-6 py-4 text-xs text-center font-semibold text-gray-900 dark:text-gray-100">${formatTotal(total, currency)}</td>
             </tr>
@@ -959,7 +990,7 @@ async function openItemsModal(orderPc, orderOc, factura) {
     const gastoAdicional = parseNumber(rawGastoAdicional);
     
     if (totalItems) totalItems.textContent = totalItemsCount;
-    if (totalQuantity) totalQuantity.textContent = formatQuantity(totalQuantitySum, unit);
+    if (totalQuantity) totalQuantity.textContent = formatModalQuantity(totalQuantitySum, unit);
     if (totalValue) totalValue.textContent = formatCurrency(totalValueSum, currency);
     if (totalGastoAdicional) totalGastoAdicional.textContent = formatCurrency(gastoAdicional, currency);
 
@@ -1130,7 +1161,9 @@ async function toggleItemsExpansion(orderPc, orderOc, factura) {
   try {
     // Cargar items de la orden
     const token = localStorage.getItem('token');
-    const apiBase = window.apiBase;
+    const section = document.getElementById('OrderSection');
+    const datasetApiBase = section?.dataset?.apiBase;
+    const apiBase = window.apiBase || datasetApiBase;
     
     const safeOrderOc = orderOc ? encodeURIComponent(orderOc) : '';
     const safeFactura = factura && factura !== 'null' ? encodeURIComponent(factura) : '';
@@ -1308,7 +1341,9 @@ export async function loadOrdersWithCache() {
     }
 
     const token = localStorage.getItem('token');
-    const apiBase = window.apiBase;
+    const section = document.getElementById('OrderSection');
+    const datasetApiBase = section?.dataset?.apiBase;
+    const apiBase = window.apiBase || datasetApiBase;
     
     const response = await fetch(`${apiBase}/api/orders`, {
       headers: { Authorization: `Bearer ${token}` }
@@ -1369,7 +1404,7 @@ function navigateToClientsWithFilter(customerName) {
     localStorage.setItem('clientSearchFilter', customerName);
     
     // Navegar a la página de clientes
-    window.location.href = '/admin/clients';
+    window.location.href = clientsPath;
     
   } catch (error) {
     console.error('Error navegando a clientes:', error);

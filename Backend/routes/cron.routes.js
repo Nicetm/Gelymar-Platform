@@ -10,7 +10,7 @@ const { fetchOrderLineFilesFromNetwork } = require('../services/checkOrderLines.
 const { generateDefaultFiles } = require('../services/checkDefaultFiles.service');
 const { checkOrdersWithETD } = require('../services/checkETD.service');
 const { cleanDatabaseAndDirectories } = require('../services/cleanDatabase.service');
-const { sendOrderReceptionDocuments } = require('../services/checkOrderReception.service');
+const { sendOrderReceptionDocuments, isSendOrderReceptionEnabled } = require('../services/checkOrderReception.service');
 const { getCronTasksConfig } = require('../services/cronConfig.service');
 
 // Endpoint para procesar clientes
@@ -146,14 +146,33 @@ router.get('/tasks-config', async (req, res) => {
 // Endpoint para enviar documentos de recepción de orden
 router.post('/send-order-reception', async (req, res) => {
   try {
-    console.log('Iniciando envío de documentos de recepción de orden...');
-    await sendOrderReceptionDocuments();
-    console.log('Envío de documentos de recepción completado');
-    res.json({ success: true, message: 'Documentos de recepción enviados correctamente' });
+    console.log('Iniciando envio de documentos de recepcion de orden...');
+    const enabled = await isSendOrderReceptionEnabled();
+    if (!enabled) {
+      console.log('Envio automatico deshabilitado por configuracion');
+      return res.json({
+        success: true,
+        skipped: true,
+        message: 'Envio de recepcion de orden deshabilitado por configuracion'
+      });
+    }
+
+    const result = await sendOrderReceptionDocuments();
+    const processed = result?.processed ?? 0;
+    const skipped = result?.skipped ?? false;
+    console.log('Envio de documentos de recepcion completado');
+    res.json({
+      success: true,
+      processed,
+      skipped,
+      message: processed === 0
+        ? 'No se encontraron ordenes para enviar documentos de recepcion'
+        : 'Documentos de recepcion enviados correctamente'
+    });
   } catch (error) {
-    console.error('Error enviando documentos de recepción:', error.message);
+    console.error('Error enviando documentos de recepcion:', error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-module.exports = router; 
+module.exports = router;

@@ -106,7 +106,7 @@ export function initNotificationBell(config = {}) {
       // Crear el modal
       const modal = document.createElement('div');
       modal.id = 'customConfirmModal';
-      modal.className = 'fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4';
+      modal.className = 'fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4';
       
       // Iconos según el tipo
       const icons = {
@@ -788,9 +788,9 @@ headers: {
 
     const modal = document.createElement('div');
     modal.id = 'customersWithoutAccountModal';
-    modal.className = 'fixed inset-0 bg-black bg-opacity-50 dark:bg-black/80 flex justify-center items-center z-[9999]';
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 dark:bg-black/80 flex justify-center items-center z-50';
     modal.innerHTML = `
-      <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 w-full max-w-4xl mx-4 relative max-h-[90vh] overflow-y-auto shadow-2xl">
+      <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 w-full max-w-5xl mx-4 relative max-h-[90vh] overflow-y-auto shadow-2xl">
         <button id="closeCustomersModalBtn" class="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition dark:text-gray-300 dark:hover:text-red-400">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />

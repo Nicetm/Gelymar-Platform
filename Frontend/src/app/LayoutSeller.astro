@@ -1,0 +1,19 @@
+---
+import LayoutCommon from './LayoutCommon.astro';
+import NavBarSeller from './NavBarSeller.astro';
+import SideBarSeller from './SideBarSeller.astro';
+---
+
+<LayoutCommon authRole="seller">
+  <NavBarSeller />
+  <SideBarSeller />
+
+  <main class="flex w-full pt-4 bg-gray-50 dark:bg-gray-900 min-h-screen overflow-hidden">
+    <section
+      id="seller-main-content"
+      class="relative flex-1 h-full w-full overflow-y-auto transition-all duration-300 lg:ml-56"
+    >
+      <slot />
+    </section>
+  </main>
+</LayoutCommon>

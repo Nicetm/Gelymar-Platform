@@ -30,6 +30,25 @@ function hideSpinner() {
   }
 }
 
+function getFilesContext() {
+  const section = document.getElementById('filesSection');
+  const dataset = section?.dataset || {};
+  const basePath = dataset.basePath || '/admin';
+  const clientsPath = dataset.clientsPath || `${basePath}/clients`;
+  const foldersPath = dataset.foldersPath || `${clientsPath}/folders/view`;
+
+  return {
+    section,
+    basePath,
+    clientsPath,
+    foldersPath,
+    apiBase: dataset.apiBase || window.apiBase || '',
+    fileServer: dataset.fileServer || window.fileServer || '',
+    uuid: dataset.uuid || null,
+    folderId: dataset.folderId || null,
+  };
+}
+
 function getValidToken() {
   const token = localStorage.getItem('token');
   if (!token) return null;
@@ -79,7 +98,7 @@ function confirmAction(title, message, type = 'warning') {
     
     // Colores de botones según el tipo
     const buttonColors = {
-      warning: 'bg-amber-600 hover:bg-amber-700 focus:ring-amber-500',
+      warning: 'bg-orange-600 hover:bg-orange-700 focus:ring-orange-500',
       error: 'bg-red-600 hover:bg-red-700 focus:ring-red-500',
       info: 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500',
       success: 'bg-green-600 hover:bg-green-700 focus:ring-green-500',
@@ -284,10 +303,13 @@ export function initFilesScript() {
     if (e.target === uploadModal) hideUploadModal();
   });
 
-  const uuid = section?.dataset.uuid;
-  const folderId = section?.dataset.folderId;
-  const apiBase = window.apiBase;
-  const fileServer = window.fileServer;
+  const {
+    apiBase,
+    fileServer,
+    uuid,
+    folderId,
+  } = getFilesContext();
+
   const lang = window.lang;
   const orderOc = window.orderOc;
 
@@ -397,75 +419,71 @@ export function initFilesScript() {
       4: '#0000FF'     // Reenviado --> azul
     };
 
-    let actions = `<div class="flex items-center gap-3 justify-center">`;
+    let actions = `<div class="flex justify-center gap-3 relative">`;
 
     if (file.status_id === 1) {
       actions += `
-        <div class="relative group">
-          <a href="#" class="generate-btn text-gray-900 dark:text-white hover:text-blue-500 transition" data-file-id="${file.id}">
+        <div class="relative">
+          <a href="#"
+             class="generate-btn text-gray-900 dark:text-white hover:text-blue-500 transition"
+             data-file-id="${file.id}"
+             data-tooltip="${window.translations?.documentos?.generate_document || 'Generar documento'}"
+             aria-label="${window.translations?.documentos?.generate_document || 'Generar documento'}">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7zm7.5-.5a7.49 7.49 0 0 1-1.035 3.743l1.432 1.432a1 1 0 1 1-1.414 1.414l-1.432-1.432A7.49 7.49 0 0 1 12.5 20.5v2a1 1 0 1 1-2 0v-2a7.49 7.49 0 0 1-3.743-1.035l-1.432 1.432a1 1 0 1 1-1.414-1.414l1.432-1.432A7.49 7.49 0 0 1 3.5 15.5h-2a1 1 0 1 1 0-2h2a7.49 7.49 0 0 1 1.035-3.743L3.103 8.325a1 1 0 1 1 1.414-1.414l1.432 1.432A7.49 7.49 0 0 1 11.5 3.5v-2a1 1 0 1 1 2 0v2a7.49 7.49 0 0 1 3.743 1.035l1.432-1.432a1 1 0 1 1 1.414 1.414l-1.432 1.432A7.49 7.49 0 0 1 20.5 11.5h2a1 1 0 1 1 0 2h-2z" />
             </svg>
           </a>
-          <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
-                      bg-blue-600 text-white text-xs rounded px-2 py-1 shadow-lg
-                      opacity-0 group-hover:opacity-100 transition
-                      pointer-events-none whitespace-nowrap z-50">
-            ${window.translations?.documentos?.generate_document || 'Generar documento'}
-          </div>
         </div>`;
     }
 
     if (file.status_id === 2) {
       actions += `
-        <div class="relative group">
-          <a href="#" class="send-btn text-gray-900 dark:text-white hover:text-blue-500 transition" data-file-id="${file.id}" data-file-name="${file.name}" data-order="${file.oc}">
+        <div class="relative">
+          <a href="#"
+             class="send-btn text-gray-900 dark:text-white hover:text-blue-500 transition"
+             data-file-id="${file.id}"
+             data-file-name="${file.name}"
+             data-order="${file.oc}"
+             data-tooltip="${window.translations?.documentos?.send_document || 'Enviar documento'}"
+             aria-label="${window.translations?.documentos?.send_document || 'Enviar documento'}">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8" />
               <path stroke-linecap="round" stroke-linejoin="round" d="M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
           </a>
-          <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
-                      bg-blue-600 text-white text-xs rounded px-2 py-1 shadow-lg
-                      opacity-0 group-hover:opacity-100 transition
-                      pointer-events-none whitespace-nowrap z-50">
-            ${window.translations?.documentos?.send_document || 'Enviar documento'}
-          </div>
         </div>`;
     }
 
     if ([3, 4].includes(file.status_id)) {
       actions += `
-        <div class="relative group">
-          <a href="#" class="resend-btn text-gray-900 dark:text-white hover:text-yellow-500 transition" data-file-id="${file.id}" data-file-name="${file.name}" data-order="${file.oc}">
+        <div class="relative">
+          <a href="#"
+             class="resend-btn text-gray-900 dark:text-white hover:text-amber-500 transition"
+             data-file-id="${file.id}"
+             data-file-name="${file.name}"
+             data-order="${file.oc}"
+             data-tooltip="${window.translations?.documentos?.resend_document || 'Reenviar documento'}"
+             aria-label="${window.translations?.documentos?.resend_document || 'Reenviar documento'}">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H7a4 4 0 010-8h1" />
             </svg>
           </a>
-          <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
-                      bg-yellow-600 text-white text-xs rounded px-2 py-1 shadow-lg
-                      opacity-0 group-hover:opacity-100 transition
-                      pointer-events-none whitespace-nowrap z-50">
-            ${window.translations?.documentos?.resend_document || 'Reenviar documento'}
-          </div>
         </div>`;
     }
 
     if ([2, 3, 4].includes(file.status_id)) {
       actions += `
-        <div class="relative group">
-          <a href="#" onclick="downloadFile(${file.id})" class="text-gray-900 dark:text-white hover:text-blue-500 transition">
+        <div class="relative">
+          <a href="#"
+             onclick="downloadFile(${file.id}); return false;"
+             class="text-gray-900 dark:text-white hover:text-blue-500 transition"
+             data-tooltip="${window.translations?.documentos?.view_document || 'Ver documento'}"
+             aria-label="${window.translations?.documentos?.view_document || 'Ver documento'}">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
               <polyline points="14 2 14 8 20 8"/>
             </svg>
           </a>
-          <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
-                      bg-blue-600 text-white text-xs rounded px-2 py-1 shadow-lg
-                      opacity-0 group-hover:opacity-100 transition
-                      pointer-events-none whitespace-nowrap z-50">
-            ${window.translations?.documentos?.view_document || 'Ver documento'}
-          </div>
         </div>`;
     }
 
@@ -480,42 +498,38 @@ export function initFilesScript() {
     const isDefaultFile = defaultFiles.includes(file.name);
     
     actions += `
-      <div class="relative group">
-        <a href="#" class="edit-btn text-gray-900 dark:text-white hover:text-blue-500 transition" data-file-id="${file.id}">
+      <div class="relative">
+        <a href="#"
+           class="edit-btn text-gray-900 dark:text-white hover:text-blue-500 transition"
+           data-file-id="${file.id}"
+           data-tooltip="${window.translations?.documentos?.edit_document || 'Editar documento'}"
+           aria-label="${window.translations?.documentos?.edit_document || 'Editar documento'}">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" />
           </svg>
         </a>
-        <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
-                    bg-blue-600 text-white text-xs rounded px-2 py-1 shadow-lg
-                    opacity-0 group-hover:opacity-100 transition
-                    pointer-events-none whitespace-nowrap z-50">
-          ${window.translations?.documentos?.edit_document || 'Editar documento'}
-        </div>
       </div>`;
       
     // Solo mostrar botón de eliminar si NO es un archivo por defecto
     if (!isDefaultFile) {
       actions += `
-        <div class="relative group">
-          <a href="#" class="delete-btn text-gray-900 dark:text-white hover:text-red-500 transition" data-file-id="${file.id}">
+        <div class="relative">
+          <a href="#"
+             class="delete-btn text-gray-900 dark:text-white hover:text-red-500 transition"
+             data-file-id="${file.id}"
+             data-tooltip="${window.translations?.documentos?.delete_document || 'Eliminar documento'}"
+             aria-label="${window.translations?.documentos?.delete_document || 'Eliminar documento'}">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12M10 11v6M14 11v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
             </svg>
           </a>
-          <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
-                      bg-red-600 text-white text-xs rounded px-2 py-1 shadow-lg
-                      opacity-0 group-hover:opacity-100 transition
-                      pointer-events-none whitespace-nowrap z-50">
-            ${window.translations?.documentos?.delete_document || 'Eliminar documento'}
-          </div>
         </div>`;
     }
     
     actions += `</div>`;
 
     return `
-      <tr data-id="${file.id}" class="transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-800 hover:shadow-[0_1px_3px_rgba(0,0,0,0.12)]">
+      <tr data-id="${file.id}" class="bg-white dark:bg-gray-900 transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-800 hover:shadow-[0_1px_3px_rgba(0,0,0,0.12)]">
         <td class="px-6 py-4 text-sm editable-filename cursor-pointer" data-id="${file.id}">
           <div class="inline-flex items-center gap-1 relative group">
             <span class="filename-text block truncate">${file.name}</span>
@@ -560,9 +574,142 @@ export function initFilesScript() {
             </div>
           </div>
         </td>
-        <td class="px-6 py-4 items-center gap-3">${actions}</td>
+        <td class="sticky right-0 bg-gray-50 dark:bg-gray-700 z-10 px-6 py-4 min-w-[120px] overflow-visible">${actions}</td>
       </tr>
     `;
+  }
+
+  const floatingTooltipState = {
+    el: null,
+    currentTarget: null,
+    removeTimeout: null,
+    globalHandlersBound: false
+  };
+
+  function ensureFloatingTooltipElement() {
+    if (!floatingTooltipState.el) {
+      const tooltip = document.createElement('div');
+      tooltip.setAttribute('role', 'tooltip');
+      Object.assign(tooltip.style, {
+        position: 'fixed',
+        zIndex: '10',
+        backgroundColor: '#047857',
+        color: '#ffffff',
+        padding: '6px 10px',
+        borderRadius: '6px',
+        fontSize: '12px',
+        fontWeight: '500',
+        lineHeight: '1.4',
+        boxShadow: '0 8px 18px rgba(0, 0, 0, 0.25)',
+        pointerEvents: 'none',
+        whiteSpace: 'nowrap',
+        opacity: '0',
+        transition: 'opacity 120ms ease',
+        maxWidth: '320px',
+        textAlign: 'center'
+      });
+      floatingTooltipState.el = tooltip;
+    }
+    return floatingTooltipState.el;
+  }
+
+  function ensureFloatingTooltipHandlers() {
+    if (floatingTooltipState.globalHandlersBound) return;
+    floatingTooltipState.globalHandlersBound = true;
+    const hideOnChange = () => hideFloatingTooltip();
+    window.addEventListener('scroll', hideOnChange, true);
+    window.addEventListener('resize', hideOnChange, true);
+    window.addEventListener('keydown', event => {
+      if (event.key === 'Escape') {
+        hideFloatingTooltip();
+      }
+    }, true);
+  }
+
+  function positionFloatingTooltip(target, tooltipEl) {
+    const rect = target.getBoundingClientRect();
+    const tooltipRect = tooltipEl.getBoundingClientRect();
+    const spacing = 10;
+
+    let top = rect.top - tooltipRect.height - spacing;
+    if (top < spacing) {
+      top = rect.bottom + spacing;
+    }
+
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+    let left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
+    left = Math.min(Math.max(spacing, left), viewportWidth - tooltipRect.width - spacing);
+
+    tooltipEl.style.top = `${Math.round(top)}px`;
+    tooltipEl.style.left = `${Math.round(left)}px`;
+  }
+
+  function showFloatingTooltip(target) {
+    if (!target || !(target instanceof HTMLElement)) return;
+    const text = target.getAttribute('data-tooltip');
+    if (!text) return;
+
+    ensureFloatingTooltipHandlers();
+    clearTimeout(floatingTooltipState.removeTimeout);
+
+    const tooltipEl = ensureFloatingTooltipElement();
+    tooltipEl.textContent = text;
+
+    if (!tooltipEl.isConnected) {
+      document.body.appendChild(tooltipEl);
+    }
+
+    tooltipEl.style.opacity = '0';
+    tooltipEl.style.visibility = 'hidden';
+
+    requestAnimationFrame(() => {
+      tooltipEl.style.visibility = 'visible';
+      positionFloatingTooltip(target, tooltipEl);
+      requestAnimationFrame(() => {
+        tooltipEl.style.opacity = '1';
+      });
+    });
+
+    floatingTooltipState.currentTarget = target;
+  }
+
+  function hideFloatingTooltip() {
+    if (!floatingTooltipState.el) return;
+    const tooltipEl = floatingTooltipState.el;
+    tooltipEl.style.opacity = '0';
+    floatingTooltipState.currentTarget = null;
+    clearTimeout(floatingTooltipState.removeTimeout);
+    floatingTooltipState.removeTimeout = window.setTimeout(() => {
+      if (tooltipEl.parentElement) {
+        tooltipEl.parentElement.removeChild(tooltipEl);
+      }
+      tooltipEl.style.visibility = 'hidden';
+    }, 150);
+  }
+
+  function handleTooltipEnter(event) {
+    showFloatingTooltip(event.currentTarget);
+  }
+
+  function handleTooltipLeave(event) {
+    const target = event.currentTarget;
+    if (floatingTooltipState.currentTarget === target) {
+      if (event.type === 'mouseleave' && document.activeElement === target) {
+        return;
+      }
+      hideFloatingTooltip();
+    }
+  }
+
+  function setupFloatingTooltips(container) {
+    if (!container) return;
+    const tooltipTargets = container.querySelectorAll('[data-tooltip]');
+    tooltipTargets.forEach(target => {
+      target.addEventListener('mouseenter', handleTooltipEnter);
+      target.addEventListener('mouseleave', handleTooltipLeave);
+      target.addEventListener('focus', handleTooltipEnter);
+      target.addEventListener('blur', handleTooltipLeave);
+    });
   }
 
   async function refreshFiles() {
@@ -586,6 +733,8 @@ export function initFilesScript() {
           const rowHtml = renderFileRow(file);
           tableBody.insertAdjacentHTML('beforeend', rowHtml);
         });
+        
+        setupFloatingTooltips(tableBody);
         
         // Si no hay datos, mostrar mensaje
         if (files.length === 0) {
@@ -894,8 +1043,8 @@ export function initFilesScript() {
       showNotification(successMessage, 'success');
 
       window.emailRecipients = recipients;
-      if (recipientsController?.setBase) {
-        recipientsController.setBase(recipients);
+      if (window.emailRecipientController?.setBase) {
+        window.emailRecipientController.setBase(recipients);
       }
 
       await refreshFiles();
@@ -1894,6 +2043,7 @@ export function initFilesScript() {
     });
   }
 }
+
 
 
 

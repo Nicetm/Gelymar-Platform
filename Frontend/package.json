@@ -24,12 +24,15 @@
 		"build": "astro build",
 		"build:admin": "cross-env APP_CONTEXT=admin PUBLIC_APP_CONTEXT=admin astro build",
 		"build:client": "cross-env APP_CONTEXT=client PUBLIC_APP_CONTEXT=client astro build",
+		"build:seller": "cross-env APP_CONTEXT=seller PUBLIC_APP_CONTEXT=seller astro build",
 		"dev": "astro dev",
 		"dev:admin": "cross-env APP_CONTEXT=admin PUBLIC_APP_CONTEXT=admin astro dev --port 2121",
 		"dev:client": "cross-env APP_CONTEXT=client PUBLIC_APP_CONTEXT=client astro dev --port 2122",
+		"dev:seller": "cross-env APP_CONTEXT=seller PUBLIC_APP_CONTEXT=seller astro dev --port 2123",
 		"preview": "astro preview",
 		"preview:admin": "cross-env APP_CONTEXT=admin PUBLIC_APP_CONTEXT=admin astro preview --port 4211 --host 0.0.0.0",
 		"preview:client": "cross-env APP_CONTEXT=client PUBLIC_APP_CONTEXT=client astro preview --port 4222 --host 0.0.0.0",
+		"preview:seller": "cross-env APP_CONTEXT=seller PUBLIC_APP_CONTEXT=seller astro preview --port 4233 --host 0.0.0.0",
 		"start": "astro dev"
 	},
 	"dependencies": {

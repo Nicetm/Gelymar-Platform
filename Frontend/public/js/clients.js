@@ -9,6 +9,16 @@ import {
   isValidEmail
 } from './utils.js';
 
+function getClientSectionContext() {
+  const section = document.getElementById('clientSection');
+  const basePath = section?.dataset?.basePath || '/admin';
+  const foldersPath = section?.dataset?.foldersPath || `${basePath}/clients/folders/view`;
+  const datasetApiBase = section?.dataset?.apiBase;
+  const apiBase = datasetApiBase || window.apiBase || '';
+
+  return { section, basePath, foldersPath, apiBase };
+}
+
 // Funciones de modal que no están en utils.js
 function showModal(selector) {
   const modal = document.querySelector(selector);
@@ -80,8 +90,9 @@ export async function loadCustomersWithCache() {
       }
     }
     const token = localStorage.getItem('token');
-    const apiBase = window.apiBase;
-    const response = await fetch(`${apiBase}/api/customers`, {
+    const { apiBase } = getClientSectionContext();
+    const resolvedApiBase = apiBase || window.apiBase;
+    const response = await fetch(`${resolvedApiBase}/api/customers`, {
       headers: { Authorization: `Bearer ${token}` }
     });
     if (!response.ok) {
@@ -118,8 +129,8 @@ export function getCacheInfo() {
 // ===== FUNCIONES PRINCIPALES =====
 
 export async function initClientsScript() {
-  // Obtener apiBase - usar localhost para JavaScript del cliente
-  const apiBase = window.apiBase || section?.dataset.apiBase;
+  const { basePath, foldersPath, apiBase: datasetApiBase } = getClientSectionContext();
+  const apiBase = window.apiBase || datasetApiBase;
   
   // Usar traducciones ya cargadas por Astro
   const translations = window.translations || {};
@@ -151,6 +162,9 @@ export async function initClientsScript() {
 
   // Función para renderizar una fila de cliente
   function renderCustomerRow(customer) {
+    const encodedName = encodeURIComponent(customer.name || '');
+    const { foldersPath } = getClientSectionContext();
+    const folderUrl = `${foldersPath}/${customer.uuid}?c=${encodedName}`;
     return `
       <tr data-id="${customer.id}" class="hover:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition bg-white dark:bg-gray-900">
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${customer.name || '-'}</td>
@@ -163,7 +177,7 @@ export async function initClientsScript() {
         <td class="sticky right-0 bg-gray-50 dark:bg-gray-700 z-10 px-6 py-4 min-w-[120px] overflow-visible border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">
           <div class="flex justify-center gap-3 relative">
             <div class="relative">
-              <a href="/admin/clients/folders/view/${customer.uuid}?c=${customer.name}" class="text-gray-900 dark:text-white hover:text-green-500 transition"
+              <a href="${folderUrl}" class="text-gray-900 dark:text-white hover:text-green-500 transition"
                  data-tooltip="${window.translations?.clientes?.view_orders || 'Ver órdenes'}"
                  aria-label="${window.translations?.clientes?.view_orders || 'Ver órdenes'}">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
@@ -741,7 +755,7 @@ export async function initClientsScript() {
   async function loadExistingContacts(customerUuid) {
     try {
       const token = localStorage.getItem('token');
-      const apiBase = window.apiBase;
+      const { apiBase } = getClientSectionContext();
       
       const response = await fetch(`${apiBase}/api/customers/${customerUuid}/contacts`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -767,8 +781,8 @@ export async function initClientsScript() {
     // Verificar si hay datos de contacto
     if (!contactData || (!contactData.primary_email && (!contactData.additional_contacts || contactData.additional_contacts.length === 0))) {
       container.innerHTML = `
-        <div class="text-center py-8 text-gray-500 dark:text-gray-400">
-          <svg class="w-12 h-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <div class="text-center py-8 text-xs text-gray-500 dark:text-gray-400">
+          <svg class="w-6 h-6 mx-auto mb-4 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
           </svg>
           <p>No hay contactos registrados</p>
@@ -877,17 +891,17 @@ export async function initClientsScript() {
     const rowHtml = `
       <div id="${rowId}" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 p-4 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800">
         <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre</label>
-          <input type="text" class="contact-name w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Nombre del contacto">
+          <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre</label>
+          <input type="text" class="text-xs contact-name w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Nombre del contacto">
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
-          <input type="email" class="contact-email w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="email@ejemplo.com">
+          <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+          <input type="email" class="text-xs contact-email w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="email@ejemplo.com">
         </div>
         <div class="flex items-end">
           <div class="flex-1">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Teléfono</label>
-            <input type="tel" class="contact-phone w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="+56 9 1234 5678">
+            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Teléfono</label>
+            <input type="tel" class="text-xs contact-phone w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="+56 9 1234 5678">
           </div>
           <button type="button" class="ml-2 p-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 remove-contact-row" data-row-id="${rowId}">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -973,7 +987,7 @@ export async function initClientsScript() {
 
     try {
       const token = localStorage.getItem('token');
-      const apiBase = window.apiBase;
+      const { apiBase } = getClientSectionContext();
 
       const response = await fetch(`${apiBase}/api/customers/contacts`, {
         method: 'POST',
@@ -1012,7 +1026,7 @@ export async function initClientsScript() {
 
     try {
       const token = localStorage.getItem('token');
-      const apiBase = window.apiBase;
+      const { apiBase } = getClientSectionContext();
 
       const response = await fetch(`${apiBase}/api/customers/contacts/${currentCustomerUuid}/${contactIdx}`, {
         method: 'DELETE',
@@ -1104,7 +1118,7 @@ export async function initClientsScript() {
 
     try {
       const token = localStorage.getItem('token');
-      const apiBase = window.apiBase;
+      const { apiBase } = getClientSectionContext();
 
       const response = await fetch(`${apiBase}/api/customers/${currentCustomerForUpdate.uuid}`, {
         method: 'PATCH',
@@ -1140,7 +1154,8 @@ export async function initClientsScript() {
     }
 
     // Redirigir a la página de órdenes del cliente
-    window.location.href = `/admin/clients/folders/view/${currentCustomerForUpdate.uuid}?c=${encodeURIComponent(currentCustomerForUpdate.name)}`;
+    const { foldersPath } = getClientSectionContext();
+    window.location.href = `${foldersPath}/${currentCustomerForUpdate.uuid}?c=${encodeURIComponent(currentCustomerForUpdate.name || '')}`;
   }
 
   // Actualizar la función openProfileModal para guardar el cliente actual
@@ -1221,7 +1236,7 @@ export async function initClientsScript() {
     
     try {
       const token = localStorage.getItem('token');
-      const apiBase = window.apiBase;
+      const { apiBase } = getClientSectionContext();
       
       const response = await fetch(`${apiBase}/api/customers/change-password/${currentPasswordCustomerUuid}`, {
         method: 'PATCH',

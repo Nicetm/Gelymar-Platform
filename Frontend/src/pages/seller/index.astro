@@ -1,0 +1,11 @@
+---
+import LayoutStacked from '../../app/LayoutStacked.astro';
+import { validateRole } from '../../lib/auth.ts';
+
+const redirect = await validateRole(Astro, 'seller');
+if (redirect) {
+return redirect;
+}
+
+return Astro.redirect('/seller/orders');
+---

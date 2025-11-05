@@ -7,6 +7,10 @@ const apiBase = getApiBase();
 const apiPublic = getPublicApiUrl();
 const fileServer = getFileServerUrl();
 const lang = getServerLang(Astro.cookies);
+const { basePath = '/admin' } = Astro.props;
+const homeHref = basePath;
+const clientsPath = `${basePath}/clients`;
+const foldersViewPath = `${clientsPath}/folders/view`;
 
 const url = new URL(Astro.url.href);
 const clientName = url.searchParams.get('c') ?? '';
@@ -136,13 +140,21 @@ if (Array.isArray(contactData?.additional_contacts)) {
 const emailRecipients = Array.from(recipientsSet).filter(Boolean);
 ---
 
-<section id="filesSection" data-uuid={id} data-folder-id={folderId} class="px-4 pt-20 pb-6 sm:px-6 lg:px-8">
+<section
+  id="filesSection"
+  data-uuid={id}
+  data-folder-id={folderId}
+  data-base-path={basePath}
+  data-clients-path={clientsPath}
+  data-folders-path={foldersViewPath}
+  class="px-4 pt-20 pb-6 sm:px-6 lg:px-8"
+>
   <!-- Encabezado y breadcrumb -->
   <header class="flex flex-col gap-4 border-b border-gray-200 dark:border-gray-700 pb-4">
     <nav class="text-sm text-gray-500 dark:text-gray-400" aria-label="Breadcrumb">
       <ol class="inline-flex items-center space-x-1 md:space-x-2">
         <li class="inline-flex items-center">
-          <a href="/admin" class="inline-flex items-center gap-1 hover:text-primary-600 dark:hover:text-white">
+          <a href={homeHref} class="inline-flex items-center gap-1 hover:text-primary-600 dark:hover:text-white">
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
               <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
             </svg>
@@ -150,7 +162,7 @@ const emailRecipients = Array.from(recipientsSet).filter(Boolean);
           </a>
         </li>
         <li class="flex items-center text-gray-400 dark:text-gray-300 font-medium" aria-current="page">
-          <span class="mx-1">/ <a href="/admin/clients">{t.carpetas.customers} </a> / <a href={`/admin/clients/folders/view/${id}?c=${decodedClientName}`}>{t.carpetas.title}</a> / </span>{t.documentos.title}
+          <span class="mx-1">/ <a href={clientsPath}>{t.carpetas.customers} </a> / <a href={`${foldersViewPath}/${id}?c=${decodedClientName}`}>{t.carpetas.title}</a> / </span>{t.documentos.title}
         </li>
 			</ol>
     </nav>
@@ -211,7 +223,7 @@ const emailRecipients = Array.from(recipientsSet).filter(Boolean);
 
   <div class="overflow-auto mt-6 rounded-xl shadow ring-1 ring-gray-200 dark:ring-gray-700">
     <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 table-fixed">
-      <thead id="filesHead" class="bg-gray-100/70 dark:bg-gray-800/70 backdrop-blur-md transition-shadow sticky top-0 z-20">
+      <thead id="filesHead" class="bg-gray-100/70 dark:bg-gray-800/70 backdrop-blur-md transition-shadow sticky top-0">
         <tr>
           <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t.documentos.name}</th>
           <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t.documentos.status}</th>
@@ -220,7 +232,7 @@ const emailRecipients = Array.from(recipientsSet).filter(Boolean);
           <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Fecha Envío</th>
           <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Fecha Reenvío</th>
           <th class="px-4 py-3 text-center text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t.documentos.is_visible_to_customer}</th>
-          <th class="px-4 py-3 text-center text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">{t.comond.actions}</th>
+          <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 sticky right-0 z-20 min-w-[120px]">{t.comond.actions}</th>
         </tr>
       </thead>
       <tbody id="filesTableBody" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-xs min-h-[600px] text-gray-900 dark:text-gray-200 transition-all duration-300 ease-out motion-safe:animate-fade-slide">
@@ -346,7 +358,7 @@ const emailRecipients = Array.from(recipientsSet).filter(Boolean);
 	<div id="uploadModal" data-folder-name={pc} data-folder-id={folderId} class="fixed inset-0 hidden justify-center items-center z-50 bg-black/50 flex backdrop-blur-sm opacity-0 transition-opacity duration-500">
 		<div class="modal-card bg-white/95 dark:bg-gray-800/95 text-gray-900 dark:text-gray-100 rounded-2xl p-8 w-full max-w-lg relative shadow-2xl ring-1 ring-gray-200 dark:ring-white/10 transform opacity-0 scale-90 translate-y-6 transition-all duration-500 ease-[cubic-bezier(.22,1,.36,1)]"> <!-- <-- Aquí -->
 			<!-- Botón de cerrar -->
-			<button id="closeModalBtn" class="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition">
+			<button id="closeModalBtn" class="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition text-xs">
 				<svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
 				</svg>
@@ -354,37 +366,32 @@ const emailRecipients = Array.from(recipientsSet).filter(Boolean);
 			<h2 class="text-xl font-bold mb-4 dark:text-white">{t.documentos.dragTitle}</h2>
 	
 			<div class="mb-4">
-				<label for="uploadFileName" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{t.documentos.nameOfDocument}</label>
+				<label for="uploadFileName" class="block text-xs font-medium text-gray-700 dark:text-gray-300 pb-2">{t.documentos.nameOfDocument}</label>
 				<!-- Solo valores predefinidos -->
 				<div class="relative">
 				  <select id="uploadFileName"
-				          class="appearance-none pr-10 pl-3 py-2 block w-full border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
-				    <option value="" disabled selected>— {t.documentos.selectDocumentName} —</option>
+				          class="appearance-none pr-10 pl-3 py-2 block w-full border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 text-xs">
+				    <option value="" disabled selected>- {t.documentos.selectDocumentName} -</option>
 				    {documentTypes.map((docType: any) => (
 				      <option value={docType.name}>{docType.name}</option>
 				    ))}
 				  </select>
-				  <!-- Flecha personalizada -->
-				  <svg class="w-4 h-4 text-gray-500 dark:text-gray-400 pointer-events-none absolute right-3 top-1/2 -translate-y-1/2"
-				       fill="currentColor" viewBox="0 0 20 20">
-				    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 011.08 1.04l-4.25 4.25a.75.75 0 01-1.06 0L5.25 8.27a.75.75 0 01-.02-1.06z" clip-rule="evenodd"/>
-				  </svg>
 				</div>
 			</div>
 	
 			<div class="mb-4 flex gap-4">
 				<!-- Tipo de Documento -->
 				<div class="w-1/2">
-					<label for="uploadFileType" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{t.documentos.typeofDocument}</label>
-					<select id="uploadFileType" class="mt-1 block w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-md shadow-sm p-2">
+					<label for="uploadFileType" class="block text-xs font-medium text-gray-700 dark:text-gray-300 pb-2">{t.documentos.typeofDocument}</label>
+					<select id="uploadFileType" class="mt-1 block w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-md shadow-sm p-2 text-xs">
 						<option value="PDF">PDF</option>
 					</select>
 				</div>
 			
 				<!-- Visible al cliente -->
 				<div class="w-1/2">
-					<label for="isVisibleToClient" class="block text-sm font-medium text-gray-700 dark:text-gray-300">¿Visible al cliente?</label>
-					<select id="isVisibleToClient" class="mt-1 block w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-md shadow-sm p-2">
+					<label for="isVisibleToClient" class="block text-xs font-medium text-gray-700 dark:text-gray-300 pb-2">¿Visible al cliente?</label>
+					<select id="isVisibleToClient" class="mt-1 block w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-md shadow-sm p-2 text-xs">
 						<option value="true">Sí</option>
 						<option value="false">No</option>
 					</select>
@@ -392,23 +399,23 @@ const emailRecipients = Array.from(recipientsSet).filter(Boolean);
 			</div>
 	
 			<div class="mb-4">
-				<label class="block text-sm font-medium text-gray-700 dark:text-gray-300">{t.documentos.selectDocument}</label>
+				<label class="block text-xs font-medium text-gray-700 dark:text-gray-300 pb-2">{t.documentos.selectDocument}</label>
 				<div id="dropZone" class="flex flex-col items-center justify-center border-2 border-dashed border-gray-400 dark:border-gray-600 rounded-md p-6 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700">
-					<p id="dropZoneText" class="text-gray-500">{t.documentos.dragAndDrop}</p>
-					<input type="file" id="uploadFileInput" class="hidden" />
+					<p id="dropZoneText" class="text-gray-500 text-xs">{t.documentos.dragAndDrop}</p>
+					<input type="file" id="uploadFileInput" class="hidden text-xs" />
 				</div>
 			</div>
 	
 			<div class="flex justify-end gap-2">
 				<button
 					id="cancelUploadBtn"
-					class="px-4 py-2 bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-500 dark:text-white rounded-md transition-transform duration-150 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary-500"
+					class="px-4 py-2 bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-500 dark:text-white rounded-md transition-transform duration-150 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary-500 text-xs"
 				>
 					{t.comond.cancel}
 				</button>
 				<button
 					id="confirmUploadBtn"
-					class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-transform duration-150 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary-500"
+					class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-transform duration-150 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary-500 text-xs"
 				>
 					{t.comond.upload}
 				</button>

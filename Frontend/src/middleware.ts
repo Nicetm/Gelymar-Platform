@@ -24,11 +24,15 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
     return next();
   }
 
-  if (appContext === 'client' && pathname.startsWith('/admin')) {
+  if (appContext === 'client' && (pathname.startsWith('/admin') || pathname.startsWith('/seller'))) {
     return new Response('Not Found', { status: 404 });
   }
 
-  if (appContext === 'admin' && pathname.startsWith('/client')) {
+  if (appContext === 'admin' && (pathname.startsWith('/client') || pathname.startsWith('/seller'))) {
+    return new Response('Not Found', { status: 404 });
+  }
+
+  if (appContext === 'seller' && (pathname.startsWith('/admin') || pathname.startsWith('/client'))) {
     return new Response('Not Found', { status: 404 });
   }
 

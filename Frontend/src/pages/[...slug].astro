@@ -1,9 +1,17 @@
 ---
-// Página catch-all para rutas no definidas
-
 // Catch-all route handler
+import { inferUserRole } from '../lib/roles.ts';
 
-// Validar rol del usuario y redirigir según corresponda
+const sellerPortalPath = (() => {
+  const rawUrl = import.meta.env.PUBLIC_SELLER_APP_URL || '/seller';
+  try {
+    const url = new URL(rawUrl, 'http://localhost');
+    return url.pathname || '/seller';
+  } catch {
+    return rawUrl.startsWith('/') ? rawUrl : '/seller';
+  }
+})();
+
 const token = Astro.cookies.get('token')?.value;
 
 if (token) {
@@ -12,14 +20,15 @@ if (token) {
     const response = await fetch(`${apiBase}/api/auth/me`, {
       headers: { Authorization: `Bearer ${token}` }
     });
-    
+
     if (response.ok) {
       const user = await response.json();
-      const userRole = user.role || ((user.role_id === 1 || user.role_id === 3) ? 'admin' : 'client');
-      
-      // Redirigir según el rol del usuario usando función centralizada
+      const userRole = inferUserRole(user);
+
       if (userRole === 'admin') {
         return Astro.redirect('/admin');
+      } else if (userRole === 'seller') {
+        return Astro.redirect(sellerPortalPath);
       } else if (userRole === 'client') {
         return Astro.redirect('/client');
       }
@@ -29,11 +38,10 @@ if (token) {
   }
 }
 
-// Si no hay token o hay error, redirigir al login
 return Astro.redirect('/authentication/sign-in');
 ---
 
-<!-- Esta página nunca debería mostrarse, siempre redirige -->
+<!-- Esta pagina nunca deberia mostrarse, siempre redirige -->
 <html>
   <head>
     <title>Redirigiendo...</title>
@@ -41,4 +49,4 @@ return Astro.redirect('/authentication/sign-in');
   <body>
     <p>Redirigiendo...</p>
   </body>
-</html> 
+</html>

@@ -343,8 +343,8 @@ function generateModernTable(doc, items, data = {}) {
     }
     
     const productName = item.item_name || '';
-    const quantity = item.kg_solicitados || 0;
-    const unitPrice = item.unit_price || 0;
+    const quantity = parseNumeric(item.kg_solicitados ?? item.kg_facturados ?? 0) || 0;
+    const unitPrice = parseNumeric(item.unit_price) || 0;
     const total = quantity * unitPrice;
     
     doc.fontSize(9).font(STYLES.font).fillColor(STYLES.textPrimary)
@@ -352,17 +352,20 @@ function generateModernTable(doc, items, data = {}) {
       .text(`${formatNumber(quantity, data.lang)} kg`, qtyX, y + 8, { width: 60, align: 'center' })
       .text(`${formatCurrency(unitPrice, data.currency)}`, priceX, y + 8, { width: 70, align: 'center' });
     
-    if (total > 0) {
+    if (Number.isFinite(total)) {
       grandTotal += total;
       doc.font(STYLES.fontBold)
         .text(`${formatCurrency(total, data.currency)}`, totalX, y + 8, { width: 90, align: 'center' });
+    } else {
+      doc.font(STYLES.fontBold)
+        .text('-', totalX, y + 8, { width: 90, align: 'center' });
     }
     
     doc.moveTo(tableX, y + rowHeight).lineTo(tableX + tableWidth, y + rowHeight)
       .strokeColor(STYLES.lineColor).lineWidth(0.7).stroke();
   });
 
-  if (grandTotal > 0) {
+  if (Number.isFinite(grandTotal)) {
     const totalY = tableTop + rowHeight * (items.length + 1);
     doc.save();
     doc.rect(tableX, totalY, tableWidth, rowHeight).fill('#e5e7eb');
@@ -414,8 +417,9 @@ function generateEmbarqueTable(doc, items, data = {}) {
     }
     
     const productName = item.item_name || '';
-    const quantity = parseFloat(item.kg_facturados || item.kg_solicitados || 0);
-    totalQuantity += quantity;
+    let quantity = parseNumeric(item.kg_facturados ?? item.kg_solicitados ?? 0);
+    if (!Number.isFinite(quantity)) quantity = 0;
+    else totalQuantity += quantity;
     
     doc.fontSize(9).font(STYLES.font).fillColor(STYLES.textPrimary)
       .text(productName, itemX, y + 8, { width: 280 })
@@ -426,7 +430,7 @@ function generateEmbarqueTable(doc, items, data = {}) {
   });
 
   // Fila de total
-  if (totalQuantity > 0) {
+  if (items.length > 0) {
     const totalY = tableTop + rowHeight * (items.length + 1);
     doc.save();
     doc.rect(tableX, totalY, tableWidth, rowHeight).fill('#e5e7eb');
@@ -437,7 +441,7 @@ function generateEmbarqueTable(doc, items, data = {}) {
     
     doc.fontSize(9).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
       .text(t.total_general || 'TOTAL GENERAL', itemX + 30, totalY + 12, { width: 320, align: 'right' })
-      .text(`${formatNumber(totalQuantity, data.lang)} kg`, qtyX, totalY + 12, { width: 200, align: 'center' });
+      .text(totalQuantity ? `${formatNumber(totalQuantity, data.lang)} kg` : '-', qtyX, totalY + 12, { width: 200, align: 'center' });
     
     doc.moveTo(tableX, totalY + rowHeight).lineTo(tableX + tableWidth, totalY + rowHeight)
       .strokeColor(STYLES.lineColor).lineWidth(1).stroke();
@@ -561,8 +565,9 @@ function generateEntregaTable(doc, items, data = {}) {
     }
     
     const productName = item.item_name || '';
-    const quantity = parseFloat(item.kg_solicitados || 0);
-    totalQuantity += quantity;
+    let quantity = parseNumeric(item.kg_solicitados ?? item.kg_facturados ?? 0);
+    if (!Number.isFinite(quantity)) quantity = 0;
+    else totalQuantity += quantity;
     const factura = item.factura || '-';
 
 
@@ -707,8 +712,9 @@ function generateDisponibilidadTable(doc, items, data = {}) {
     }
     
     const productName = item.item_name || '';
-    const quantity = parseFloat(item.kg_facturados || item.kg_solicitados || 0);
-    totalQuantity += quantity;
+    let quantity = parseNumeric(item.kg_facturados ?? item.kg_solicitados ?? 0);
+    if (!Number.isFinite(quantity)) quantity = 0;
+    else totalQuantity += quantity;
     
     doc.fontSize(9).font(STYLES.font).fillColor(STYLES.textPrimary)
       .text(productName, itemX, y + 8, { width: 280 })
@@ -719,7 +725,7 @@ function generateDisponibilidadTable(doc, items, data = {}) {
   });
 
   // Fila de total
-  if (totalQuantity > 0) {
+  if (items.length > 0) {
     const totalY = tableTop + rowHeight * (items.length + 1);
     doc.save();
     doc.rect(tableX, totalY, tableWidth, rowHeight).fill('#e5e7eb');
@@ -730,7 +736,7 @@ function generateDisponibilidadTable(doc, items, data = {}) {
     
     doc.fontSize(9).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
       .text(t.total_general || 'TOTAL GENERAL', itemX + 30, totalY + 12, { width: 320, align: 'right' })
-      .text(`${formatNumber(totalQuantity, data.lang)} kg`, qtyX, totalY + 12, { width: 200, align: 'center' });
+      .text(totalQuantity ? `${formatNumber(totalQuantity, data.lang)} kg` : '-', qtyX, totalY + 12, { width: 200, align: 'center' });
     
     doc.moveTo(tableX, totalY + rowHeight).lineTo(tableX + tableWidth, totalY + rowHeight)
       .strokeColor(STYLES.lineColor).lineWidth(1).stroke();
@@ -801,51 +807,94 @@ function drawFooter(doc, currentPage, totalPages, data = {}) {
   doc.restore();
 }
 
-function formatCurrency(value, currency) {
-  let locales;
+function parseNumeric(value) {
+  if (value === null || value === undefined) return NaN;
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : NaN;
+  }
 
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return NaN;
+
+    const sanitized = trimmed.replace(/[^0-9,.\-]/g, '');
+    const hasComma = sanitized.includes(',');
+    const hasDot = sanitized.includes('.');
+    let normalized = sanitized;
+
+    if (hasComma && hasDot) {
+      if (sanitized.lastIndexOf(',') > sanitized.lastIndexOf('.')) {
+        normalized = sanitized.replace(/\./g, '').replace(',', '.');
+      } else {
+        normalized = sanitized.replace(/,/g, '');
+      }
+    } else if (hasComma) {
+      normalized = sanitized.replace(/\./g, '').replace(',', '.');
+    }
+
+    const numeric = Number(normalized);
+    return Number.isFinite(numeric) ? numeric : NaN;
+  }
+
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : NaN;
+}
+
+function formatCurrency(value, currency) {
+  const numericValue = parseNumeric(value);
+  if (!Number.isFinite(numericValue)) {
+    return '-';
+  }
+
+  let locales;
   switch (currency) {
     case 'USD':
-      locales = 'en-US'; // separador con coma, punto decimal
+      locales = 'en-US';
       break;
     case 'EUR':
-      locales = 'de-DE'; // ejemplo con formato europeo
+      locales = 'de-DE';
       break;
     case 'CLP':
-      locales = 'es-CL'; // pesos chilenos
+      locales = 'es-CL';
       break;
     default:
       locales = 'en-US';
   }
+
+  const fractionDigits = currency === 'USD' ? 2 : 4;
+
   return new Intl.NumberFormat(locales, {
     style: 'currency',
-    currency: currency,
+    currency,
     currencyDisplay: 'code',
-    minimumFractionDigits: 4, 
-    maximumFractionDigits: 4
-  }).format(value);
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits
+  }).format(numericValue);
 }
 
 function formatNumber(value, lang = 'es') {
-  if (value === null || value === undefined || isNaN(value)) return '-';
+  const numericValue = parseNumeric(value);
+  if (!Number.isFinite(numericValue)) {
+    return '-';
+  }
 
   let locales;
   switch (lang) {
     case 'en':
-      locales = 'en-US'; // separador con coma, punto decimal
+      locales = 'en-US';
       break;
     case 'de':
-      locales = 'de-DE'; // estilo europeo
+      locales = 'de-DE';
       break;
     case 'es':
     default:
-      locales = 'es-CL'; // estilo chileno/español
+      locales = 'es-CL';
   }
 
   return new Intl.NumberFormat(locales, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  }).format(value);
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(numericValue);
 }
 
 function getWeekOfYear(dateString, lang = 'es') {

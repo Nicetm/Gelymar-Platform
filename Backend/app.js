@@ -68,6 +68,7 @@ const monitoringRoutes = require('./routes/monitoring.routes');
 const fileserverRoutes = require('./routes/fileserver.routes');
 const configRoutes = require('./routes/config.routes');
 const messageRoutes = require('./routes/message.routes');
+const vendedorRoutes = require('./routes/vendedor.routes');
 
 
 // Configuración de rate limiting
@@ -90,6 +91,7 @@ const authSlowDown = slowDown({
 
 const baseAdminOrigin = process.env.FRONTEND_BASE_URL || 'http://localhost:2121';
 const baseClientOrigin = process.env.PUBLIC_CLIENT_FRONTEND_BASE_URL || process.env.PUBLIC_FRONTEND_BASE_URL || 'http://localhost:2122';
+const baseSellerOrigin = process.env.PUBLIC_SELLER_FRONTEND_BASE_URL || process.env.PUBLIC_FRONTEND_BASE_URL || 'http://localhost:2123';
 
 const devOrigins = [
   'http://localhost:2121',
@@ -105,6 +107,7 @@ const devOrigins = [
 const allowedOrigins = [
   baseAdminOrigin,
   baseClientOrigin,
+  baseSellerOrigin,
   ...(process.env.NODE_ENV === 'production' ? [] : devOrigins),
 ].filter(Boolean);
 
@@ -168,6 +171,7 @@ app.use('/api/orders', authMiddleware, authorizeRoles(['admin', 'client']), orde
 app.use('/api/order-detail', authMiddleware, authorizeRoles(['admin', 'client']), orderDetailRoutes);
 app.use('/api/items', authMiddleware, authorizeRoles(['admin']), itemRoutes);
 app.use('/api/directories', authMiddleware, authorizeRoles(['admin']), documentDirectoryRoutes);
+app.use('/api/vendedores', authMiddleware, authorizeRoles(['admin']), vendedorRoutes);
 
 // Ruta especial para visualización de archivos (acceso para admin y client)
 app.use('/api/file-view', documentFileRoutes);
