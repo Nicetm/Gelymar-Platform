@@ -12,6 +12,17 @@ export function initSidebarAdmin(config) {
   const API_BASE = window.apiBase || apiBase;
   const FILE_SERVER = window.fileServer || fileServer;
 
+  const translations = t || {};
+  const adminSettingsTexts = translations.admin_settings || {};
+
+  function getAdminSetting(key, fallback) {
+    const value = adminSettingsTexts[key];
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value;
+    }
+    return fallback;
+  }
+
   // Función para obtener el token del cliente
   function getClientToken() {
     let clientToken =
@@ -300,72 +311,101 @@ export function initSidebarAdmin(config) {
       pdfMailModal.classList.add('hidden');
     }
 
+    function updatePdfAddButtonState() {
+      const addBtn = document.getElementById('savePdfMailBtn');
+      const tableBody = document.getElementById('pdfMailFormTableBody');
+      const hasRows = tableBody ? tableBody.querySelector('tr') : null;
+      if (!addBtn) return;
+      addBtn.disabled = !hasRows;
+      addBtn.classList.toggle('opacity-50', !hasRows);
+      addBtn.classList.toggle('cursor-not-allowed', !hasRows);
+    }
+
+    function ensurePdfFormTable() {
+      const container = document.getElementById('emailFormContainer');
+      if (!container) return null;
+      let tableBody = document.getElementById('pdfMailFormTableBody');
+      if (!tableBody) {
+        const template = document.getElementById('pdfMailFormTableTemplate');
+        if (!template) return null;
+        const fragment = document.importNode(template.content, true);
+        container.appendChild(fragment);
+        tableBody = document.getElementById('pdfMailFormTableBody');
+      }
+      return tableBody;
+    }
+
     // Renderizar lista de pdfEmails existentes en tabla
     function renderPdfExistingEmailsTable() {
+      const template = document.getElementById('pdfMailExistingTableTemplate');
+      if (!template) return;
+
       if (pdfEmails.length === 0) {
         existingEmailsTable.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center py-4">No hay emails configurados</p>';
         return;
       }
 
-      const tableHTML = `
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
-            <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
-              <tr>
-                <th scope="col" class="px-6 py-3">${t.admin_settings.name}</th>
-                <th scope="col" class="px-6 py-3">${t.admin_settings.email}</th>
-                <th scope="col" class="px-6 py-3">${t.admin_settings.actions}</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${pdfEmails.map((email, index) => `
-                <tr class="text-xs bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-                  <td class="px-6 py-4 font-medium text-gray-900 dark:text-white">${email.name}</td>
-                  <td class="px-6 py-4">${email.email}</td>
-                  <td class="px-6 py-4">
-                    <button class="remove-existing-email flex items-center justify-center text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 font-medium" data-index="${index}">
-                      ${t.admin_settings.delete}
-                    </button>
-                  </td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-      `;
-      
-      existingEmailsTable.innerHTML = tableHTML;
+      const fragment = document.importNode(template.content, true);
+      const tableBody = fragment.querySelector('#pdfMailExistingTableBody');
+
+      pdfEmails.forEach((email, index) => {
+        const row = document.createElement('tr');
+        row.className = 'border-t border-gray-200 dark:border-gray-600';
+        row.innerHTML = `
+          <td class="p-2 font-medium text-gray-900 dark:text-white">${email.name}</td>
+          <td class="p-2 text-sm text-gray-500 dark:text-gray-400">${email.email}</td>
+          <td class="p-2 text-center">
+            <button class="remove-existing-email text-red-600 hover:text-red-500 transition" data-index="${index}">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </td>
+        `;
+        tableBody?.appendChild(row);
+      });
+
+      existingEmailsTable.innerHTML = '';
+      existingEmailsTable.appendChild(fragment);
     }
 
-    // Renderizar formulario para nuevos pdfEmails
     function renderPdfEmailForm() {
       emailFormContainer.innerHTML = '';
+      updatePdfAddButtonState();
     }
 
-    // Agregar nuevo email al formulario
     function addPdfEmail() {
-      const newEmailDiv = document.createElement('div');
-      newEmailDiv.className = 'flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-md mb-2';
-      newEmailDiv.innerHTML = `
-        <div class="flex-1 grid grid-cols-2 gap-3">
-          <input type="text" placeholder="Nombre" class="text-xs new-email-name px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-          <input type="email" placeholder="Email" class="text-xs new-email-email px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-        </div>
-        <button class="remove-new-email text-center text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-        </button>
+      const tableBody = ensurePdfFormTable();
+      if (!tableBody) return;
+
+      const row = document.createElement('tr');
+      row.className = 'border-t border-gray-200 dark:border-gray-600';
+      row.innerHTML = `
+        <td class="p-2">
+          <input type="text" placeholder="Nombre" class="text-xs new-email-name w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+        </td>
+        <td class="p-2">
+          <input type="email" placeholder="Email" class="text-xs new-email-email w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+        </td>
+        <td class="p-2 text-center">
+          <button class="remove-new-email text-red-600 hover:text-red-500 transition">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+        </td>
       `;
-      emailFormContainer.appendChild(newEmailDiv);
+
+      tableBody.appendChild(row);
+      updatePdfAddButtonState();
     }
 
     // Remover email existente
     async function removePdfExistingEmail(index) {
       const email = pdfEmails[index];
       const confirmed = await confirmAction(
-        '¿Eliminar email?',
-        `Se eliminará el email: ${email.name} (${email.email})`,
+        getAdminSetting('confirmDeleteTitle', 'Delete email?'),
+        `${getAdminSetting('confirmDeleteMessage', 'The email will be removed')}: ${email.name} (${email.email})`,
         'warning'
       );
       if (confirmed) {
@@ -389,21 +429,21 @@ export function initSidebarAdmin(config) {
         });
 
         if (response.ok) {
-          showNotification('Lista de emails actualizada correctamente', 'success');
+          showNotification(getAdminSetting('saveSuccess', 'Email list updated successfully'), 'success');
         } else {
           throw new Error('Error al guardar');
         }
       } catch (error) {
         console.error('Error guardando emails:', error);
-        showNotification('Error al guardar la lista de emails', 'error');
+        showNotification(getAdminSetting('saveError', 'Error saving email list'), 'error');
       }
     }
 
     // Guardar pdfEmails
     async function savePdfEmails() {
       const confirmed = await confirmAction(
-        '¿Guardar cambios?',
-        'Se actualizará la lista de correos para PDFs.',
+        getAdminSetting('confirmSaveTitle', 'Save changes?'),
+        getAdminSetting('confirmSaveMessage', 'Email list will be updated.'),
         'success'
       );
       
@@ -439,7 +479,7 @@ export function initSidebarAdmin(config) {
         });
 
         if (response.ok) {
-          showNotification('Lista de emails actualizada correctamente', 'success');
+          showNotification(getAdminSetting('saveSuccess', 'Email list updated successfully'), 'success');
           pdfEmails = updatedEmails;
           renderPdfExistingEmailsTable();
           renderPdfEmailForm();
@@ -448,7 +488,7 @@ export function initSidebarAdmin(config) {
         }
       } catch (error) {
         console.error('Error guardando emails:', error);
-        showNotification('Error al guardar la lista de emails', 'error');
+        showNotification(getAdminSetting('saveError', 'Error saving email list'), 'error');
       }
     }
 
@@ -487,67 +527,98 @@ export function initSidebarAdmin(config) {
     }
 
     function renderNotificationExistingEmailsTable() {
+      const template = document.getElementById('notificationEmailExistingTableTemplate');
+      if (!template) return;
+
       if (notificationEmails.length === 0) {
         notificationExistingEmailsTable.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center py-4">No hay emails configurados</p>';
         return;
       }
 
-      const tableHTML = `
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
-            <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
-              <tr>
-                <th scope="col" class="px-6 py-3">${t.admin_settings.name}</th>
-                <th scope="col" class="px-6 py-3">${t.admin_settings.email}</th>
-                <th scope="col" class="px-6 py-3">${t.admin_settings.actions}</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${notificationEmails.map((email, index) => `
-                <tr class="text-xs bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-                  <td class="px-6 py-4 font-medium text-gray-900 dark:text-white">${email.name}</td>
-                  <td class="px-6 py-4">${email.email}</td>
-                  <td class="px-6 py-4">
-                    <button class="remove-existing-notification-email flex items-center justify-center text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 font-medium" data-index="${index}">
-                      ${t.admin_settings.delete}
-                    </button>
-                  </td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-      `;
+      const fragment = document.importNode(template.content, true);
+      const tableBody = fragment.querySelector('#notificationEmailExistingTableBody');
 
-      notificationExistingEmailsTable.innerHTML = tableHTML;
+      notificationEmails.forEach((email, index) => {
+        const row = document.createElement('tr');
+        row.className = 'border-t border-gray-200 dark:border-gray-600';
+        row.innerHTML = `
+          <td class="p-2 font-medium text-gray-900 dark:text-white">${email.email}</td>
+          <td class="p-2 text-sm text-gray-500 dark:text-gray-400">${email.name}</td>
+          <td class="p-2 text-center">
+            <button class="remove-existing-notification-email text-red-600 hover:text-red-500 transition" data-index="${index}">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </td>
+        `;
+        tableBody?.appendChild(row);
+      });
+
+      notificationExistingEmailsTable.innerHTML = '';
+      notificationExistingEmailsTable.appendChild(fragment);
+    }
+
+    function updateNotificationAddButtonState() {
+      const addBtn = document.getElementById('saveNotificationEmailBtn');
+      const tableBody = document.getElementById('notificationEmailFormTableBody');
+      const hasRows = tableBody ? tableBody.querySelector('tr') : null;
+      if (!addBtn) return;
+      addBtn.disabled = !hasRows;
+      addBtn.classList.toggle('opacity-50', !hasRows);
+      addBtn.classList.toggle('cursor-not-allowed', !hasRows);
+    }
+
+    function ensureNotificationFormTable() {
+      const container = document.getElementById('notificationEmailFormContainer');
+      if (!container) return null;
+      let tableBody = document.getElementById('notificationEmailFormTableBody');
+      if (!tableBody) {
+        const template = document.getElementById('notificationEmailFormTableTemplate');
+        if (!template) return null;
+        const fragment = document.importNode(template.content, true);
+        container.appendChild(fragment);
+        tableBody = document.getElementById('notificationEmailFormTableBody');
+      }
+      return tableBody;
     }
 
     function renderNotificationEmailForm() {
       notificationEmailFormContainer.innerHTML = '';
+      updateNotificationAddButtonState();
     }
 
     function addNotificationEmail() {
-      const newEmailDiv = document.createElement('div');
-      newEmailDiv.className = 'flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-md mb-2';
-      newEmailDiv.innerHTML = `
-        <div class="flex-1 grid grid-cols-2 gap-3">
-          <input type="text" placeholder="Nombre" class="text-xs new-email-name px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-          <input type="email" placeholder="Email" class="text-xs new-email-email px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-        </div>
-        <button class="remove-new-email text-center text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-        </button>
+      const tableBody = ensureNotificationFormTable();
+      if (!tableBody) return;
+
+      const row = document.createElement('tr');
+      row.className = 'border-t border-gray-200 dark:border-gray-600';
+      row.innerHTML = `
+        <td class="p-2">
+          <input type="email" placeholder="Email" class="text-xs new-email-email w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+        </td>
+        <td class="p-2">
+          <input type="text" placeholder="Nombre" class="text-xs new-email-name w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+        </td>
+        <td class="p-2 text-center">
+          <button class="remove-new-email text-red-600 hover:text-red-500 transition">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+        </td>
       `;
-      notificationEmailFormContainer.appendChild(newEmailDiv);
+
+      tableBody.appendChild(row);
+      updateNotificationAddButtonState();
     }
 
     async function removeNotificationExistingEmail(index) {
       const email = notificationEmails[index];
       const confirmed = await confirmAction(
-        '¿Eliminar email?',
-        `Se eliminará el email: ${email.name} (${email.email})`,
+        getAdminSetting('confirmDeleteTitle', 'Delete email?'),
+        `${getAdminSetting('confirmDeleteMessage', 'The email will be removed')}: ${email.name} (${email.email})`,
         'warning'
       );
       if (confirmed) {
@@ -569,20 +640,20 @@ export function initSidebarAdmin(config) {
         });
 
         if (response.ok) {
-          showNotification('Lista de emails actualizada correctamente', 'success');
+          showNotification(getAdminSetting('saveSuccess', 'Email list updated successfully'), 'success');
         } else {
           throw new Error('Error al guardar');
         }
       } catch (error) {
         console.error('Error guardando emails:', error);
-        showNotification('Error al guardar la lista de emails', 'error');
+        showNotification(getAdminSetting('saveError', 'Error saving email list'), 'error');
       }
     }
 
     async function saveNotificationEmails() {
       const confirmed = await confirmAction(
-        '¿Guardar cambios?',
-        'Se actualizará la lista de correos para notificaciones.',
+        getAdminSetting('confirmSaveTitle', 'Save changes?'),
+        getAdminSetting('confirmSaveMessageNotification', 'Notification email list will be updated.'),
         'success'
       );
 
@@ -616,7 +687,7 @@ export function initSidebarAdmin(config) {
         });
 
         if (response.ok) {
-          showNotification('Lista de emails actualizada correctamente', 'success');
+          showNotification(getAdminSetting('saveSuccess', 'Email list updated successfully'), 'success');
           notificationEmails = updatedEmails;
           renderNotificationExistingEmailsTable();
           renderNotificationEmailForm();
@@ -625,13 +696,17 @@ export function initSidebarAdmin(config) {
         }
       } catch (error) {
         console.error('Error guardando emails:', error);
-        showNotification('Error al guardar la lista de emails', 'error');
+        showNotification(getAdminSetting('saveError', 'Error saving email list'), 'error');
       }
     }
 
     // Event listeners
-    closePdfMailModalBtn.addEventListener('click', closePdfMailModal);
-    cancelPdfMailBtn.addEventListener('click', closePdfMailModal);
+    if (closePdfMailModalBtn) {
+      closePdfMailModalBtn.addEventListener('click', closePdfMailModal);
+    }
+    if (cancelPdfMailBtn) {
+      cancelPdfMailBtn.addEventListener('click', closePdfMailModal);
+    }
 
     if (closeNotificationEmailModalBtn) {
       closeNotificationEmailModalBtn.addEventListener('click', closeNotificationEmailModal);
@@ -641,25 +716,33 @@ export function initSidebarAdmin(config) {
       cancelNotificationEmailBtn.addEventListener('click', closeNotificationEmailModal);
     }
     
-    // Usar event delegation para botones que se recrean
-    document.addEventListener('click', (e) => {
-      if (e.target.closest('#addEmailBtn')) {
+    if (addEmailBtn) {
+      addEmailBtn.addEventListener('click', (e) => {
         e.preventDefault();
         addPdfEmail();
-      }
-      if (e.target.closest('#savePdfMailBtn')) {
+      });
+    }
+
+    if (savePdfMailBtn) {
+      savePdfMailBtn.addEventListener('click', (e) => {
         e.preventDefault();
         savePdfEmails();
-      }
-      if (e.target.closest('#addNotificationEmailBtn')) {
+      });
+    }
+
+    if (addNotificationEmailBtn) {
+      addNotificationEmailBtn.addEventListener('click', (e) => {
         e.preventDefault();
         addNotificationEmail();
-      }
-      if (e.target.closest('#saveNotificationEmailBtn')) {
+      });
+    }
+
+    if (saveNotificationEmailBtn) {
+      saveNotificationEmailBtn.addEventListener('click', (e) => {
         e.preventDefault();
         saveNotificationEmails();
-      }
-    });
+      });
+    }
 
     // Cerrar modal al hacer click fuera
     pdfMailModal.addEventListener('click', (e) => {
@@ -676,31 +759,47 @@ export function initSidebarAdmin(config) {
       });
     }
 
-    // Event delegation para botones de eliminar
+    // Event delegation para eliminar filas dinámicas
     document.addEventListener('click', (e) => {
-      // Remover email nuevo
-      if (e.target.closest('.remove-new-email')) {
+      const removeNewBtn = e.target.closest('.remove-new-email');
+      if (removeNewBtn) {
         e.preventDefault();
         e.stopPropagation();
-        const button = e.target.closest('.remove-new-email');
-        const row = button.closest('div');
-        row.remove();
+        const row = removeNewBtn.closest('tr') || removeNewBtn.closest('div');
+        if (row) {
+          const tableBody = row.parentElement;
+          row.remove();
+          if (tableBody && !tableBody.querySelector('tr')) {
+            const table = tableBody.closest('table');
+            if (table) {
+              table.remove();
+            }
+          }
+        }
+        updatePdfAddButtonState();
+        updateNotificationAddButtonState();
+        return;
       }
-      
-      // Remover email existente
-      if (e.target.closest('.remove-existing-email')) {
+
+      const removePdfBtn = e.target.closest('.remove-existing-email');
+      if (removePdfBtn) {
         e.preventDefault();
         e.stopPropagation();
-        const button = e.target.closest('.remove-existing-email');
-        const index = parseInt(button.dataset.index);
-        removePdfExistingEmail(index);
+        const index = parseInt(removePdfBtn.dataset.index, 10);
+        if (!Number.isNaN(index)) {
+          removePdfExistingEmail(index);
+        }
+        return;
       }
-      if (e.target.closest('.remove-existing-notification-email')) {
+
+      const removeNotificationBtn = e.target.closest('.remove-existing-notification-email');
+      if (removeNotificationBtn) {
         e.preventDefault();
         e.stopPropagation();
-        const button = e.target.closest('.remove-existing-notification-email');
-        const index = parseInt(button.dataset.index);
-        removeNotificationExistingEmail(index);
+        const index = parseInt(removeNotificationBtn.dataset.index, 10);
+        if (!Number.isNaN(index)) {
+          removeNotificationExistingEmail(index);
+        }
       }
     });
 
@@ -755,7 +854,7 @@ export function initSidebarAdmin(config) {
       const currentLang = localStorage.getItem('lang') || lang;
       const flagElement = document.getElementById('currentLangFlag');
       const textElement = document.getElementById('currentLangText');
-      const chevronElement = document.querySelector('#currentLangBtn i[data-lucide="chevron-up"]');
+      const chevronElement = document.querySelector('#currentLangBtn i[data-lucide=\"chevron-up\"]');
       
       if (flagElement) {
         flagElement.src = currentLang === 'es' ? 'https://flagcdn.com/w20/cl.png' : 'https://flagcdn.com/w20/us.png';

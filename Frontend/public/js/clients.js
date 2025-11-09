@@ -5,9 +5,25 @@ import {
   confirmAction, 
   showSuccess, 
   showError,
-  clearContainer,
   isValidEmail
 } from './utils.js';
+
+async function buildErrorFromResponse(response, fallbackMessage = '') {
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch (err) {
+    // ignore parse errors
+  }
+  const message = payload?.message || fallbackMessage || `HTTP ${response.status}: ${response.statusText}`;
+  const error = new Error(message);
+  if (payload?.code) {
+    error.code = payload.code;
+  }
+  error.status = response.status;
+  error.payload = payload;
+  return error;
+}
 
 function getClientSectionContext() {
   const section = document.getElementById('clientSection');
@@ -96,7 +112,7 @@ export async function loadCustomersWithCache() {
       headers: { Authorization: `Bearer ${token}` }
     });
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      throw await buildErrorFromResponse(response);
     }
     const customers = await response.json();
     saveToCache(customers);
@@ -130,12 +146,37 @@ export function getCacheInfo() {
 
 export async function initClientsScript() {
   const { basePath, foldersPath, apiBase: datasetApiBase } = getClientSectionContext();
-  const apiBase = window.apiBase || datasetApiBase;
+  const resolvedApiBase = window.apiBase || datasetApiBase || '';
   
   // Usar traducciones ya cargadas por Astro
   const translations = window.translations || {};
   const messages = translations.messages || {};
   const clientes = translations.clientes || {};
+  const messagesClients = messages.clients || {};
+  const backendMessages = messagesClients.backend || {};
+  const formMessages = messagesClients.form || {};
+  const profileTexts = clientes.profile || {};
+  const contactsModalTexts = clientes.contactsModal || {};
+  const contactsPlaceholders = contactsModalTexts.placeholders || {};
+  const changePasswordTexts = clientes.changePassword || {};
+  const clientesForm = clientes.form || {};
+
+  const formatMessage = (template, params = {}) => {
+    if (typeof template !== 'string') return '';
+    return Object.keys(params).reduce((acc, key) => {
+      const value = params[key];
+      return acc.replace(new RegExp(`{${key}}`, 'g'), value != null ? value : '');
+    }, template);
+  };
+
+  const resolveBackendMessage = (code, fallback) => {
+    if (code && backendMessages[code]) {
+      return backendMessages[code];
+    }
+    return fallback;
+  };
+
+  const getMessage = (value, fallback) => (typeof value === 'string' && value.length > 0 ? value : fallback);
   
   // Verificar que todos los elementos necesarios existan
   const searchInput = qs('searchInput');
@@ -177,23 +218,23 @@ export async function initClientsScript() {
         <td class="sticky right-0 bg-gray-50 dark:bg-gray-700 z-10 px-6 py-4 min-w-[120px] overflow-visible border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">
           <div class="flex justify-center gap-3 relative">
             <div class="relative">
-              <a href="${folderUrl}" class="text-gray-900 dark:text-white hover:text-green-500 transition"
-                 data-tooltip="${window.translations?.clientes?.view_orders || 'Ver órdenes'}"
-                 aria-label="${window.translations?.clientes?.view_orders || 'Ver órdenes'}">
+              <a id="orderViewBtn" href="${folderUrl}" class="orederView text-gray-900 dark:text-white hover:text-green-500 transition"
+                 data-tooltip="${window.translations?.clientes?.view_orders || 'View orders'}"
+                 aria-label="${window.translations?.clientes?.view_orders || 'View orders'}">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
               </a>
             </div>
             <div class="relative">
-              <a href="#" data-uuid="${customer.uuid}" data-name="${customer.name}" class="text-gray-900 dark:text-white hover:text-green-500 transition manage-contacts-btn"
-                 data-tooltip="${window.translations?.clientes?.manage_contacts || 'Gestionar contactos'}"
-                 aria-label="${window.translations?.clientes?.manage_contacts || 'Gestionar contactos'}">
+              <a id="contactsViewBtn" href="#" data-uuid="${customer.uuid}" data-name="${customer.name}" class="contactsView text-gray-900 dark:text-white hover:text-green-500 transition manage-contacts-btn"
+                 data-tooltip="${window.translations?.clientes?.manage_contacts || 'Manage contacts'}"
+                 aria-label="${window.translations?.clientes?.manage_contacts || 'Manage contacts'}">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
               </a>
             </div>
             <div class="relative">
-              <a href="#" data-uuid="${customer.uuid}" data-name="${customer.name}" class="text-gray-900 dark:text-white hover:text-green-500 transition change-password-btn"
-                 data-tooltip="${window.translations?.clientes?.change_password || 'Cambiar contraseña'}"
-                 aria-label="${window.translations?.clientes?.change_password || 'Cambiar contraseña'}">
+              <a id="changePasswordViewBtn" href="#" data-uuid="${customer.uuid}" data-name="${customer.name}" class="changePasswordView text-gray-900 dark:text-white hover:text-green-500 transition change-password-btn"
+                 data-tooltip="${window.translations?.clientes?.change_password || 'Change password'}"
+                 aria-label="${window.translations?.clientes?.change_password || 'Change password'}">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
               </a>
             </div>
@@ -360,9 +401,10 @@ export async function initClientsScript() {
       // Mostrar mensaje de error
       const loadingRow = document.getElementById('loadingRow');
       if (loadingRow) {
+        const errorMessage = resolveBackendMessage(error.code, getMessage(messagesClients.loadError, 'Error loading customers.'));
         loadingRow.innerHTML = `
           <td colspan="8" class="px-6 py-8 text-center text-red-500">
-            Error al cargar los clientes. <button onclick="location.reload()" class="text-blue-500 hover:underline">Reintentar</button>
+            ${errorMessage} <button onclick="location.reload()" class="text-blue-500 hover:underline">${getMessage(clientes.retry, 'Retry')}</button>
           </td>
         `;
       }
@@ -383,11 +425,11 @@ export async function initClientsScript() {
       renderTable();
       
       // Mostrar notificación de éxito
-      showNotification('Datos refrescados automáticamente', 'success');
+      showNotification(getMessage(messagesClients.dataRefreshed, 'Data refreshed automatically'), 'success');
       
     } catch (error) {
       console.error('Error refrescando datos:', error);
-      showNotification('Error al refrescar los datos', 'error');
+      showNotification(resolveBackendMessage(error.code, getMessage(messagesClients.refreshError, 'Error refreshing data')), 'error');
     }
   }
 
@@ -425,17 +467,16 @@ export async function initClientsScript() {
     if (pageData.length === 0) {
       tableBody.innerHTML = `
         <tr class="bg-white dark:bg-gray-900">
-          <td colspan="8" class="px-6 py-8 text-center text-gray-500">
-            No se encontraron clientes
+          <td colspan="8" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+            ${getMessage(clientes.noResults, 'No customers found')}
           </td>
         </tr>
       `;
     }
 
     const totalPages = Math.ceil(filteredCustomers.length / itemsPerPage);
-    // Usar las traducciones inyectadas por Astro
-    let pageLabel = (typeof translations !== 'undefined' && translations.pageIndicator) ? translations.pageIndicator : '';
-    let ofLabel = (typeof translations !== 'undefined' && translations.pageIndicatorSeparator) ? translations.pageIndicatorSeparator : ' -- ';
+    const pageLabel = getMessage(clientes.pageIndicator, 'Page');
+    const ofLabel = getMessage(clientes.pageIndicatorSeparator, 'of');
     pageIndicator.textContent = `${pageLabel} ${currentPage} ${ofLabel} ${totalPages}`;
 
     setupFloatingTooltips(tableBody);
@@ -565,19 +606,19 @@ export async function initClientsScript() {
     const customersToExport = filteredCustomers.length > 0 ? filteredCustomers : allCustomers;
     
     if (customersToExport.length === 0) {
-      showNotification('No hay clientes disponibles para exportar', 'warning');
+      showNotification(getMessage(messagesClients.noCustomersToExport, 'No customers available to export'), 'warning');
       return;
     }
 
     // Definir los encabezados de las columnas
     const headers = [
-      'Nombre',
-      'RUT',
-      'Email',
-      'Teléfono',
-      'País',
-      'Ciudad',
-      'Órdenes'
+      getMessage(clientes.name, 'Name'),
+      getMessage(clientes.rut, 'RUT'),
+      getMessage(clientes.email, 'Email'),
+      getMessage(clientes.phone, 'Phone'),
+      getMessage(clientes.country, 'Country'),
+      getMessage(clientes.city, 'City'),
+      getMessage(clientes.directory, 'Orders')
     ];
 
     // Preparar los datos para exportar
@@ -621,7 +662,11 @@ export async function initClientsScript() {
     window.URL.revokeObjectURL(url);
 
     // Mostrar notificación de éxito
-    showSuccess(`Se exportaron ${customersToExport.length} clientes a Excel`);
+    const exportMessage = formatMessage(
+      messagesClients.exportSuccess,
+      { count: customersToExport.length }
+    ) || `Exported ${customersToExport.length} customers to Excel`;
+    showSuccess(exportMessage);
   }
 
   // Event listeners para paginación
@@ -686,7 +731,7 @@ export async function initClientsScript() {
       // Buscar el cliente en los datos cargados
       const customer = allCustomers.find(c => c.uuid === customerUuid);
       if (!customer) {
-        showError('Cliente no encontrado');
+        showError(getMessage(messagesClients.clientNotFound, 'Customer not found'));
         return;
       }
       
@@ -695,7 +740,7 @@ export async function initClientsScript() {
       
     } catch (error) {
       console.error('Error abriendo modal de perfil:', error);
-      showError('Error al cargar información del cliente');
+      showError(getMessage(messagesClients.loadError, 'Error loading customers.'));
     }
   });
 
@@ -712,7 +757,7 @@ export async function initClientsScript() {
       // Buscar el cliente en los datos cargados
       const customer = allCustomers.find(c => c.uuid === customerUuid);
       if (!customer) {
-        showError('Cliente no encontrado');
+        showError(getMessage(messagesClients.clientNotFound, 'Customer not found'));
         return;
       }
       
@@ -721,7 +766,7 @@ export async function initClientsScript() {
       
     } catch (error) {
       console.error('Error abriendo modal de contactos:', error);
-      showError('Error al cargar contactos del cliente');
+      showError(getMessage(messagesClients.contactsLoadError, 'Error loading customer contacts'));
     }
   });
 
@@ -733,31 +778,120 @@ export async function initClientsScript() {
     const initials = customer.name ? customer.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'CL';
     
     document.getElementById('contactsInitials').textContent = initials;
-    document.getElementById('contactsClientName').textContent = customer.name || 'Sin nombre';
+    document.getElementById('contactsClientName').textContent = customer.name || getMessage(profileTexts.noName, 'No name');
+    
+    // Guardar UUID del cliente actual
+    currentCustomerUuid = customer.uuid;
     
     // Limpiar formulario de contactos
     clearContactsForm();
     
     // Cargar contactos existentes
     loadExistingContacts(customer.uuid);
-    
-    // Mostrar modal
+
+    updateAddContactButtonState();
     showModal('#contactsModal');
   }
+
+  function updateAddContactButtonState() {
+    const addBtn = document.getElementById('addContactBtn');
+    const container = document.getElementById('contactsFormContainer');
+    if (!addBtn) return;
+
+    const hasRows = container ? container.querySelector('#contactsFormTableBody tr') : null;
+    addBtn.disabled = !hasRows;
+    addBtn.classList.toggle('opacity-50', !hasRows);
+    addBtn.classList.toggle('cursor-not-allowed', !hasRows);
+  }
+
+  function ensureContactsFormTable() {
+    const container = document.getElementById('contactsFormContainer');
+    if (!container) return null;
+
+    let tableBody = container.querySelector('#contactsFormTableBody');
+    if (!tableBody) {
+      const template = document.getElementById('contactsFormTableTemplate');
+      if (!template) return null;
+      const fragment = document.importNode(template.content, true);
+      container.appendChild(fragment);
+      tableBody = container.querySelector('#contactsFormTableBody');
+    }
+    return tableBody;
+  }
+
+  function addContactRow() {
+    const tableBody = ensureContactsFormTable();
+    if (!tableBody) return;
+
+    const rowId = `contact-row-${Date.now()}`;
+    const row = document.createElement('tr');
+    row.id = rowId;
+    row.className = 'border-t border-gray-200 dark:border-gray-600';
+    row.innerHTML = `
+      <td class="p-2">
+        <input type="text" class="text-xs contact-name w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="${getMessage(contactsPlaceholders.name, 'Contact name')}">
+      </td>
+      <td class="p-2">
+        <input type="email" class="text-xs contact-email w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="${getMessage(contactsPlaceholders.email, 'email@example.com')}">
+      </td>
+      <td class="p-2">
+        <input type="tel" class="text-xs contact-phone w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="${getMessage(contactsPlaceholders.phone, '+1 555 123 4567')}">
+      </td>
+      <td class="p-2 text-center">
+        <input type="checkbox" class="contact-sh-documents w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+      </td>
+      <td class="p-2 text-center">
+        <input type="checkbox" class="contact-reports w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+      </td>
+      <td class="p-2 text-center">
+        <button type="button" class="p-2 text-red-600 hover:text-red-500 dark:text-red-400 dark:hover:text-red-300 remove-contact-row" data-row-id="${rowId}">
+          <svg class="w-5 h-5 inline-block" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </button>
+      </td>
+    `;
+
+    tableBody.appendChild(row);
+    updateAddContactButtonState();
+  }
+
+  // Event listener para remover filas de contacto
+  document.addEventListener('click', (e) => {
+    const removeBtn = e.target.closest('.remove-contact-row');
+    if (removeBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const rowId = removeBtn.dataset.rowId;
+      let row = rowId ? document.getElementById(rowId) : null;
+      if (!row) {
+        row = removeBtn.closest('tr');
+      }
+      if (row) {
+        const tableBody = row.parentElement;
+        row.remove();
+        if (tableBody && !tableBody.querySelector('tr')) {
+          const table = tableBody.closest('table');
+          table?.remove();
+        }
+        updateAddContactButtonState();
+      }
+      return;
+    }
+  });
 
   function clearContactsForm() {
     const container = document.getElementById('contactsFormContainer');
     if (container) {
       container.innerHTML = '';
     }
+    updateAddContactButtonState();
   }
 
   async function loadExistingContacts(customerUuid) {
     try {
       const token = localStorage.getItem('token');
-      const { apiBase } = getClientSectionContext();
-      
-      const response = await fetch(`${apiBase}/api/customers/${customerUuid}/contacts`, {
+      const response = await fetch(`${resolvedApiBase}/api/customers/${customerUuid}/contacts`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -777,77 +911,192 @@ export async function initClientsScript() {
   function renderExistingContacts(contactData) {
     const container = document.getElementById('existingContactsTable');
     if (!container) return;
-    
-    // Verificar si hay datos de contacto
+    container.innerHTML = '';
+
     if (!contactData || (!contactData.primary_email && (!contactData.additional_contacts || contactData.additional_contacts.length === 0))) {
       container.innerHTML = `
         <div class="text-center py-8 text-xs text-gray-500 dark:text-gray-400">
           <svg class="w-6 h-6 mx-auto mb-4 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
           </svg>
-          <p>No hay contactos registrados</p>
+          <p>${getMessage(contactsModalTexts.noContacts, 'No contacts registered')}</p>
         </div>
       `;
       return;
     }
-    
+
+    const tableTemplate = document.getElementById('contactsTableTemplate');
+    const rowTemplate = document.getElementById('contactRowTemplate');
+    if (!tableTemplate || !rowTemplate) return;
+
+    const tableFragment = document.importNode(tableTemplate.content, true);
+    const tableBody = tableFragment.querySelector('#contactsTableBody');
+
     const additionalContacts = contactData.additional_contacts || [];
-    
-    let primaryEmailHtml = '';
-    
-    // Mostrar contactos adicionales si existen
-    let additionalContactsHtml = '';
-    if (additionalContacts.length > 0) {
-      additionalContactsHtml = `
-        <div class="mb-4">
-          <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Contactos Adicionales</h3>
-          <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead class="bg-gray-50 dark:bg-gray-800">
-                <tr>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nombre</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Email</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Teléfono</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Acciones</th>
-                </tr>
-              </thead>
-              <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                ${additionalContacts.map(contact => `
-                  <tr>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">${contact.nombre || '-'}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">${contact.email || '-'}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">${contact.telefono || '-'}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button class="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 delete-contact-btn" data-contact-idx="${contact.idx}">
-                        Eliminar
-                      </button>
-                    </td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      `;
-    } else {
-      // Mostrar mensaje cuando no hay contactos adicionales
-      additionalContactsHtml = `
-        <div class="mb-4">
-          <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Contactos Adicionales</h3>
-          <div class="text-center py-4 text-gray-500 dark:text-gray-400">
-            <p>No hay contactos adicionales registrados</p>
-          </div>
-        </div>
-      `;
-    }
-    
-    container.innerHTML = primaryEmailHtml + additionalContactsHtml;
+
+    additionalContacts.forEach(contact => {
+      const rowFragment = document.importNode(rowTemplate.content, true);
+      rowFragment.querySelector('[data-field="name"]').textContent = contact.nombre || '-';
+      rowFragment.querySelector('[data-field="email"]').textContent = contact.email || '-';
+      rowFragment.querySelector('[data-field="phone"]').textContent = contact.telefono || '-';
+      rowFragment.querySelector('[data-field="sh_documents"]').innerHTML = contact.sh_documents ? '<span class="text-green-600 dark:text-green-400">✓</span>' : '<span class="text-gray-400">-</span>';
+      rowFragment.querySelector('[data-field="reports"]').innerHTML = contact.reports ? '<span class="text-green-600 dark:text-green-400">✓</span>' : '<span class="text-gray-400">-</span>';
+
+      const editBtn = rowFragment.querySelector('.edit-contact-btn');
+      const deleteBtn = rowFragment.querySelector('.delete-contact-btn');
+      if (editBtn) {
+        editBtn.dataset.contactEmail = contact.email || '';
+        editBtn.dataset.contactName = contact.nombre || '';
+        editBtn.dataset.contactPhone = contact.telefono || '';
+        editBtn.dataset.contactSh = contact.sh_documents ? '1' : '0';
+        editBtn.dataset.contactReports = contact.reports ? '1' : '0';
+        editBtn.dataset.contactIdx = contact.idx;
+      }
+      if (deleteBtn) {
+        deleteBtn.dataset.contactIdx = contact.idx;
+      }
+
+      tableBody?.appendChild(rowFragment);
+    });
+
+    container.appendChild(tableFragment);
   }
+
+  document.addEventListener('click', (e) => {
+    const editBtn = e.target.closest('.edit-contact-btn');
+    if (!editBtn) return;
+
+    e.preventDefault();
+    const idx = editBtn.dataset.contactIdx;
+    if (!idx) return;
+
+    const row = editBtn.closest('tr');
+    if (!row) return;
+
+    const nameCell = row.querySelector('[data-field="name"]');
+    const emailCell = row.querySelector('[data-field="email"]');
+    const phoneCell = row.querySelector('[data-field="phone"]');
+    const shCell = row.querySelector('[data-field="sh_documents"]');
+    const reportsCell = row.querySelector('[data-field="reports"]');
+
+    const name = editBtn.dataset.contactName || '';
+    const email = editBtn.dataset.contactEmail || '';
+    const phone = editBtn.dataset.contactPhone || '';
+    const shDocuments = editBtn.dataset.contactSh === '1';
+    const reports = editBtn.dataset.contactReports === '1';
+
+    nameCell.innerHTML = `<input id="contactNameInput" type="text" class="text-xs contact-name w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" value="${name}">`;
+    emailCell.innerHTML = `<input id="contactEmailInput" type="email" class="text-xs contact-email w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" value="${email}">`;
+    phoneCell.innerHTML = `<input id="contactPhoneInput" type="tel" class="text-xs contact-phone w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" value="${phone}">`;
+    shCell.innerHTML = `<input id="contactShDocumentsInput" type="checkbox" ${shDocuments ? 'checked' : ''} class="contact-edit-sh w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">`;
+    reportsCell.innerHTML = `<input id="contactReportsInput" type="checkbox" ${reports ? 'checked' : ''} class="contact-edit-reports w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">`;
+
+    editBtn.classList.add('hidden');
+    const deleteBtn = row.querySelector('.delete-contact-btn');
+    if (deleteBtn) deleteBtn.classList.add('hidden');
+
+    const actionsCell = row.querySelector('td:last-child');
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'save-contact-btn text-gray-600 hover:text-green-600 transition'
+    saveBtn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>`;
+    saveBtn.dataset.contactIdx = idx;
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'cancel-edit-contact-btn text-gray-600 hover:text-gray-400 transition'
+    cancelBtn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>`;
+    cancelBtn.dataset.contactIdx = idx;
+
+    actionsCell.querySelector('.flex')?.append(saveBtn, cancelBtn);
+  });
+
+  document.addEventListener('click', async (e) => {
+    const saveBtn = e.target.closest('.save-contact-btn');
+    if (!saveBtn) return;
+
+    e.preventDefault();
+    const idx = saveBtn.dataset.contactIdx;
+    if (!idx) return;
+
+    const row = saveBtn.closest('tr');
+    if (!row) return;
+
+    const nameInput = row.querySelector('input[type="text"]');
+    const emailInput = row.querySelector('input[type="email"]');
+    const phoneInput = row.querySelector('input[type="tel"]');
+    const shCheckbox = row.querySelector('.contact-edit-sh');
+    const reportsCheckbox = row.querySelector('.contact-edit-reports');
+
+    const updates = {
+      contact_idx: idx,
+      nombre: nameInput?.value?.trim() || '',
+      email: emailInput?.value?.trim() || '',
+      telefono: phoneInput?.value?.trim() || '',
+      sh_documents: shCheckbox?.checked || false,
+      reports: reportsCheckbox?.checked || false,
+    };
+
+    if (!updates.nombre) {
+      showError(getMessage(clientesForm.nameRequired, 'Name is required for all contacts'));
+      return;
+    }
+    if (!updates.email) {
+      showError(getMessage(clientesForm.emailRequired, 'Email is required for all contacts'));
+      return;
+    }
+    if (!isValidEmail(updates.email)) {
+      showError(getMessage(clientesForm.emailInvalid, 'Email must be valid'));
+      return;
+    }
+    if (!updates.sh_documents && !updates.reports) {
+      const confirmed = await confirmAction(
+        getMessage(clientesForm.noPermissionsConfirmTitle, 'No access selected'),
+        getMessage(clientesForm.noPermissionsConfirmMessage, 'You did not select SH Documents nor Reports. Do you want to continue anyway?'),
+        'warning',
+        {
+          confirmButtonText: getMessage(clientesForm.noPermissionsConfirmContinue, 'Yes, continue'),
+          cancelButtonText: getMessage(clientesForm.noPermissionsConfirmCancel, 'Cancel')
+        }
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${resolvedApiBase}/api/customers/contacts/${currentCustomerUuid}/${idx}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(updates)
+      });
+
+      if (response.ok) {
+        showSuccess(getMessage(messagesClients.updateSuccess, 'Contact updated successfully'));
+        loadExistingContacts(currentCustomerUuid);
+      } else {
+        const errorResponse = await buildErrorFromResponse(response);
+        showError(resolveBackendMessage(errorResponse.code, getMessage(messagesClients.updateError, 'Error updating contact')));
+      }
+    } catch (error) {
+      console.error('Error updating contact:', error);
+      showError(resolveBackendMessage(error.code, getMessage(messagesClients.updateError, 'Error updating contact')));
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    const cancelBtn = e.target.closest('.cancel-edit-contact-btn');
+    if (!cancelBtn) return;
+
+    e.preventDefault();
+    loadExistingContacts(currentCustomerUuid);
+  });
 
   // ===== FUNCIONALIDAD DEL MODAL DE CONTACTOS =====
   
   let currentCustomerUuid = null;
-  let contactRows = [];
 
   // Event listener para agregar fila de contacto
   document.addEventListener('click', (e) => {
@@ -876,67 +1125,23 @@ export async function initClientsScript() {
 
   // Event listener para eliminar contactos existentes
   document.addEventListener('click', async (e) => {
-    if (e.target.classList.contains('delete-contact-btn')) {
-      e.preventDefault();
-      const contactIdx = e.target.dataset.contactIdx;
-      await deleteContact(contactIdx);
-    }
-  });
+    const deleteBtn = e.target.closest('.delete-contact-btn');
+    if (!deleteBtn) return;
 
-  function addContactRow() {
-    const container = document.getElementById('contactsFormContainer');
-    if (!container) return;
-
-    const rowId = `contact-row-${Date.now()}`;
-    const rowHtml = `
-      <div id="${rowId}" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 p-4 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800">
-        <div>
-          <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre</label>
-          <input type="text" class="text-xs contact-name w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Nombre del contacto">
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
-          <input type="email" class="text-xs contact-email w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="email@ejemplo.com">
-        </div>
-        <div class="flex items-end">
-          <div class="flex-1">
-            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Teléfono</label>
-            <input type="tel" class="text-xs contact-phone w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="+56 9 1234 5678">
-          </div>
-          <button type="button" class="ml-2 p-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 remove-contact-row" data-row-id="${rowId}">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-          </button>
-        </div>
-      </div>
-    `;
-    
-    container.insertAdjacentHTML('beforeend', rowHtml);
-  }
-
-  // Event listener para remover filas de contacto
-  document.addEventListener('click', (e) => {
-    const removeBtn = e.target.closest('.remove-contact-row');
-    if (removeBtn) {
-      e.preventDefault();
-      const rowId = removeBtn.dataset.rowId;
-      const row = document.getElementById(rowId);
-      if (row) {
-        row.remove();
-      }
-    }
+    e.preventDefault();
+    const contactIdx = deleteBtn.dataset.contactIdx;
+    await deleteContact(contactIdx);
   });
 
   async function saveContacts() {
     if (!currentCustomerUuid) {
-      showError('Error: No se ha seleccionado un cliente');
+      showError(getMessage(clientesForm.customerRequired, 'A customer must be selected'));
       return;
     }
 
     // Verificar si el cliente tiene email principal
     try {
-      const response = await fetch(`${apiBase}/api/customers/contacts/${currentCustomerUuid}`, {
+      const response = await fetch(`${resolvedApiBase}/api/customers/${currentCustomerUuid}/contacts`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -945,13 +1150,17 @@ export async function initClientsScript() {
       if (response.ok) {
         const contactData = await response.json();
         if (!contactData.primary_email) {
-          showError('Para ingresar contactos adicionales debe ingresar el mail principal');
+          showError(getMessage(clientesForm.primaryEmailRequired, 'You must set the main email before adding additional contacts'));
           return;
         }
+      } else {
+        const errorResponse = await buildErrorFromResponse(response);
+        showError(resolveBackendMessage(errorResponse.code, getMessage(messagesClients.contactsLoadError, 'Error loading customer contacts')));
+        return;
       }
     } catch (error) {
       console.error('Error verificando email principal:', error);
-      showError('Error al verificar email principal del cliente');
+      showError(resolveBackendMessage(error.code, getMessage(messagesClients.contactsLoadError, 'Error loading customer contacts')));
       return;
     }
 
@@ -965,31 +1174,52 @@ export async function initClientsScript() {
       const name = row.querySelector('.contact-name')?.value?.trim();
       const email = row.querySelector('.contact-email')?.value?.trim();
       const phone = row.querySelector('.contact-phone')?.value?.trim();
+      const shDocuments = row.querySelector('.contact-sh-documents')?.checked || false;
+      const reports = row.querySelector('.contact-reports')?.checked || false;
 
-      if (name || email || phone) {
+      const hasData = Boolean(name || email || phone || shDocuments || reports);
+
+      if (hasData) {
         if (!name) {
-          showError('El nombre es obligatorio para todos los contactos');
+          showError(getMessage(clientesForm.nameRequired, 'Name is required for all contacts'));
           return;
         }
-        if (email && !isValidEmail(email)) {
-          showError('El email debe tener un formato válido');
+        if (!email) {
+          showError(getMessage(clientesForm.emailRequired, 'Email is required for all contacts'));
           return;
+        }
+        if (!isValidEmail(email)) {
+          showError(getMessage(clientesForm.emailInvalid, 'Email must be valid'));
+          return;
+        }
+        if (!shDocuments && !reports) {
+          const confirmed = await confirmAction(
+            getMessage(clientesForm.noPermissionsConfirmTitle, 'No access selected'),
+            getMessage(clientesForm.noPermissionsConfirmMessage, 'You did not select SH Documents nor Reports. Do you want to continue anyway?'),
+            'warning',
+            {
+              confirmButtonText: getMessage(clientesForm.noPermissionsConfirmContinue, 'Yes, continue'),
+              cancelButtonText: getMessage(clientesForm.noPermissionsConfirmCancel, 'Cancel')
+            }
+          );
+          if (!confirmed) {
+            return;
+          }
         }
 
-        contacts.push({ name, email, phone });
+        contacts.push({ name, email, phone, sh_documents: shDocuments, reports: reports });
       }
     }
 
     if (contacts.length === 0) {
-      showError('Debe agregar al menos un contacto');
+      showError(getMessage(clientesForm.atLeastOneContact, 'Add at least one contact'));
       return;
     }
 
     try {
       const token = localStorage.getItem('token');
-      const { apiBase } = getClientSectionContext();
 
-      const response = await fetch(`${apiBase}/api/customers/contacts`, {
+      const response = await fetch(`${resolvedApiBase}/api/customers/contacts`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1002,23 +1232,24 @@ export async function initClientsScript() {
       });
 
       if (response.ok) {
-        showSuccess(`${contacts.length} contacto(s) agregado(s) exitosamente`);
+        const successMessage = formatMessage(messagesClients.contactsSaveSuccess, { count: contacts.length }) || `Added ${contacts.length} contact(s) successfully`;
+        showSuccess(successMessage);
         clearContactsForm();
         loadExistingContacts(currentCustomerUuid);
       } else {
-        const error = await response.json();
-        showError(error.message || 'Error al agregar contactos');
+        const errorResponse = await buildErrorFromResponse(response);
+        showError(resolveBackendMessage(errorResponse.code, getMessage(messagesClients.addContactError, 'Error adding contacts')));
       }
     } catch (error) {
       console.error('Error agregando contactos:', error);
-      showError('Error de red al agregar contactos');
+      showError(resolveBackendMessage(error.code, getMessage(messagesClients.addContactError, 'Error adding contacts')));
     }
   }
 
   async function deleteContact(contactIdx) {
     const confirmed = await confirmAction(
-      '¿Eliminar contacto?',
-      'Esta acción no se puede deshacer.',
+      getMessage(messagesClients.deleteContactConfirm, 'Delete contact?'),
+      getMessage(messagesClients.deleteContactMessage, 'This action cannot be undone.'),
       'warning'
     );
 
@@ -1026,9 +1257,8 @@ export async function initClientsScript() {
 
     try {
       const token = localStorage.getItem('token');
-      const { apiBase } = getClientSectionContext();
 
-      const response = await fetch(`${apiBase}/api/customers/contacts/${currentCustomerUuid}/${contactIdx}`, {
+      const response = await fetch(`${resolvedApiBase}/api/customers/contacts/${currentCustomerUuid}/${contactIdx}`, {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${token}`
@@ -1036,15 +1266,15 @@ export async function initClientsScript() {
       });
 
       if (response.ok) {
-        showSuccess('Contacto eliminado exitosamente');
+        showSuccess(getMessage(messagesClients.deleteContactSuccess, 'Contact deleted successfully'));
         loadExistingContacts(currentCustomerUuid);
       } else {
-        const error = await response.json();
-        showError(error.message || 'Error al eliminar contacto');
+        const error = await buildErrorFromResponse(response);
+        showError(resolveBackendMessage(error.code, getMessage(messagesClients.deleteContactError, 'Error deleting contact')));
       }
     } catch (error) {
       console.error('Error eliminando contacto:', error);
-      showError('Error de red al eliminar contacto');
+      showError(resolveBackendMessage(error.code, getMessage(messagesClients.deleteContactError, 'Error deleting contact')));
     }
   }
 
@@ -1054,7 +1284,7 @@ export async function initClientsScript() {
     const initials = customer.name ? customer.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'CL';
     
     document.getElementById('contactsInitials').textContent = initials;
-    document.getElementById('contactsClientName').textContent = customer.name || 'Sin nombre';
+    document.getElementById('contactsClientName').textContent = customer.name || getMessage(profileTexts.noName, 'No name');
     
     // Guardar UUID del cliente actual
     currentCustomerUuid = customer.uuid;
@@ -1091,7 +1321,7 @@ export async function initClientsScript() {
 
   async function updateCustomer() {
     if (!currentCustomerForUpdate) {
-      showError('Error: No se ha seleccionado un cliente');
+      showError(getMessage(clientesForm.customerRequired, 'A customer must be selected'));
       return;
     }
 
@@ -1099,18 +1329,18 @@ export async function initClientsScript() {
     const newEmail = emailInput?.value?.trim();
 
     if (!newEmail) {
-      showError('El email no puede estar vacío');
+      showError(getMessage(clientes.emailEmpty, 'Email cannot be empty.'));
       return;
     }
 
     if (!isValidEmail(newEmail)) {
-      showError('El email debe tener un formato válido');
+      showError(getMessage(clientesForm.emailInvalid, 'Email must be valid'));
       return;
     }
 
     const confirmed = await confirmAction(
-      '¿Actualizar cliente?',
-      'Se actualizará la información del cliente.',
+      getMessage(messagesClients.updateConfirmTitle, 'Update customer?'),
+      getMessage(messagesClients.updateConfirmMessage, 'The customer information will be updated.'),
       'question'
     );
 
@@ -1118,9 +1348,8 @@ export async function initClientsScript() {
 
     try {
       const token = localStorage.getItem('token');
-      const { apiBase } = getClientSectionContext();
 
-      const response = await fetch(`${apiBase}/api/customers/${currentCustomerForUpdate.uuid}`, {
+      const response = await fetch(`${resolvedApiBase}/api/customers/${currentCustomerForUpdate.uuid}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -1132,24 +1361,24 @@ export async function initClientsScript() {
       });
 
       if (response.ok) {
-        showSuccess('Cliente actualizado exitosamente');
+        showSuccess(getMessage(messagesClients.updateSuccess, 'Customer updated successfully'));
         hideModal('#profileModal');
         // Recargar la lista de clientes para reflejar los cambios
         await forceReloadCustomers();
         await loadAndRenderCustomers();
       } else {
-        const error = await response.json();
-        showError(error.message || 'Error al actualizar cliente');
+        const errorResponse = await buildErrorFromResponse(response);
+        showError(resolveBackendMessage(errorResponse.code, getMessage(messagesClients.updateError, 'Error updating customer')));
       }
     } catch (error) {
       console.error('Error actualizando cliente:', error);
-      showError('Error de red al actualizar cliente');
+      showError(resolveBackendMessage(error.code, getMessage(messagesClients.updateError, 'Error updating customer')));
     }
   }
 
   function viewCustomerOrders() {
     if (!currentCustomerForUpdate) {
-      showError('Error: No se ha seleccionado un cliente');
+      showError(getMessage(clientesForm.customerRequired, 'A customer must be selected'));
       return;
     }
 
@@ -1164,11 +1393,11 @@ export async function initClientsScript() {
     const initials = customer.name ? customer.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'CL';
     
     document.getElementById('profileInitials').textContent = initials;
-    document.getElementById('profileClientName').textContent = customer.name || 'Sin nombre';
-    document.getElementById('profileClientRut').textContent = customer.rut || 'Sin RUT';
-    document.getElementById('profileCountry').textContent = customer.country || 'Sin país';
-    document.getElementById('profileCity').textContent = customer.city || 'Sin ciudad';
-    document.getElementById('profilePhone').textContent = customer.phone || 'Sin teléfono';
+    document.getElementById('profileClientName').textContent = customer.name || getMessage(profileTexts.noName, 'No name');
+    document.getElementById('profileClientRut').textContent = customer.rut || getMessage(profileTexts.noRut, 'No tax ID');
+    document.getElementById('profileCountry').textContent = customer.country || getMessage(profileTexts.noCountry, 'No country');
+    document.getElementById('profileCity').textContent = customer.city || getMessage(profileTexts.noCity, 'No city');
+    document.getElementById('profilePhone').textContent = customer.phone || getMessage(profileTexts.noPhone, 'No phone');
     document.getElementById('profileEmail').value = customer.email || '';
     document.getElementById('profileOrderCount').textContent = customer.order_count || 0;
     
@@ -1198,7 +1427,7 @@ export async function initClientsScript() {
 
   function openChangePasswordModal(customerUuid, customerName) {
     currentPasswordCustomerUuid = customerUuid;
-    document.getElementById('changePasswordCustomerName').textContent = customerName;
+    document.getElementById('changePasswordCustomerName').textContent = customerName || getMessage(profileTexts.noName, 'No name');
     
     // Limpiar formulario
     document.getElementById('changePasswordForm').reset();
@@ -1214,31 +1443,31 @@ export async function initClientsScript() {
     
     // Validaciones
     if (!newPassword || !confirmPassword) {
-      showNotification('Por favor complete todos los campos', 'error');
+      showNotification(getMessage(formMessages.completeFields, 'Please complete all fields'), 'error');
       return;
     }
     
     if (newPassword.length < 6) {
-      showNotification('La contraseña debe tener al menos 6 caracteres', 'error');
+      showNotification(getMessage(formMessages.passwordMinLength, 'Password must be at least 6 characters long'), 'error');
       return;
     }
     
     if (newPassword !== confirmPassword) {
-      showNotification('Las contraseñas no coinciden', 'error');
+      showNotification(getMessage(formMessages.passwordMismatch, 'Passwords do not match'), 'error');
       return;
     }
     
     // Mostrar loading
     const saveBtn = document.getElementById('savePasswordBtn');
     const originalText = saveBtn.innerHTML;
-    saveBtn.innerHTML = '<svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Cambiando...';
+    const savingText = getMessage(changePasswordTexts.saving, 'Changing...');
+    saveBtn.innerHTML = `<svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> ${savingText}`;
     saveBtn.disabled = true;
     
     try {
       const token = localStorage.getItem('token');
-      const { apiBase } = getClientSectionContext();
-      
-      const response = await fetch(`${apiBase}/api/customers/change-password/${currentPasswordCustomerUuid}`, {
+
+      const response = await fetch(`${resolvedApiBase}/api/customers/change-password/${currentPasswordCustomerUuid}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -1248,15 +1477,15 @@ export async function initClientsScript() {
       });
       
       if (response.ok) {
-        showNotification('Contraseña cambiada exitosamente', 'success');
+        showNotification(getMessage(messagesClients.passwordChangeSuccess, 'Password changed successfully'), 'success');
         hideModal('#changePasswordModal');
       } else {
-        const error = await response.json();
-        showNotification(error.message || 'Error al cambiar la contraseña', 'error');
+        const errorResponse = await buildErrorFromResponse(response);
+        showNotification(resolveBackendMessage(errorResponse.code, getMessage(messagesClients.passwordChangeError, 'Error changing password')), 'error');
       }
     } catch (error) {
       console.error('Error cambiando contraseña:', error);
-      showNotification('Error al cambiar la contraseña', 'error');
+      showNotification(resolveBackendMessage(error.code, getMessage(messagesClients.passwordChangeError, 'Error changing password')), 'error');
     } finally {
       // Restaurar botón
       const saveBtn = document.getElementById('savePasswordBtn');
@@ -1292,4 +1521,6 @@ export async function initClientsScript() {
   if (savedFilter && searchInput.value) {
     filterCustomers();
   }
+
+  updateAddContactButtonState();
 } 

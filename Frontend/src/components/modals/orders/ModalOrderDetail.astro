@@ -1,0 +1,116 @@
+---
+interface Props {
+  carpetas: Record<string, any>;
+}
+
+const { carpetas = {} } = Astro.props as Props;
+
+const text = (value: string | undefined, fallback: string) =>
+  typeof value === 'string' && value.trim().length > 0 ? value : fallback;
+---
+
+<div id="orderDetailModal" class="fixed inset-0 bg-black bg-opacity-50 dark:bg-black/80 hidden z-50 flex justify-center items-center">
+  <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 w-full max-w-2xl mx-4 relative max-h-[90vh] overflow-y-auto shadow-2xl">
+    <button id="closeOrderDetailModalBtn" class="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition dark:text-gray-300 dark:hover:text-red-400">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+
+    <div class="flex items-center gap-4 mb-6">
+      <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+        <span id="orderDetailInitials">OD</span>
+      </div>
+      <div>
+        <h2 id="orderDetailTitle" class="text-xl font-bold text-gray-900 dark:text-gray-100"></h2>
+        <p id="orderDetailSubtitle" class="text-sm text-gray-600 dark:text-gray-400">
+          {text(carpetas?.orderDetails, 'Order details')}
+        </p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 shadow-sm">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+          </div>
+          <div class="flex-1">
+            <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+              {text(carpetas?.pcNumber, 'PC Number')}
+            </p>
+            <p id="orderDetailPc" class="text-lg font-semibold text-gray-900 dark:text-white">-</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 shadow-sm">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+          </div>
+          <div class="flex-1">
+            <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+              {text(carpetas?.ocNumber, 'OC Number')}
+            </p>
+            <p id="orderDetailOc" class="text-lg font-semibold text-gray-900 dark:text-white">-</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 shadow-sm">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+          </div>
+          <div class="flex-1">
+            <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+              {text(carpetas?.direccionDestino, 'Destination address')}
+            </p>
+            <p id="orderDetailDireccionDestino" class="text-sm font-medium text-gray-900 dark:text-white">-</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 shadow-sm">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+          <div class="flex-1">
+            <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+              {text(carpetas?.puertoDestino, 'Destination port')}
+            </p>
+            <p id="orderDetailPuertoDestino" class="text-sm font-medium text-gray-900 dark:text-white">-</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="md:col-span-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 shadow-sm">
+        <div class="flex items-start gap-3">
+          <div class="w-10 h-10 bg-amber-100 dark:bg-amber-900/30 rounded-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+            </svg>
+          </div>
+          <div class="flex-1">
+            <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+              {text(carpetas?.observaciones, 'Observations')}
+            </p>
+            <p id="orderDetailObservaciones" class="text-sm text-gray-900 dark:text-white leading-relaxed">-</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+

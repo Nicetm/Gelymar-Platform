@@ -8,7 +8,37 @@
     "addContactError": "Error adding contacts",
     "addContactValidation": "All contacts must have a name and valid email",
     "contactsAdded": "contact added successfully",
-    "contactsAddedPlural": "contacts added successfully"
+    "contactsAddedPlural": "contacts added successfully",
+    "loadError": "Error loading customers.",
+    "dataRefreshed": "Data refreshed automatically",
+    "refreshError": "Error refreshing data",
+    "noCustomersToExport": "There are no customers available to export",
+    "exportSuccess": "{count} customers exported to Excel",
+    "clientNotFound": "Customer not found",
+    "contactsLoadError": "Error loading customer contacts",
+    "contactsSaveSuccess": "{count} contact(s) added successfully",
+    "updateSuccess": "Customer updated successfully",
+    "updateError": "Error updating customer",
+    "updateConfirmTitle": "Update customer?",
+    "updateConfirmMessage": "The customer information will be updated.",
+    "passwordChangeSuccess": "Password changed successfully",
+    "passwordChangeError": "Error changing password",
+    "form": {
+      "completeFields": "Please complete all fields",
+      "passwordMinLength": "Password must be at least 6 characters long",
+      "passwordMismatch": "Passwords do not match"
+    },
+    "backend": {
+      "CLIENT_NOT_FOUND": "Customer not found",
+      "CLIENT_CONTACTS_FETCH_ERROR": "Error loading customer contacts",
+      "CLIENT_CONTACTS_SAVE_ERROR": "Error adding contacts",
+      "CLIENT_CONTACTS_DELETE_ERROR": "Error deleting contact",
+      "CLIENT_PRIMARY_EMAIL_REQUIRED": "Set the main email before adding additional contacts",
+      "CLIENT_UPDATE_ERROR": "Error updating customer",
+      "CLIENT_PASSWORD_CHANGE_ERROR": "Error changing password",
+      "CLIENT_PASSWORD_WEAK": "Password does not meet the minimum requirements",
+      "CLIENT_PASSWORD_MISMATCH": "Passwords do not match"
+    }
   },
   "folders": {
     "folderNameRequired": "The SAP field is required",

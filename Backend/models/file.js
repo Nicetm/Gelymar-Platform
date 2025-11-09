@@ -22,6 +22,7 @@ class File {
       this.fecha_generacion = row.fecha_generacion;
       this.fecha_envio = row.fecha_envio;
       this.fecha_reenvio = row.fecha_reenvio;
+      this.is_generated = row.is_generated;
     }
   }
   

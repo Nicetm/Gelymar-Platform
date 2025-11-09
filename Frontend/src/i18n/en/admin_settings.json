@@ -18,5 +18,12 @@
   "delete": "Delete",
   "subtitle": "Manage email list for PDFs",
   "add_email": "Add Email",
-  "actions": "Actions"
+  "actions": "Actions",
+  "confirmDeleteTitle": "Delete email?",
+  "confirmDeleteMessage": "This email will be removed",
+  "confirmSaveTitle": "Save changes?",
+  "confirmSaveMessage": "The PDF email list will be updated.",
+  "confirmSaveMessageNotification": "The notification email list will be updated.",
+  "saveSuccess": "Email list updated successfully",
+  "saveError": "Error saving the email list"
 }

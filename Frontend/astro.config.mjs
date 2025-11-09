@@ -39,8 +39,6 @@ if (!isServer) {
   delete process.env.CI;
 }
 
-
-
 const appContext = process.env.APP_CONTEXT || process.env.PUBLIC_APP_CONTEXT || 'both';
 if (!process.env.PUBLIC_APP_CONTEXT) {
   process.env.PUBLIC_APP_CONTEXT = appContext;
@@ -83,14 +81,27 @@ export default defineConfig({
   adapter: node({
     mode: 'standalone'
   }),
-  
-
 
   integrations: [
     sitemap(),
     tailwind(),
-		react(),
+    react(),
   ],
+
+  // alias para imports tipo @components/...
+  vite: {
+    resolve: {
+      alias: {
+        '@components': path.resolve('./src/components'),
+        '@layouts': path.resolve('./src/layouts'),
+        '@pages': path.resolve('./src/pages'),
+        '@lib': path.resolve('./src/lib'),
+        '@types': path.resolve('./src/types'),
+        '@i18n': path.resolve('./src/i18n'),
+        '@app': path.resolve('./src/app'),
+      },
+    },
+  },
 
   env: {
     schema: {

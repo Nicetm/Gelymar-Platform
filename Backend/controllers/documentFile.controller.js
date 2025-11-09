@@ -337,6 +337,7 @@ exports.handleUpload = async (req, res) => {
       file_identifier: fileIdentifier,
       status_id: 2,
       is_visible_to_customer: is_visible_to_customer,
+      is_generated: 0,
     };
 
     await insertFile(fileData);
@@ -788,32 +789,12 @@ exports.sendFile = async (req, res) => {
       ? emailsFromBody.map((email) => (typeof email === 'string' ? email.trim() : '')).filter(Boolean)
       : [];
 
-    const emails = overrideEmails.length ? [...new Set(overrideEmails)] : [];
-    if (!emails.length) {
-      if (file.customer_email) emails.push(file.customer_email);
-      if (file.contact_emails) {
-        emails.push(
-          ...file.contact_emails
-            .split(',')
-            .map((email) => email.trim())
-            .filter(Boolean)
-        );
-      }
-    }
-
-    if (emails.length === 0) {
-      return res.status(400).json({ 
-        message: 'El cliente no tiene configurado una casilla de email',
-        error: 'NO_EMAIL_CONFIGURED'
-      });
-    }
-
     const sendOptions = {};
     if (requestedLang) {
       sendOptions.lang = requestedLang;
     }
     if (overrideEmails.length) {
-      sendOptions.recipients = emails;
+      sendOptions.recipients = overrideEmails;
     }
 
     await emailService.sendFileToClient(file, sendOptions);
@@ -831,6 +812,23 @@ exports.sendFile = async (req, res) => {
   } catch (err) {
     logger.error(`Error al enviar archivo: ${err.message}`);
     
+    if (err.name === 'EmailPermissionError') {
+      const validationMode = err.validationMode === 0 ? 0 : 1;
+      const reasonLabel = validationMode === 0 ? 'SH Documents' : 'Reports';
+      const blockedEmails = Array.isArray(err.blockedEmails)
+        ? err.blockedEmails.filter((email) => typeof email === 'string' && email.trim())
+        : [];
+      const message = blockedEmails.length
+        ? `Los siguientes correos no tienen habilitado ${reasonLabel}: ${blockedEmails.join(', ')}`
+        : `No hay correos con ${reasonLabel} habilitado para este tipo de documento.`;
+      return res.status(400).json({
+        message,
+        error: 'EMAIL_PERMISSION_DENIED',
+        reason: reasonLabel,
+        emails: blockedEmails
+      });
+    }
+
     // Si es error de emails no configurados, retornar mensaje específico
     if (err.message.includes('No hay emails disponibles')) {
       return res.status(400).json({ 
@@ -974,32 +972,12 @@ exports.resendFile = async (req, res) => {
       ? emailsFromBody.map((email) => (typeof email === 'string' ? email.trim() : '')).filter(Boolean)
       : [];
 
-    const emails = overrideEmails.length ? [...new Set(overrideEmails)] : [];
-    if (!emails.length) {
-      if (file.customer_email) emails.push(file.customer_email);
-      if (file.contact_emails) {
-        emails.push(
-          ...file.contact_emails
-            .split(',')
-            .map((email) => email.trim())
-            .filter(Boolean)
-        );
-      }
-    }
-
-    if (emails.length === 0) {
-      return res.status(400).json({
-        message: 'El cliente no tiene configurado una casilla de email',
-        error: 'NO_EMAIL_CONFIGURED'
-      });
-    }
-
     const sendOptions = {};
     if (requestedLang) {
       sendOptions.lang = requestedLang;
     }
     if (overrideEmails.length) {
-      sendOptions.recipients = emails;
+      sendOptions.recipients = overrideEmails;
     }
 
     await emailService.sendFileToClient(file, sendOptions);
@@ -1014,6 +992,24 @@ exports.resendFile = async (req, res) => {
     res.json({ message: 'Documento reenviado y enviado por correo correctamente' });
   } catch (err) {
     logger.error(`Error al reenviar archivo: ${err.message}`);
+    
+    if (err.name === 'EmailPermissionError') {
+      const validationMode = err.validationMode === 0 ? 0 : 1;
+      const reasonLabel = validationMode === 0 ? 'SH Documents' : 'Reports';
+      const blockedEmails = Array.isArray(err.blockedEmails)
+        ? err.blockedEmails.filter((email) => typeof email === 'string' && email.trim())
+        : [];
+      const message = blockedEmails.length
+        ? `Los siguientes correos no tienen habilitado ${reasonLabel}: ${blockedEmails.join(', ')}`
+        : `No hay correos con ${reasonLabel} habilitado para este tipo de documento.`;
+      return res.status(400).json({
+        message,
+        error: 'EMAIL_PERMISSION_DENIED',
+        reason: reasonLabel,
+        emails: blockedEmails
+      });
+    }
+
     res.status(500).json({ message: 'Error al reenviar y enviar el documento' });
   }
 };
@@ -1069,7 +1065,6 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
       getNewOrders,
       getOrderData,
       getReceptionFile,
-      getCustomerEmail,
       markOrderAsSent,
       isSendOrderReceptionEnabled
     } = require('../services/checkOrderReception.service');
@@ -1148,15 +1143,48 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
           continue;
         }
         
-        // 6. Obtener email del cliente
-        const customerData = await getCustomerEmail(orderData.customer_id, orderData.rut);
-        if (!customerData || !customerData.email) {
-          console.error(`No se encontró email para cliente ${orderData.customer_id}`);
+        // 6. Obtener emails con reports = true del JSON de customer_contacts
+        const pool = await poolPromise;
+        const [contactRows] = await pool.query(
+          'SELECT contact_email FROM customer_contacts WHERE customer_id = ?',
+          [orderData.customer_id]
+        );
+
+        let reportEmails = [];
+        let customerLang = 'en'; // Idioma por defecto
+        
+        if (contactRows.length > 0 && contactRows[0].contact_email) {
+          try {
+            const contacts = typeof contactRows[0].contact_email === 'string'
+              ? JSON.parse(contactRows[0].contact_email)
+              : contactRows[0].contact_email;
+            
+            if (Array.isArray(contacts)) {
+              // Solo extraer emails de contactos con reports = true
+              const reportContacts = contacts.filter(contact => contact.reports === true);
+              reportEmails = reportContacts
+                .map(contact => contact.email)
+                .filter(email => email && email.trim());
+              
+              // Obtener idioma del cliente si está disponible
+              const [customerRows] = await pool.query(
+                'SELECT c.country, cl.lang FROM customers c INNER JOIN country_lang cl ON c.country = cl.country WHERE c.id = ?',
+                [orderData.customer_id]
+              );
+              if (customerRows.length > 0) {
+                customerLang = customerRows[0].lang || 'en';
+              }
+            }
+          } catch (error) {
+            console.error(`Error parseando contact_email para cliente ${orderData.customer_id}:`, error);
+          }
+        }
+        
+        if (reportEmails.length === 0) {
+          console.error(`No se encontraron emails con reports=true para cliente ${orderData.customer_id}`);
           errors++;
           continue;
         }
-        const customerEmail = customerData.email;
-        const customerLang = customerData.lang || 'en'; // Usar idioma del cliente o inglés por defecto
 
         // 7. Generar archivo PDF usando el mismo flujo que el botón
         // Obtener el archivo completo (como lo hace el botón)
@@ -1218,12 +1246,13 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
           id: file.id,
           name: file.name,
           path: updateData.path, // Usar la ruta del PDF generado desde updateData
-          customer_email: customerEmail,
-          customer_name: file.customer_name
+          customer_name: file.customer_name,
+          customer_id: file.customer_id,
+          lang: customerLang
         };
         
-        // 9. Enviar correo
-        await sendFileToClient(fileData);
+        // 9. Enviar correo solo a emails con reports = true
+        await sendFileToClient(fileData, { recipients: reportEmails });
         
         // 10. Actualizar fecha_envio del archivo
         await fileService.updateFile({

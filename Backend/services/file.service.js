@@ -22,7 +22,9 @@ const insertFile = async ({
   was_sent = false,
   document_type = null,
   file_type = 'PDF',
-  status_id = 1
+  status_id = 1,
+  is_generated = 1,
+  is_visible_to_customer = null,
 }) => {
   
   const pool = await poolPromise;
@@ -33,16 +35,39 @@ const insertFile = async ({
   }
   
   const realCustomerId = rows[0].id;
+  const visibleValue = (() => {
+    if (is_visible_to_customer === null || is_visible_to_customer === undefined || is_visible_to_customer === '') {
+      return null;
+    }
+
+    if (typeof is_visible_to_customer === 'boolean') {
+      return is_visible_to_customer ? 1 : 0;
+    }
+
+    if (typeof is_visible_to_customer === 'number') {
+      return is_visible_to_customer === 0 ? 0 : 1;
+    }
+
+    const normalized = String(is_visible_to_customer).trim().toLowerCase();
+    if (normalized === 'true' || normalized === '1' || normalized === 'yes') {
+      return 1;
+    }
+    if (normalized === 'false' || normalized === '0' || normalized === 'no') {
+      return 0;
+    }
+
+    return null;
+  })();
 
   const [result] = await pool.query(
     `INSERT INTO order_files (
       order_id, pc, oc, name, path, file_identifier,
       created_at, updated_at, was_sent, 
-      document_type, file_type, status_id
-    ) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW(), ?, ?, ?, ?)`,
+      document_type, file_type, status_id, is_generated, is_visible_to_client
+    ) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW(), ?, ?, ?, ?, ?, ?)`,
     [
       order_id, pc, oc, name, path, file_identifier,
-      was_sent, document_type, file_type, status_id
+      was_sent, document_type, file_type, status_id, is_generated, visibleValue
     ]
   );
   return result;
@@ -147,6 +172,7 @@ const getFileById = async(id) => {
   const [rows] = await pool.query(`
     SELECT 
       f.*, 
+      c.id AS customer_id,
       c.name AS customer_name, 
       c.country,
       cc.primary_email AS customer_email,
@@ -154,19 +180,41 @@ const getFileById = async(id) => {
       f.fecha_generacion,
       f.fecha_envio,
       f.fecha_reenvio,
-      GROUP_CONCAT(cc.contact_email SEPARATOR ',') AS contact_emails
+      cc.contact_email AS contact_email_json
     FROM order_files f
     JOIN orders fd ON f.order_id = fd.id
     JOIN customers c ON fd.customer_id = c.id
     JOIN country_lang cl on c.country = cl.country
     LEFT JOIN customer_contacts cc ON c.id = cc.customer_id
     WHERE f.id = ?
-    GROUP BY f.id, c.name, cc.primary_email, cl.lang, c.country
   `, [id]);
 
   if (rows.length === 0) return null;
 
-  return rows[0];
+  const file = rows[0];
+  
+  // Parsear contact_email JSON y extraer emails
+  let contactEmails = [];
+  if (file.contact_email_json) {
+    try {
+      const contacts = typeof file.contact_email_json === 'string' 
+        ? JSON.parse(file.contact_email_json) 
+        : file.contact_email_json;
+      
+      if (Array.isArray(contacts)) {
+        contactEmails = contacts
+          .map(contact => contact.email)
+          .filter(email => email && email.trim());
+      }
+    } catch (error) {
+      console.error('Error parseando contact_email:', error);
+    }
+  }
+  
+  file.contact_emails = contactEmails.join(',');
+  delete file.contact_email_json;
+  
+  return file;
 }
 
 const updateFile = async(data) => {

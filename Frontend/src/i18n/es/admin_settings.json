@@ -18,5 +18,12 @@
   "delete": "Eliminar",
   "subtitle": "Gestionar lista de correos para PDFs",
   "add_email": "Agregar Email",
-  "actions": "Acciones"
+  "actions": "Acciones",
+  "confirmDeleteTitle": "¿Eliminar email?",
+  "confirmDeleteMessage": "Se eliminará el email seleccionado",
+  "confirmSaveTitle": "¿Guardar cambios?",
+  "confirmSaveMessage": "Se actualizará la lista de correos para PDFs.",
+  "confirmSaveMessageNotification": "Se actualizará la lista de correos para notificaciones.",
+  "saveSuccess": "Lista de emails actualizada correctamente",
+  "saveError": "Error al guardar la lista de emails"
 }

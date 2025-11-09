@@ -90,6 +90,7 @@ router.get('/:uuid/contacts', authMiddleware, authorizeRoles(['admin']), custome
  *         description: Server error
  */
 router.delete('/contacts/:customerUuid/:contactIdx', authMiddleware, authorizeRoles(['admin']), customerController.deleteCustomerContact);
+router.patch('/contacts/:customerUuid/:contactIdx', authMiddleware, authorizeRoles(['admin']), customerController.updateCustomerContact);
 
 /**
  * @swagger

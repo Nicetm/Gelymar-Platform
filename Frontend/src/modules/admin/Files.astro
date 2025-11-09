@@ -1,7 +1,7 @@
 ---
-import { loadTranslations, getServerLang } from '../../lib/i18n.js';
+  import { loadTranslations, getServerLang } from '@lib/i18n.js';
 import type { Files } from '../../types/entities.js';
-import { getApiBase, getPublicApiUrl, getFileServerUrl } from '../../app/constants.ts';
+import { getApiBase, getPublicApiUrl, getFileServerUrl } from '@app/constants.js';
 
 const apiBase = getApiBase();
 const apiPublic = getPublicApiUrl();
@@ -107,37 +107,72 @@ try {
   console.warn('Error obteniendo contactos del cliente:', error);
 }
 
-const recipientsSet = new Set<string>();
-const addEmails = (value: unknown) => {
-  if (typeof value !== 'string') return;
-  value
-    .split(/[,;]+/)
-    .map((email) => email.trim())
-    .filter(Boolean)
-    .forEach((email) => recipientsSet.add(email));
+const normalizeEmail = (value: unknown) =>
+  typeof value === 'string' ? value.trim() : '';
+
+const toBoolean = (value: unknown) => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value === 1;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    return normalized === 'true' || normalized === '1' || normalized === 'yes';
+  }
+  return false;
 };
 
-addEmails(customerEmail);
-addEmails(contactData?.primary_email);
+type ContactMetadata = {
+  email: string;
+  name: string;
+  sh_documents: boolean;
+  reports: boolean;
+};
+
+const contactEmailMap = new Map<string, ContactMetadata>();
+
+const registerContact = (contact: any) => {
+  const rawEmail =
+    contact?.email ??
+    contact?.primary_email ??
+    contact?.contact_email ??
+    contact?.correo;
+  const email = normalizeEmail(rawEmail);
+  if (!email) return;
+
+  const name =
+    typeof contact?.name === 'string'
+      ? contact.name.trim()
+      : typeof contact?.nombre === 'string'
+        ? contact.nombre.trim()
+        : '';
+
+  const metadata: ContactMetadata = {
+    email,
+    name,
+    sh_documents: toBoolean(contact?.sh_documents),
+    reports: toBoolean(contact?.reports),
+  };
+
+  contactEmailMap.set(email.toLowerCase(), metadata);
+};
 
 if (Array.isArray(contactData?.additional_contacts)) {
-  contactData.additional_contacts.forEach((contact: any) => {
-    addEmails(contact?.email ?? contact?.primary_email ?? contact?.contact_email);
-  });
+  contactData.additional_contacts.forEach(registerContact);
 } else if (typeof contactData?.contact_email === 'string') {
   try {
     const parsed = JSON.parse(contactData.contact_email);
     if (Array.isArray(parsed)) {
-      parsed.forEach((contact: any) => {
-        addEmails(contact?.email ?? contact?.primary_email ?? contact?.contact_email);
-      });
+      parsed.forEach(registerContact);
     }
   } catch {
-    addEmails(contactData.contact_email);
+    // Ignorar parseos inválidos, ya que no proveen metadata confiable
   }
 }
 
-const emailRecipients = Array.from(recipientsSet).filter(Boolean);
+const contactEmailMetadata = Array.from(contactEmailMap.values());
+
+const emailRecipients = contactEmailMetadata
+  .filter((contact) => contact.sh_documents)
+  .map((contact) => contact.email);
 ---
 
 <section
@@ -170,7 +205,7 @@ const emailRecipients = Array.from(recipientsSet).filter(Boolean);
     <!-- Título -->
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div class="flex flex-col gap-1">
-        <h1 id="titleFile" class="text-3xl font-bold text-gray-900 dark:text-white">{decodedClientName} - Order {t.documentos.title}</h1>
+        <h1 id="titleFile" class="text-3xl font-bold text-gray-900 dark:text-white">{decodedClientName} - {t.documentos.title}</h1>
         <div class="flex flex-col gap-1 text-sm text-gray-600 dark:text-gray-400">
           {orderPc && <span class="font-bold">{t.documentos.pcNumber}: {orderPc}</span>}
           {orderOc && <span class="font-bold">{t.documentos.ocNumber}: {orderOc}</span>}
@@ -485,7 +520,7 @@ const emailRecipients = Array.from(recipientsSet).filter(Boolean);
 	</div>
 </section>
 
-<script type="module" define:vars={{ apiPublic, fileServer, lang, documentTypes, orderOc, orderPc, t, emailRecipients }}>
+<script type="module" define:vars={{ apiPublic, fileServer, lang, documentTypes, orderOc, orderPc, t, emailRecipients, contactEmailMetadata }}>
 
   import { initFilesScript } from '/js/files.js';
   
@@ -499,6 +534,16 @@ const emailRecipients = Array.from(recipientsSet).filter(Boolean);
   window.translations = t;
   window.emailRecipients = Array.isArray(emailRecipients)
     ? Array.from(new Set(emailRecipients.map((email) => (typeof email === 'string' ? email.trim() : '')).filter(Boolean)))
+    : [];
+  window.emailRecipientMetadata = Array.isArray(contactEmailMetadata)
+    ? contactEmailMetadata
+        .map((contact) => ({
+          email: typeof contact?.email === 'string' ? contact.email.trim() : '',
+          name: typeof contact?.name === 'string' ? contact.name : '',
+          sh_documents: !!contact?.sh_documents,
+          reports: !!contact?.reports,
+        }))
+        .filter((contact) => contact.email)
     : [];
 
   // Inicializar el script cuando el DOM esté completamente cargado

@@ -61,5 +61,60 @@
   "view_orders": "Ver órdenes",
   "view_info": "Ver información adicional",
   "manage_contacts": "Gestionar contactos",
-  "change_password": "Cambiar contraseña"
+  "change_password": "Cambiar contraseña",
+  "aditional_contacts": "Contactos adicionales",
+  "sh_documents": "SH Documents",
+  "reports": "Reports",
+  "retry": "Reintentar",
+  "profile": {
+    "customerLabel": "Cliente",
+    "noName": "Sin nombre",
+    "noRut": "Sin RUT",
+    "noCountry": "Sin país",
+    "noCity": "Sin ciudad",
+    "noPhone": "Sin teléfono"
+  },
+  "contactsModal": {
+    "noContacts": "No hay contactos registrados",
+    "noAdditionalContacts": "No hay contactos adicionales.",
+    "headers": {
+      "name": "Nombre",
+      "email": "Correo",
+      "phone": "Teléfono",
+      "shDocuments": "SH Documents",
+      "reports": "Reports",
+      "actions": "Acciones"
+    },
+    "delete": "Eliminar",
+    "placeholders": {
+      "name": "Nombre del contacto",
+      "email": "correo@ejemplo.com",
+      "phone": "+56 9 1234 5678"
+    },
+    "edit": "Editar"
+  },
+  "changePassword": {
+    "title": "Cambiar contraseña",
+    "customerLabel": "Cliente",
+    "newPasswordLabel": "Nueva contraseña",
+    "confirmPasswordLabel": "Confirmar contraseña",
+    "newPasswordPlaceholder": "Ingrese la nueva contraseña",
+    "confirmPasswordPlaceholder": "Confirme la nueva contraseña",
+    "submit": "Cambiar contraseña",
+    "saving": "Cambiando..."
+  },
+  "form": {
+    "customerRequired": "Debe seleccionar un cliente",
+    "primaryEmailRequired": "Para ingresar contactos adicionales debe ingresar el mail principal",
+    "emailInvalid": "El email debe tener un formato válido",
+    "nameRequired": "El nombre es obligatorio para todos los contactos",
+    "atLeastOneContact": "Debe agregar al menos un contacto",
+    "emailRequired": "El email es obligatorio para todos los contactos",
+    "shDocumentsRequired": "Debe otorgar acceso a SH Documents",
+    "reportsRequired": "Debe otorgar acceso a Reports",
+    "noPermissionsConfirmTitle": "Sin accesos marcados",
+    "noPermissionsConfirmMessage": "No seleccionaste SH Documents ni Reports. ¿Deseas continuar de todos modos?",
+    "noPermissionsConfirmCancel": "Cancelar",
+    "noPermissionsConfirmContinue": "Sí, continuar"
+  }
 }

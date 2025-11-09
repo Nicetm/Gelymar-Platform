@@ -104,10 +104,17 @@ const devOrigins = [
   'http://localhost:9615',
 ];
 
+const extraOrigins = [
+  'https://logystics.gelymar.cl',
+  'https://clients.gelymar.cl',
+  'https://sellers.gelymar.cl',
+];
+
 const allowedOrigins = [
   baseAdminOrigin,
   baseClientOrigin,
   baseSellerOrigin,
+  ...extraOrigins,
   ...(process.env.NODE_ENV === 'production' ? [] : devOrigins),
 ].filter(Boolean);
 

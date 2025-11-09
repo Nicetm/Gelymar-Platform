@@ -761,103 +761,118 @@ export async function initOrdersScript() {
   
   // Cache inicializado automáticamente
 
-}
+  // Función para navegar a clientes con filtro aplicado
+  function navigateToClientsWithFilter(customerName) {
+    try {
+      // Guardar el nombre del cliente en localStorage para que clients.js lo pueda leer
+      localStorage.setItem('clientSearchFilter', customerName);
+      
+      // Navegar a la página de clientes
+      window.location.href = clientsPath;
+      
+    } catch (error) {
+      console.error('Error navegando a clientes:', error);
+      showNotification('Error al navegar a la página de clientes', 'error');
+    }
+  }
 
-// Función para configurar los event listeners de los modales
-function setupModalEventListeners() {
-  // Event listener para nombre del cliente
-  document.addEventListener('click', (e) => {
-    const customerNameBtn = e.target.closest('.customer-name-btn');
-    if (customerNameBtn) {
-      e.preventDefault();
-      const customerName = customerNameBtn.dataset.customerName;
-      if (customerName && customerName !== '-') {
-        navigateToClientsWithFilter(customerName);
+  // Función para configurar los event listeners de los modales
+  function setupModalEventListeners() {
+    // Event listener para nombre del cliente
+    document.addEventListener('click', (e) => {
+      const customerNameBtn = e.target.closest('.customer-name-btn');
+      if (customerNameBtn) {
+        e.preventDefault();
+        const customerName = customerNameBtn.dataset.customerName;
+        if (customerName && customerName !== '-') {
+          navigateToClientsWithFilter(customerName);
+        }
       }
-    }
-  });
-
-  // Event listeners para botones de items
-  document.addEventListener('click', (e) => {
-    const itemsBtn = e.target.closest('.items-list-btn');
-    if (itemsBtn) {
-      e.preventDefault();
-      const orderPc = itemsBtn.dataset.orderPc;
-      const orderOc = itemsBtn.dataset.orderOc;
-      const factura = itemsBtn.dataset.factura;
-      openItemsModal(orderPc, orderOc, factura);
-    }
-  });
-
-  // Event listeners para botones de expansión de items
-  document.addEventListener('click', (e) => {
-    const expandBtn = e.target.closest('.expand-items-btn');
-    if (expandBtn) {
-      e.preventDefault();
-      const orderPc = expandBtn.dataset.orderPc;
-      const orderOc = expandBtn.dataset.orderOc;
-      const factura = expandBtn.dataset.factura;
-      toggleItemsExpansion(orderPc, orderOc, factura);
-    }
-  });
-
-  // Event listeners para botones de cerrar expansión
-  document.addEventListener('click', (e) => {
-    const closeBtn = e.target.closest('.close-expansion-btn');
-    if (closeBtn) {
-      e.preventDefault();
-      const orderPc = closeBtn.dataset.orderPc;
-      closeItemsExpansion(orderPc);
-    }
-  });
-
-  // Event listeners para botones de detalles de orden
-  document.addEventListener('click', (e) => {
-    const detailBtn = e.target.closest('.order-detail-btn');
-    if (detailBtn) {
-      e.preventDefault();
-      const orderId = detailBtn.dataset.orderId;
-      const orderOc = detailBtn.dataset.orderOc;
-      openOrderDetailModal(orderId, orderOc);
-    }
-  });
-
-  // Event listeners para cerrar modales
-  const closeItemsModalBtn = document.getElementById('closeItemsModalBtn');
-  const closeOrderDetailModalBtn = document.getElementById('closeOrderDetailModalBtn');
-  const itemsModal = document.getElementById('itemsModal');
-  const orderDetailModal = document.getElementById('orderDetailModal');
-
-  if (closeItemsModalBtn) {
-    closeItemsModalBtn.addEventListener('click', () => {
-      itemsModal.classList.add('hidden');
-      itemsModal.classList.remove('flex');
     });
-  }
 
-  if (closeOrderDetailModalBtn) {
-    closeOrderDetailModalBtn.addEventListener('click', () => {
-      orderDetailModal.classList.add('hidden');
+    // Event listeners para botones de items
+    document.addEventListener('click', (e) => {
+      const itemsBtn = e.target.closest('.items-list-btn');
+      if (itemsBtn) {
+        e.preventDefault();
+        const orderPc = itemsBtn.dataset.orderPc;
+        const orderOc = itemsBtn.dataset.orderOc;
+        const factura = itemsBtn.dataset.factura;
+        openItemsModal(orderPc, orderOc, factura);
+      }
     });
-  }
 
-  // Cerrar modales al hacer click fuera
-  if (itemsModal) {
-    itemsModal.addEventListener('click', (e) => {
-      if (e.target === itemsModal) {
+    // Event listeners para botones de expansión de items
+    document.addEventListener('click', (e) => {
+      const expandBtn = e.target.closest('.expand-items-btn');
+      if (expandBtn) {
+        e.preventDefault();
+        const orderPc = expandBtn.dataset.orderPc;
+        const orderOc = expandBtn.dataset.orderOc;
+        const factura = expandBtn.dataset.factura;
+        toggleItemsExpansion(orderPc, orderOc, factura);
+      }
+    });
+
+    // Event listeners para botones de cerrar expansión
+    document.addEventListener('click', (e) => {
+      const closeBtn = e.target.closest('.close-expansion-btn');
+      if (closeBtn) {
+        e.preventDefault();
+        const orderPc = closeBtn.dataset.orderPc;
+        closeItemsExpansion(orderPc);
+      }
+    });
+
+    // Event listeners para botones de detalles de orden
+    document.addEventListener('click', (e) => {
+      const detailBtn = e.target.closest('.order-detail-btn');
+      if (detailBtn) {
+        e.preventDefault();
+        const orderId = detailBtn.dataset.orderId;
+        const orderOc = detailBtn.dataset.orderOc;
+        openOrderDetailModal(orderId, orderOc);
+      }
+    });
+
+    // Event listeners para cerrar modales
+    const closeItemsModalBtn = document.getElementById('closeItemsModalBtn');
+    const closeOrderDetailModalBtn = document.getElementById('closeOrderDetailModalBtn');
+    const itemsModal = document.getElementById('itemsModal');
+    const orderDetailModal = document.getElementById('orderDetailModal');
+
+    if (closeItemsModalBtn) {
+      closeItemsModalBtn.addEventListener('click', () => {
         itemsModal.classList.add('hidden');
         itemsModal.classList.remove('flex');
-      }
-    });
+      });
+    }
+
+    if (closeOrderDetailModalBtn) {
+      closeOrderDetailModalBtn.addEventListener('click', () => {
+        orderDetailModal.classList.add('hidden');
+      });
+    }
+
+    // Cerrar modales al hacer click fuera
+    if (itemsModal) {
+      itemsModal.addEventListener('click', (e) => {
+        if (e.target === itemsModal) {
+          itemsModal.classList.add('hidden');
+          itemsModal.classList.remove('flex');
+        }
+      });
+    }
+
+    if (orderDetailModal) {
+      orderDetailModal.addEventListener('click', (e) => {
+        if (e.target === orderDetailModal) {
+          orderDetailModal.classList.add('hidden');
+        }
+      });
+    }
   }
 
-  if (orderDetailModal) {
-    orderDetailModal.addEventListener('click', (e) => {
-      if (e.target === orderDetailModal) {
-        orderDetailModal.classList.add('hidden');
-      }
-    });
-  }
 }
 
 // Función para abrir el modal de items
@@ -1395,19 +1410,4 @@ export function getCacheInfo() {
     age: Math.floor(age / 1000), // en segundos
     valid: valid
   };
-}
-
-// Función para navegar a clientes con filtro aplicado
-function navigateToClientsWithFilter(customerName) {
-  try {
-    // Guardar el nombre del cliente en localStorage para que clients.js lo pueda leer
-    localStorage.setItem('clientSearchFilter', customerName);
-    
-    // Navegar a la página de clientes
-    window.location.href = clientsPath;
-    
-  } catch (error) {
-    console.error('Error navegando a clientes:', error);
-    showNotification('Error al navegar a la página de clientes', 'error');
-  }
 }

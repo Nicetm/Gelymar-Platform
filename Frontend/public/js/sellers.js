@@ -50,13 +50,13 @@ export async function initSellersScript() {
 
     return `
       <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">${name}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">${email}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">${phone}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">${country}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">${city}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm">${statusBadge}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">${createdAt}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-xs font-medium text-gray-900 dark:text-gray-100">${name}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-300">${email}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-300">${phone}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-300">${country}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-300">${city}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-xs">${statusBadge}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-300">${createdAt}</td>
       </tr>
     `;
   }

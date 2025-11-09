@@ -1,12 +1,14 @@
 ---
-import { loadTranslations, getServerLang } from '../../lib/i18n.js';
+import ModalChangePassword from '@components/modals/clients/ModalChangePassword.astro';
+import ModalContacts from '@components/modals/clients/ModalContacts.astro';
+import { loadTranslations, getServerLang } from '@lib/i18n.js';
 
 const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
 const apiPublic = import.meta.env.PUBLIC_API_URL;
 const lang = getServerLang(Astro.cookies);
 const { basePath = '/admin' } = Astro.props;
 const homeHref = basePath;
-const foldersBasePath = `${basePath}/clients/folders/view`;
+//const foldersBasePath = `${basePath}/clients/folders/view`;
 
 // Cargar traducciones de manera estática
 let t: any = {};
@@ -14,33 +16,11 @@ try {
   t = {
     clientes: await loadTranslations(lang, 'clientes'),
     comond: await loadTranslations(lang, 'comond'),
+    messages: await loadTranslations(lang, 'messages'),
   };
 } catch (error) {
   console.warn('Error cargando traducciones, usando fallback:', error);
-  // Fallback con traducciones básicas
-  t = {
-    clientes: {
-      title: 'Clientes',
-      name: 'Nombre',
-      email: 'Email',
-      created: 'Creado',
-      updated: 'Actualizado',
-      actions: 'Acciones',
-      orders: 'Órdenes',
-      contacts: 'Contactos',
-      view: 'Ver',
-      manageContacts: 'Gestionar contactos'
-    },
-    comond: {
-      home: 'Inicio',
-      search: 'Buscar',
-      cancel: 'Cancelar',
-      confirm: 'Confirmar',
-      save: 'Guardar',
-      edit: 'Editar',
-      delete: 'Eliminar'
-    }
-  };
+  t = {};
 }
 ---
 
@@ -176,7 +156,7 @@ try {
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-              Cargando clientes...
+              {t.clientes.loading}
             </div>
           </td>
         </tr>
@@ -213,227 +193,11 @@ try {
   </div>
 </section>
 
-<!-- Modal de Perfil del Cliente -->
-<div id="profileModal" class="fixed inset-0 bg-black bg-opacity-50 dark:bg-black/80 hidden justify-center items-center z-50">
-  <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 w-full max-w-2xl mx-4 relative max-h-[90vh] overflow-y-auto shadow-2xl">
-    <!-- Botón de cerrar -->
-    <button id="closeProfileModalBtn" class="absolute top-3 right-3 text-gray-400 hover:text-blue-500 transition dark:text-gray-300 dark:hover:text-blue-400">
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-      </svg>
-    </button>
-    
-    <!-- Header con logo y nombre -->
-    <div class="flex items-center gap-4 mb-6">
-      <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-        <span id="profileInitials">CL</span>
-      </div>
-      <div>
-        <h2 id="profileClientName" class="text-xl font-bold text-gray-900 dark:text-gray-100"></h2>
-        <p id="profileClientRut" class="text-sm text-gray-600 dark:text-gray-400"></p>
-      </div>
-    </div>
-
-    <!-- Información del cliente -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-      <!-- Columna izquierda -->
-      <div class="space-y-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">País</label>
-          <p id="profileCountry" class="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-md"></p>
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ciudad</label>
-          <p id="profileCity" class="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-md"></p>
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Teléfono</label>
-          <p id="profilePhone" class="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-md"></p>
-        </div>
-      </div>
-
-      <!-- Columna derecha -->
-      <div class="space-y-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
-          <div class="flex items-center gap-2">
-            <input type="email" id="profileEmail" class="flex-1 text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-            <button id="saveEmailBtn" class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition hidden">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-            </button>
-          </div>
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">N° Órdenes</label>
-          <p id="profileOrderCount" class="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-md font-semibold"></p>
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Estado</label>
-          <span id="profileStatus" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-            Activo
-          </span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Acciones -->
-    <div class="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-      <button id="viewOrdersBtn" class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md font-medium transition flex items-center gap-2">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-        </svg>
-        {t.clientes.viewOrders}
-      </button>
-      <button id="updateCustomerBtn" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium transition flex items-center gap-2">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-        </svg>
-        {t.clientes.updateCustomer}
-      </button>
-    </div>
-  </div>
-</div>
-
 <!-- Modal de Contactos -->
-<div id="contactsModal" class="fixed inset-0 bg-black bg-opacity-50 dark:bg-black/80 hidden justify-center items-center z-50">
-  <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 w-full max-w-2xl mx-4 relative max-h-[90vh] overflow-y-auto shadow-2xl">
-    <!-- Botón de cerrar -->
-    <button id="closeContactsModalBtn" class="absolute top-3 right-3 text-gray-400 hover:text-blue-500 transition dark:text-gray-300 dark:hover:text-blue-400">
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-      </svg>
-    </button>
-    
-    <!-- Header con logo y nombre -->
-    <div class="flex items-center gap-4 mb-6">
-      <div class="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-        <span id="contactsInitials">CL</span>
-      </div>
-      <div>
-        <h2 id="contactsClientName" class="text-xl font-bold text-gray-900 dark:text-gray-100"></h2>
-        <p class="text-sm text-gray-600 dark:text-gray-400">{t.clientes.contacts}</p>
-      </div>
-    </div>
-
-    <!-- Formulario para agregar nuevos contactos -->
-    <div id="contactsFormContainer" class="border-b border-gray-200 dark:border-gray-700 pb-4 mb-6">
-      <!-- Aquí van las filas de nuevos contactos -->
-    </div>
-
-    <!-- Tabla de contactos existentes -->
-    <div id="existingContactsTable" class="mb-6">
-      <!-- Aquí se inyectará la tabla por JS -->
-    </div>
-
-    <!-- Acciones -->
-    <div class="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700">
-      <!-- Botón + contacto a la izquierda -->
-      <button id="addContactRowBtn" type="button"
-        class="text-xs flex items-center gap-2 text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium transition">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-        </svg>
-        Agregar contacto
-      </button>
-      <!-- Botones a la derecha -->
-      <div class="flex gap-3">
-        <button id="cancelAddContactBtn"
-          class="text-xs px-4 py-2 bg-gray-300 dark:bg-gray-800 text-gray-700 dark:text-gray-100 rounded-md hover:bg-gray-400 dark:hover:bg-gray-700 transition font-medium">
-          {t.comond.cancel}
-        </button>
-        <button id="addContactBtn"
-          class="text-xs px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md font-medium transition flex items-center gap-2">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          {t.comond.add}
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
+<ModalContacts clientes={t.clientes} comond={t.comond}/>
 
 <!-- Modal de Cambio de Contraseña -->
-<div id="changePasswordModal" class="fixed inset-0 bg-black bg-opacity-50 dark:bg-black/80 hidden justify-center items-center z-50">
-  <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 w-full max-w-md mx-4 relative shadow-2xl">
-    <!-- Botón de cerrar -->
-    <button id="closeChangePasswordModalBtn" class="absolute top-3 right-3 text-gray-400 hover:text-blue-500 transition dark:text-gray-300 dark:hover:text-blue-400">
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-      </svg>
-    </button>
-    
-    <!-- Título -->
-    <div class="flex items-center gap-3 mb-6">
-      <div class="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
-        <svg class="w-6 h-6 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-        </svg>
-      </div>
-      <h2 class="text-xl font-bold text-gray-900 dark:text-white">Cambiar Contraseña</h2>
-    </div>
-
-    <!-- Información del cliente -->
-    <div class="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-      <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Cliente:</p>
-      <p id="changePasswordCustomerName" class="font-medium text-gray-900 dark:text-white">-</p>
-    </div>
-
-    <!-- Formulario -->
-    <form id="changePasswordForm" class="space-y-4">
-      <!-- Hidden username field for accessibility -->
-      <input type="text" name="username" autocomplete="username" style="display: none;" tabindex="-1" aria-hidden="true" />
-      <div>
-        <label for="newPassword" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Nueva Contraseña
-        </label>
-        <input 
-          type="password" 
-          id="newPassword" 
-          name="newPassword"
-          required
-          minlength="6"
-          autocomplete="new-password"
-          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition"
-          placeholder="Ingrese la nueva contraseña"
-        >
-      </div>
-      
-      <div>
-        <label for="confirmPassword" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Confirmar Contraseña
-        </label>
-        <input 
-          type="password" 
-          id="confirmPassword" 
-          name="confirmPassword"
-          required
-          minlength="6"
-          autocomplete="new-password"
-          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition"
-          placeholder="Confirme la nueva contraseña"
-        >
-      </div>
-    </form>
-
-    <!-- Botones -->
-    <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-      <button id="cancelChangePasswordBtn" type="button"
-        class="px-4 py-2 bg-gray-300 dark:bg-gray-800 text-gray-700 dark:text-gray-100 rounded-md hover:bg-gray-400 dark:hover:bg-gray-700 transition font-medium">
-        {t.comond.cancel}
-      </button>
-      <button id="savePasswordBtn" type="button"
-        class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md font-medium transition flex items-center gap-2">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-        </svg>
-        Cambiar Contraseña
-      </button>
-    </div>
-  </div>
-</div>
+<ModalChangePassword changePassword={t.clientes.changePassword} cancelLabel={t.comond.cancel}/>
 
 <script type="module" define:vars={{ apiBase, apiPublic, lang, t }}>
   import { initClientsScript } from '/js/clients.js';

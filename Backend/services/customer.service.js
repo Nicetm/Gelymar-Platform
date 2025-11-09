@@ -297,7 +297,9 @@ async function createCustomerContacts(customer_uuid, contacts) {
     idx: maxIdx + index + 1,
     nombre: contact.name,
     email: contact.email || '',
-    telefono: contact.phone || ''
+    telefono: contact.phone || '',
+    sh_documents: contact.sh_documents || false,
+    reports: contact.reports || false
   }));
   
   // Combinar contactos existentes con nuevos
@@ -466,6 +468,57 @@ async function deleteCustomerContact(customer_uuid, contactIdx) {
   return true;
 }
 
+async function updateCustomerContact(customer_uuid, contactIdx, contactData) {
+  const pool = await poolPromise;
+
+  const [customer] = await pool.query('SELECT id FROM customers WHERE uuid = ?', [customer_uuid]);
+  if (!customer[0]) throw new Error('Cliente no encontrado');
+
+  const customer_id = customer[0].id;
+
+  const [contactRecord] = await pool.query(
+    'SELECT contact_email FROM customer_contacts WHERE customer_id = ?',
+    [customer_id]
+  );
+
+  if (!contactRecord[0] || !contactRecord[0].contact_email) {
+    throw new Error('No se encontraron contactos para actualizar');
+  }
+
+  let contacts = [];
+  try {
+    if (typeof contactRecord[0].contact_email === 'object') {
+      contacts = contactRecord[0].contact_email;
+    } else {
+      contacts = JSON.parse(contactRecord[0].contact_email);
+    }
+  } catch (error) {
+    throw new Error('Error al parsear contactos existentes');
+  }
+
+  const idxNumeric = parseInt(contactIdx);
+  const contactIndex = contacts.findIndex(contact => contact.idx === idxNumeric);
+  if (contactIndex === -1) {
+    throw new Error('Contacto no encontrado');
+  }
+
+  contacts[contactIndex] = {
+    ...contacts[contactIndex],
+    nombre: contactData.nombre ?? contacts[contactIndex].nombre,
+    email: contactData.email ?? contacts[contactIndex].email,
+    telefono: contactData.telefono ?? contacts[contactIndex].telefono,
+    sh_documents: typeof contactData.sh_documents === 'boolean' ? contactData.sh_documents : contacts[contactIndex].sh_documents,
+    reports: typeof contactData.reports === 'boolean' ? contactData.reports : contacts[contactIndex].reports,
+  };
+
+  await pool.query(
+    'UPDATE customer_contacts SET contact_email = ? WHERE customer_id = ?',
+    [JSON.stringify(contacts), customer_id]
+  );
+
+  return contacts[contactIndex];
+}
+
 /**
  * Actualiza un cliente por su UUID
  * @param {string} uuid - UUID del cliente
@@ -535,7 +588,7 @@ module.exports = {
   createCustomerContacts,
   getContactsByCustomerUUID,
   deleteCustomerContact,
-  updateCustomerByUUID,
+  updateCustomerContact,
   createOrUpdatePrimaryContact,
   getCustomersWithoutAccount
 };

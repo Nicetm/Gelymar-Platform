@@ -30,6 +30,82 @@ function hideSpinner() {
   }
 }
 
+const normalizeEmailValue = (email) =>
+  typeof email === 'string' ? email.trim() : '';
+
+const toBooleanValue = (value) => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value === 1;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    return normalized === 'true' || normalized === '1' || normalized === 'yes';
+  }
+  return false;
+};
+
+function getRecipientMetadataList() {
+  return Array.isArray(window.emailRecipientMetadata)
+    ? window.emailRecipientMetadata.map((contact) => ({
+        ...contact,
+        email: normalizeEmailValue(contact?.email),
+        sh_documents: toBooleanValue(contact?.sh_documents),
+        reports: toBooleanValue(contact?.reports),
+      })).filter((contact) => contact.email)
+    : [];
+}
+
+function buildRecipientMetadataMap() {
+  const map = new Map();
+  const list = getRecipientMetadataList();
+
+  list.forEach((contact) => {
+    map.set(contact.email.toLowerCase(), contact);
+  });
+
+  return map;
+}
+
+function getRecipientMetadata(email) {
+  const normalized = normalizeEmailValue(email);
+  if (!normalized) return null;
+  const map = buildRecipientMetadataMap();
+  return map.get(normalized.toLowerCase()) || null;
+}
+
+let globalValidationMode = '0';
+
+function setGlobalValidationMode(mode) {
+  globalValidationMode = String(mode) === '0' ? '0' : '1';
+}
+
+function getGlobalValidationMode() {
+  return globalValidationMode;
+}
+
+function getRestrictionLabel(mode) {
+  const normalizedMode = String(mode) === '0' ? '0' : '1';
+  return normalizedMode === '0' ? 'SH Documents' : 'Reports';
+}
+
+function canSendToEmail(email, mode = getGlobalValidationMode()) {
+  const normalizedMode = String(mode) === '0' ? '0' : '1';
+  const metadata = getRecipientMetadata(email);
+  if (!metadata) return true;
+
+  const shEnabled = metadata.sh_documents === true;
+  const reportsEnabled = metadata.reports === true;
+
+  if (!shEnabled && !reportsEnabled) {
+    return false;
+  }
+
+  if (normalizedMode === '0') {
+    return shEnabled;
+  }
+
+  return reportsEnabled;
+}
+
 function getFilesContext() {
   const section = document.getElementById('filesSection');
   const dataset = section?.dataset || {};
@@ -118,7 +194,7 @@ function confirmAction(title, message, type = 'warning') {
               Cancelar
             </button>
             <button id="confirmAccept" class="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${buttonColors[type] || buttonColors.warning}">
-              Sí, continuar
+              ${type === 'error' ? 'Entiendo' : 'Sí, continuar'}
             </button>
           </div>
         </div>
@@ -419,6 +495,8 @@ export function initFilesScript() {
       4: '#0000FF'     // Reenviado --> azul
     };
 
+    const isGeneratedFlag = (file.is_generated === 0 || file.is_generated === '0') ? '0' : '1';
+
     let actions = `<div class="flex justify-center gap-3 relative">`;
 
     if (file.status_id === 1) {
@@ -442,6 +520,7 @@ export function initFilesScript() {
           <a href="#"
              class="send-btn text-gray-900 dark:text-white hover:text-blue-500 transition"
              data-file-id="${file.id}"
+             data-is-generated="${isGeneratedFlag}"
              data-file-name="${file.name}"
              data-order="${file.oc}"
              data-tooltip="${window.translations?.documentos?.send_document || 'Enviar documento'}"
@@ -460,6 +539,7 @@ export function initFilesScript() {
           <a href="#"
              class="resend-btn text-gray-900 dark:text-white hover:text-amber-500 transition"
              data-file-id="${file.id}"
+             data-is-generated="${isGeneratedFlag}"
              data-file-name="${file.name}"
              data-order="${file.oc}"
              data-tooltip="${window.translations?.documentos?.resend_document || 'Reenviar documento'}"
@@ -529,7 +609,7 @@ export function initFilesScript() {
     actions += `</div>`;
 
     return `
-      <tr data-id="${file.id}" class="bg-white dark:bg-gray-900 transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-800 hover:shadow-[0_1px_3px_rgba(0,0,0,0.12)]">
+      <tr data-id="${file.id}" data-is-generated="${isGeneratedFlag}" class="bg-white dark:bg-gray-900 transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-800 hover:shadow-[0_1px_3px_rgba(0,0,0,0.12)]">
         <td class="px-6 py-4 text-sm editable-filename cursor-pointer" data-id="${file.id}">
           <div class="inline-flex items-center gap-1 relative group">
             <span class="filename-text block truncate">${file.name}</span>
@@ -557,14 +637,13 @@ export function initFilesScript() {
         <td class="px-6 py-4 items-center gap-3">${file.fecha_envio ? new Date(file.fecha_envio).toLocaleString("es-CL") : '-'}</td>
         <td class="px-6 py-4 items-center gap-3">${file.fecha_reenvio ? new Date(file.fecha_reenvio).toLocaleString("es-CL") : '-'}</td>
         <td data-v="${file.is_visible_to_client}" class="px-6 py-4 text-center">
-          <div class="relative group">
-            <label class="relative inline-flex items-center cursor-pointer">
+          <div class="relative group flex items-center justify-center">
+            <label class="inline-flex items-center cursor-pointer gap-2">
               <input
                 type="checkbox"
-                class="sr-only peer visibility-toggle"
+                class="visibility-toggle h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring focus:ring-blue-500 focus:ring-offset-0 dark:border-gray-600 dark:bg-gray-700"
                 data-file-id="${file.id}"
                 ${(file.is_visible_to_client == 1 || file.is_visible_to_client === true) ? 'checked' : ''} />
-              <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-0 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
             </label>
             <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
                         bg-blue-600 text-white text-xs rounded px-2 py-1 shadow-lg
@@ -842,6 +921,17 @@ export function initFilesScript() {
     const knownEmails = new Set();
     let baseEmails = [];
     let activeEmails = new Set();
+    let validationMode = getGlobalValidationMode();
+
+    const metadataList = getRecipientMetadataList();
+    if (metadataList.length) {
+      metadataList.forEach((meta) => {
+        const normalized = normalize(meta.email);
+        if (normalized) {
+          knownEmails.add(normalized);
+        }
+      });
+    }
 
     const syncHiddenInput = () => {
       if (hiddenInput) {
@@ -863,7 +953,16 @@ export function initFilesScript() {
 
       Array.from(activeEmails).forEach((email) => {
         const chip = document.createElement('span');
-        chip.className = 'inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 dark:bg-blue-900/40 dark:text-blue-200';
+        const isAllowed = canSendToEmail(email, validationMode);
+        chip.className = 'inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium transition-colors';
+        if (isAllowed) {
+          chip.className += ' bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200';
+        } else {
+          chip.className += ' bg-red-50 text-red-700 border border-red-300 dark:bg-red-900/40 dark:text-red-200 dark:border-red-700';
+          const restrictionLabel = getRestrictionLabel(validationMode);
+          chip.dataset.validationRestriction = restrictionLabel;
+          chip.title = `${restrictionLabel} deshabilitado para este contacto`;
+        }
 
         const text = document.createElement('span');
         text.textContent = email;
@@ -898,7 +997,15 @@ export function initFilesScript() {
       availableList.forEach((email) => {
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'inline-flex items-center gap-1 rounded-full border border-dashed border-blue-300 px-3 py-1 text-xs text-blue-600 transition hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/30';
+        const isAllowed = canSendToEmail(email, validationMode);
+        button.className = isAllowed
+          ? 'inline-flex items-center gap-1 rounded-full border border-dashed border-blue-300 px-3 py-1 text-xs text-blue-600 transition hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/30'
+          : 'inline-flex items-center gap-1 rounded-full border border-dashed border-red-300 px-3 py-1 text-xs text-red-600 transition hover:bg-red-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/30';
+        button.dataset.validationAllowed = String(isAllowed);
+        if (!isAllowed) {
+          const restrictionLabel = getRestrictionLabel(validationMode);
+          button.title = `${restrictionLabel} deshabilitado para este contacto`;
+        }
         button.setAttribute('aria-label', `${addButtonLabel} ${email}`);
         button.innerHTML = `<svg class="w-3 h-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg><span>${email}</span>`;
         button.addEventListener('click', () => {
@@ -926,6 +1033,15 @@ export function initFilesScript() {
 
       if (activeEmails.has(normalized)) {
         showNotification(emailExistsMessage, 'warning');
+        return;
+      }
+
+      if (!canSendToEmail(normalized, validationMode)) {
+        const restrictionLabel = getRestrictionLabel(validationMode);
+        showNotification(
+          `${normalized} no tiene habilitado ${restrictionLabel} y no puede recibir este tipo de documento.`,
+          'error'
+        );
         return;
       }
 
@@ -985,6 +1101,17 @@ export function initFilesScript() {
     baseEmails = Array.from(new Set(initialNormalized));
     setActiveFrom(baseEmails);
 
+    if (!Array.isArray(window.emailRecipientsManual)) {
+      window.emailRecipientsManual = Array.from(baseEmails);
+    }
+    if (!Array.isArray(window.emailRecipientsReports)) {
+      window.emailRecipientsReports = Array.from(new Set(
+        getRecipientMetadataList()
+          .filter((meta) => meta.reports === true)
+          .map((meta) => meta.email)
+      ));
+    }
+
     window.emailRecipientController = {
       getActive: () => Array.from(activeEmails),
       reset: (list) => {
@@ -1002,11 +1129,17 @@ export function initFilesScript() {
         list.map(normalize).filter(Boolean).forEach((email) => knownEmails.add(email));
         renderAvailable();
       },
-      getNoRecipientsMessage: () => noRecipientsMessage
+      getNoRecipientsMessage: () => noRecipientsMessage,
+      setValidationMode: (mode) => {
+        validationMode = String(mode) === '0' ? '0' : '1';
+        setGlobalValidationMode(validationMode);
+        renderAll();
+      },
+      getValidationMode: () => validationMode
     };
   }
 
-  async function sendDocument(fileId, orderNumber, customMessage, action, providedRecipients = null, providedNoRecipientsMessage = null) {
+  async function sendDocument(fileId, orderNumber, customMessage, action, providedRecipients = null, providedNoRecipientsMessage = null, validationMode = getGlobalValidationMode()) {
     const state = resolveRecipientState();
     const recipients = Array.isArray(providedRecipients) ? providedRecipients : state.recipients;
     const emptyMessage = providedNoRecipientsMessage || state.noRecipientsMessage;
@@ -1033,6 +1166,15 @@ export function initFilesScript() {
           showNotification(data.message, 'error');
           return false;
         }
+        if (data.error === 'EMAIL_PERMISSION_DENIED' || data.error === 'SH_DOCUMENTS_DISABLED') {
+          const blockedEmails = Array.isArray(data.emails) && data.emails.length ? data.emails : [];
+          const blockedSuffix = blockedEmails.length ? ` (${blockedEmails.join(', ')})` : '';
+          const message =
+            data.message ||
+            `No se puede enviar el documento porque la configuración actual no permite enviar este tipo de documento${blockedSuffix}.`;
+          await confirmAction('Envío bloqueado', message, 'error');
+          return false;
+        }
         showNotification(data.message || 'Error al enviar documento', 'error');
         return false;
       }
@@ -1043,7 +1185,12 @@ export function initFilesScript() {
       showNotification(successMessage, 'success');
 
       window.emailRecipients = recipients;
-      if (window.emailRecipientController?.setBase) {
+      if (validationMode === '0') {
+        window.emailRecipientsManual = recipients;
+      } else {
+        window.emailRecipientsReports = recipients;
+      }
+      if (validationMode === '0' && window.emailRecipientController?.setBase) {
         window.emailRecipientController.setBase(recipients);
       }
 
@@ -1055,25 +1202,41 @@ export function initFilesScript() {
       return false;
     }
   }
-  function openMessageModal(fileId, fileName, order, action) {
+  function openMessageModal(fileId, fileName, order, action, isGenerated = '1') {
     const orderDisplay = qs('#orderNumberDisplay');
     const docDisplay = qs('#orderDocumentDisplay');
     const messageInput = qs('#customMessage');
+    const validationMode = String(isGenerated) === '0' ? '0' : '1';
 
     if (orderDisplay) orderDisplay.textContent = order || '-';
     if (docDisplay) docDisplay.textContent = fileName || '-';
     if (messageInput) messageInput.value = '';
+    if (window.emailRecipientController?.setValidationMode) {
+      window.emailRecipientController.setValidationMode(validationMode);
+    }
     if (window.emailRecipientController?.reset) {
-      const baseRecipients = Array.isArray(window.emailRecipients)
-        ? window.emailRecipients
-        : [];
+      const manualDefaults = Array.isArray(window.emailRecipientsManual)
+        ? window.emailRecipientsManual
+        : Array.isArray(window.emailRecipients)
+          ? window.emailRecipients
+          : [];
+      const reportsDefaults = Array.isArray(window.emailRecipientsReports)
+        ? window.emailRecipientsReports
+        : Array.from(new Set(
+            getRecipientMetadataList()
+              .filter((contact) => contact.reports === true)
+              .map((contact) => contact.email)
+          ));
+
+      const baseRecipients = validationMode === '0' ? manualDefaults : reportsDefaults;
       window.emailRecipientController.reset(baseRecipients);
     }
     
     window.currentMessageData = {
       fileId,
       action,
-      order: order || ''
+      order: order || '',
+      isGenerated: validationMode,
     };
     
     showModal('#messageModal');
@@ -1317,6 +1480,7 @@ export function initFilesScript() {
     e.preventDefault();
 
     const { fileId, fileName, order } = btn.dataset;
+    const isGeneratedValue = btn.dataset.isGenerated ?? btn.closest('tr')?.dataset?.isGenerated ?? '1';
     
     // Si es un botón de reenviar, preguntar si regenerar primero
     if (btn.classList.contains('resend-btn')) {
@@ -1353,7 +1517,7 @@ export function initFilesScript() {
           // Después de regenerar, enviar por correo
           const urlParams = new URLSearchParams(window.location.search);
           const finalOrder = order || urlParams.get('oc') || '';
-          openMessageModal(fileId, result.fileName, finalOrder, 'resend');
+          openMessageModal(fileId, result.fileName, finalOrder, 'resend', isGeneratedValue);
           
         } catch (err) {
           showNotification('Error al regenerar documento', 'error');
@@ -1367,13 +1531,13 @@ export function initFilesScript() {
         // Solo enviar por correo sin regenerar
         const urlParams = new URLSearchParams(window.location.search);
         const finalOrder = order || urlParams.get('oc') || '';
-        openMessageModal(fileId, fileName, finalOrder, 'resend');
+        openMessageModal(fileId, fileName, finalOrder, 'resend', isGeneratedValue);
       }
     } else {
       // Botón de enviar normal - obtener OC de URL si order está vacío
       const urlParams = new URLSearchParams(window.location.search);
       const finalOrder = order || urlParams.get('oc') || '';
-      openMessageModal(fileId, fileName, finalOrder, 'send');
+      openMessageModal(fileId, fileName, finalOrder, 'send', isGeneratedValue);
     }
   });
 
@@ -1901,6 +2065,28 @@ export function initFilesScript() {
   setupModalClose('#renameFileModal', '#closeRenameModalBtn');
   setupModalClose('#uploadModal', '#closeUploadModalBtn');
 
+  const closeMessageModalBtnEl = qs('#closeMessageModalBtn');
+  if (closeMessageModalBtnEl) {
+    closeMessageModalBtnEl.addEventListener('click', () => {
+      if (window.emailRecipientController?.setValidationMode) {
+        window.emailRecipientController.setValidationMode('0');
+      }
+      window.currentMessageData = null;
+    });
+  }
+
+  const messageModalElement = qs('#messageModal');
+  if (messageModalElement) {
+    messageModalElement.addEventListener('click', (e) => {
+      if (e.target === messageModalElement) {
+        if (window.emailRecipientController?.setValidationMode) {
+          window.emailRecipientController.setValidationMode('0');
+        }
+        window.currentMessageData = null;
+      }
+    });
+  }
+
   // Event listeners para el modal de mensaje
   const confirmMessageBtn = qs('#confirmMessageBtn');
   const cancelMessageBtn = qs('#cancelMessageBtn');
@@ -1917,6 +2103,21 @@ export function initFilesScript() {
       const { recipients, noRecipientsMessage } = resolveRecipientState();
       if (!recipients.length) {
         showNotification(noRecipientsMessage, 'warning');
+        return;
+      }
+
+      const validationMode = window.currentMessageData?.isGenerated ?? getGlobalValidationMode();
+      const invalidRecipients = recipients.filter(
+        (email) => !canSendToEmail(email, validationMode)
+      );
+
+      if (invalidRecipients.length) {
+        const restrictionLabel = getRestrictionLabel(validationMode);
+        await confirmAction(
+          'Envío bloqueado',
+          `No se puede enviar el documento a ${invalidRecipients.join(', ')} porque no tienen habilitado ${restrictionLabel}.`,
+          'error'
+        );
         return;
       }
 
@@ -1940,14 +2141,17 @@ export function initFilesScript() {
           messageInput?.value?.trim() || '',
           window.currentMessageData.action,
           recipients,
-          noRecipientsMessage
+          noRecipientsMessage,
+          validationMode
         );
 
         if (!success) {
           showModal('#messageModal');
           return;
         }
-
+        if (window.emailRecipientController?.setValidationMode) {
+          window.emailRecipientController.setValidationMode('0');
+        }
         window.currentMessageData = null;
       } finally {
         hideGlobalSpinner();
@@ -1957,6 +2161,9 @@ export function initFilesScript() {
 
   if (cancelMessageBtn) {
     cancelMessageBtn.addEventListener('click', () => {
+      if (window.emailRecipientController?.setValidationMode) {
+        window.emailRecipientController.setValidationMode('0');
+      }
       hideModal('#messageModal');
       window.currentMessageData = null;
     });

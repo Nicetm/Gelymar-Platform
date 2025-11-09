@@ -1,0 +1,127 @@
+---
+interface AdminSettingsTranslations {
+  title?: string;
+  change_photo?: string;
+  full_name?: string;
+  placeholder_full_name?: string;
+  corporate_email?: string;
+  email_cannot_be_changed?: string;
+  contact_phone?: string;
+  cancel?: string;
+  save_changes?: string;
+}
+
+interface UserData {
+  full_name?: string;
+  email?: string;
+  phone?: string;
+}
+
+interface Props {
+  adminSettings: AdminSettingsTranslations;
+  avatarLightSrc: string;
+  avatarDarkSrc: string;
+  user: UserData | null;
+}
+
+const {
+  adminSettings,
+  avatarLightSrc,
+  avatarDarkSrc,
+  user
+} = Astro.props as Props;
+---
+
+<div
+  id="adminSettingsModal"
+  class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 flex backdrop-blur-sm opacity-0 transition-opacity duration-500"
+>
+  <div
+    class="modal-card bg-white/95 dark:bg-gray-800/95 rounded-2xl p-8 w-full max-w-lg relative shadow-2xl ring-1 ring-gray-200 dark:ring-white/10 transform opacity-0 scale-90 translate-y-6 transition-all duration-500 ease-[cubic-bezier(.22,1,.36,1)]"
+  >
+    <button
+      id="closeAdminSettings"
+      class="absolute top-4 right-4 text-gray-500 hover:text-red-600 transition"
+    >
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+
+    <div class="flex items-center gap-3 mb-6">
+      <i data-lucide="shield-check" class="w-6 h-6 text-blue-600"></i>
+      <h2 class="text-xl font-semibold text-gray-900 dark:text-white">{adminSettings.title}</h2>
+    </div>
+
+    <form id="adminSettingsForm" class="space-y-5">
+      <div class="flex items-center gap-4">
+        <div class="w-16 h-16 relative">
+          <img id="adminAvatarLight" class="w-16 h-16 rounded-full object-contain dark:hidden"
+               src={avatarLightSrc} alt="Avatar administrador">
+          <img id="adminAvatarDark"  class="w-16 h-16 rounded-full object-contain hidden dark:inline"
+               src={avatarDarkSrc}  alt="Avatar administrador">
+        </div>
+
+        <label class="cursor-pointer px-3 py-2 text-sm bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 transition dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600">
+          <input id="adminAvatarInput" type="file" accept="image/*" class="hidden" />
+          {adminSettings.change_photo}
+        </label>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+          <i data-lucide="user" class="w-4 h-4 inline mr-1.5"></i>
+          {adminSettings.full_name}
+        </label>
+        <input
+          id="adminNameInput"
+          type="text"
+          placeholder={adminSettings.placeholder_full_name}
+          class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+          value={user?.full_name ?? ''}
+        />
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+          <i data-lucide="mail" class="w-4 h-4 inline mr-1.5"></i>
+          {adminSettings.corporate_email}
+        </label>
+        <input
+          id="adminEmailInput"
+          type="email"
+          readonly
+          class="w-full p-3 border bg-gray-100 text-gray-500 rounded-lg cursor-not-allowed dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600"
+          value={user?.email ?? ''}
+        />
+        <p class="text-xs text-gray-500 mt-1">{adminSettings.email_cannot_be_changed}</p>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+          <i data-lucide="phone" class="w-4 h-4 inline mr-1.5"></i>
+          {adminSettings.contact_phone}
+        </label>
+        <input
+          id="adminPhoneInput"
+          type="tel"
+          placeholder="+56 9 1234 5678"
+          class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+          value={user?.phone ?? ''}
+        />
+      </div>
+
+      <div class="flex justify-end gap-3 pt-2">
+        <button type="button" id="cancelAdminEdit"
+          class="px-4 py-2 bg-gray-200/70 rounded-lg hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">
+          {adminSettings.cancel}
+        </button>
+        <button type="submit" id="saveAdminChanges"
+          class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
+          <i data-lucide="save" class="w-4 h-4"></i> {adminSettings.save_changes}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+

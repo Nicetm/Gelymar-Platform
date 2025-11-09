@@ -61,5 +61,60 @@
   "view_orders": "View orders",
   "view_info": "View additional information",
   "manage_contacts": "Manage contacts",
-  "change_password": "Change password"
+  "change_password": "Change password",
+  "aditional_contacts": "Additional contacts",
+  "sh_documents": "SH Documents",
+  "reports": "Reports",
+  "retry": "Retry",
+  "profile": {
+    "customerLabel": "Customer",
+    "noName": "No name",
+    "noRut": "No tax ID",
+    "noCountry": "No country",
+    "noCity": "No city",
+    "noPhone": "No phone"
+  },
+  "contactsModal": {
+    "noContacts": "No contacts registered",
+    "noAdditionalContacts": "There are no additional contacts.",
+    "headers": {
+      "name": "Name",
+      "email": "Email",
+      "phone": "Phone",
+      "shDocuments": "SH Documents",
+      "reports": "Reports",
+      "actions": "Actions"
+    },
+    "delete": "Delete",
+    "placeholders": {
+      "name": "Contact name",
+      "email": "email@example.com",
+      "phone": "+1 555 123 4567"
+    },
+    "edit": "Edit"
+  },
+  "changePassword": {
+    "title": "Change password",
+    "customerLabel": "Customer",
+    "newPasswordLabel": "New password",
+    "confirmPasswordLabel": "Confirm password",
+    "newPasswordPlaceholder": "Enter the new password",
+    "confirmPasswordPlaceholder": "Confirm the new password",
+    "submit": "Change password",
+    "saving": "Changing..."
+  },
+  "form": {
+    "customerRequired": "A customer must be selected",
+    "primaryEmailRequired": "You must set the main email before adding additional contacts",
+    "emailInvalid": "The email must have a valid format",
+    "nameRequired": "Name is required for all contacts",
+    "atLeastOneContact": "Add at least one contact",
+    "emailRequired": "Email is required for all contacts",
+    "shDocumentsRequired": "Grant SH Documents access for every contact",
+    "reportsRequired": "Grant Reports access for every contact",
+    "noPermissionsConfirmTitle": "No access selected",
+    "noPermissionsConfirmMessage": "You did not select SH Documents nor Reports. Do you want to continue anyway?",
+    "noPermissionsConfirmCancel": "Cancel",
+    "noPermissionsConfirmContinue": "Yes, continue"
+  }
 }

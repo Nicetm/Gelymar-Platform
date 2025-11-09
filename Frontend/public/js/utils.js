@@ -288,9 +288,13 @@ const checkToken = () => {
 
 // ===== CONFIRMACIONES CON SWEETALERT2 =====
 // ===== MODAL DE CONFIRMACIÓN PERSONALIZADO =====
-const confirmAction = async (title, message, type = 'warning') => {
+const confirmAction = async (title, message, type = 'warning', options = {}) => {
     return new Promise((resolve) => {
-        // Crear el modal
+        const {
+          confirmButtonText = 'OK',
+          cancelButtonText = 'Cancel'
+        } = options || {};
+
         const modal = document.createElement('div');
         modal.id = 'customConfirmModal';
         modal.className = 'fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4';
@@ -327,13 +331,9 @@ const confirmAction = async (title, message, type = 'warning') => {
                     </div>
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white text-center mb-2">${title}</h3>
                     <p class="text-sm text-gray-600 dark:text-gray-300 text-center mb-6">${message}</p>
-                    <div class="flex gap-3 justify-end">
-                        <button id="confirmCancel" class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500">
-                            Cancelar
-                        </button>
-                        <button id="confirmAccept" class="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 bg-blue-600 hover:bg-blue-700 focus:ring-amber-500">
-                            Sí, continuar
-                        </button>
+                    <div class="flex flex-col sm:flex-row sm:justify-end gap-3">
+                        <button id="confirmCancelBtn" class="text-xs w-full sm:w-auto px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 transition">${cancelButtonText}</button>
+                        <button id="confirmAcceptBtn" class="text-xs w-full sm:w-auto px-4 py-2 rounded-lg text-white ${buttonColors[type] || buttonColors.warning} focus:outline-none focus:ring-2 transition">${confirmButtonText}</button>
                     </div>
                 </div>
             </div>
@@ -372,8 +372,8 @@ const confirmAction = async (title, message, type = 'warning') => {
         };
         
         // Event listeners
-        document.getElementById('confirmCancel').addEventListener('click', handleCancel);
-        document.getElementById('confirmAccept').addEventListener('click', handleAccept);
+        document.getElementById('confirmCancelBtn').addEventListener('click', handleCancel);
+        document.getElementById('confirmAcceptBtn').addEventListener('click', handleAccept);
         
         // Cerrar con Escape
         const handleEscape = (e) => {

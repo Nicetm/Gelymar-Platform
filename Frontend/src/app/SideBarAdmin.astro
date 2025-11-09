@@ -2,6 +2,9 @@
 import { loadTranslations, getServerLang } from '../lib/i18n.js';
 import { getApiBase, getPublicApiUrl, getFileServerUrl } from './constants.ts';
 import { inferUserRole, resolveRoleLabel } from '../lib/roles.ts';
+import ModalPdfMailList from '../components/modals/settings/ModalPdfMailList.astro';
+import ModalNotificationEmailList from '../components/modals/settings/ModalNotificationEmailList.astro';
+import ModalAdminSettings from '../components/modals/settings/ModalAdminSettings.astro';
 
 const apiBase = getApiBase();
 const clientApiBase = getPublicApiUrl();
@@ -222,7 +225,7 @@ let avatarDarkSrc = user?.avatar
             <div class="icon-container w-8 h-8 aspect-square rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center flex-shrink-0 transition-all duration-200">
               <i data-lucide={icon} class="w-4 h-4"></i>
             </div>
-            <span class="nav-text font-medium text-xs transition-colors duration-200 w-full">
+            <span class="nav-text font-medium text-sm transition-colors duration-200 w-full">
               {label}
             </span>
           </a>
@@ -368,213 +371,14 @@ let avatarDarkSrc = user?.avatar
   </div>
 </aside>
 
-<!-- Modal PDF Mail List -->
-<div id="pdfMailListModal" class="fixed inset-0 bg-black bg-opacity-50 dark:bg-black/80 hidden flex justify-center items-center z-50">
-  <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 w-full max-w-2xl mx-4 relative max-h-[90vh] overflow-y-auto shadow-2xl">
-    <!-- Botón de cerrar -->
-    <button id="closePdfMailModal" class="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition dark:text-gray-300 dark:hover:text-red-400">
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-      </svg>
-    </button>
-    
-    <!-- Header con logo y nombre -->
-    <div class="flex items-center gap-4 mb-6">
-      <div class="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-        <span id="pdfMailInitials">ML</span>
-      </div>
-      <div>
-        <h2 id="pdfMailClientName" class="text-xl font-bold text-gray-900 dark:text-gray-100">PDF Mail List</h2>
-        <p class="text-sm text-gray-600 dark:text-gray-400">{t.admin_settings.subtitle}</p>
-      </div>
-    </div>
-
-    <!-- Formulario para agregar nuevos emails -->
-    <div id="emailFormContainer" class="border-b border-gray-200 dark:border-gray-700 pb-4 mb-6">
-      <!-- Aquí van las filas de nuevos emails -->
-    </div>
-
-    <!-- Tabla de emails existentes -->
-    <div id="existingEmailsTable" class="mb-6">
-      <!-- Aquí se inyectará la tabla por JS -->
-    </div>
-
-    <!-- Acciones -->
-    <div class="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700">
-      <!-- Botón + email a la izquierda -->
-      <button id="addEmailBtn" type="button"
-        class="text-xs flex items-center gap-2 text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium transition">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-        </svg>
-        {t.admin_settings.add_email}
-      </button>
-      <!-- Botones a la derecha -->
-      <div class="flex gap-3">
-        <button id="cancelPdfMailBtn"
-          class="text-xs px-4 py-2 bg-gray-300 dark:bg-gray-800 text-gray-700 dark:text-gray-100 rounded-md hover:bg-gray-400 dark:hover:bg-gray-700 transition font-medium">
-          {t.admin_settings.cancel}
-        </button>
-        <button id="savePdfMailBtn"
-          class="text-xs px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md font-medium transition flex items-center gap-2">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          {t.admin_settings.add}
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Notification Email List Modal -->
-<div id="notificationEmailListModal" class="fixed inset-0 bg-black bg-opacity-50 dark:bg-black/80 hidden flex justify-center items-center z-50">
-  <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 w-full max-w-2xl mx-4 relative max-h-[90vh] overflow-y-auto shadow-2xl">
-    <button id="closeNotificationEmailModal" class="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition dark:text-gray-300 dark:hover:text-red-400">
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-      </svg>
-    </button>
-    
-    <div class="flex items-center gap-4 mb-6">
-      <div class="w-16 h-16 bg-gradient-to-br from-emerald-500 to-cyan-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-        <span id="notificationEmailInitials">NL</span>
-      </div>
-      <div>
-        <h2 id="notificationEmailTitle" class="text-xl font-bold text-gray-900 dark:text-gray-100">Notification Email List</h2>
-        <p class="text-sm text-gray-600 dark:text-gray-400">{t.admin_settings.subtitle}</p>
-      </div>
-    </div>
-
-    <div id="notificationEmailFormContainer" class="border-b border-gray-200 dark:border-gray-700 pb-4 mb-6"></div>
-
-    <div id="notificationExistingEmailsTable" class="mb-6"></div>
-
-    <div class="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700">
-      <button id="addNotificationEmailBtn" type="button"
-        class="text-xs flex items-center gap-2 text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium transition">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-        </svg>
-        {t.admin_settings.add_email}
-      </button>
-      <div class="flex gap-3">
-        <button id="cancelNotificationEmailBtn"
-          class="text-xs px-4 py-2 bg-gray-300 dark:bg-gray-800 text-gray-700 dark:text-gray-100 rounded-md hover:bg-gray-400 dark:hover:bg-gray-700 transition font-medium">
-          {t.admin_settings.cancel}
-        </button>
-        <button id="saveNotificationEmailBtn"
-          class="text-xs px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md font-medium transition flex items-center gap-2">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          {t.admin_settings.save}
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL DE CONFIGURACIÓN DE ADMINISTRADOR -->
-<div
-  id="adminSettingsModal"
-  class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 flex backdrop-blur-sm opacity-0 transition-opacity duration-500"
->
-  <div
-    class="modal-card bg-white/95 dark:bg-gray-800/95 rounded-2xl p-8 w-full max-w-lg relative shadow-2xl ring-1 ring-gray-200 dark:ring-white/10 transform opacity-0 scale-90 translate-y-6 transition-all duration-500 ease-[cubic-bezier(.22,1,.36,1)]"
-  >
-    <button
-      id="closeAdminSettings"
-      class="absolute top-4 right-4 text-gray-500 hover:text-red-600 transition"
-    >
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-      </svg>
-    </button>
-
-    <div class="flex items-center gap-3 mb-6">
-      <i data-lucide="shield-check" class="w-6 h-6 text-blue-600"></i>
-      <h2 class="text-xl font-semibold text-gray-900 dark:text-white">{t.admin_settings.title}</h2>
-    </div>
-
-    <form id="adminSettingsForm" class="space-y-5">
-      <!-- Foto / Avatar -->
-      <div class="flex items-center gap-4">
-        <div class="w-16 h-16 relative">
-          <!-- Modo claro -->
-          <img id="adminAvatarLight" class="w-16 h-16 rounded-full object-contain dark:hidden"
-               src={avatarLightSrc} alt="Avatar administrador">
-          <!-- Modo oscuro -->
-          <img id="adminAvatarDark"  class="w-16 h-16 rounded-full object-contain hidden dark:inline"
-               src={avatarDarkSrc}  alt="Avatar administrador">
-        </div>
-
-        <label class="cursor-pointer px-3 py-2 text-sm bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 transition dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600">
-          <input id="adminAvatarInput" type="file" accept="image/*" class="hidden" />
-          {t.admin_settings.change_photo}
-        </label>
-      </div>
-
-      <!-- Nombre -->
-      <div>
-        <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
-          <i data-lucide="user" class="w-4 h-4 inline mr-1.5"></i>
-          {t.admin_settings.full_name}
-        </label>
-        <input
-          id="adminNameInput"
-          type="text"
-          placeholder={t.admin_settings.placeholder_full_name}
-          class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white dark:border-gray-600"
-          value={user?.full_name ?? ''}
-        />
-      </div>
-
-      <!-- Email (solo lectura) -->
-      <div>
-        <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
-          <i data-lucide="mail" class="w-4 h-4 inline mr-1.5"></i>
-          {t.admin_settings.corporate_email}
-        </label>
-        <input
-          id="adminEmailInput"
-          type="email"
-          readonly
-          class="w-full p-3 border bg-gray-100 text-gray-500 rounded-lg cursor-not-allowed dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600"
-          value={user?.email ?? ''}
-        />
-        <p class="text-xs text-gray-500 mt-1">{t.admin_settings.email_cannot_be_changed}</p>
-      </div>
-
-      <!-- Teléfono -->
-      <div>
-        <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
-          <i data-lucide="phone" class="w-4 h-4 inline mr-1.5"></i>
-          {t.admin_settings.contact_phone}
-        </label>
-        <input
-          id="adminPhoneInput"
-          type="tel"
-          placeholder="+56 9 1234 5678"
-          class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white dark:border-gray-600"
-          value={user?.phone ?? ''}
-        />
-      </div>
-
-      <!-- Botones -->
-      <div class="flex justify-end gap-3 pt-2">
-        <button type="button" id="cancelAdminEdit"
-          class="px-4 py-2 bg-gray-200/70 rounded-lg hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">
-          {t.admin_settings.cancel}
-        </button>
-        <button type="submit" id="saveAdminChanges"
-          class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
-          <i data-lucide="save" class="w-4 h-4"></i> {t.admin_settings.save_changes}
-        </button>
-      </div>
-    </form>
-  </div>
-</div>
+<ModalPdfMailList adminSettings={t.admin_settings} />
+<ModalNotificationEmailList adminSettings={t.admin_settings} />
+<ModalAdminSettings
+  adminSettings={t.admin_settings}
+  avatarLightSrc={avatarLightSrc}
+  avatarDarkSrc={avatarDarkSrc}
+  user={user}
+/>
 <!-- Backdrop móvil -->
 <div
   class="fixed inset-0 z-10 hidden bg-gray-900/50 dark:bg-gray-900/90"

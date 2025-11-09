@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const Handlebars = require('handlebars');
+const { poolPromise } = require('../config/db');
 
 // Las variables de entorno ya se cargan automÃ¡ticamente en app.js
 
@@ -52,19 +53,155 @@ async function sendFileToClient(file, options = {}) {
     throw new Error('No hay emails disponibles para enviar el correo');
   }
 
-  let emails = [];
-  if (overrideRecipients && overrideRecipients.length) {
-    emails = Array.from(new Set(overrideRecipients));
-  } else {
-    if (file.customer_email) emails.push(file.customer_email);
-    if (file.contact_emails) {
-      emails.push(
-        ...file.contact_emails
-          .split(',')
-          .map((email) => email.trim())
-          .filter(Boolean)
-      );
+  const normalizeEmail = (value) => {
+    if (typeof value !== 'string') return '';
+    return value.trim();
+  };
+
+  const toBoolean = (value) => {
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'number') return value === 1;
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase();
+      return normalized === 'true' || normalized === '1';
     }
+    return false;
+  };
+
+  const getValidationMode = () => (String(file?.is_generated) === '0' ? 0 : 1);
+
+  const canContactReceive = (contact, mode = getValidationMode()) => {
+    if (!contact) return true;
+
+    const shEnabled = contact.sh_documents === true;
+    const reportsEnabled = contact.reports === true;
+
+    if (!shEnabled && !reportsEnabled) {
+      return false;
+    }
+
+    if (mode === 0) {
+      return shEnabled;
+    }
+
+    return reportsEnabled;
+  };
+
+  const createPermissionError = (mode, blockedEmails = []) => {
+    const error = new Error('EMAIL_PERMISSION_DENIED');
+    error.name = 'EmailPermissionError';
+    error.validationMode = mode;
+    error.blockedEmails = blockedEmails;
+    return error;
+  };
+
+  let cachedContacts = null;
+
+  const loadContacts = async () => {
+    if (cachedContacts) return cachedContacts;
+
+    if (!file.customer_id) {
+      throw new Error('No se proporcionó customer_id para obtener contactos');
+    }
+
+    try {
+      const pool = await poolPromise;
+      const [contactRows] = await pool.query(
+        'SELECT contact_email FROM customer_contacts WHERE customer_id = ?',
+        [file.customer_id]
+      );
+
+      const parseContacts = (raw) => {
+        if (!raw) return [];
+
+        if (typeof raw === 'string') {
+          try {
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed : [];
+          } catch (error) {
+            console.error('Error parseando contact_email JSON:', error);
+            return [];
+          }
+        }
+
+        return Array.isArray(raw) ? raw : [];
+      };
+
+      const contacts = contactRows
+        .flatMap((row) => parseContacts(row.contact_email))
+        .map((contact) => ({
+          email: normalizeEmail(contact?.email ?? contact?.contact_email ?? contact?.primary_email),
+          sh_documents: toBoolean(contact?.sh_documents),
+          reports: toBoolean(contact?.reports),
+        }))
+        .filter((contact) => contact.email);
+
+      cachedContacts = contacts;
+      return cachedContacts;
+    } catch (error) {
+      console.error('Error obteniendo contactos del cliente:', error);
+      throw error;
+    }
+  };
+
+  let emails = [];
+
+  if (overrideRecipients && overrideRecipients.length) {
+    const uniqueOverrides = Array.from(
+      new Set(
+        overrideRecipients
+          .map((email) => (typeof email === 'string' ? email.trim() : ''))
+          .filter(Boolean)
+      )
+    );
+
+    const contacts = await loadContacts();
+    const validationMode = getValidationMode();
+    const contactsMap = new Map(
+      contacts.map((contact) => [contact.email.toLowerCase(), contact])
+    );
+
+    const blocked = new Set();
+    const allowed = [];
+
+    uniqueOverrides.forEach((email) => {
+      const normalizedEmail = email.trim();
+      if (!normalizedEmail) return;
+
+      const contact = contactsMap.get(normalizedEmail.toLowerCase());
+      if (contact) {
+        if (canContactReceive(contact, validationMode)) {
+          allowed.push(normalizedEmail);
+        } else {
+          blocked.add(normalizedEmail);
+        }
+      } else {
+        allowed.push(normalizedEmail);
+      }
+    });
+
+    if (blocked.size) {
+      throw createPermissionError(validationMode, Array.from(blocked));
+    }
+
+    emails = allowed;
+  } else {
+    const contacts = await loadContacts();
+    if (!contacts.length) {
+      throw new Error('No hay emails disponibles para enviar el correo');
+    }
+
+    const validationMode = getValidationMode();
+    const allowedContacts = contacts.filter((contact) => canContactReceive(contact, validationMode));
+
+    if (!allowedContacts.length) {
+      const blockedEmails = contacts
+        .map((contact) => (contact.email ? contact.email.trim() : ''))
+        .filter(Boolean);
+      throw createPermissionError(validationMode, blockedEmails);
+    }
+
+    emails = allowedContacts.map((contact) => contact.email);
   }
 
   if (emails.length === 0) {

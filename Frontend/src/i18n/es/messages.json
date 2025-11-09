@@ -8,7 +8,37 @@
     "addContactError": "Error al agregar los contactos",
     "addContactValidation": "Todos los contactos deben tener nombre y un email válido",
     "contactsAdded": "contacto agregado correctamente",
-    "contactsAddedPlural": "contactos agregados correctamente"
+    "contactsAddedPlural": "contactos agregados correctamente",
+    "loadError": "Error al cargar los clientes.",
+    "dataRefreshed": "Datos refrescados automáticamente",
+    "refreshError": "Error al refrescar los datos",
+    "noCustomersToExport": "No hay clientes disponibles para exportar",
+    "exportSuccess": "Se exportaron {count} clientes a Excel",
+    "clientNotFound": "Cliente no encontrado",
+    "contactsLoadError": "Error al cargar contactos del cliente",
+    "contactsSaveSuccess": "{count} contacto(s) agregado(s) exitosamente",
+    "updateSuccess": "Cliente actualizado exitosamente",
+    "updateError": "Error al actualizar cliente",
+    "updateConfirmTitle": "¿Actualizar cliente?",
+    "updateConfirmMessage": "Se actualizará la información del cliente.",
+    "passwordChangeSuccess": "Contraseña cambiada exitosamente",
+    "passwordChangeError": "Error al cambiar la contraseña",
+    "form": {
+      "completeFields": "Por favor complete todos los campos",
+      "passwordMinLength": "La contraseña debe tener al menos 6 caracteres",
+      "passwordMismatch": "Las contraseñas no coinciden"
+    },
+    "backend": {
+      "CLIENT_NOT_FOUND": "Cliente no encontrado",
+      "CLIENT_CONTACTS_FETCH_ERROR": "Error al cargar contactos del cliente",
+      "CLIENT_CONTACTS_SAVE_ERROR": "Error al agregar contactos",
+      "CLIENT_CONTACTS_DELETE_ERROR": "Error al eliminar contacto",
+      "CLIENT_PRIMARY_EMAIL_REQUIRED": "Para ingresar contactos adicionales debe ingresar el mail principal",
+      "CLIENT_UPDATE_ERROR": "Error al actualizar cliente",
+      "CLIENT_PASSWORD_CHANGE_ERROR": "Error al cambiar la contraseña",
+      "CLIENT_PASSWORD_WEAK": "La contraseña no cumple los requisitos mínimos",
+      "CLIENT_PASSWORD_MISMATCH": "Las contraseñas no coinciden"
+    }
   },
   "folders": {
     "folderNameRequired": "El campo N° SAP es obligatorio",

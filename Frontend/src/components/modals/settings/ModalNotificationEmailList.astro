@@ -1,0 +1,88 @@
+---
+interface AdminSettingsTranslations {
+  subtitle?: string;
+  add_email?: string;
+  cancel?: string;
+  save?: string;
+  email?: string;
+  name?: string;
+  actions?: string;
+}
+
+interface Props {
+  adminSettings: AdminSettingsTranslations;
+}
+
+const { adminSettings } = Astro.props as Props;
+---
+
+<div id="notificationEmailListModal" class="fixed inset-0 bg-black bg-opacity-50 dark:bg-black/80 hidden flex justify-center items-center z-50">
+  <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 w-full max-w-2xl mx-4 relative max-h-[90vh] overflow-y-auto shadow-2xl">
+    <button id="closeNotificationEmailModal" class="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition dark:text-gray-300 dark:hover:text-red-400">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+
+    <div class="flex items-center gap-4 mb-6">
+      <div class="w-16 h-16 bg-gradient-to-br from-emerald-500 to-cyan-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+        <span id="notificationEmailInitials">NL</span>
+      </div>
+      <div>
+        <h2 id="notificationEmailTitle" class="text-xl font-bold text-gray-900 dark:text-gray-100">Notification Email List</h2>
+        <p class="text-sm text-gray-600 dark:text-gray-400">{adminSettings.subtitle}</p>
+      </div>
+    </div>
+
+    <div id="notificationEmailFormContainer" class="border-b border-gray-200 dark:border-gray-700 pb-4 mb-6"></div>
+
+    <div id="notificationExistingEmailsTable" class="mb-6"></div>
+
+    <div class="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700">
+      <button id="addNotificationEmailBtn" type="button"
+        class="text-xs flex items-center gap-2 text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+        </svg>
+        {adminSettings.add_email}
+      </button>
+      <div class="flex gap-3">
+        <button id="cancelNotificationEmailBtn"
+          class="text-xs px-4 py-2 bg-gray-300 dark:bg-gray-800 text-gray-700 dark:text-gray-100 rounded-md hover:bg-gray-400 dark:hover:bg-gray-700 transition font-medium">
+          {adminSettings.cancel}
+        </button>
+        <button id="saveNotificationEmailBtn"
+          class="text-xs px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md font-medium transition">
+          {adminSettings.save}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<template id="notificationEmailFormTableTemplate">
+  <table class="w-full text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800">
+    <thead>
+      <tr class="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+        <th class="p-2 text-left">{adminSettings.email}</th>
+        <th class="p-2 text-left">{adminSettings.name}</th>
+        <th class="p-2 text-center">{adminSettings.actions}</th>
+      </tr>
+    </thead>
+    <tbody id="notificationEmailFormTableBody"></tbody>
+  </table>
+</template>
+
+<template id="notificationEmailExistingTableTemplate">
+  <table class="w-full text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800">
+    <thead>
+      <tr class="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+        <th class="p-2 text-left">{adminSettings.email}</th>
+        <th class="p-2 text-left">{adminSettings.name}</th>
+        <th class="p-2 text-center">{adminSettings.actions}</th>
+      </tr>
+    </thead>
+    <tbody id="notificationEmailExistingTableBody"></tbody>
+  </table>
+</template>
+

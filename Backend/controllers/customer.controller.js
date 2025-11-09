@@ -135,6 +135,30 @@ exports.deleteCustomerContact = async (req, res) => {
   }
 };
 
+exports.updateCustomerContact = async (req, res) => {
+  const { customerUuid, contactIdx } = req.params;
+  const { nombre, email, telefono, sh_documents, reports } = req.body;
+
+  if (!nombre || !email) {
+    return res.status(400).json({ message: 'El nombre y el email son obligatorios' });
+  }
+
+  try {
+    const updated = await customerService.updateCustomerContact(customerUuid, contactIdx, {
+      nombre,
+      email,
+      telefono,
+      sh_documents,
+      reports
+    });
+
+    res.json({ message: 'Contacto actualizado correctamente', contact: updated });
+  } catch (error) {
+    logger.error(`Error al actualizar contacto: ${error.message}`);
+    res.status(500).json({ message: error.message || 'Error al actualizar contacto' });
+  }
+};
+
 /**
  * @route PATCH /api/customers/:uuid
  * @desc Actualiza un cliente por UUID
