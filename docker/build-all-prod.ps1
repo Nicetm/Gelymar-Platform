@@ -5,7 +5,7 @@ Write-Host "🚀 Iniciando construcción de todas las imágenes Docker para prod
 
 # Limpiar imágenes anteriores para forzar reconstrucción limpia
 Write-Host "🧹 Limpiando imágenes anteriores..." -ForegroundColor Yellow
-docker rmi nicetm/gelymar-platform:mysql-prod nicetm/gelymar-platform:fileserver-prod nicetm/gelymar-platform:backend-prod nicetm/gelymar-platform:frontend-prod nicetm/gelymar-platform:frontend-client-prod nicetm/gelymar-platform:cron-prod nicetm/gelymar-platform:config-manager-prod nicetm/gelymar-platform:phpmyadmin-prod 2>$null
+docker rmi nicetm/gelymar-platform:mysql-prod nicetm/gelymar-platform:fileserver-prod nicetm/gelymar-platform:backend-prod nicetm/gelymar-platform:frontend-prod nicetm/gelymar-platform:frontend-client-prod nicetm/gelymar-platform:frontend-seller-prod nicetm/gelymar-platform:cron-prod nicetm/gelymar-platform:config-manager-prod nicetm/gelymar-platform:phpmyadmin-prod 2>$null
 
 # 1. MySQL (etiquetar imagen existente)
 Write-Host "📦 Etiquetando MySQL..." -ForegroundColor Yellow

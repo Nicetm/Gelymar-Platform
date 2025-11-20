@@ -37,26 +37,36 @@ if ($LASTEXITCODE -eq 0) {
 }
 
 # 4. Frontend (admin)
-Write-Host "?? Subiendo Frontend (admin)..." -ForegroundColor Yellow
+Write-Host "📦 Subiendo Frontend (admin)..." -ForegroundColor Yellow
 docker push nicetm/gelymar-platform:frontend-prod
 if ($LASTEXITCODE -eq 0) {
-    Write-Host "? Frontend (admin) subido" -ForegroundColor Green
+    Write-Host "✅ Frontend (admin) subido" -ForegroundColor Green
 } else {
-    Write-Host "? Error subiendo Frontend (admin)" -ForegroundColor Red
+    Write-Host "❌ Error subiendo Frontend (admin)" -ForegroundColor Red
     exit 1
 }
 
 # 5. Frontend (cliente)
-Write-Host "?? Subiendo Frontend (cliente)..." -ForegroundColor Yellow
+Write-Host "📦 Subiendo Frontend (cliente)..." -ForegroundColor Yellow
 docker push nicetm/gelymar-platform:frontend-client-prod
 if ($LASTEXITCODE -eq 0) {
-    Write-Host "? Frontend (cliente) subido" -ForegroundColor Green
+    Write-Host "✅ Frontend (cliente) subido" -ForegroundColor Green
 } else {
-    Write-Host "? Error subiendo Frontend (cliente)" -ForegroundColor Red
+    Write-Host "❌ Error subiendo Frontend (cliente)" -ForegroundColor Red
     exit 1
 }
 
-# 6. Cron
+# 6. Frontend (vendedor)
+Write-Host "📦 Subiendo Frontend (vendedor)..." -ForegroundColor Yellow
+docker push nicetm/gelymar-platform:frontend-seller-prod
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "✅ Frontend (vendedor) subido" -ForegroundColor Green
+} else {
+    Write-Host "❌ Error subiendo Frontend (vendedor)" -ForegroundColor Red
+    exit 1
+}
+
+# 7. Cron
 Write-Host "📦 Subiendo Cron..." -ForegroundColor Yellow
 docker push nicetm/gelymar-platform:cron-prod
 if ($LASTEXITCODE -eq 0) {
@@ -67,7 +77,7 @@ if ($LASTEXITCODE -eq 0) {
 }
 
 
-# 7. Config Manager (Comentado - No se sube)
+# 8. Config Manager (Comentado - No se sube)
 # Write-Host "📦 Subiendo Config Manager..." -ForegroundColor Yellow
 # docker push nicetm/gelymar-platform:config-manager-prod
 # if ($LASTEXITCODE -eq 0) {
@@ -77,7 +87,7 @@ if ($LASTEXITCODE -eq 0) {
 #     exit 1
 # }
 
-# 8. phpMyAdmin
+# 9. phpMyAdmin
 Write-Host "📦 Subiendo phpMyAdmin..." -ForegroundColor Yellow
 docker push nicetm/gelymar-platform:phpmyadmin-prod
 if ($LASTEXITCODE -eq 0) {
