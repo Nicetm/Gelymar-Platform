@@ -99,4 +99,11 @@ router.put('/profile', authMiddleware, userValidations.updateProfile, userContro
  */
 router.post('/avatar', authMiddleware, userController.uploadAvatar, userValidations.uploadAvatar, userController.handleAvatarUpload);
 
+// Admin users (role_id = 1)
+router.get('/admins', authMiddleware, authorizeRoles(['admin']), userController.getAdminUsers);
+router.post('/admins', authMiddleware, authorizeRoles(['admin']), userController.createAdminUser);
+router.patch('/admins/:id', authMiddleware, authorizeRoles(['admin']), userController.updateAdminUser);
+router.delete('/admins/:id', authMiddleware, authorizeRoles(['admin']), userController.deleteAdminUser);
+router.post('/admins/:id/reset-password', authMiddleware, authorizeRoles(['admin']), userController.resetAdminPassword);
+
 module.exports = router;

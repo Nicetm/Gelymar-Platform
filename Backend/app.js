@@ -105,9 +105,8 @@ const devOrigins = [
 ];
 
 const extraOrigins = [
-  'https://logystics.gelymar.cl',
-  'https://clients.gelymar.cl',
-  'https://sellers.gelymar.cl',
+  'https://logistic.gelymar.cl',
+  'https://fileserver.gelymar.cl'
 ];
 
 const allowedOrigins = [
@@ -124,10 +123,24 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'", "https://www.google.com/recaptcha/", "https://www.gstatic.com/recaptcha/"],
+      scriptSrc: ["'self'", "https://www.google.com/recaptcha/", "https://www.gstatic.com/recaptcha/", "https://static.cloudflareinsights.com"],
       imgSrc: ["'self'", "data:", "https:"],
       frameSrc: ["'self'", "https://www.google.com/recaptcha/", "https://www.gstatic.com/recaptcha/"],
-      connectSrc: ["'self'", ...allowedOrigins, "http://backend:*", "https://www.google.com/recaptcha/", "ws://localhost:*", "wss://localhost:*", "ws://localhost:3000", "wss://localhost:3000"],
+      connectSrc: [
+        "'self'", 
+        ...allowedOrigins, 
+        "http://backend:*", 
+        "https://www.google.com/recaptcha/", 
+        "ws://localhost:*", 
+        "wss://localhost:*", 
+        "ws://localhost:3000", 
+        "wss://localhost:3000", 
+        "https://logistic.gelymar.cl", 
+        "https://cloudflareinsights.cl",
+        "https://fileserver.gelymar.cl",
+        "wss://fileserver.gelymar.cl",
+        "ws://fileserver.gelymar.cl",
+      ],
     },
   },
   crossOriginEmbedderPolicy: false,
@@ -183,7 +196,7 @@ app.use('/api/vendedores', authMiddleware, authorizeRoles(['admin']), vendedorRo
 // Ruta especial para visualización de archivos (acceso para admin y client)
 app.use('/api/file-view', documentFileRoutes);
 
-app.use('/api/files', authMiddleware, authorizeRoles(['admin']), documentFileRoutes);
+app.use('/api/files', authMiddleware, authorizeRoles(['admin', 'client']), documentFileRoutes);
 app.use('/api/document-types', authMiddleware, authorizeRoles(['admin']), documentTypeRoutes);
 app.use('/api/chat', chatRoutes);
 
@@ -200,6 +213,11 @@ app.use('/api/cron-config', cronConfigRoutes);
 // Rutas de configuración general (requieren autenticación de admin)
 app.use('/api/config', configRoutes);
 app.use('/api/messages', messageRoutes);
+
+// Respuesta amigable para rutas API inexistentes
+app.use('/api', (req, res) => {
+  res.status(404).json({ message: 'Endpoint de API no encontrado' });
+});
 
 
 // Sirve archivos estáticos desde la carpeta 'uploads'

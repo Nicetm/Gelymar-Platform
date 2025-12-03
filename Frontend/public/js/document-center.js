@@ -203,11 +203,6 @@ function renderOrders() {
       <td class="px-6 py-2">
         <p class="text-sm text-gray-900 dark:text-gray-200">${formatDateOnly(order.fecha_factura)}</p>
       </td>
-      <td class="px-6 py-2">
-        <div class="flex items-center">
-          <span class="text-sm text-gray-900 dark:text-gray-200">${order.items_count}</span>
-        </div>
-      </td>
       <td class="px-6 py-2 text-center">
         <div class="flex items-center justify-center space-x-3">
           <!-- Ver lista de items -->
@@ -645,7 +640,7 @@ window.downloadFileClient = async (fileId) => {
     }
 
     // Usar el proxy del frontend en lugar del backend directamente
-    const response = await fetch(`/api/files/${fileId}?token=${token}`, {
+    const response = await fetch(`/api/files/view-with-token/${fileId}?token=${token}`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -674,7 +669,7 @@ window.downloadFileClient = async (fileId) => {
     }
 
     // Abrir archivo directamente en nueva pestaña usando URL del frontend
-    const fileUrl = `/files/${fileId}?token=${token}`;
+    const fileUrl = `/api/files/view-with-token/${fileId}?token=${token}`;
     window.open(fileUrl, '_blank');
 
     // Marcar como visto si no lo está
@@ -979,9 +974,14 @@ function formatDateShort(dateString) {
   }
 }
 
+function getCurrentLocale() {
+  const storedLang = localStorage.getItem('lang') || window.lang || document.documentElement.lang || navigator.language || 'en';
+  return storedLang.startsWith('es') ? 'es-CL' : storedLang;
+}
+
 function formatDateOnly(dateString) {
   const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', {
+  return date.toLocaleDateString(getCurrentLocale(), {
     year: 'numeric',
     month: 'long',
     day: 'numeric'
@@ -1901,27 +1901,27 @@ async function openItemsModal(orderPc, orderOc, factura) {
 
     const items = await response.json();
     
-    // Actualizar header del modal
+    const docT = window.translations?.documentos || {};
     document.getElementById('itemsInitials').textContent = 'IT';
-    document.getElementById('itemsOrderTitle').textContent = `Order: ${orderOc}`;
-    document.getElementById('itemsOrderSubtitle').textContent = 'Items List';
+    document.getElementById('itemsOrderTitle').textContent = `${docT.orderItems || 'Order Items'}: ${orderOc}`;
+    document.getElementById('itemsOrderSubtitle').textContent = docT.itemsList || 'Items List';
     
     // Renderizar tabla de items
     if (itemsTableBody) {
-      const currency = items[0]?.currency || 'CLP';
       itemsTableBody.innerHTML = items.map(item => {
         const quantity = parseFloat(item.kg_solicitados) || 0;
         const unitPrice = parseFloat(item.unit_price) || 0;
         const total = quantity * unitPrice;
         const unit = item.unidad_medida || 'KG';
+        const currency = item.currency || items[0]?.currency || 'CLP';
         
         return `
           <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition">
             <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">${item.item_code || 'N/A'}</td>
-            <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">${item.item_name || 'N/A'}</td>
+            <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">${item.descripcion || 'N/A'}</td>
             <td class="px-6 py-4 text-sm text-center text-gray-900 dark:text-gray-100">${formatQuantity(quantity, unit)}</td>
-            <td class="px-6 py-4 text-sm text-center text-gray-900 dark:text-gray-100">${formatUnitPrice(unitPrice)}</td>
-            <td class="px-6 py-4 text-sm text-center font-semibold text-gray-900 dark:text-gray-100">${formatTotal(total)}</td>
+            <td class="px-6 py-4 text-sm text-center text-gray-900 dark:text-gray-100">${formatUnitPrice(unitPrice, currency)}</td>
+            <td class="px-6 py-4 text-sm text-center font-semibold text-gray-900 dark:text-gray-100">${formatTotal(total, currency)}</td>
           </tr>
         `;
       }).join('');
@@ -1946,7 +1946,7 @@ async function openItemsModal(orderPc, orderOc, factura) {
     const unit = items[0]?.unidad_medida || 'KG';
     totalItems.textContent = totalItemsCount;
     totalQuantity.textContent = formatQuantity(totalQuantitySum, unit);
-    totalValue.textContent = formatCurrency(totalValueSum.toFixed(4), currency);
+    totalValue.textContent = formatCurrency(totalValueSum, currency, 2);
 
     // Mostrar el modal
     itemsModal.classList.remove('hidden');
@@ -1973,43 +1973,32 @@ function formatQuantity(quantity, unit) {
   };
   
   const mappedUnit = unitMap[unit] || unit.toLowerCase();
-  return `${quantity.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${mappedUnit}`;
+  return `${quantity.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ${mappedUnit}`;
 }
 
-function formatUnitPrice(price) {
-  if (price === 0) return '$0,0000';
-  const parts = price.toFixed(4).split('.');
-  const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  return `$${integerPart},${parts[1]}`;
+function formatUnitPrice(price, currency = 'CLP') {
+  return formatCurrency(price, currency, 4);
 }
 
-function formatTotal(total) {
-  if (total === 0) return '$0,0000';
-  const parts = total.toFixed(4).split('.');
-  const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  return `$${integerPart},${parts[1]}`;
+function formatTotal(total, currency = 'CLP') {
+  return formatCurrency(total, currency, 2);
 }
 
-function formatCurrency(amount, currency = 'CLP') {
+function formatCurrency(amount, currency = 'CLP', decimals = 2) {
   const currencyMap = {
     'USD': 'USD',
     'US': 'USD',
-    'UF': 'CLF',
+    'UF': 'UF',
     'CLP': 'CLP',
     'PESO': 'CLP'
   };
   
   const mappedCurrency = currencyMap[currency] || currency;
-  
-  const formatted = new Intl.NumberFormat('es-CL', {
-    style: 'currency',
-    currency: mappedCurrency,
-    minimumFractionDigits: 4,
-    maximumFractionDigits: 4
-  }).format(amount);
-  
-  // Agregar espacio después del código de moneda y asegurar USD
-  return formatted.replace(/([A-Z]{2,3})\$/, '$1 $').replace('US $', 'USD $');
+  const formattedNumber = Number(amount || 0).toLocaleString('es-CL', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals
+  });
+  return `${mappedCurrency} ${formattedNumber}`;
 }
 
 // Event listeners para cerrar el modal

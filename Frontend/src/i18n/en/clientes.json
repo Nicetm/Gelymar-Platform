@@ -63,7 +63,7 @@
   "manage_contacts": "Manage contacts",
   "change_password": "Change password",
   "aditional_contacts": "Additional contacts",
-  "sh_documents": "SH Documents",
+  "sh_documents": "SH Docs",
   "reports": "Reports",
   "retry": "Retry",
   "profile": {
@@ -81,7 +81,7 @@
       "name": "Name",
       "email": "Email",
       "phone": "Phone",
-      "shDocuments": "SH Documents",
+      "shDocuments": "SH Docs",
       "reports": "Reports",
       "actions": "Actions"
     },
@@ -110,10 +110,10 @@
     "nameRequired": "Name is required for all contacts",
     "atLeastOneContact": "Add at least one contact",
     "emailRequired": "Email is required for all contacts",
-    "shDocumentsRequired": "Grant SH Documents access for every contact",
+    "shDocumentsRequired": "Grant SH Docs access for every contact",
     "reportsRequired": "Grant Reports access for every contact",
     "noPermissionsConfirmTitle": "No access selected",
-    "noPermissionsConfirmMessage": "You did not select SH Documents nor Reports. Do you want to continue anyway?",
+    "noPermissionsConfirmMessage": "You did not select SH Docs nor Reports. Do you want to continue anyway?",
     "noPermissionsConfirmCancel": "Cancel",
     "noPermissionsConfirmContinue": "Yes, continue"
   }

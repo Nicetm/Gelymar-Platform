@@ -22,10 +22,10 @@ const transporter = nodemailer.createTransport({
 });
 
 const DOC_NAME_MAP = {
-  'Order Receipt Advice': 'Aviso de RecepciÃ³n de Orden',
-  'Shipment Advice': 'Aviso de Embarque',
-  'Order Delivery Advice': 'Aviso de Entrega',
-  'Availability Advice': 'Aviso de Disponibilidad de Orden',
+  'Order Receipt Notice': 'Aviso de Recepción de Orden',
+  'Shipment Notice': 'Aviso de Embarque',
+  'Order Delivery Notice': 'Aviso de Entrega',
+  'Availability Notice': 'Aviso de Disponibilidad de Orden',
 };
 
 async function sendFileToClient(file, options = {}) {
@@ -35,6 +35,7 @@ async function sendFileToClient(file, options = {}) {
 
   let resolvedLang = file.lang || 'en';
   let overrideRecipients = null;
+  let ccoRecipients = [];
 
   if (typeof options === 'string') {
     resolvedLang = options || resolvedLang;
@@ -44,6 +45,11 @@ async function sendFileToClient(file, options = {}) {
     }
     if (Array.isArray(options.recipients)) {
       overrideRecipients = options.recipients
+        .map((email) => (typeof email === 'string' ? email.trim() : ''))
+        .filter(Boolean);
+    }
+    if (Array.isArray(options.ccoRecipients)) {
+      ccoRecipients = options.ccoRecipients
         .map((email) => (typeof email === 'string' ? email.trim() : ''))
         .filter(Boolean);
     }
@@ -72,6 +78,7 @@ async function sendFileToClient(file, options = {}) {
 
   const canContactReceive = (contact, mode = getValidationMode()) => {
     if (!contact) return true;
+    if (contact.cco === true) return true;
 
     const shEnabled = contact.sh_documents === true;
     const reportsEnabled = contact.reports === true;
@@ -133,6 +140,7 @@ async function sendFileToClient(file, options = {}) {
           email: normalizeEmail(contact?.email ?? contact?.contact_email ?? contact?.primary_email),
           sh_documents: toBoolean(contact?.sh_documents),
           reports: toBoolean(contact?.reports),
+          cco: toBoolean(contact?.cco),
         }))
         .filter((contact) => contact.email);
 
@@ -145,6 +153,8 @@ async function sendFileToClient(file, options = {}) {
   };
 
   let emails = [];
+
+  let ccoFromContacts = [];
 
   if (overrideRecipients && overrideRecipients.length) {
     const uniqueOverrides = Array.from(
@@ -185,6 +195,7 @@ async function sendFileToClient(file, options = {}) {
     }
 
     emails = allowed;
+    ccoFromContacts = contacts.filter((c) => c.cco).map((c) => c.email).filter(Boolean);
   } else {
     const contacts = await loadContacts();
     if (!contacts.length) {
@@ -202,6 +213,7 @@ async function sendFileToClient(file, options = {}) {
     }
 
     emails = allowedContacts.map((contact) => contact.email);
+    ccoFromContacts = contacts.filter((c) => c.cco).map((c) => c.email).filter(Boolean);
   }
 
   if (emails.length === 0) {
@@ -209,6 +221,8 @@ async function sendFileToClient(file, options = {}) {
   }
 
   const uniqueEmails = Array.from(new Set(emails));
+  const bccList = ccoRecipients && ccoRecipients.length ? ccoRecipients : ccoFromContacts;
+  const uniqueBcc = Array.from(new Set((bccList || []).filter(Boolean))).filter((email) => !uniqueEmails.includes(email));
 
   const relativePath = file.path.replace(/\\/g, '/');
   const absolutePath = path.join(process.env.FILE_SERVER_ROOT, relativePath);
@@ -254,6 +268,7 @@ async function sendFileToClient(file, options = {}) {
   const mailOptions = {
     from: `Gelymar <${process.env.SMTP_USER}>`,
     to: uniqueEmails.join(','),
+    bcc: uniqueBcc.length ? uniqueBcc.join(',') : undefined,
     subject: templateData.subject,
     html: htmlContent,
     attachments: [{

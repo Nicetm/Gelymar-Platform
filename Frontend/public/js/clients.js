@@ -31,8 +31,9 @@ function getClientSectionContext() {
   const foldersPath = section?.dataset?.foldersPath || `${basePath}/clients/folders/view`;
   const datasetApiBase = section?.dataset?.apiBase;
   const apiBase = datasetApiBase || window.apiBase || '';
+  const hideActions = section?.dataset?.hideActions === '1';
 
-  return { section, basePath, foldersPath, apiBase };
+  return { section, basePath, foldersPath, apiBase, hideActions };
 }
 
 // Funciones de modal que no están en utils.js
@@ -204,8 +205,9 @@ export async function initClientsScript() {
   // Función para renderizar una fila de cliente
   function renderCustomerRow(customer) {
     const encodedName = encodeURIComponent(customer.name || '');
-    const { foldersPath } = getClientSectionContext();
+    const { foldersPath, hideActions } = getClientSectionContext();
     const folderUrl = `${foldersPath}/${customer.uuid}?c=${encodedName}`;
+    const showActions = !hideActions;
     return `
       <tr data-id="${customer.id}" class="hover:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition bg-white dark:bg-gray-900">
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${customer.name || '-'}</td>
@@ -224,20 +226,22 @@ export async function initClientsScript() {
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
               </a>
             </div>
-            <div class="relative">
-              <a id="contactsViewBtn" href="#" data-uuid="${customer.uuid}" data-name="${customer.name}" class="contactsView text-gray-900 dark:text-white hover:text-green-500 transition manage-contacts-btn"
-                 data-tooltip="${window.translations?.clientes?.manage_contacts || 'Manage contacts'}"
-                 aria-label="${window.translations?.clientes?.manage_contacts || 'Manage contacts'}">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-              </a>
-            </div>
-            <div class="relative">
-              <a id="changePasswordViewBtn" href="#" data-uuid="${customer.uuid}" data-name="${customer.name}" class="changePasswordView text-gray-900 dark:text-white hover:text-green-500 transition change-password-btn"
-                 data-tooltip="${window.translations?.clientes?.change_password || 'Change password'}"
-                 aria-label="${window.translations?.clientes?.change_password || 'Change password'}">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
-              </a>
-            </div>
+            ${showActions ? `
+              <div class="relative">
+                <a id="contactsViewBtn" href="#" data-uuid="${customer.uuid}" data-name="${customer.name}" class="contactsView text-gray-900 dark:text-white hover:text-green-500 transition manage-contacts-btn"
+                   data-tooltip="${window.translations?.clientes?.manage_contacts || 'Manage contacts'}"
+                   aria-label="${window.translations?.clientes?.manage_contacts || 'Manage contacts'}">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                </a>
+              </div>
+              <div class="relative">
+                <a id="changePasswordViewBtn" href="#" data-uuid="${customer.uuid}" data-name="${customer.name}" class="changePasswordView text-gray-900 dark:text-white hover:text-green-500 transition change-password-btn"
+                   data-tooltip="${window.translations?.clientes?.change_password || 'Change password'}"
+                   aria-label="${window.translations?.clientes?.change_password || 'Change password'}">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
+                </a>
+              </div>
+            ` : ''}
           </div>
         </td>
       </tr>
@@ -844,6 +848,9 @@ export async function initClientsScript() {
         <input type="checkbox" class="contact-reports w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
       </td>
       <td class="p-2 text-center">
+        <input type="checkbox" class="contact-cco w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+      </td>
+      <td class="p-2 text-center">
         <button type="button" class="p-2 text-red-600 hover:text-red-500 dark:text-red-400 dark:hover:text-red-300 remove-contact-row" data-row-id="${rowId}">
           <svg class="w-5 h-5 inline-block" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -853,7 +860,32 @@ export async function initClientsScript() {
     `;
 
     tableBody.appendChild(row);
+    applyContactMutualExclusion(row);
     updateAddContactButtonState();
+  }
+
+  function applyContactMutualExclusion(row) {
+    const sh = row.querySelector('.contact-sh-documents, .contact-edit-sh');
+    const reports = row.querySelector('.contact-reports, .contact-edit-reports');
+    const cco = row.querySelector('.contact-cco, .contact-edit-cco');
+
+    const enforce = () => {
+      const shChecked = sh?.checked || false;
+      const reportsChecked = reports?.checked || false;
+      const ccoChecked = cco?.checked || false;
+
+      if (cco && (shChecked || reportsChecked)) {
+        cco.checked = false;
+      }
+      if (ccoChecked) {
+        if (sh) sh.checked = false;
+        if (reports) reports.checked = false;
+      }
+    };
+
+    sh?.addEventListener('change', enforce);
+    reports?.addEventListener('change', enforce);
+    cco?.addEventListener('change', enforce);
   }
 
   // Event listener para remover filas de contacto
@@ -941,6 +973,10 @@ export async function initClientsScript() {
       rowFragment.querySelector('[data-field="phone"]').textContent = contact.telefono || '-';
       rowFragment.querySelector('[data-field="sh_documents"]').innerHTML = contact.sh_documents ? '<span class="text-green-600 dark:text-green-400">✓</span>' : '<span class="text-gray-400">-</span>';
       rowFragment.querySelector('[data-field="reports"]').innerHTML = contact.reports ? '<span class="text-green-600 dark:text-green-400">✓</span>' : '<span class="text-gray-400">-</span>';
+      const ccoCell = rowFragment.querySelector('[data-field="cco"]');
+      if (ccoCell) {
+        ccoCell.innerHTML = contact.cco ? '<span class="text-green-600 dark:text-green-400">✓</span>' : '<span class="text-gray-400">-</span>';
+      }
 
       const editBtn = rowFragment.querySelector('.edit-contact-btn');
       const deleteBtn = rowFragment.querySelector('.delete-contact-btn');
@@ -950,6 +986,7 @@ export async function initClientsScript() {
         editBtn.dataset.contactPhone = contact.telefono || '';
         editBtn.dataset.contactSh = contact.sh_documents ? '1' : '0';
         editBtn.dataset.contactReports = contact.reports ? '1' : '0';
+        editBtn.dataset.contactCco = contact.cco ? '1' : '0';
         editBtn.dataset.contactIdx = contact.idx;
       }
       if (deleteBtn) {
@@ -978,18 +1015,24 @@ export async function initClientsScript() {
     const phoneCell = row.querySelector('[data-field="phone"]');
     const shCell = row.querySelector('[data-field="sh_documents"]');
     const reportsCell = row.querySelector('[data-field="reports"]');
+    const ccoCell = row.querySelector('[data-field="cco"]');
 
     const name = editBtn.dataset.contactName || '';
     const email = editBtn.dataset.contactEmail || '';
     const phone = editBtn.dataset.contactPhone || '';
     const shDocuments = editBtn.dataset.contactSh === '1';
     const reports = editBtn.dataset.contactReports === '1';
+    const cco = editBtn.dataset.contactCco === '1';
 
     nameCell.innerHTML = `<input id="contactNameInput" type="text" class="text-xs contact-name w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" value="${name}">`;
     emailCell.innerHTML = `<input id="contactEmailInput" type="email" class="text-xs contact-email w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" value="${email}">`;
     phoneCell.innerHTML = `<input id="contactPhoneInput" type="tel" class="text-xs contact-phone w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" value="${phone}">`;
     shCell.innerHTML = `<input id="contactShDocumentsInput" type="checkbox" ${shDocuments ? 'checked' : ''} class="contact-edit-sh w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">`;
     reportsCell.innerHTML = `<input id="contactReportsInput" type="checkbox" ${reports ? 'checked' : ''} class="contact-edit-reports w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">`;
+    if (ccoCell) {
+      ccoCell.innerHTML = `<input id="contactCcoInput" type="checkbox" ${cco ? 'checked' : ''} class="contact-edit-cco w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">`;
+    }
+    applyContactMutualExclusion(row);
 
     editBtn.classList.add('hidden');
     const deleteBtn = row.querySelector('.delete-contact-btn');
@@ -1025,6 +1068,7 @@ export async function initClientsScript() {
     const phoneInput = row.querySelector('input[type="tel"]');
     const shCheckbox = row.querySelector('.contact-edit-sh');
     const reportsCheckbox = row.querySelector('.contact-edit-reports');
+    const ccoCheckbox = row.querySelector('.contact-edit-cco');
 
     const updates = {
       contact_idx: idx,
@@ -1033,6 +1077,7 @@ export async function initClientsScript() {
       telefono: phoneInput?.value?.trim() || '',
       sh_documents: shCheckbox?.checked || false,
       reports: reportsCheckbox?.checked || false,
+      cco: ccoCheckbox?.checked || false,
     };
 
     if (!updates.nombre) {
@@ -1047,10 +1092,14 @@ export async function initClientsScript() {
       showError(getMessage(clientesForm.emailInvalid, 'Email must be valid'));
       return;
     }
-    if (!updates.sh_documents && !updates.reports) {
+    if (updates.cco && (updates.sh_documents || updates.reports)) {
+      showError(getMessage(clientesForm.ccoExclusive, 'CCO no puede combinarse con SH Docs ni Reports'));
+      return;
+    }
+    if (!updates.cco && !updates.sh_documents && !updates.reports) {
       const confirmed = await confirmAction(
         getMessage(clientesForm.noPermissionsConfirmTitle, 'No access selected'),
-        getMessage(clientesForm.noPermissionsConfirmMessage, 'You did not select SH Documents nor Reports. Do you want to continue anyway?'),
+        getMessage(clientesForm.noPermissionsConfirmMessage, 'You did not select SH Docs nor Reports. Do you want to continue anyway?'),
         'warning',
         {
           confirmButtonText: getMessage(clientesForm.noPermissionsConfirmContinue, 'Yes, continue'),
@@ -1139,31 +1188,6 @@ export async function initClientsScript() {
       return;
     }
 
-    // Verificar si el cliente tiene email principal
-    try {
-      const response = await fetch(`${resolvedApiBase}/api/customers/${currentCustomerUuid}/contacts`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      
-      if (response.ok) {
-        const contactData = await response.json();
-        if (!contactData.primary_email) {
-          showError(getMessage(clientesForm.primaryEmailRequired, 'You must set the main email before adding additional contacts'));
-          return;
-        }
-      } else {
-        const errorResponse = await buildErrorFromResponse(response);
-        showError(resolveBackendMessage(errorResponse.code, getMessage(messagesClients.contactsLoadError, 'Error loading customer contacts')));
-        return;
-      }
-    } catch (error) {
-      console.error('Error verificando email principal:', error);
-      showError(resolveBackendMessage(error.code, getMessage(messagesClients.contactsLoadError, 'Error loading customer contacts')));
-      return;
-    }
-
     const container = document.getElementById('contactsFormContainer');
     if (!container) return;
 
@@ -1176,8 +1200,9 @@ export async function initClientsScript() {
       const phone = row.querySelector('.contact-phone')?.value?.trim();
       const shDocuments = row.querySelector('.contact-sh-documents')?.checked || false;
       const reports = row.querySelector('.contact-reports')?.checked || false;
+      const cco = row.querySelector('.contact-cco')?.checked || false;
 
-      const hasData = Boolean(name || email || phone || shDocuments || reports);
+      const hasData = Boolean(name || email || phone || shDocuments || reports || cco);
 
       if (hasData) {
         if (!name) {
@@ -1192,10 +1217,14 @@ export async function initClientsScript() {
           showError(getMessage(clientesForm.emailInvalid, 'Email must be valid'));
           return;
         }
-        if (!shDocuments && !reports) {
+        if (cco && (shDocuments || reports)) {
+          showError(getMessage(clientesForm.ccoExclusive, 'CCO no puede combinarse con SH Docs ni Reports'));
+          return;
+        }
+        if (!cco && !shDocuments && !reports) {
           const confirmed = await confirmAction(
             getMessage(clientesForm.noPermissionsConfirmTitle, 'No access selected'),
-            getMessage(clientesForm.noPermissionsConfirmMessage, 'You did not select SH Documents nor Reports. Do you want to continue anyway?'),
+            getMessage(clientesForm.noPermissionsConfirmMessage, 'You did not select SH Docs nor Reports. Do you want to continue anyway?'),
             'warning',
             {
               confirmButtonText: getMessage(clientesForm.noPermissionsConfirmContinue, 'Yes, continue'),
@@ -1207,7 +1236,7 @@ export async function initClientsScript() {
           }
         }
 
-        contacts.push({ name, email, phone, sh_documents: shDocuments, reports: reports });
+        contacts.push({ name, email, phone, sh_documents: shDocuments, reports: reports, cco });
       }
     }
 

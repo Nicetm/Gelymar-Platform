@@ -11,6 +11,7 @@ const translationsMap = {
     usermenu: () => import('../i18n/es/usermenu.json'),
     messages: () => import('../i18n/es/messages.json'),
     footer: () => import('../i18n/es/footer.json'),
+    notifications: () => import('../i18n/es/notifications.json'),
   },
   en: {
     comond: () => import('../i18n/en/comond.json'),
@@ -24,6 +25,7 @@ const translationsMap = {
     usermenu: () => import('../i18n/en/usermenu.json'),
     messages: () => import('../i18n/en/messages.json'),
     footer: () => import('../i18n/en/footer.json'),
+    notifications: () => import('../i18n/en/notifications.json'),
   }
 };
 
@@ -115,6 +117,7 @@ export async function loadTranslations(lang = 'es', section = 'clientes') {
           messages: () => import('../i18n/es/messages.json'),
           footer: () => import('../i18n/es/footer.json'),
         },
+        notifications: () => import('../i18n/es/notifications.json'),
         en: {
           comond: () => import('../i18n/en/comond.json'),
           clientes: () => import('../i18n/en/clientes.json'),
@@ -127,6 +130,7 @@ export async function loadTranslations(lang = 'es', section = 'clientes') {
           usermenu: () => import('../i18n/en/usermenu.json'),
           messages: () => import('../i18n/en/messages.json'),
           footer: () => import('../i18n/en/footer.json'),
+          notifications: () => import('../i18n/en/notifications.json'),
         }
       };
       return (await translationsMap[lang]?.[section]())?.default || {};

@@ -52,6 +52,14 @@ gelymar-management-platform/
 - 4GB+ RAM disponible
 - PowerShell (Windows) o Bash (Linux/macOS)
 
+### 0. Comandos GIT
+```bash
+git status
+git add .
+git commit -m "De todo"
+git push -u origin dev
+```
+
 ### 1. Clonar Repositorio
 ```bash
 git clone https://github.com/Ssebv/gelymar-management-platform.git
@@ -399,6 +407,9 @@ docker-compose --env-file .env.local up -d frontend
 
 #### **🚀 Levantar y Bajar Servicios**
 ```bash
+# Levanta todo y construye
+docker-compose -f docker-compose-dev.yml --env-file .env.local up -d --build
+
 # Levantar todos los servicios
 docker-compose --env-file .env.local up -d
 

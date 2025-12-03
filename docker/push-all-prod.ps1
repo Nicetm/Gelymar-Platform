@@ -1,4 +1,4 @@
-# Script para subir todas las imágenes a DockerHub para producción con tags específicos en PowerShell
+﻿# Script para subir todas las imágenes a DockerHub para producción con tags específicos en PowerShell
 # Ejecutar desde el directorio docker
 
 Write-Host "📤 Iniciando subida de todas las imágenes a DockerHub para producción..." -ForegroundColor Green

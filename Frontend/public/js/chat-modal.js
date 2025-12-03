@@ -87,8 +87,10 @@ export function initChatModal(config = {}) {
   const socketService = new SocketService();
   // Elementos del DOM
   const chatModal = document.getElementById('chat-modal');
-  const chatBackdrop = document.getElementById('chat-backdrop');
+  const chatPanel = document.getElementById('chat-panel');
+  const chatHeader = document.getElementById('chat-header');
   const closeChatBtn = document.getElementById('close-chat-btn');
+  const minimizeChatBtn = document.getElementById('minimize-chat-btn');
   const chatMessagesDiv = document.getElementById('chat-messages');
   const chatInput = document.getElementById('chat-input');
   const sendMessageBtn = document.getElementById('send-message-btn');
@@ -100,6 +102,7 @@ export function initChatModal(config = {}) {
   const adminSelection = document.getElementById('admin-selection');
   const adminList = document.getElementById('admin-list');
   const chatInputArea = document.getElementById('chat-input-area');
+  const chatBody = document.getElementById('chat-body');
   
   // Emoticones disponibles
   const emojis = ['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩', '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣', '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬', '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '😥', '😓', '🤗', '🤔', '🤭', '🤫', '🤥', '😶', '😐', '😑', '😬', '🙄', '😯', '😦', '😧', '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐', '🥴', '🤢', '🤮', '🤧', '😷', '🤒', '🤕', '🤑', '🤠', '😈', '👿', '👹', '👺', '🤡', '💩', '👻', '💀', '☠️', '👽', '👾', '🤖', '🎃', '😺', '😸', '😹', '😻', '😼', '😽', '😿'];
@@ -145,6 +148,39 @@ export function initChatModal(config = {}) {
   let adminDisplayName = 'Administrador';
   let selectedAdminId = null;
   let lastAdminActivity = null; // Timestamp de la última actividad del admin
+  let isMinimized = false;
+  const adminUnreadCounts = new Map();
+
+  function incrementAdminUnread(adminId) {
+    if (!adminId) return;
+    const key = Number(adminId);
+    const current = adminUnreadCounts.get(key) || 0;
+    adminUnreadCounts.set(key, current + 1);
+    updateAdminUnreadIndicators();
+  }
+
+  function resetAdminUnread(adminId) {
+    if (!adminId) return;
+    adminUnreadCounts.delete(Number(adminId));
+    updateAdminUnreadIndicators();
+  }
+
+  function updateAdminUnreadIndicators() {
+    if (!adminList) return;
+    adminList.querySelectorAll('[data-admin-id]').forEach((item) => {
+      const adminId = Number(item.dataset.adminId);
+      const badge = item.querySelector('.admin-unread-badge');
+      if (!badge) return;
+      const count = adminUnreadCounts.get(adminId) || 0;
+      if (count > 0) {
+        badge.textContent = count > 99 ? '99+' : count.toString();
+        badge.classList.remove('hidden');
+      } else {
+        badge.textContent = '';
+        badge.classList.add('hidden');
+      }
+    });
+  }
   
   // Función para obtener el customer_id del usuario actual (con caché simple)
   async function getCustomerId() {
@@ -254,6 +290,14 @@ export function initChatModal(config = {}) {
     }
   }
 
+  function normalizeOnlineFlag(value) {
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'string') {
+      return value === '1' || value.toLowerCase() === 'true';
+    }
+    return Number(value) === 1;
+  }
+
   async function refreshAdminOnlineStatus() {
 
     const apiBase = window.apiBase;
@@ -288,8 +332,8 @@ export function initChatModal(config = {}) {
         if (typeof presence.name !== 'undefined') {
           setAdminDisplayName(presence.name);
         }
-        const isOnline = presence.online ?? false;
-        updateAdminPresence(Boolean(isOnline));
+        const isOnline = normalizeOnlineFlag(presence.online);
+        updateAdminPresence(isOnline);
       }
     } catch (error) {
       console.error('Error obteniendo estado del administrador:', error);
@@ -351,15 +395,17 @@ export function initChatModal(config = {}) {
       admins.forEach(admin => {
         const adminItem = document.createElement('div');
         adminItem.className = 'flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors';
+        adminItem.dataset.adminId = admin.id;
         
-        const isOnline = admin.online === 1;
+        const isOnline = normalizeOnlineFlag(admin.online);
         const statusColor = isOnline ? 'bg-green-500' : 'bg-gray-400';
         const statusText = isOnline ? 'On line' : 'Offline';
         
         adminItem.innerHTML = `
           <div class="flex items-center gap-3">
-            <div class="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
+            <div class="relative w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
               <span class="text-white font-semibold text-sm">${admin.full_name.charAt(0).toUpperCase()}</span>
+              <span class="admin-unread-badge absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center hidden"></span>
             </div>
             <div>
               <p class="font-semibold text-sm text-gray-900 dark:text-white">${admin.full_name}</p>
@@ -380,6 +426,7 @@ export function initChatModal(config = {}) {
 
         adminList.appendChild(adminItem);
       });
+      updateAdminUnreadIndicators();
     } catch (error) {
       console.error('Error cargando lista de administradores:', error);
       if (adminList) {
@@ -392,7 +439,8 @@ export function initChatModal(config = {}) {
   function selectAdmin(admin) {
     selectedAdminId = admin.id;
     setAdminDisplayName(admin.full_name);
-    updateAdminPresence(admin.online === 1);
+    updateAdminPresence(normalizeOnlineFlag(admin.online));
+    resetAdminUnread(admin.id);
     
     // Ocultar selección de administradores y mostrar chat
     adminSelection.classList.add('hidden');
@@ -409,6 +457,10 @@ export function initChatModal(config = {}) {
       chatModal.classList.add('hidden');
       chatInput.blur();
     }
+    if (typeof window.notifyClientChatClosed === 'function') {
+      window.notifyClientChatClosed();
+    }
+    setChatMinimized(false);
     stopAdminStatusPolling();
     updateAdminPresence(false);
     
@@ -706,8 +758,15 @@ export function initChatModal(config = {}) {
       }
 
       if (parseInt(messageData.customer_id) === parseInt(customerId)) {
+        const incomingAdminId = parseInt(messageData.admin_id);
+        const chatVisible = chatModal && !chatModal.classList.contains('hidden') && !isMinimized;
+
+        if (messageData.sender_role === 'admin' && (!chatVisible || !selectedAdminId || parseInt(selectedAdminId) !== incomingAdminId)) {
+          incrementAdminUnread(incomingAdminId);
+        }
+
         // Solo mostrar mensajes del admin seleccionado, no del propio cliente (evitar duplicados)
-        if (messageData.sender_role === 'admin' && selectedAdminId && parseInt(messageData.admin_id) === parseInt(selectedAdminId)) {
+        if (messageData.sender_role === 'admin' && selectedAdminId && incomingAdminId === parseInt(selectedAdminId)) {
           addMessageToChat(messageData.body, 'admin', new Date(), false);
           updateAdminPresence(true); // Si el admin envía un mensaje, está online
           lastAdminActivity = Date.now(); // Registrar actividad del admin
@@ -849,6 +908,13 @@ export function initChatModal(config = {}) {
     if (chatModal && chatInput) {
       chatModal.classList.remove('hidden');
       
+      if (typeof window.clearChatNotification === 'function') {
+        window.clearChatNotification();
+      }
+      if (typeof window.notifyClientChatOpened === 'function') {
+        window.notifyClientChatOpened();
+      }
+
       // Resetear estado y mostrar selección de administradores
       selectedAdminId = null;
       adminSelection.classList.remove('hidden');
@@ -871,7 +937,29 @@ export function initChatModal(config = {}) {
   
   // Event listeners
   closeChatBtn?.addEventListener('click', closeChatModal);
-  chatBackdrop?.addEventListener('click', closeChatModal);
+
+  function setChatMinimized(shouldMinimize) {
+    if (!chatPanel) return;
+    isMinimized = shouldMinimize;
+    chatPanel.classList.toggle('chat-minimized', shouldMinimize);
+    if (minimizeChatBtn) {
+      const minimizeIcon = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15h14"/></svg>`;
+      const restoreIcon = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 8h12M6 16h12"/></svg>`;
+      minimizeChatBtn.setAttribute('aria-pressed', shouldMinimize ? 'true' : 'false');
+      minimizeChatBtn.innerHTML = shouldMinimize ? restoreIcon : minimizeIcon;
+    }
+  }
+
+  minimizeChatBtn?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    setChatMinimized(!isMinimized);
+  });
+
+  chatHeader?.addEventListener('click', () => {
+    if (isMinimized) {
+      setChatMinimized(false);
+    }
+  });
   
   sendMessageBtn?.addEventListener('click', sendMessage);
   
@@ -899,6 +987,7 @@ export function initChatModal(config = {}) {
   document.addEventListener('DOMContentLoaded', () => {
     refreshAdminOnlineStatus();
     initializeChatSocket();
+    setChatMinimized(false);
   });
 
   // Event listeners for emojis

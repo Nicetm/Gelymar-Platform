@@ -63,7 +63,7 @@
   "manage_contacts": "Gestionar contactos",
   "change_password": "Cambiar contraseña",
   "aditional_contacts": "Contactos adicionales",
-  "sh_documents": "SH Documents",
+  "sh_documents": "SH Docs",
   "reports": "Reports",
   "retry": "Reintentar",
   "profile": {
@@ -81,7 +81,7 @@
       "name": "Nombre",
       "email": "Correo",
       "phone": "Teléfono",
-      "shDocuments": "SH Documents",
+      "shDocuments": "SH Docs",
       "reports": "Reports",
       "actions": "Acciones"
     },
@@ -110,10 +110,10 @@
     "nameRequired": "El nombre es obligatorio para todos los contactos",
     "atLeastOneContact": "Debe agregar al menos un contacto",
     "emailRequired": "El email es obligatorio para todos los contactos",
-    "shDocumentsRequired": "Debe otorgar acceso a SH Documents",
+    "shDocumentsRequired": "Debe otorgar acceso a SH Docs",
     "reportsRequired": "Debe otorgar acceso a Reports",
     "noPermissionsConfirmTitle": "Sin accesos marcados",
-    "noPermissionsConfirmMessage": "No seleccionaste SH Documents ni Reports. ¿Deseas continuar de todos modos?",
+    "noPermissionsConfirmMessage": "No seleccionaste SH Docs ni Reports. ¿Deseas continuar de todos modos?",
     "noPermissionsConfirmCancel": "Cancelar",
     "noPermissionsConfirmContinue": "Sí, continuar"
   }

@@ -1,6 +1,7 @@
 // services/user.service.js
 const { poolPromise } = require('../config/db');
 const Users = require('../models/user.model');
+const bcrypt = require('bcrypt');
 
 /**
  * Obtiene todos los clientes con un conteo de carpetas asociadas (folder_count)
@@ -181,6 +182,56 @@ async function updateUser2FASecret(userId, secret) {
   await pool.query('UPDATE users SET twoFASecret = ? WHERE id = ?', [secret, userId]);
 }
 
+// Admin users CRUD (role_id = 1)
+async function getAdminUsers() {
+  const pool = await poolPromise;
+  const [rows] = await pool.query(
+    `SELECT id, email, full_name, phone, agent FROM users WHERE role_id = 1 ORDER BY id ASC`
+  );
+  return rows;
+}
+
+async function createAdminUser({ email, full_name, phone, agent, password }) {
+  const pool = await poolPromise;
+  const hashed = await bcrypt.hash(password, 10);
+  const [result] = await pool.query(
+    `INSERT INTO users (email, password, role_id, full_name, phone, agent, created_at, updated_at)
+     VALUES (?, ?, 1, ?, ?, ?, NOW(), NOW())`,
+    [email, hashed, full_name || null, phone || null, agent || null]
+  );
+  return result.insertId;
+}
+
+async function updateAdminUser(id, { email, full_name, phone, agent }) {
+  const pool = await poolPromise;
+  const [result] = await pool.query(
+    `UPDATE users
+     SET email = ?, full_name = ?, phone = ?, agent = ?, updated_at = NOW()
+     WHERE id = ? AND role_id = 1`,
+    [email, full_name || null, phone || null, agent || null, id]
+  );
+  return result.affectedRows > 0;
+}
+
+async function deleteUserById(id) {
+  const pool = await poolPromise;
+  const [result] = await pool.query(
+    `DELETE FROM users WHERE id = ? AND role_id = 1`,
+    [id]
+  );
+  return result.affectedRows > 0;
+}
+
+async function resetAdminPassword(id, newPassword = '123456') {
+  const pool = await poolPromise;
+  const hashed = await bcrypt.hash(newPassword, 10);
+  const [result] = await pool.query(
+    `UPDATE users SET password = ?, change_pw = 1, updated_at = NOW() WHERE id = ? AND role_id = 1`,
+    [hashed, id]
+  );
+  return result.affectedRows > 0;
+}
+
 
 // Verificar si hay al menos un administrador en línea
 module.exports = {
@@ -195,5 +246,9 @@ module.exports = {
   updateUserProfile,
   createUser,
   updateUser2FASecret,
+  getAdminUsers,
+  createAdminUser,
+  updateAdminUser,
+  deleteUserById,
+  resetAdminPassword,
 };
-

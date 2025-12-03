@@ -6,8 +6,10 @@ import { loadTranslations, getServerLang } from '@lib/i18n.js';
 const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
 const apiPublic = import.meta.env.PUBLIC_API_URL;
 const lang = getServerLang(Astro.cookies);
-const { basePath = '/admin' } = Astro.props;
+const { basePath = '/admin', hideAdminActions = false } = Astro.props;
 const homeHref = basePath;
+const foldersPath = `${basePath}/clients/folders/view`;
+const apiAttr = apiPublic || apiBase;
 //const foldersBasePath = `${basePath}/clients/folders/view`;
 
 // Cargar traducciones de manera estática
@@ -24,7 +26,14 @@ try {
 }
 ---
 
-<section id="clientSection" class="px-4 pt-20 pb-6 sm:px-6 lg:px-8">
+<section
+  id="clientSection"
+  class="px-4 pt-20 pb-6 sm:px-6 lg:px-8"
+  data-base-path={basePath}
+  data-folders-path={foldersPath}
+  data-api-base={apiAttr}
+  data-hide-actions={hideAdminActions ? '1' : '0'}
+>
   <!-- Encabezado y breadcrumb -->
   <header class="flex flex-col gap-4 border-b border-gray-200 dark:border-gray-700 pb-4">
     <nav class="text-sm text-gray-500 dark:text-gray-400" aria-label="Breadcrumb">

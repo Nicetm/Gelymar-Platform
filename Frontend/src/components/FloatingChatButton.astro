@@ -21,16 +21,18 @@ const { unreadCount = 0 } = Astro.props;
     </svg>
     
     <!-- Contador de mensajes no leídos -->
-    {unreadCount > 0 && (
-      <span class="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center animate-pulse">
-        {unreadCount > 99 ? '99+' : unreadCount}
-      </span>
-    )}
+    <span
+      id="chat-unread-badge"
+      class={`absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center ${unreadCount > 0 ? '' : 'hidden'}`}
+    >
+      {unreadCount > 99 ? '99+' : unreadCount > 0 ? unreadCount : ''}
+    </span>
     
     <!-- Efecto de pulso cuando hay mensajes -->
-    {unreadCount > 0 && (
-      <span class="absolute inset-0 bg-blue-400 rounded-full animate-ping opacity-75"></span>
-    )}
+    <span
+      id="chat-alert-pulse"
+      class={`absolute inset-0 bg-blue-400 rounded-full animate-ping opacity-75 ${unreadCount > 0 ? '' : 'hidden'}`}
+    ></span>
   </button>
   
   <!-- Tooltip -->
@@ -62,12 +64,23 @@ const { unreadCount = 0 } = Astro.props;
     }
   }
   
-  #floating-chat-button button:has(span) {
-    animation: bounce 2s infinite;
+  @keyframes glowPulse {
+    0% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.7); }
+    70% { box-shadow: 0 0 0 15px rgba(249, 115, 22, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0); }
+  }
+
+  #floating-chat-button button.chat-toggle-alert {
+    background: #f97316;
+    animation: glowPulse 1.5s infinite;
+  }
+  
+  #floating-chat-button button.chat-toggle-alert:hover {
+    background: #ea580c;
   }
 </style>
 
-<script is:inline>
+<script is:inline type="module" define:vars={{ initialUnread: unreadCount }}>
   // Socket.io service (inline)
   class SocketService {
     constructor() {
@@ -179,8 +192,11 @@ const { unreadCount = 0 } = Astro.props;
       // Verificar que el mensaje sea para este cliente
       getCustomerId().then(customerId => {
         if (messageData.customer_id === parseInt(customerId)) {
-          // Actualizar contador de notificaciones
-          updateNotificationCount();
+          if (isChatOpen) return;
+          localAlertCount += 1;
+          setChatButtonAlert(true, localAlertCount);
+          // Actualizar contador de notificaciones (dar tiempo a backend)
+          setTimeout(updateNotificationCount, 1500);
           
           // Si el chat está abierto, mostrar el mensaje
           const chatModal = document.getElementById('chat-modal');
@@ -194,6 +210,37 @@ const { unreadCount = 0 } = Astro.props;
         }
       });
     });
+  }
+  
+  const chatToggleButton = document.getElementById('chat-toggle-btn');
+  const unreadBadge = document.getElementById('chat-unread-badge');
+  const pulseOverlay = document.getElementById('chat-alert-pulse');
+  let localAlertCount = Number(initialUnread || 0) || 0;
+  let isChatOpen = false;
+
+  function setChatButtonAlert(active, count = null) {
+    if (chatToggleButton) {
+      chatToggleButton.classList.toggle('chat-toggle-alert', active);
+    }
+
+    if (pulseOverlay) {
+      pulseOverlay.classList.toggle('hidden', !active);
+    }
+
+    if (unreadBadge) {
+      if (typeof count === 'number') {
+        if (count > 0) {
+          unreadBadge.textContent = count > 99 ? '99+' : count.toString();
+          unreadBadge.classList.remove('hidden');
+        } else {
+          unreadBadge.textContent = '';
+          unreadBadge.classList.add('hidden');
+        }
+      } else if (!active) {
+        unreadBadge.textContent = '';
+        unreadBadge.classList.add('hidden');
+      }
+    }
   }
   
   // Actualizar contador de notificaciones
@@ -211,7 +258,8 @@ const { unreadCount = 0 } = Astro.props;
         return;
       }
       
-      const response = await fetch(`${window.apiBase}/api/chat/unread/${customerId}`, {
+      const baseUrl = window.apiBase || (window.location && window.location.origin);
+      const response = await fetch(`${baseUrl}/api/chat/unread/${customerId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -221,15 +269,14 @@ const { unreadCount = 0 } = Astro.props;
       }
       
       const data = await response.json();
-      const notificationBadge = document.querySelector('#floating-chat-button span');
-      if (notificationBadge && data.success && data.data) {
-        const count = data.data.unreadCount;
-        if (count > 0) {
-          notificationBadge.textContent = count > 99 ? '99+' : count.toString();
-          notificationBadge.classList.remove('hidden');
-        } else {
-          notificationBadge.classList.add('hidden');
+      if (data.success && data.data) {
+        const count = data.data.unreadCount ?? 0;
+        if (!isChatOpen && localAlertCount > 0 && count === 0) {
+          // mantener alerta hasta que usuario abra el chat
+          return;
         }
+        localAlertCount = count;
+        setChatButtonAlert(count > 0, count);
       }
     } catch (error) {
       console.error('Error actualizando notificaciones:', error);
@@ -237,7 +284,7 @@ const { unreadCount = 0 } = Astro.props;
   }
   
   // Event listener para abrir el chat
-  document.getElementById('chat-toggle-btn')?.addEventListener('click', () => {
+  chatToggleButton?.addEventListener('click', () => {
     // Llamar a la función openChatModal si está disponible
     if (typeof window.openChatModal === 'function') {
       window.openChatModal();
@@ -248,10 +295,37 @@ const { unreadCount = 0 } = Astro.props;
         chatModal.classList.remove('hidden');
       }
     }
+
+    isChatOpen = true;
+    localAlertCount = 0;
+    setChatButtonAlert(false, 0);
   });
   
   // Inicializar botón flotante al cargar la página
   document.addEventListener('DOMContentLoaded', () => {
+    const clearAlert = () => {
+      localAlertCount = 0;
+      setChatButtonAlert(false, 0);
+    };
+
+    window.clearChatNotification = () => {
+      isChatOpen = true;
+      clearAlert();
+    };
+
+    window.notifyClientChatOpened = () => {
+      isChatOpen = true;
+      clearAlert();
+    };
+
+    window.notifyClientChatClosed = () => {
+      isChatOpen = false;
+      if (localAlertCount > 0) {
+        setChatButtonAlert(true, localAlertCount);
+      }
+    };
+
     initializeClientSocket();
+    updateNotificationCount();
   });
 </script> 

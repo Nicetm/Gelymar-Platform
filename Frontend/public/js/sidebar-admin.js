@@ -266,6 +266,9 @@ export function initSidebarAdmin(config) {
           break;
         case 'profile':
           break;
+        case 'admin-users':
+          openAdminUsersModal();
+          break;
       }
     });
 
@@ -889,6 +892,346 @@ export function initSidebarAdmin(config) {
           });
         }
       });
+    });
+
+    // ===== Admin Users Modal (completo) =====
+    const adminUsersModal = document.getElementById('adminUsersModal');
+    const closeAdminUsersModalBtn = document.getElementById('closeAdminUsersModal');
+    const cancelAdminUsersBtn = document.getElementById('cancelAdminUsersBtn');
+    const adminTableContainer = document.getElementById('adminUsersTableContainer');
+    const addAdminUserBtn = document.getElementById('addAdminUserBtn');
+    const saveAdminUsersBtn = document.getElementById('saveAdminUsersBtn');
+    const adminFormContainer = document.getElementById('adminUsersFormContainer');
+    let adminUsers = [];
+    let editingAdminId = null;
+
+    const authHeaders = () => ({
+      Authorization: `Bearer ${token || getClientToken()}`,
+      'Content-Type': 'application/json'
+    });
+
+    function ensureAdminFormTableBody() {
+      if (!adminFormContainer) return null;
+      let body = document.getElementById('adminUsersFormTableBody');
+      if (body) return body;
+
+      const tpl = document.getElementById('adminUsersFormTableTemplate');
+      if (!tpl) return null;
+      const frag = document.importNode(tpl.content, true);
+      adminFormContainer.innerHTML = '';
+      adminFormContainer.appendChild(frag);
+      body = document.getElementById('adminUsersFormTableBody');
+      return body;
+    }
+
+    function addAdminFormRow() {
+      const tbody = ensureAdminFormTableBody();
+      if (!tbody) return;
+      adminFormContainer?.classList.remove('hidden');
+
+      const row = document.createElement('tr');
+      row.className = 'border-t border-gray-200 dark:border-gray-600';
+      row.innerHTML = `
+        <td class="p-2"><input class="admin-email w-full text-xs px-2 py-1 border rounded-md bg-white dark:bg-gray-800 dark:border-gray-700 text-gray-900 dark:text-white" type="text" placeholder="Email (RUT)"></td>
+        <td class="p-2"><input class="admin-full-name w-full text-xs px-2 py-1 border rounded-md bg-white dark:bg-gray-800 dark:border-gray-700 text-gray-900 dark:text-white" type="text" placeholder="Nombre completo"></td>
+        <td class="p-2"><input class="admin-phone w-full text-xs px-2 py-1 border rounded-md bg-white dark:bg-gray-800 dark:border-gray-700 text-gray-900 dark:text-white" type="text" placeholder="Teléfono"></td>
+        <td class="p-2 text-center">
+          <input class="admin-agent h-4 w-4 text-indigo-600 rounded border-gray-300 dark:border-gray-600" type="checkbox">
+        </td>
+        <td class="p-2 text-center">
+          <button class="remove-admin-form-row text-red-600 hover:text-red-500 transition" title="Eliminar fila">
+            <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </td>
+      `;
+      tbody.appendChild(row);
+    }
+
+    function resetAdminFormRows() {
+      if (adminFormContainer) {
+        adminFormContainer.innerHTML = '';
+        adminFormContainer.classList.remove('hidden');
+      }
+      addAdminFormRow();
+    }
+
+    function hideAdminForm() {
+      if (adminFormContainer) {
+        adminFormContainer.innerHTML = '';
+        adminFormContainer.classList.add('hidden');
+      }
+    }
+
+    async function loadAdminUsers() {
+      try {
+        const res = await fetch(`${API_BASE}/api/users/admins`, { headers: authHeaders() });
+        adminUsers = res.ok ? await res.json() : [];
+      } catch (err) {
+        console.error('Error cargando admins', err);
+        adminUsers = [];
+      }
+      renderAdminUsersTable();
+    }
+
+    function renderAdminUsersTable() {
+      if (!adminTableContainer) return;
+      adminTableContainer.innerHTML = '';
+      const tpl = document.getElementById('adminUsersExistingTableTemplate');
+      if (!tpl) return;
+
+      const frag = document.importNode(tpl.content, true);
+      const tbody = frag.querySelector('#adminUsersExistingTableBody');
+      if (!tbody) return;
+
+      if (!adminUsers.length) {
+        const row = document.createElement('tr');
+        row.innerHTML = `<td colspan="5" class="text-center text-xs text-gray-500 dark:text-gray-400 py-4">No hay administradores</td>`;
+        tbody.appendChild(row);
+      } else {
+        adminUsers.forEach((a) => {
+          const isEditing = editingAdminId === a.id;
+          const row = document.createElement('tr');
+          row.className = 'border-t border-gray-200 dark:border-gray-600';
+
+          if (isEditing) {
+            row.innerHTML = `
+              <td class="p-2"><input data-field="email" value="${a.email || ''}" class="w-full text-xs px-2 py-1 border rounded-md bg-white dark:bg-gray-800 dark:border-gray-700 text-gray-900 dark:text-white" type="text"></td>
+              <td class="p-2"><input data-field="full_name" value="${a.full_name || ''}" class="w-full text-xs px-2 py-1 border rounded-md bg-white dark:bg-gray-800 dark:border-gray-700 text-gray-900 dark:text-white" type="text"></td>
+              <td class="p-2"><input data-field="phone" value="${a.phone || ''}" class="w-full text-xs px-2 py-1 border rounded-md bg-white dark:bg-gray-800 dark:border-gray-700 text-gray-900 dark:text-white" type="text"></td>
+              <td class="p-2 text-center">
+                <input data-field="agent" type="checkbox" ${a.agent ? 'checked' : ''} class="h-4 w-4 text-indigo-600 rounded border-gray-300 dark:border-gray-600">
+              </td>
+              <td class="p-2 text-center flex gap-2 justify-center">
+                <button class="save-admin-edit text-green-600 hover:text-green-500 transition" data-id="${a.id}" title="Guardar">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                </button>
+                <button class="cancel-admin-edit text-gray-500 hover:text-gray-400 transition" title="Cancelar">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+              </td>
+            `;
+          } else {
+            row.innerHTML = `
+              <td class="p-2 text-xs text-gray-900 dark:text-white">${a.email || '-'}</td>
+              <td class="p-2 text-xs text-gray-900 dark:text-white">${a.full_name || '-'}</td>
+              <td class="p-2 text-xs text-gray-900 dark:text-white">${a.phone || '-'}</td>
+              <td class="p-2 text-center">
+                <input type="checkbox" disabled ${a.agent ? 'checked' : ''} class="h-4 w-4 text-indigo-600 rounded border-gray-300 dark:border-gray-600">
+              </td>
+              <td class="p-2 text-center flex gap-3 justify-center">
+                <button class="edit-admin-user text-indigo-600 hover:text-indigo-500 transition" data-id="${a.id}" title="Editar">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L7.5 21H3v-4.5l13.732-13.732z" /></svg>
+                </button>
+                <button class="reset-admin-user text-amber-600 hover:text-amber-500 transition" data-id="${a.id}" title="Reset password">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-6.219-8.56M21 4v5h-5"/></svg>
+                </button>
+                <button class="delete-admin-user text-red-600 hover:text-red-500 transition" data-id="${a.id}" title="Eliminar">
+                  <svg class="w-5 h-5 inline-block" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                </button>
+              </td>
+            `;
+          }
+
+          tbody.appendChild(row);
+        });
+      }
+
+      adminTableContainer.appendChild(frag);
+    }
+
+    async function openAdminUsersModal() {
+      hideAdminForm();
+      editingAdminId = null;
+      await loadAdminUsers();
+      if (adminUsersModal) {
+        adminUsersModal.classList.remove('hidden');
+        adminUsersModal.classList.add('flex');
+        adminUsersModal.style.display = 'flex';
+      }
+    }
+    window.openAdminUsersModal = openAdminUsersModal;
+
+    function closeAdminUsersModal() {
+      if (adminUsersModal) {
+        adminUsersModal.classList.add('hidden');
+        adminUsersModal.classList.remove('flex');
+        adminUsersModal.style.display = 'none';
+      }
+      hideAdminForm();
+      editingAdminId = null;
+    }
+
+    async function saveNewAdmins(e) {
+      e?.preventDefault();
+      const rows = document.querySelectorAll('#adminUsersFormTableBody tr');
+      if (!rows.length) {
+        showNotification('Agrega al menos un administrador.', 'error');
+        return;
+      }
+
+      const payloads = [];
+      rows.forEach((row) => {
+        const email = row.querySelector('.admin-email')?.value?.trim();
+        const full_name = row.querySelector('.admin-full-name')?.value?.trim() || null;
+        const phone = row.querySelector('.admin-phone')?.value?.trim() || null;
+        const agent = row.querySelector('.admin-agent')?.checked ? 1 : 0;
+        if (email) {
+          payloads.push({ email, full_name, phone, agent, password: '123456' });
+        }
+      });
+
+      if (!payloads.length) {
+        showNotification('El correo es obligatorio.', 'error');
+        return;
+      }
+
+      try {
+        for (const p of payloads) {
+          const res = await fetch(`${API_BASE}/api/users/admins`, {
+            method: 'POST',
+            headers: authHeaders(),
+            body: JSON.stringify(p)
+          });
+          if (!res.ok) throw new Error('Error creando admin');
+        }
+        showNotification('Administradores creados correctamente.', 'success');
+        hideAdminForm();
+        await loadAdminUsers();
+      } catch (err) {
+        console.error(err);
+        showNotification('No se pudieron crear los administradores.', 'error');
+      }
+    }
+
+    function startEditAdmin(id) {
+      editingAdminId = id;
+      renderAdminUsersTable();
+    }
+
+    function cancelEditAdmin() {
+      editingAdminId = null;
+      renderAdminUsersTable();
+    }
+
+    async function saveEditAdmin(id, row) {
+      const email = row.querySelector('input[data-field="email"]')?.value?.trim();
+      const full_name = row.querySelector('input[data-field="full_name"]')?.value?.trim() || null;
+      const phone = row.querySelector('input[data-field="phone"]')?.value?.trim() || null;
+      const agent = row.querySelector('input[data-field="agent"]')?.checked ? 1 : 0;
+
+      if (!email) {
+        showNotification('El correo es obligatorio.', 'error');
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/api/users/admins/${id}`, {
+          method: 'PATCH',
+          headers: authHeaders(),
+          body: JSON.stringify({ email, full_name, phone, agent })
+        });
+        if (!res.ok) throw new Error();
+        showNotification('Administrador actualizado.', 'success');
+        editingAdminId = null;
+        await loadAdminUsers();
+      } catch (err) {
+        console.error(err);
+        showNotification('No se pudo actualizar.', 'error');
+      }
+    }
+
+    async function resetAdminPassword(id) {
+      const confirmed = await confirmAction('Resetear contraseña', 'Se generará una nueva contraseña temporal.', 'warning');
+      if (!confirmed) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/users/admins/${id}/reset-password`, {
+          method: 'POST',
+          headers: authHeaders()
+        });
+        if (!res.ok) throw new Error();
+        showNotification('Contraseña reseteada.', 'success');
+      } catch (err) {
+        console.error(err);
+        showNotification('No se pudo resetear la contraseña.', 'error');
+      }
+    }
+
+    async function deleteAdmin(id) {
+      const confirmed = await confirmAction('Eliminar administrador', 'Esta acción no se puede deshacer.', 'warning');
+      if (!confirmed) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/users/admins/${id}`, {
+          method: 'DELETE',
+          headers: authHeaders()
+        });
+        if (!res.ok) throw new Error();
+        showNotification('Administrador eliminado.', 'success');
+        await loadAdminUsers();
+      } catch (err) {
+        console.error(err);
+        showNotification('No se pudo eliminar.', 'error');
+      }
+    }
+
+    closeAdminUsersModalBtn?.addEventListener('click', closeAdminUsersModal);
+    cancelAdminUsersBtn?.addEventListener('click', (e) => { e.preventDefault(); closeAdminUsersModal(); });
+    adminUsersModal?.addEventListener('click', (e) => { if (e.target === adminUsersModal) closeAdminUsersModal(); });
+    addAdminUserBtn?.addEventListener('click', (e) => { e.preventDefault(); resetAdminFormRows(); });
+    saveAdminUsersBtn?.addEventListener('click', saveNewAdmins);
+
+    // Delegación de eventos para acciones de tabla
+    document.addEventListener('click', async (e) => {
+      const removeRowBtn = e.target.closest('.remove-admin-form-row');
+      if (removeRowBtn) {
+        e.preventDefault();
+        const row = removeRowBtn.closest('tr');
+        row?.remove();
+        return;
+      }
+
+      if (!adminUsersModal || adminUsersModal.classList.contains('hidden')) return;
+
+      const editBtn = e.target.closest('.edit-admin-user');
+      if (editBtn) {
+        e.preventDefault();
+        startEditAdmin(parseInt(editBtn.dataset.id, 10));
+        return;
+      }
+
+      const cancelBtn = e.target.closest('.cancel-admin-edit');
+      if (cancelBtn) {
+        e.preventDefault();
+        cancelEditAdmin();
+        return;
+      }
+
+      const saveEditBtn = e.target.closest('.save-admin-edit');
+      if (saveEditBtn) {
+        e.preventDefault();
+        const id = parseInt(saveEditBtn.dataset.id, 10);
+        const row = saveEditBtn.closest('tr');
+        if (row) {
+          await saveEditAdmin(id, row);
+        }
+        return;
+      }
+
+      const resetBtn = e.target.closest('.reset-admin-user');
+      if (resetBtn) {
+        e.preventDefault();
+        await resetAdminPassword(parseInt(resetBtn.dataset.id, 10));
+        return;
+      }
+
+      const deleteBtn = e.target.closest('.delete-admin-user');
+      if (deleteBtn) {
+        e.preventDefault();
+        await deleteAdmin(parseInt(deleteBtn.dataset.id, 10));
+      }
     });
   });
 } 

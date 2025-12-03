@@ -318,6 +318,7 @@ services:
       - PMA_PASSWORD=${DB_PASS}
       - PMA_ABSOLUTE_URI=http://localhost:8081/
       - APACHE_LOG_LEVEL=error
+      - UPLOAD_LIMIT=100M
     networks:
       - gelymar-network-dev
     depends_on:

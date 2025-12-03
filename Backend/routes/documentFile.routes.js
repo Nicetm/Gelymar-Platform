@@ -37,13 +37,14 @@ const { authorizeRoles } = require('../middleware/role.middleware');
  *         description: Error interno del servidor
  */
 
-router.get('/:customerUuid', authMiddleware, authorizeRoles(['admin']), controller.getFilesByCustomerAndFolder);
 
-// Ruta para descarga segura de archivos
+// Rutas de visualización/descarga de archivos
 router.get('/view/:id', authMiddleware, controller.viewFile);
 router.get('/temp-view/:token', controller.tempViewFile);
+// view-with-token valida el token de query en el controlador; se expone sin auth aquí
 router.get('/view-with-token/:id', controller.viewWithToken);
 router.get('/download/:id', authMiddleware, controller.downloadFile);
+router.get('/:customerUuid', authMiddleware, authorizeRoles(['admin', 'client']), controller.getFilesByCustomerAndFolder);
 
 /**
  * @swagger

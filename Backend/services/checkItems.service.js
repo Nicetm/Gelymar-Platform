@@ -3,7 +3,14 @@ const os = require('os');
 const path = require('path');
 const { parse } = require('csv-parse/sync');
 const { stringify } = require('csv-stringify/sync');
-const { insertItem, getAllItemCodes, getItemByUniqueKey, compareItemFields, updateItem } = require('./item.service');
+const {
+  insertItem,
+  getAllItemCodes,
+  getItemByUniqueKey,
+  compareItemFields,
+  updateItem,
+  getItemByCode
+} = require('./item.service');
 const { getNetworkFilePath } = require('./networkMount.service');
 
 async function fetchItemFilesFromNetwork() {
@@ -53,6 +60,7 @@ async function fetchItemFilesFromNetwork() {
     let insertados = 0;
     let omitidos = 0;
     let errores = 0;
+    const processedKeys = new Set();
 
     // Procesar en lotes de 100 para evitar problemas de memoria y timeout
     const batchSize = 100;
@@ -78,26 +86,35 @@ async function fetchItemFilesFromNetwork() {
             continue;
           }
 
-          // Extraer campos para unique_key
           const itemCode = record.Item.trim();
           
           // Generar unique_key para items (solo el código del item)
           const uniqueKey = itemCode;
+
+          if (processedKeys.has(uniqueKey)) {
+            console.log(`[${new Date().toISOString()}] -> Check Item Process -> Registro duplicado en archivo omitido: ${uniqueKey}`);
+            omitidos++;
+            continue;
+          }
+          processedKeys.add(uniqueKey);
           
-          // Buscar item existente por unique_key
-          const existingItem = await getItemByUniqueKey(uniqueKey);
+          // Buscar item existente por unique_key o por código (para registros antiguos sin unique_key)
+          let existingItem = await getItemByUniqueKey(uniqueKey);
+          if (!existingItem) {
+            existingItem = await getItemByCode(itemCode);
+          }
           
           if (!existingItem) {
             // NUEVO ITEM - Insertar
-            await insertItem({
-              item_code: itemCode,
-              unique_key: uniqueKey,
-              item_name: record.Descripcion_1?.trim(),
-              item_name_extra: record.Descripcion_2?.trim(),
-              unidad_medida: record.Unidad_medida?.trim()
+              await insertItem({
+                item_code: itemCode,
+                unique_key: uniqueKey,
+                item_name: record.Descripcion_1?.trim(),
+                item_name_extra: record.Descripcion_2?.trim(),
+                unidad_medida: record.Unidad_medida?.trim()
             });
             
-            console.log(`[${new Date().toISOString()}] -> Check Item Process -> NUEVO ITEM insertado: Código=${itemCode}, unique_key=${uniqueKey}`);
+            //console.log(`[${new Date().toISOString()}] -> Check Item Process -> NUEVO ITEM insertado: Código=${itemCode}, unique_key=${uniqueKey}`);
             insertados++;
           } else {
             // ITEM EXISTENTE - Verificar si hay cambios
@@ -117,7 +134,7 @@ async function fetchItemFilesFromNetwork() {
               console.log(`[${new Date().toISOString()}] -> Check Item Process -> ITEM ACTUALIZADO: Código=${itemCode}, unique_key=${uniqueKey}`);
               insertados++;
             } else {
-              console.log(`[${new Date().toISOString()}] -> Check Item Process -> ITEM SIN CAMBIOS: Código=${itemCode}, unique_key=${uniqueKey}`);
+              //console.log(`[${new Date().toISOString()}] -> Check Item Process -> ITEM SIN CAMBIOS: Código=${itemCode}, unique_key=${uniqueKey}`);
               omitidos++;
             }
           }

@@ -1,0 +1,97 @@
+---
+interface AdminSettingsTranslations {
+  admins_title?: string;
+  admins_subtitle?: string;
+  add_admin?: string;
+  cancel?: string;
+  save?: string;
+  email?: string;
+  full_name?: string;
+  phone?: string;
+  agent?: string;
+  actions?: string;
+  reset_password?: string;
+  confirm_reset?: string;
+  confirm_delete?: string;
+}
+
+interface Props {
+  adminSettings: AdminSettingsTranslations;
+}
+
+const { adminSettings } = Astro.props as Props;
+---
+
+<div id="adminUsersModal" class="fixed inset-0 bg-black bg-opacity-50 dark:bg-black/80 hidden justify-center items-center z-50">
+  <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 w-full max-w-3xl mx-4 relative max-h-[90vh] overflow-y-auto shadow-2xl">
+    <button id="closeAdminUsersModal" class="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition dark:text-gray-300 dark:hover:text-red-400">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+
+    <div class="flex items-center gap-4 mb-6">
+      <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+        <span>AD</span>
+      </div>
+      <div>
+        <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">{adminSettings.admins_title ?? 'Administrators'}</h2>
+        <p class="text-sm text-gray-600 dark:text-gray-400">{adminSettings.admins_subtitle ?? 'Manage admin users'}</p>
+      </div>
+    </div>
+
+    <div id="adminUsersFormContainer" class="border-b border-gray-200 dark:border-gray-700 pb-4 mb-6"></div>
+
+    <div id="adminUsersTableContainer" class="mb-6"></div>
+
+    <div class="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700">
+      <button id="addAdminUserBtn" type="button"
+        class="text-xs flex items-center gap-2 text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+        </svg>
+        {adminSettings.add_admin ?? 'Add admin'}
+      </button>
+      <div class="flex gap-3">
+        <button id="cancelAdminUsersBtn"
+          class="text-xs px-4 py-2 bg-gray-300 dark:bg-gray-800 text-gray-700 dark:text-gray-100 rounded-md hover:bg-gray-400 dark:hover:bg-gray-700 transition font-medium">
+          {adminSettings.cancel ?? 'Cancel'}
+        </button>
+        <button id="saveAdminUsersBtn"
+          class="text-xs px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md font-medium transition">
+          {adminSettings.save ?? 'Save'}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<template id="adminUsersFormTableTemplate">
+  <table class="w-full text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800">
+    <thead>
+      <tr class="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+        <th class="p-2 text-left">{adminSettings.email ?? 'Email (RUT)'}</th>
+        <th class="p-2 text-left">{adminSettings.full_name ?? 'Full name'}</th>
+        <th class="p-2 text-left">{adminSettings.phone ?? 'Phone'}</th>
+        <th class="p-2 text-left">{adminSettings.agent ?? 'Agent Chat'}</th>
+        <th class="p-2 text-center">{adminSettings.actions ?? 'Actions'}</th>
+      </tr>
+    </thead>
+    <tbody id="adminUsersFormTableBody"></tbody>
+  </table>
+</template>
+
+<template id="adminUsersExistingTableTemplate">
+  <table class="w-full text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800">
+    <thead>
+      <tr class="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+        <th class="p-2 text-left">{adminSettings.email ?? 'Email (RUT)'}</th>
+        <th class="p-2 text-left">{adminSettings.full_name ?? 'Full name'}</th>
+        <th class="p-2 text-left">{adminSettings.phone ?? 'Phone'}</th>
+        <th class="p-2 text-left">{adminSettings.agent ?? 'Agent Chat'}</th>
+        <th class="p-2 text-center">{adminSettings.actions ?? 'Actions'}</th>
+      </tr>
+    </thead>
+    <tbody id="adminUsersExistingTableBody"></tbody>
+  </table>
+</template>

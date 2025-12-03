@@ -152,3 +152,70 @@ exports.handleAvatarUpload = async (req, res) => {
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 };
+
+// ===== Admin users (role_id = 1) =====
+
+exports.getAdminUsers = async (req, res) => {
+  try {
+    const admins = await userService.getAdminUsers();
+    res.json(admins);
+  } catch (error) {
+    logger.error(`Error al obtener admins: ${error.message}`);
+    res.status(500).json({ message: 'Error al obtener admins' });
+  }
+};
+
+exports.createAdminUser = async (req, res) => {
+  try {
+    const { email, full_name, phone, agent, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email y contraseña son requeridos' });
+    }
+    const id = await userService.createAdminUser({ email, full_name, phone, agent, password });
+    res.status(201).json({ id, message: 'Admin creado' });
+  } catch (error) {
+    logger.error(`Error al crear admin: ${error.message}`);
+    res.status(500).json({ message: 'Error al crear admin' });
+  }
+};
+
+exports.updateAdminUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { email, full_name, phone, agent } = req.body;
+    if (!id) return res.status(400).json({ message: 'ID requerido' });
+    const updated = await userService.updateAdminUser(id, { email, full_name, phone, agent });
+    if (!updated) return res.status(404).json({ message: 'Admin no encontrado' });
+    res.json({ message: 'Admin actualizado' });
+  } catch (error) {
+    logger.error(`Error al actualizar admin: ${error.message}`);
+    res.status(500).json({ message: 'Error al actualizar admin' });
+  }
+};
+
+exports.deleteAdminUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ message: 'ID requerido' });
+    const deleted = await userService.deleteUserById(id);
+    if (!deleted) return res.status(404).json({ message: 'Admin no encontrado' });
+    res.json({ message: 'Admin eliminado' });
+  } catch (error) {
+    logger.error(`Error al eliminar admin: ${error.message}`);
+    res.status(500).json({ message: 'Error al eliminar admin' });
+  }
+};
+
+exports.resetAdminPassword = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { newPassword } = req.body || {};
+    if (!id) return res.status(400).json({ message: 'ID requerido' });
+    const reset = await userService.resetAdminPassword(id, newPassword || '123456');
+    if (!reset) return res.status(404).json({ message: 'Admin no encontrado' });
+    res.json({ message: 'Contraseña reseteada' });
+  } catch (error) {
+    logger.error(`Error al resetear contraseña: ${error.message}`);
+    res.status(500).json({ message: 'Error al resetear contraseña' });
+  }
+};

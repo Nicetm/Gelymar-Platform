@@ -50,8 +50,16 @@ function getRecipientMetadataList() {
         email: normalizeEmailValue(contact?.email),
         sh_documents: toBooleanValue(contact?.sh_documents),
         reports: toBooleanValue(contact?.reports),
+        cco: toBooleanValue(contact?.cco),
       })).filter((contact) => contact.email)
     : [];
+}
+
+function getCcoEmailsFromMetadata() {
+  return getRecipientMetadataList()
+    .filter((contact) => contact.cco === true)
+    .map((contact) => contact.email)
+    .filter(Boolean);
 }
 
 function buildRecipientMetadataMap() {
@@ -84,13 +92,14 @@ function getGlobalValidationMode() {
 
 function getRestrictionLabel(mode) {
   const normalizedMode = String(mode) === '0' ? '0' : '1';
-  return normalizedMode === '0' ? 'SH Documents' : 'Reports';
+  return normalizedMode === '0' ? 'SH Docs' : 'Reports';
 }
 
 function canSendToEmail(email, mode = getGlobalValidationMode()) {
   const normalizedMode = String(mode) === '0' ? '0' : '1';
   const metadata = getRecipientMetadata(email);
   if (!metadata) return true;
+  if (metadata.cco) return true;
 
   const shEnabled = metadata.sh_documents === true;
   const reportsEnabled = metadata.reports === true;
@@ -391,6 +400,8 @@ export function initFilesScript() {
 
   let currentPage = 1;
   let itemsPerPage = parseInt(itemsPerPageSelect?.value || '10', 10);
+  const hideActions = tableBody?.dataset?.hideActions === '1';
+  const colSpan = hideActions ? 7 : 8;
   const allRows = Array.from(tableBody?.querySelectorAll('tr') || []);
   let filteredRows = [...allRows];
 
@@ -497,7 +508,10 @@ export function initFilesScript() {
 
     const isGeneratedFlag = (file.is_generated === 0 || file.is_generated === '0') ? '0' : '1';
 
-    let actions = `<div class="flex justify-center gap-3 relative">`;
+    let actions = '';
+
+    if (!hideActions) {
+      actions = `<div class="flex justify-center gap-3 relative">`;
 
     if (file.status_id === 1) {
       actions += `
@@ -551,7 +565,7 @@ export function initFilesScript() {
         </div>`;
     }
 
-    if ([2, 3, 4].includes(file.status_id)) {
+    if (!hideActions && [2, 3, 4].includes(file.status_id)) {
       actions += `
         <div class="relative">
           <a href="#"
@@ -569,44 +583,51 @@ export function initFilesScript() {
 
     // Definir archivos por defecto que no deben tener botón de eliminar
     const defaultFiles = [
-      'Order Receipt Advice',
-      'Shipment Advice',
-      'Order Delivery Advice',
-      'Availability Advice'
+      'Order Receipt Notice',
+      'Shipment Notice',
+      'Order Delivery Notice',
+      'Availability Notice'
     ];
     
     const isDefaultFile = defaultFiles.includes(file.name);
     
-    actions += `
-      <div class="relative">
-        <a href="#"
-           class="edit-btn text-gray-900 dark:text-white hover:text-blue-500 transition"
-           data-file-id="${file.id}"
-           data-tooltip="${window.translations?.documentos?.edit_document || 'Editar documento'}"
-           aria-label="${window.translations?.documentos?.edit_document || 'Editar documento'}">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" />
-          </svg>
-        </a>
-      </div>`;
-      
-    // Solo mostrar botón de eliminar si NO es un archivo por defecto
-    if (!isDefaultFile) {
+    if (!hideActions) {
       actions += `
         <div class="relative">
           <a href="#"
-             class="delete-btn text-gray-900 dark:text-white hover:text-red-500 transition"
+             class="edit-btn text-gray-900 dark:text-white hover:text-blue-500 transition"
              data-file-id="${file.id}"
-             data-tooltip="${window.translations?.documentos?.delete_document || 'Eliminar documento'}"
-             aria-label="${window.translations?.documentos?.delete_document || 'Eliminar documento'}">
+             data-tooltip="${window.translations?.documentos?.edit_document || 'Editar documento'}"
+             aria-label="${window.translations?.documentos?.edit_document || 'Editar documento'}">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12M10 11v6M14 11v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" />
             </svg>
           </a>
         </div>`;
+        
+      // Solo mostrar botón de eliminar si NO es un archivo por defecto
+      if (!isDefaultFile) {
+        actions += `
+          <div class="relative">
+            <a href="#"
+               class="delete-btn text-gray-900 dark:text-white hover:text-red-500 transition"
+               data-file-id="${file.id}"
+               data-tooltip="${window.translations?.documentos?.delete_document || 'Eliminar documento'}"
+               aria-label="${window.translations?.documentos?.delete_document || 'Eliminar documento'}">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12M10 11v6M14 11v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
+              </svg>
+            </a>
+          </div>`;
+      }
     }
     
-    actions += `</div>`;
+    if (!hideActions) {
+      actions += `</div>`;
+    }
+    }
+
+    const actionsCell = hideActions ? '' : `<td class="sticky right-0 bg-gray-50 dark:bg-gray-700 z-10 px-6 py-4 min-w-[120px] overflow-visible">${actions}</td>`;
 
     return `
       <tr data-id="${file.id}" data-is-generated="${isGeneratedFlag}" class="bg-white dark:bg-gray-900 transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-800 hover:shadow-[0_1px_3px_rgba(0,0,0,0.12)]">
@@ -638,22 +659,16 @@ export function initFilesScript() {
         <td class="px-6 py-4 items-center gap-3">${file.fecha_reenvio ? new Date(file.fecha_reenvio).toLocaleString("es-CL") : '-'}</td>
         <td data-v="${file.is_visible_to_client}" class="px-6 py-4 text-center">
           <div class="relative group flex items-center justify-center">
-            <label class="inline-flex items-center cursor-pointer gap-2">
+            <label class="inline-flex items-center cursor-pointer gap-2" data-tooltip="${window.translations?.documentos?.enable_client_visibility || 'Habilitar documento al cliente'}">
               <input
                 type="checkbox"
                 class="visibility-toggle h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring focus:ring-blue-500 focus:ring-offset-0 dark:border-gray-600 dark:bg-gray-700"
                 data-file-id="${file.id}"
                 ${(file.is_visible_to_client == 1 || file.is_visible_to_client === true) ? 'checked' : ''} />
             </label>
-            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
-                        bg-blue-600 text-white text-xs rounded px-2 py-1 shadow-lg
-                        opacity-0 group-hover:opacity-100 transition
-                        pointer-events-none whitespace-nowrap z-50">
-              ${window.translations?.documentos?.enable_client_visibility || 'Habilitar documento al cliente'}
-            </div>
           </div>
         </td>
-        <td class="sticky right-0 bg-gray-50 dark:bg-gray-700 z-10 px-6 py-4 min-w-[120px] overflow-visible">${actions}</td>
+        ${actionsCell}
       </tr>
     `;
   }
@@ -819,7 +834,7 @@ export function initFilesScript() {
         if (files.length === 0) {
           tableBody.innerHTML = `
             <tr class="bg-white dark:bg-gray-900">
-              <td colspan="9" class="px-6 py-8 text-center text-gray-500">
+              <td colspan="${colSpan}" class="px-6 py-8 text-center text-gray-500">
                 No se encontraron archivos
               </td>
             </tr>
@@ -895,6 +910,8 @@ export function initFilesScript() {
     const activeContainer = editor.querySelector('#activeEmailChips');
     const availableWrapper = editor.querySelector('#availableEmailsWrapper');
     const availableContainer = editor.querySelector('#availableEmailChips');
+    const ccoWrapper = editor.querySelector('#ccoEmailsWrapper');
+    const ccoContainer = editor.querySelector('#ccoEmailChips');
     const newEmailInput = editor.querySelector('#newEmailInput');
     const addEmailBtn = editor.querySelector('#addEmailBtn');
     const hiddenInput = editor.querySelector('#selectedEmailRecipients');
@@ -927,7 +944,7 @@ export function initFilesScript() {
     if (metadataList.length) {
       metadataList.forEach((meta) => {
         const normalized = normalize(meta.email);
-        if (normalized) {
+        if (normalized && !meta.cco) {
           knownEmails.add(normalized);
         }
       });
@@ -937,6 +954,29 @@ export function initFilesScript() {
       if (hiddenInput) {
         hiddenInput.value = Array.from(activeEmails).join(',');
       }
+    };
+
+    const renderCco = () => {
+      if (!ccoWrapper || !ccoContainer) return;
+      const ccoEmails = getCcoEmailsFromMetadata().filter((email) => !activeEmails.has(email));
+      if (!ccoEmails.length) {
+        ccoWrapper.classList.add('hidden');
+        ccoContainer.innerHTML = '';
+        return;
+      }
+      ccoWrapper.classList.remove('hidden');
+      ccoContainer.innerHTML = '';
+      ccoEmails.forEach((email) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'inline-flex items-center gap-1 rounded-full border border-dashed border-gray-300 px-3 py-1 text-xs text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800';
+        button.innerHTML = `<svg class="w-3 h-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg><span>${email}</span>`;
+        button.addEventListener('click', () => {
+          activeEmails.add(email);
+          renderAll();
+        });
+        ccoContainer.appendChild(button);
+      });
     };
 
     const renderActive = () => {
@@ -1019,6 +1059,7 @@ export function initFilesScript() {
     const renderAll = () => {
       renderActive();
       renderAvailable();
+      renderCco();
       syncHiddenInput();
     };
 
@@ -1139,7 +1180,7 @@ export function initFilesScript() {
     };
   }
 
-  async function sendDocument(fileId, orderNumber, customMessage, action, providedRecipients = null, providedNoRecipientsMessage = null, validationMode = getGlobalValidationMode()) {
+  async function sendDocument(fileId, orderNumber, customMessage, action, providedRecipients = null, providedNoRecipientsMessage = null, validationMode = getGlobalValidationMode(), ccoRecipients = []) {
     const state = resolveRecipientState();
     const recipients = Array.isArray(providedRecipients) ? providedRecipients : state.recipients;
     const emptyMessage = providedNoRecipientsMessage || state.noRecipientsMessage;
@@ -1156,7 +1197,7 @@ export function initFilesScript() {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ orderNumber, customMessage, emails: recipients })
+        body: JSON.stringify({ orderNumber, customMessage, emails: recipients, cco_emails: Array.isArray(ccoRecipients) ? ccoRecipients : [] })
       });
 
       const data = await res.json();
@@ -2100,11 +2141,21 @@ export function initFilesScript() {
         return;
       }
 
-      const { recipients, noRecipientsMessage } = resolveRecipientState();
-      if (!recipients.length) {
+      const { recipients: rawRecipients, noRecipientsMessage } = resolveRecipientState();
+      if (!rawRecipients.length) {
         showNotification(noRecipientsMessage, 'warning');
         return;
       }
+
+      // Separar destinatarios normales de CCO según metadata
+      const ccoFromSelected = rawRecipients.filter((email) => {
+        const meta = getRecipientMetadata(email);
+        return meta?.cco === true;
+      });
+      const recipients = rawRecipients.filter((email) => {
+        const meta = getRecipientMetadata(email);
+        return !(meta?.cco === true);
+      });
 
       const validationMode = window.currentMessageData?.isGenerated ?? getGlobalValidationMode();
       const invalidRecipients = recipients.filter(
@@ -2135,6 +2186,7 @@ export function initFilesScript() {
       showGlobalSpinner();
       
       try {
+        const ccoRecipients = Array.from(new Set([...getCcoEmailsFromMetadata(), ...ccoFromSelected]));
         const success = await sendDocument(
           window.currentMessageData.fileId,
           window.currentMessageData.order || '',
@@ -2142,7 +2194,8 @@ export function initFilesScript() {
           window.currentMessageData.action,
           recipients,
           noRecipientsMessage,
-          validationMode
+          validationMode,
+          ccoRecipients
         );
 
         if (!success) {

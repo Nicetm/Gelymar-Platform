@@ -26,10 +26,10 @@ const { validateFilePath, setSecureFilePermissions } = require('../utils/filePer
  */
 function getDocumentGenerator(documentName) {
   const generators = {
-    'Order Receipt Advice': generateRecepcionOrden,
-    'Shipment Advice': generateAvisoEmbarque,
-    'Order Delivery Advice': generateAvisoEntrega,
-    'Availability Advice': generateAvisoDisponibilidad
+    'Order Receipt Notice': generateRecepcionOrden,
+    'Shipment Notice': generateAvisoEmbarque,
+    'Order Delivery Notice': generateAvisoEntrega,
+    'Availability Notice': generateAvisoDisponibilidad
   };
   
   return generators[documentName] || generateRecepcionOrden; // Fallback si no encuentra
@@ -134,7 +134,7 @@ async function getPDFData(file, lang = 'es') {
     eta: orderDetail?.fecha_eta || '-',
     currency: orderDetail?.currency || 'USD',
     paymentCondition: orderDetail?.condicion_venta || '-',
-    incotermDeliveryDate: getWeekOfYear(orderDetail?.fecha_eta, lang),
+    incotermDeliveryDate: getWeekOfYear(orderDetail?.fecha_incoterm, lang),
     receptionDate,
     shipmentDate,
     estimatedDeparture,
@@ -150,7 +150,7 @@ async function getPDFData(file, lang = 'es') {
 
   // Datos específicos según el tipo de documento
   const specificData = {
-    'Order Receipt Advice': {
+    'Order Receipt Notice': {
       ...baseData,
       processingStatus: 'En Proceso',
       serviceType: 'Logística Integral',
@@ -158,7 +158,7 @@ async function getPDFData(file, lang = 'es') {
       destination: 'Internacional',
       priority: 'Normal'
     },
-    'Shipment Advice': {
+    'Shipment Notice': {
       ...baseData,
       etd: orderDetail?.fecha_etd,
       eta: orderDetail?.fecha_eta,
@@ -171,7 +171,7 @@ async function getPDFData(file, lang = 'es') {
       totalVolume: orderItems.reduce((sum, item) => sum + (item.volumen || 0), 0),
       specialInstructions: 'Manejar con cuidado. Mercancía frágil.'
     },
-    'Order Delivery Advice': {
+    'Order Delivery Notice': {
       ...baseData,
       items: orderItems,
       processingStatus: 'Entregado',
@@ -179,7 +179,7 @@ async function getPDFData(file, lang = 'es') {
       dimensions: 'Variable según producto',
       factura: orderDetail?.factura || '-'
     },
-    'Availability Advice': {
+    'Availability Notice': {
       ...baseData,
       items: orderItems,
       processingStatus: 'Disponible',
@@ -194,11 +194,11 @@ async function getPDFData(file, lang = 'es') {
   const { getDocumentTranslations } = require('../pdf-generator/i18n');
   let translationKey = 'aviso_recepcion'; // Default
   
-  if (file.name === 'Shipment Advice') {
+  if (file.name === 'Shipment Notice') {
     translationKey = 'aviso_embarque';
-  } else if (file.name === 'Order Delivery Advice') {
+  } else if (file.name === 'Order Delivery Notice') {
     translationKey = 'aviso_entrega';
-  } else if (file.name === 'Availability Advice') {
+  } else if (file.name === 'Availability Notice') {
     translationKey = 'aviso_disponibilidad';
   }
   
@@ -533,13 +533,24 @@ exports.viewWithToken = async (req, res) => {
       }
       
       // Verificar que el archivo pertenece a una orden del customer
-      const [[customerCheck]] = await pool.query(`
+      const query = `
         SELECT f.id, f.name, o.id as order_id, c.id as customer_id
         FROM order_files f
         JOIN orders o ON f.order_id = o.id
         JOIN customers c ON o.customer_id = c.id
         WHERE f.id = ? AND c.id = ?
-      `, [id, userCustomer.id]);
+      `;
+      const queryParams = [id, userCustomer.id];
+      
+      console.log('=== QUERY customerCheck ===');
+      console.log('SQL Query:', query);
+      console.log('Parameters:', { fileId: id, customerId: userCustomer.id });
+      console.log('Query Params:', queryParams);
+      
+      const [[customerCheck]] = await pool.query(query, queryParams);
+      
+      console.log('Query Result:', customerCheck);
+      console.log('=== END QUERY customerCheck ===');
       
       if (!customerCheck) {
         return res.status(403).json({ message: 'No tienes permisos para acceder a este archivo' });
@@ -610,7 +621,7 @@ exports.downloadFile = async (req, res) => {
         SELECT c.id 
         FROM customers c
         JOIN orders o ON c.id = o.customer_id
-        JOIN files f ON o.id = f.order_id
+        JOIN order_files f ON o.id = f.order_id
         JOIN users u ON u.email = c.rut
         WHERE f.id = ? AND u.id = ?
       `, [id, userId]);
@@ -784,9 +795,12 @@ exports.sendFile = async (req, res) => {
       return res.status(404).json({ message: 'Archivo no encontrado' });
     }
 
-    const { emails: emailsFromBody, lang: requestedLang } = req.body || {};
+    const { emails: emailsFromBody, lang: requestedLang, cco_emails: ccoFromBody } = req.body || {};
     const overrideEmails = Array.isArray(emailsFromBody)
       ? emailsFromBody.map((email) => (typeof email === 'string' ? email.trim() : '')).filter(Boolean)
+      : [];
+    const overrideCco = Array.isArray(ccoFromBody)
+      ? ccoFromBody.map((email) => (typeof email === 'string' ? email.trim() : '')).filter(Boolean)
       : [];
 
     const sendOptions = {};
@@ -795,6 +809,9 @@ exports.sendFile = async (req, res) => {
     }
     if (overrideEmails.length) {
       sendOptions.recipients = overrideEmails;
+    }
+    if (overrideCco.length) {
+      sendOptions.ccoRecipients = overrideCco;
     }
 
     await emailService.sendFileToClient(file, sendOptions);
@@ -814,7 +831,7 @@ exports.sendFile = async (req, res) => {
     
     if (err.name === 'EmailPermissionError') {
       const validationMode = err.validationMode === 0 ? 0 : 1;
-      const reasonLabel = validationMode === 0 ? 'SH Documents' : 'Reports';
+      const reasonLabel = validationMode === 0 ? 'SH Docs' : 'Reports';
       const blockedEmails = Array.isArray(err.blockedEmails)
         ? err.blockedEmails.filter((email) => typeof email === 'string' && email.trim())
         : [];
@@ -967,9 +984,12 @@ exports.resendFile = async (req, res) => {
     const file = await fileService.getFileById(id);
     if (!file) throw new Error('Error al obtener archivo para enviar');
 
-    const { emails: emailsFromBody, lang: requestedLang } = req.body || {};
+    const { emails: emailsFromBody, lang: requestedLang, cco_emails: ccoFromBody } = req.body || {};
     const overrideEmails = Array.isArray(emailsFromBody)
       ? emailsFromBody.map((email) => (typeof email === 'string' ? email.trim() : '')).filter(Boolean)
+      : [];
+    const overrideCco = Array.isArray(ccoFromBody)
+      ? ccoFromBody.map((email) => (typeof email === 'string' ? email.trim() : '')).filter(Boolean)
       : [];
 
     const sendOptions = {};
@@ -978,6 +998,9 @@ exports.resendFile = async (req, res) => {
     }
     if (overrideEmails.length) {
       sendOptions.recipients = overrideEmails;
+    }
+    if (overrideCco.length) {
+      sendOptions.ccoRecipients = overrideCco;
     }
 
     await emailService.sendFileToClient(file, sendOptions);
@@ -995,7 +1018,7 @@ exports.resendFile = async (req, res) => {
     
     if (err.name === 'EmailPermissionError') {
       const validationMode = err.validationMode === 0 ? 0 : 1;
-      const reasonLabel = validationMode === 0 ? 'SH Documents' : 'Reports';
+      const reasonLabel = validationMode === 0 ? 'SH Docs' : 'Reports';
       const blockedEmails = Array.isArray(err.blockedEmails)
         ? err.blockedEmails.filter((email) => typeof email === 'string' && email.trim())
         : [];
@@ -1227,7 +1250,8 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
           // Actualizar el archivo en la BD
           updateData = {
             id: file.id,
-            status_id: 2,
+            status_id: 3,
+            is_visible_to_client: 1,
             updated_at: new Date(),
             fecha_generacion: new Date(),
             path: path.relative(FILE_SERVER_ROOT, filePath)

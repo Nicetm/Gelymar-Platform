@@ -10,18 +10,93 @@ export function initSignIn(config = {}) {
   } = config;
 
   let otpShown = false;
-
-  const normalizedAdminUrl =
-    adminAppUrl && adminAppUrl.trim() !== '' ? adminAppUrl.trim() : '/admin/';
-  const normalizedClientUrl =
-    clientAppUrl && clientAppUrl.trim() !== '' ? clientAppUrl.trim() : '/client/';
-  const normalizedSellerUrl =
-    sellerAppUrl && sellerAppUrl.trim() !== '' ? sellerAppUrl.trim() : '/seller/';
   const normalizedAppContext = (appContext || 'both').toLowerCase();
+
+  const resolveApiOrigin = () => {
+    const configuredBase = apiPublic || apiBase || '';
+    if (typeof window === 'undefined' || !configuredBase) {
+      return configuredBase;
+    }
+
+    const currentOrigin = window.location.origin || '';
+    const isHttpsPortal = currentOrigin.startsWith('https://');
+    const isInternalPortal = normalizedAppContext === 'admin' || normalizedAppContext === 'seller';
+
+    if (!isHttpsPortal || isInternalPortal) {
+      return configuredBase;
+    }
+
+    try {
+      const configuredUrl = new URL(configuredBase);
+      const pointsToInternalHost =
+        configuredUrl.hostname === '172.20.10.151' && configuredUrl.protocol === 'http:';
+
+      if (pointsToInternalHost) {
+        return currentOrigin.replace(/\/$/, '');
+      }
+    } catch {
+      // Si no es una URL válida, continuamos con la lógica siguiente.
+    }
+
+    return configuredBase || currentOrigin.replace(/\/$/, '');
+  };
+
+  const normalizePortalUrl = (url = '', fallbackPath = '/', preferCurrentOrigin = false) => {
+    const fallback = fallbackPath.startsWith('/') ? fallbackPath : `/${fallbackPath}`;
+    const trimmed = url.trim();
+
+    if (!trimmed) {
+      return fallback;
+    }
+
+    if (typeof window === 'undefined') {
+      return trimmed;
+    }
+
+    const currentOrigin = window.location.origin || '';
+    const isHttpsPortal = currentOrigin.startsWith('https://');
+
+    try {
+      const parsed = new URL(trimmed, currentOrigin);
+      const pointsToInternalHost =
+        parsed.protocol === 'http:' &&
+        (parsed.hostname === '172.20.10.151' || parsed.hostname === 'localhost');
+
+      if (preferCurrentOrigin && isHttpsPortal && pointsToInternalHost) {
+        return `${currentOrigin}${parsed.pathname}${parsed.search}${parsed.hash}`;
+      }
+
+      return parsed.toString();
+    } catch {
+      return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+    }
+  };
+
+  const normalizedAdminUrl = normalizePortalUrl(adminAppUrl || '/admin/', '/admin/');
+  let normalizedClientUrl = normalizePortalUrl(clientAppUrl || '/client/documents', '/client/documents', true);
+  if (normalizedClientUrl && !normalizedClientUrl.includes('/client/documents')) {
+    const hasTrailingSlash = normalizedClientUrl.endsWith('/');
+    normalizedClientUrl = `${normalizedClientUrl}${hasTrailingSlash ? '' : '/'}documents`;
+  }
+  const normalizedSellerUrl = normalizePortalUrl(sellerAppUrl || '/seller/', '/seller/');
+  const resolvedApiBase = resolveApiOrigin();
 
   const ADMIN_ROLE_NAMES = ['admin', 'administrador'];
   const SELLER_ROLE_NAMES = ['seller', 'ventas', 'vendedor'];
   const CLIENT_ROLE_NAMES = ['client', 'cliente'];
+
+  const parseJsonResponse = async (response) => {
+    const contentType = response.headers?.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      return response.json();
+    }
+
+    const rawBody = await response.text();
+    const error = new Error('Unexpected non-JSON response');
+    error.status = response.status;
+    error.bodySnippet = rawBody.slice(0, 200);
+    throw error;
+  };
 
   localStorage.removeItem('token');
   localStorage.removeItem('orders_cache');
@@ -158,13 +233,23 @@ export function initSignIn(config = {}) {
     msg.classList.add('text-blue-600');
 
     try {
-      const res = await fetch(`${apiPublic}/api/auth/login`, {
+      const res = await fetch(`${resolvedApiBase}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password, otp, captchaResponse }),
       });
 
-      const data = await res.json();
+      let data;
+      try {
+        data = await parseJsonResponse(res);
+      } catch (parseError) {
+        console.error('Respuesta inesperada del servicio de login:', parseError);
+        msg.textContent = 'Authentication service unavailable. Please try again later.';
+        msg.classList.remove('hidden');
+        msg.classList.remove('text-blue-600', 'text-green-600');
+        msg.classList.add('text-red-500');
+        return;
+      }
 
       if (!res.ok) {
         if (
@@ -177,16 +262,16 @@ export function initSignIn(config = {}) {
 
           try {
             const statusRes = await fetch(
-              `${apiPublic}/api/auth/2fa/status?username=${encodeURIComponent(username)}`
+              `${resolvedApiBase}/api/auth/2fa/status?username=${encodeURIComponent(username)}`
             );
-            const { twoFAEnabled } = await statusRes.json();
+            const { twoFAEnabled } = await parseJsonResponse(statusRes);
 
             if (!twoFAEnabled) {
               document.getElementById('qrContainer')?.classList.remove('hidden');
               const qrRes = await fetch(
-                `${apiPublic}/api/auth/2fa/setup?username=${encodeURIComponent(username)}`
+                `${resolvedApiBase}/api/auth/2fa/setup?username=${encodeURIComponent(username)}`
               );
-              const { qr } = await qrRes.json();
+              const { qr } = await parseJsonResponse(qrRes);
               const qrImg = document.getElementById('qrImage');
               if (qrImg) {
                 qrImg.src = qr;
@@ -214,12 +299,12 @@ export function initSignIn(config = {}) {
       document.cookie = `token=${data.token}; path=/; SameSite=Strict`;
 
       try {
-        const meRes = await fetch(`${apiPublic}/api/auth/me`, {
+        const meRes = await fetch(`${resolvedApiBase}/api/auth/me`, {
           headers: { Authorization: `Bearer ${data.token}` },
         });
 
         if (meRes.ok) {
-          const user = await meRes.json();
+          const user = await parseJsonResponse(meRes);
           const userRole = inferUserRole(user);
 
           if (user.change_pw === 0) {

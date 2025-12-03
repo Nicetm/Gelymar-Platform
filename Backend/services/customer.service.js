@@ -264,10 +264,6 @@ async function createCustomerContacts(customer_uuid, contacts) {
   const customer = customerRows[0];
   if (!customer) throw new Error('Cliente no encontrado');
   
-  if (!customer.email) {
-    throw new Error('Para ingresar contactos adicionales debe ingresar el mail principal');
-  }
-
   const customerId = customer.id;
 
   // Obtener (si existe) el registro de contactos para el cliente
@@ -299,7 +295,8 @@ async function createCustomerContacts(customer_uuid, contacts) {
     email: contact.email || '',
     telefono: contact.phone || '',
     sh_documents: contact.sh_documents || false,
-    reports: contact.reports || false
+    reports: contact.reports || false,
+    cco: contact.cco || false
   }));
   
   // Combinar contactos existentes con nuevos
@@ -309,13 +306,13 @@ async function createCustomerContacts(customer_uuid, contacts) {
     // Actualizar registro existente
     await pool.query(
       'UPDATE customer_contacts SET contact_email = ?, primary_email = ? WHERE customer_id = ?',
-      [JSON.stringify(allContacts), customer.email, customerId]
+      [JSON.stringify(allContacts), customer.email || null, customerId]
     );
   } else {
     // Crear registro si no existe aún
     await pool.query(
       'INSERT INTO customer_contacts (customer_id, rut, primary_email, contact_email, role) VALUES (?, ?, ?, ?, ?)',
-      [customerId, customer.rut, customer.email, JSON.stringify(allContacts), '3']
+      [customerId, customer.rut, customer.email || null, JSON.stringify(allContacts), '3']
     );
   }
 }
@@ -509,6 +506,7 @@ async function updateCustomerContact(customer_uuid, contactIdx, contactData) {
     telefono: contactData.telefono ?? contacts[contactIndex].telefono,
     sh_documents: typeof contactData.sh_documents === 'boolean' ? contactData.sh_documents : contacts[contactIndex].sh_documents,
     reports: typeof contactData.reports === 'boolean' ? contactData.reports : contacts[contactIndex].reports,
+    cco: typeof contactData.cco === 'boolean' ? contactData.cco : contacts[contactIndex].cco,
   };
 
   await pool.query(

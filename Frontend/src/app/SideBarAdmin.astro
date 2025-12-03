@@ -5,6 +5,7 @@ import { inferUserRole, resolveRoleLabel } from '../lib/roles.ts';
 import ModalPdfMailList from '../components/modals/settings/ModalPdfMailList.astro';
 import ModalNotificationEmailList from '../components/modals/settings/ModalNotificationEmailList.astro';
 import ModalAdminSettings from '../components/modals/settings/ModalAdminSettings.astro';
+import ModalAdminUsers from '../components/modals/settings/ModalAdminUsers.astro';
 
 const apiBase = getApiBase();
 const clientApiBase = getPublicApiUrl();
@@ -275,6 +276,13 @@ let avatarDarkSrc = user?.avatar
           </a>
           <a
             href="#"
+            data-setting="admin-users"
+            class="settings-option flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200"
+          >
+            <i data-lucide="users" class="w-4 h-4"></i> Admin users
+          </a>
+          <a
+            href="#"
             data-setting="profile"
             class="settings-option flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200"
           >
@@ -379,6 +387,7 @@ let avatarDarkSrc = user?.avatar
   avatarDarkSrc={avatarDarkSrc}
   user={user}
 />
+<ModalAdminUsers adminSettings={t.admin_settings} />
 <!-- Backdrop móvil -->
 <div
   class="fixed inset-0 z-10 hidden bg-gray-900/50 dark:bg-gray-900/90"

@@ -229,6 +229,11 @@ const updateFile = async(data) => {
     values.push(data.status_id);
   }
   
+  if (data.is_visible_to_client !== undefined) {
+    fields.push('is_visible_to_client = ?');
+    values.push(data.is_visible_to_client);
+  }
+  
   if (data.updated_at !== undefined) {
     fields.push('updated_at = ?');
     values.push(data.updated_at);
@@ -384,7 +389,7 @@ const createDefaultFilesForOrder = async (orderId, customerName, pc, oc) => {
     // Definir los 4 archivos por defecto
     const defaultDocuments = [
       {
-        name: 'Order Receipt Advice',
+        name: 'Order Receipt Notice',
         order_id: orderId,
         pc: pc,
         oc: oc,
@@ -392,7 +397,7 @@ const createDefaultFilesForOrder = async (orderId, customerName, pc, oc) => {
         file_identifier: fileIdentifier
       },
       {
-        name: 'Shipment Advice',
+        name: 'Shipment Notice',
         order_id: orderId,
         pc: pc,
         oc: oc,
@@ -400,7 +405,7 @@ const createDefaultFilesForOrder = async (orderId, customerName, pc, oc) => {
         file_identifier: fileIdentifier
       },
       {
-        name: 'Order Delivery Advice',
+        name: 'Order Delivery Notice',
         order_id: orderId,
         pc: pc,
         oc: oc,
@@ -408,7 +413,7 @@ const createDefaultFilesForOrder = async (orderId, customerName, pc, oc) => {
         file_identifier: fileIdentifier
       },
       {
-        name: 'Availability Advice',
+        name: 'Availability Notice',
         order_id: orderId,
         pc: pc,
         oc: oc,

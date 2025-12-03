@@ -4,7 +4,9 @@ export function initNotificationBell(config = {}) {
     apiPublic = '',
     initialUnread = 0,
     roleId = null,
-    notificationSettings = {}
+    notificationSettings = {},
+    lang = 'es',
+    translations = {}
   } = config;
 
   if (typeof window === 'undefined') {
@@ -15,6 +17,60 @@ export function initNotificationBell(config = {}) {
   if (effectiveApiBase) {
     window.apiBase = effectiveApiBase;
   }
+
+  const locale = (lang && lang.toLowerCase().startsWith('en')) ? 'en-US' : 'es-CL';
+  const t = {
+    tooltip: translations.tooltip || 'Notificaciones',
+    noMessages: translations.no_messages || 'No hay mensajes nuevos',
+    customersNotificationTitle: translations.customers_notification_title || 'Clientes sin cuenta registrados',
+    customersNotificationMessage: translations.customers_notification_message || '{count} cliente{plural} sin cuenta de usuario',
+    ordersTitle: translations.orders_missing_docs_title || 'Orden {pc} • OC {oc}',
+    ordersClientLabel: translations.orders_missing_docs_client || 'Cliente',
+    ordersMissingDocsText: translations.orders_missing_docs_missing_docs || 'Falta documentación mínima',
+    ordersEtdLabel: translations.orders_missing_docs_etd || 'ETD',
+    ordersIngresoLabel: translations.orders_missing_docs_ingreso || 'Ingreso',
+    statusOnline: translations.status_online || 'En línea',
+    statusOffline: translations.status_offline || 'Offline',
+    modalTitle: translations.customers_modal_title || 'Clientes sin Cuenta',
+    modalSubtitle: translations.customers_modal_subtitle || 'Lista de clientes que no tienen cuenta de usuario',
+    modalColumns: {
+      name: translations.customers_modal_columns_name || 'Nombre',
+      rut: translations.customers_modal_columns_rut || 'RUT',
+      email: translations.customers_modal_columns_email || 'Email',
+      actions: translations.customers_modal_columns_actions || 'Acciones'
+    },
+    modalCreate: translations.customers_modal_create || 'Crear cuenta',
+    confirmNoEmailTitle: translations.confirm_no_email_title || 'Cliente sin email',
+    confirmNoEmailMessage: translations.confirm_no_email_message || 'El cliente seleccionado no tiene un correo configurado. No podremos notificar la creación de la cuenta.\n¿Quieres continuar?',
+    confirmCreateAccountTitle: translations.confirm_create_account_title || 'Crear cuenta de usuario',
+    confirmCreateAccountMessage: translations.confirm_create_account_message || 'Se creará una cuenta y contraseña para el cliente. Lo notificaremos por correo electrónico a {email}.\n¿Quieres crear la cuenta?',
+    confirmYes: translations.confirm_yes || 'Sí, continuar',
+    confirmNo: translations.confirm_no || 'No',
+    accountCreated: translations.account_created || 'Cuenta creada exitosamente para {name}',
+    unknownValue: translations.unknown_value || 'Sin información'
+  };
+
+  const formatCustomerCountMessage = (count) => {
+    const plural = count === 1 ? '' : 's';
+    return (t.customersNotificationMessage || '{count} cliente{plural} sin cuenta de usuario')
+      .replace('{count}', count)
+      .replace('{plural}', plural);
+  };
+
+  const formatOrdersTitle = (pc, oc) => {
+    return (t.ordersTitle || 'Orden {pc} • OC {oc}')
+      .replace('{pc}', pc || 'N/A')
+      .replace('{oc}', oc || 'N/A');
+  };
+
+  const formatAccountCreated = (name) => {
+    return (t.accountCreated || 'Cuenta creada exitosamente para {name}').replace('{name}', name || '');
+  };
+
+  const formatConfirmCreateAccountMessage = (email) => {
+    return (t.confirmCreateAccountMessage || '')
+      .replace('{email}', email || '-');
+  };
 
   let notifications = [];
   let unreadCount = Number(initialUnread) || 0;
@@ -128,10 +184,10 @@ export function initNotificationBell(config = {}) {
             <p class="text-sm text-gray-600 dark:text-gray-300 text-center mb-6 whitespace-pre-line">${message}</p>
             <div class="flex gap-3 justify-end">
               <button id="confirmCancel" class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500">
-                No
+                ${t.confirmNo}
               </button>
               <button id="confirmAccept" class="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${type === 'info' ? 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500' : 'bg-amber-600 hover:bg-amber-700 focus:ring-amber-500'}">
-                Sí, continuar
+                ${t.confirmYes}
               </button>
             </div>
           </div>
@@ -317,6 +373,7 @@ export function initNotificationBell(config = {}) {
 
 
   // Elementos del DOM
+  const notificationWrapper = document.getElementById('notification-bell-wrapper');
   const notificationBell = document.getElementById('notification-bell');
   const notificationDropdown = document.getElementById('notification-dropdown');
   const notificationList = document.getElementById('notification-list');
@@ -406,10 +463,11 @@ headers: {
       
       // Agregar notificación de clientes sin cuenta si hay
       if (usersFeature.enabled && customersWithoutAccountCount > 0) {
+        const message = formatCustomerCountMessage(customersWithoutAccountCount);
         notifications.unshift({
           id: 'customers-without-account',
           type: 'customers_without_account',
-          message: `${customersWithoutAccountCount} cliente${customersWithoutAccountCount > 1 ? 's' : ''} sin cuenta de usuario`,
+          message,
           timestamp: new Date().toISOString(),
           unread: true
         });
@@ -427,6 +485,7 @@ headers: {
     const badge = document.getElementById('notification-badge');
     const ping = document.getElementById('notification-ping');
     const bellIcon = notificationBell?.querySelector('svg');
+    const markAllRead = markAllReadBtn;
     
     if (unreadCount > 0) {
       // Cambiar color de la campanita a naranja
@@ -453,6 +512,10 @@ headers: {
       if (ping) ping.classList.add('hidden');
       stopTabBlink();
     }
+
+    if (markAllRead) {
+      markAllRead.classList.toggle('hidden', unreadCount === 0);
+    }
   }
   
   // Función para renderizar notificaciones
@@ -468,7 +531,7 @@ headers: {
             <!-- badajo/sonido -->
             <path d="M10 20a2 2 0 0 0 4 0"/>
           </svg>
-          <p class="text-sm">No hay mensajes nuevos</p>
+          <p class="text-sm">${t.noMessages}</p>
         </div>
       `;
       return;
@@ -477,12 +540,12 @@ headers: {
     const notificationsHTML = notifications.map(notification => {
       // Manejar notificación de clientes sin cuenta
       if (notification.type === 'customers_without_account') {
-        const formattedDate = new Date(notification.timestamp).toLocaleDateString('es-CL', {
+        const formattedDate = new Date(notification.timestamp).toLocaleDateString(locale, {
           year: 'numeric',
           month: 'short',
           day: 'numeric'
         });
-        const formattedTime = new Date(notification.timestamp).toLocaleTimeString('es-CL', {
+        const formattedTime = new Date(notification.timestamp).toLocaleTimeString(locale, {
           hour: '2-digit',
           minute: '2-digit'
         });
@@ -498,7 +561,7 @@ headers: {
               </svg>
               <div class="flex-1">
                 <p class="font-medium text-sm text-gray-900 dark:text-white">
-                  Clientes sin cuenta registrados
+                  ${t.customersNotificationTitle}
                 </p>
                 <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">
                   ${notification.message || '-'}
@@ -517,8 +580,9 @@ headers: {
       
       if (notification.type === 'orders_missing_documents') {
         const order = notification.order || {};
-        const etdDate = order.fecha_etd ? new Date(order.fecha_etd).toLocaleDateString('es-CL') : 'Sin ETD';
-        const ingresoDate = order.fecha ? new Date(order.fecha).toLocaleDateString('es-CL') : 'Sin fecha';
+        const etdDate = order.fecha_etd ? new Date(order.fecha_etd).toLocaleDateString(locale) : t.unknownValue;
+        const ingresoDate = order.fecha ? new Date(order.fecha).toLocaleDateString(locale) : t.unknownValue;
+        const orderTitle = formatOrdersTitle(order.pc, order.oc);
         return `
           <div
             class="p-3 border-b border-gray-100 dark:border-gray-700 bg-red-50 dark:bg-red-900/20 cursor-pointer transition-colors orders-missing-docs-notification"
@@ -532,16 +596,16 @@ headers: {
               </svg>
               <div class="flex-1">
                 <p class="font-medium text-sm text-gray-900 dark:text-white">
-                  Orden ${order.pc || 'N/A'} · OC ${order.oc || 'N/A'}
+                  ${orderTitle}
                 </p>
                 <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                  Cliente: ${order.customer_name || 'Sin información'}
+                  ${t.ordersClientLabel}: ${order.customer_name || t.unknownValue}
                 </p>
                 <p class="text-xs text-gray-600 dark:text-gray-400">
-                  Falta documentación mínima
+                  ${t.ordersMissingDocsText}
                 </p>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  ETD: ${etdDate} · Ingreso: ${ingresoDate}
+                  ${t.ordersEtdLabel}: ${etdDate} · ${t.ordersIngresoLabel}: ${ingresoDate}
                 </p>
               </div>
               <span class="ml-2 bg-red-500 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center">
@@ -570,11 +634,11 @@ headers: {
               </p>
               <p class="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-1">
                 <span class="inline-block w-2 h-2 rounded-full ${notification.online === 1 ? 'bg-green-500' : 'bg-gray-400'}"></span>
-                ${notification.online === 1 ? 'On line' : 'Offline'}
+                ${notification.online === 1 ? t.statusOnline : t.statusOffline}
               </p>
               <p class="text-xs text-gray-600 dark:text-gray-400 truncate">${notification.last_message}</p>
               <p class="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                ${new Date(notification.last_message_time).toLocaleString()}
+                ${new Date(notification.last_message_time).toLocaleString(locale)}
               </p>
             </div>
             ${notification.unread_count > 0 ? `
@@ -649,7 +713,8 @@ headers: {
     }
   });
   
-  markAllReadBtn?.addEventListener('click', async () => {
+  markAllReadBtn?.addEventListener('click', async (event) => {
+    event.stopPropagation();
     try {
       const token = localStorage.getItem('token');
       if (!token) return;
@@ -663,6 +728,7 @@ headers: {
       });
       
       // Recargar notificaciones
+      await updateNotificationCount();
       loadNotifications();
       stopTabBlink();
       
@@ -673,7 +739,7 @@ headers: {
   
   // Cerrar dropdown al hacer clic fuera
   document.addEventListener('click', (e) => {
-    if (!notificationBell?.contains(e.target)) {
+    if (!notificationWrapper?.contains(e.target)) {
       notificationDropdown?.classList.add('hidden');
     }
   });
@@ -804,8 +870,8 @@ headers: {
             </svg>
           </div>
           <div>
-            <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">Clientes sin Cuenta</h2>
-            <p class="text-sm text-gray-600 dark:text-gray-400">Lista de clientes que no tienen cuenta de usuario</p>
+            <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">${t.modalTitle}</h2>
+            <p class="text-sm text-gray-600 dark:text-gray-400">${t.modalSubtitle}</p>
           </div>
         </div>
 
@@ -813,10 +879,10 @@ headers: {
           <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead class="bg-gray-100 dark:bg-gray-800 sticky top-0 z-10">
               <tr>
-                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Nombre</th>
-                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">RUT</th>
-                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Email</th>
-                <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Acciones</th>
+                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${t.modalColumns.name}</th>
+                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${t.modalColumns.rut}</th>
+                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${t.modalColumns.email}</th>
+                <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${t.modalColumns.actions}</th>
               </tr>
             </thead>
             <tbody id="customersWithoutAccountTableBody" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
@@ -850,11 +916,11 @@ headers: {
             <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
               <button class="customer-name-btn text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline transition-colors cursor-pointer" 
                       data-customer-name="${customer.name || ''}">
-                ${customer.name ? customer.name.charAt(0).toUpperCase() + customer.name.slice(1).toLowerCase() : 'N/A'}
+                ${customer.name ? customer.name.charAt(0).toUpperCase() + customer.name.slice(1).toLowerCase() : t.unknownValue}
               </button>
             </td>
-            <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">${customer.rut || '-'}</td>
-            <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">${customer.email || '-'}</td>
+            <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">${customer.rut || t.unknownValue}</td>
+            <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">${customer.email || t.unknownValue}</td>
             <td class="px-6 py-4 text-center">
               <button 
                 class="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors create-account-btn"
@@ -863,7 +929,7 @@ headers: {
                 data-customer-rut="${customer.rut}"
                 data-customer-email="${customer.email || ''}"
               >
-                Crear Cuenta
+                ${t.modalCreate}
               </button>
             </td>
           </tr>
@@ -927,14 +993,14 @@ headers: {
 
       if (!hasEmail) {
         confirmed = await confirmAction(
-          'Cliente sin email',
-          'El cliente al que quieres crear la cuenta no tiene un mail configurado. No podremos notificar la creación de la cuenta.\n¿Quieres continuar?',
+          t.confirmNoEmailTitle,
+          t.confirmNoEmailMessage,
           'warning'
         );
       } else {
         confirmed = await confirmAction(
-          'Crear cuenta de usuario',
-          `Se creará una cuenta usuario y password para el cliente. Lo notificaremos por correo electrónico al ${customerEmail}.\n¿Quieres crear la cuenta?`,
+          t.confirmCreateAccountTitle,
+          formatConfirmCreateAccountMessage(customerEmail),
           'info'
         );
       }
@@ -986,7 +1052,7 @@ headers: {
         const result = await createResponse.json();
         
         if (window.showNotification) {
-          window.showNotification(`Cuenta creada exitosamente para ${customerData.name}`, 'success');
+          window.showNotification(formatAccountCreated(customerData.name), 'success');
         }
         
         // Remover la fila de la tabla

@@ -1,4 +1,4 @@
-# Script para construir todas las imágenes Docker para producción usando docker-compose
+﻿# Script para construir todas las imágenes Docker para producción usando docker-compose
 # Ejecutar desde el directorio docker
 
 Write-Host "🚀 Iniciando construcción de todas las imágenes Docker para producción..." -ForegroundColor Green

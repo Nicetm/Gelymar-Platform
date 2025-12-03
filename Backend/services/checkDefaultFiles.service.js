@@ -61,28 +61,28 @@ async function generateDefaultFiles() {
             // Crear los cuatro documentos por defecto
             const defaultDocuments = [
               {
-                name: 'Order Receipt Advice',
+                name: 'Order Receipt Notice',
                 order_id: order.id,
                 pc: order.pc,
                 oc: order.oc,
                 path: directoryPath
               },
               {
-                name: 'Shipment Advice',
+                name: 'Shipment Notice',
                 order_id: order.id,
                 pc: order.pc,
                 oc: order.oc,
                 path: directoryPath
               },
               {
-                name: 'Order Delivery Advice',
+                name: 'Order Delivery Notice',
                 order_id: order.id,
                 pc: order.pc,
                 oc: order.oc,
                 path: directoryPath
               },
               {
-                name: 'Availability Advice',
+                name: 'Availability Notice',
                 order_id: order.id,
                 pc: order.pc,
                 oc: order.oc,

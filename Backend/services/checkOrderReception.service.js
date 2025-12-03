@@ -104,7 +104,7 @@ async function getReceptionFile(orderId) {
   try {
     const [rows] = await pool.query(
       'SELECT id, path FROM order_files WHERE order_id = ? AND name = ?',
-      [orderId, 'Order Receipt Advice']
+      [orderId, 'Order Receipt Notice']
     );
     return rows.length > 0 ? rows[0] : null;
   } catch (error) {
