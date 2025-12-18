@@ -136,7 +136,9 @@ export async function initOrdersScript() {
           </a>
         </td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(order.fecha)}</td>
-        <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${order.medio_envio_factura || '-'}</td>
+        <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">
+          ${(!order.factura || order.factura === 0 || order.factura === '0') ? (order.medio_envio_ov || '-') : (order.medio_envio_factura || '-')}
+        </td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${order.factura || '-'}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(order.fecha_factura)}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(order.fecha_etd)}</td>
@@ -896,10 +898,22 @@ async function openItemsModal(orderPc, orderOc, factura) {
     const apiBase = window.apiBase || datasetApiBase;
 
     const safeOrderOc = orderOc ? encodeURIComponent(orderOc) : '';
-    const safeFactura = factura && factura !== 'null' ? encodeURIComponent(factura) : '';
+    const facturaValue = factura === undefined || factura === null ? '' : String(factura).trim();
+    const hasFacturaRequest = facturaValue !== '' && facturaValue !== 'null'; // para endpoint (incluye '0')
+    const hasFacturaDisplay = facturaValue !== '' && facturaValue !== 'null' && facturaValue !== '0'; // para labels/cálculos
+    const safeFactura = hasFacturaRequest ? encodeURIComponent(facturaValue) : '';
+
+    // Ajustar header de cantidad según tenga factura o no (i18n fallbacks)
+    const quantityHeader = itemsModal.querySelector('[data-column="quantity"]');
+    if (quantityHeader) {
+      const qtyHeaderText = hasFacturaDisplay
+        ? (window.translations?.carpetas?.kgFacturados || window.translations?.carpetas?.kg_facturados || 'KG FACTURADOS')
+        : (window.translations?.carpetas?.kgSolicitados || window.translations?.carpetas?.kg_solicitados || 'KG SOLICITADOS');
+      quantityHeader.textContent = qtyHeaderText;
+    }
     
     // Usar endpoint diferente según si tiene factura o no
-    const url = factura && factura !== 'null' 
+    const url = hasFacturaRequest 
       ? `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/${safeFactura}/items`
       : `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/items`;
     
@@ -961,7 +975,10 @@ async function openItemsModal(orderPc, orderOc, factura) {
         `;
       } else {
         itemsTableBody.innerHTML = normalizedItems.map(item => {
-          const rawQuantity = factura && factura !== 'null' ? item.kg_facturados : item.kg_solicitados;
+          // Si no hay facturados, usar solicitados como respaldo
+          const rawQuantity = hasFacturaDisplay
+            ? (item.kg_facturados ?? item.kg_solicitados)
+            : (item.kg_solicitados ?? item.kg_facturados);
           const quantity = parseNumber(rawQuantity);
           const unitPrice = parseNumber(item.unit_price);
           const total = quantity * unitPrice;
@@ -984,13 +1001,17 @@ async function openItemsModal(orderPc, orderOc, factura) {
     const totalItemsCount = normalizedItems.length;
 
     const totalQuantitySum = normalizedItems.reduce((sum, item) => {
-      const rawQuantity = factura && factura !== 'null' ? item.kg_facturados : item.kg_solicitados;
+      const rawQuantity = hasFacturaDisplay
+        ? (item.kg_facturados ?? item.kg_solicitados)
+        : (item.kg_solicitados ?? item.kg_facturados);
       const quantity = parseNumber(rawQuantity);
       return sum + quantity;
     }, 0);
 
     const totalValueSum = normalizedItems.reduce((sum, item) => {
-      const rawQuantity = factura && factura !== 'null' ? item.kg_facturados : item.kg_solicitados;
+      const rawQuantity = hasFacturaDisplay
+        ? (item.kg_facturados ?? item.kg_solicitados)
+        : (item.kg_solicitados ?? item.kg_facturados);
       const quantity = parseNumber(rawQuantity);
       const price = parseNumber(item.unit_price);
       return sum + (quantity * price);
@@ -998,9 +1019,8 @@ async function openItemsModal(orderPc, orderOc, factura) {
 
     const currency = (normalizedItems[0]?.currency) || 'CLP';
     const unit = (normalizedItems[0]?.unidad_medida) || 'KG';
-    const hasFactura = factura && factura !== 'null';
     const rawGastoAdicionalFactura = normalizedItems[0]?.gasto_adicional_flete_factura;
-    const shouldUseFacturaExpense = hasFactura && rawGastoAdicionalFactura !== null && rawGastoAdicionalFactura !== undefined && rawGastoAdicionalFactura !== '';
+    const shouldUseFacturaExpense = hasFacturaDisplay && rawGastoAdicionalFactura !== null && rawGastoAdicionalFactura !== undefined && rawGastoAdicionalFactura !== '';
     const rawGastoAdicional = shouldUseFacturaExpense ? rawGastoAdicionalFactura : normalizedItems[0]?.gasto_adicional_flete;
     const gastoAdicional = parseNumber(rawGastoAdicional);
     

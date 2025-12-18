@@ -20,6 +20,7 @@ class Order {
     fecha_eta = null,
     currency = null,
     medio_envio_factura = null,
+    medio_envio_ov = null,
     incoterm = null,
     puerto_destino = null,
     certificados = null,
@@ -45,6 +46,7 @@ class Order {
     this.fecha_eta = fecha_eta;
     this.currency = currency;
     this.medio_envio_factura = medio_envio_factura;
+    this.medio_envio_ov = medio_envio_ov;
     this.incoterm = incoterm;
     this.puerto_destino = puerto_destino;
     this.certificados = certificados;

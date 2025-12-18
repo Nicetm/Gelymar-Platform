@@ -549,24 +549,6 @@ const createClientDirectory = async (customerName, pc, fileIdentifier) => {
   }
 };
 
-// Función para obtener email del cliente por order_id
-const getCustomerEmailByOrderId = async (orderId) => {
-  try {
-    const pool = await poolPromise;
-    const [rows] = await pool.query(`
-      SELECT c.email 
-      FROM customers c
-      JOIN orders o ON c.id = o.customer_id
-      WHERE o.id = ?
-    `, [orderId]);
-    
-    return rows[0]?.email || null;
-  } catch (error) {
-    console.error('Error obteniendo email del cliente:', error);
-    return null;
-  }
-};
-
 // Función para marcar archivo como visible al cliente
 const markFileAsVisibleToClient = async (fileId) => {
   try {
@@ -662,7 +644,6 @@ module.exports = {
   insertDefaultFile,
   createClientDirectory,
   getNextFileIdentifier,
-  getCustomerEmailByOrderId,
   markFileAsVisibleToClient,
   getOrderDataForPDF,
   createDefaultFilesIfNotExist

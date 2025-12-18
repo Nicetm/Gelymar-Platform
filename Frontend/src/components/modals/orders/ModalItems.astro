@@ -40,7 +40,7 @@ const getText = (value: string | undefined, fallback: string) =>
             <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">
               {getText(carpetas?.itemName, 'Item Name')}
             </th>
-            <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">
+            <th data-column="quantity" class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">
               {getText(carpetas?.cantidad, 'Quantity')}
             </th>
             <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">

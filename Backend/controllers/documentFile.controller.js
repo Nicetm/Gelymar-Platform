@@ -63,6 +63,7 @@ async function getPDFData(file, lang = 'es') {
       oi.id,
       oi.order_id,
       oi.item_id,
+      oi.descripcion,
       oi.kg_solicitados,
       oi.unit_price,
       oi.volumen,
@@ -89,6 +90,7 @@ async function getPDFData(file, lang = 'es') {
         oi.id,
         oi.order_id,
         oi.item_id,
+        oi.descripcion,
         oi.kg_solicitados,
         oi.unit_price,
         oi.volumen,
@@ -119,17 +121,24 @@ async function getPDFData(file, lang = 'es') {
   const estimatedArrival = new Date(currentDate.getTime() + 25 * 24 * 60 * 60 * 1000).toLocaleDateString('es-CL'); // +25 días
   const estimatedDelivery = new Date(currentDate.getTime() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString('es-CL'); // +30 días
 
+  // Ruta opcional de firma
+  const signaturePath = path.join(__dirname, '../pdf-generator/assets/firma_carla.png');
+
   // Datos base para todos los templates
+  // PARA ETD y ETA, si ETD_ENC_FAC no es nulo, usar ETD_ENC_FAC y ETA_ENC_FAC, si no, usar ETD_OV y ETA_OV
+  //const etd = orderDetail?.fecha_etd_enc_fac || orderDetail?.fecha_etd_ov || '-';
+  //const eta = orderDetail?.fecha_eta_enc_fac || orderDetail?.fecha_eta_ov || '-';
+
   const baseData = {
     title: file.name,
     subtitle: `Documento generado para ${order?.customer_name || file.customer_name}`,
     customerName: order?.customer_name || file.customer_name,
     internalOrderNumber: order?.pc || '-',
     orderNumber: order?.oc ? order.oc.replace(/^GEL\s*/i, '') : '-',
+    tipo: orderDetail?.tipo || '-',
     responsiblePerson: 'Sistema Gelymar',
     destinationPort: orderDetail?.puerto_destino || '-',
     incoterm: orderDetail?.incoterm || '-',
-    shippingMethod: orderDetail?.medio_envio_factura || '-',
     etd: orderDetail?.fecha_etd || '-',
     eta: orderDetail?.fecha_eta || '-',
     currency: orderDetail?.currency || 'USD',
@@ -140,8 +149,9 @@ async function getPDFData(file, lang = 'es') {
     estimatedDeparture,
     estimatedArrival,
     estimatedDelivery,
+    signImagePath: fs.existsSync(signaturePath) ? signaturePath : null,
     items: orderItems.map(item => ({
-      item_name: item.item_name || 'Producto',
+      descripcion: item.descripcion || item.item_name || 'Producto',
       kg_solicitados: item.kg_solicitados || 1,
       unit_price: item.unit_price || 0,
       factura: item.factura || '-'
@@ -156,7 +166,8 @@ async function getPDFData(file, lang = 'es') {
       serviceType: 'Logística Integral',
       origin: 'Chile',
       destination: 'Internacional',
-      priority: 'Normal'
+      priority: 'Normal',
+      shippingMethod: orderDetail?.medio_envio_ov || '-'
     },
     'Shipment Notice': {
       ...baseData,
@@ -169,7 +180,8 @@ async function getPDFData(file, lang = 'es') {
       cargoType: 'Mercancía General',
       totalWeight: orderItems.reduce((sum, item) => sum + (item.kg_solicitados || 0), 0),
       totalVolume: orderItems.reduce((sum, item) => sum + (item.volumen || 0), 0),
-      specialInstructions: 'Manejar con cuidado. Mercancía frágil.'
+      specialInstructions: 'Manejar con cuidado. Mercancía frágil.',
+      shippingMethod: orderDetail?.tipo === 'ST' ? orderDetail?.medio_envio_ov : '-'
     },
     'Order Delivery Notice': {
       ...baseData,
@@ -177,7 +189,8 @@ async function getPDFData(file, lang = 'es') {
       processingStatus: 'Entregado',
       serviceType: 'Servicio Logístico Completo',
       dimensions: 'Variable según producto',
-      factura: orderDetail?.factura || '-'
+      factura: orderDetail?.factura || '-',
+      shippingMethod: orderDetail?.tipo === 'ST' ? orderDetail?.medio_envio_ov : '-'
     },
     'Availability Notice': {
       ...baseData,
@@ -186,7 +199,8 @@ async function getPDFData(file, lang = 'es') {
       serviceType: 'Servicio Logístico Completo',
       origin: 'Chile',
       destination: 'Internacional',
-      priority: 'Normal'
+      priority: 'Normal',
+      shippingMethod: orderDetail?.tipo === 'ST' ? orderDetail?.medio_envio_ov : '-'
     }
   };
 

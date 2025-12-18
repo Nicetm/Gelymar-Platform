@@ -123,7 +123,7 @@ async function getCustomerEmail(customerId, rut) {
   const pool = await poolPromise;
   try {
     const [rows] = await pool.query(
-      'SELECT c.email, c.country, cl.lang FROM customers c INNER JOIN country_lang cl ON c.country = cl.country WHERE c.id = ? AND c.rut = ?',
+      'SELECT c.contact_secondary, c.country, cl.lang FROM customers c INNER JOIN country_lang cl ON c.country = cl.country WHERE c.id = ? AND c.rut = ?',
       [customerId, rut]
     );
     return rows.length > 0 ? rows[0] : null;

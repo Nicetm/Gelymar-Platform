@@ -157,6 +157,8 @@ async function fetchOrderLineFilesFromNetwork() {
         const ktoEtiqueta5 = record.Kto_Etiqueta5?.trim();
         const fechaEtd = record.ETD_Item_OV?.trim();
         const fechaEta = record.ETA_Item_OV?.trim();
+        const fechaEtdFactura = record.ETD_ENC_FAC?.trim();
+        const fechaEtaFactura = record.ETA_ENC_FAC?.trim();
         const kgFacturados = record.KilosFacturados?.trim();
         const factura = record.Factura?.trim() || '';
         
@@ -197,6 +199,8 @@ async function fetchOrderLineFilesFromNetwork() {
             tipo: tipo,
             fecha_etd: fechaEtd && fechaEtd.trim() !== '' ? fechaEtd : null,
             fecha_eta: fechaEta && fechaEta.trim() !== '' ? fechaEta : null,
+            fecha_etd_factura: fechaEtdFactura && fechaEtdFactura.trim() !== '' ? fechaEtdFactura : null,
+            fecha_eta_factura: fechaEtaFactura && fechaEtaFactura.trim() !== '' ? fechaEtaFactura : null,
             kg_facturados: kgFacturados ? normalizeDecimal(kgFacturados, 4) : null,
             unique_key: uniqueKey,
             created_at: new Date(),
@@ -232,6 +236,8 @@ async function fetchOrderLineFilesFromNetwork() {
               tipo: tipo,
               fecha_etd: fechaEtd && fechaEtd.trim() !== '' ? fechaEtd : null,
               fecha_eta: fechaEta && fechaEta.trim() !== '' ? fechaEta : null,
+              fecha_etd_factura: fechaEtdFactura && fechaEtdFactura.trim() !== '' ? fechaEtdFactura : null,
+              fecha_eta_factura: fechaEtaFactura && fechaEtaFactura.trim() !== '' ? fechaEtaFactura : null,
               kg_facturados: kgFacturados ? parseFloat(kgFacturados.replace(',', '.')) : null,
               unique_key: uniqueKey,
               updated_at: new Date()
@@ -305,7 +311,7 @@ async function compareOrderLineFields(existingLine, newRecord) {
   const fieldsToCompare = [
     'factura', 'descripcion', 'kg_solicitados', 'kg_despachados', 'unit_price', 
     'observacion', 'mercado', 'embalaje', 'volumen', 'etiqueta', 'kto_etiqueta5',
-    'tipo', 'fecha_etd', 'fecha_eta', 'kg_facturados', 'localizacion'
+    'tipo', 'fecha_etd', 'fecha_eta', 'fecha_etd_factura', 'fecha_eta_factura', 'kg_facturados', 'localizacion'
   ];
   
   for (const field of fieldsToCompare) {
@@ -327,6 +333,10 @@ async function compareOrderLineFields(existingLine, newRecord) {
       newValue = newRecord.ETD_Item_OV && newRecord.ETD_Item_OV.trim() !== '' ? normalizeDate(newRecord.ETD_Item_OV) : null;
     } else if (field === 'fecha_eta') {
       newValue = newRecord.ETA_Item_OV && newRecord.ETA_Item_OV.trim() !== '' ? normalizeDate(newRecord.ETA_Item_OV) : null;
+    } else if (field === 'fecha_etd_factura') {
+      newValue = newRecord.ETD_ENC_FAC && newRecord.ETD_ENC_FAC.trim() !== '' ? normalizeDate(newRecord.ETD_ENC_FAC) : null;
+    } else if (field === 'fecha_eta_factura') {
+      newValue = newRecord.ETA_ENC_FAC && newRecord.ETA_ENC_FAC.trim() !== '' ? normalizeDate(newRecord.ETA_ENC_FAC) : null;
     } else if (field === 'factura') {
       newValue = normalizeValue(newRecord.Factura?.trim());
     } else if (field === 'descripcion') {
@@ -351,7 +361,7 @@ async function compareOrderLineFields(existingLine, newRecord) {
     let normalizedExistingValue = existingValue;
     
     // Normalizar fechas
-    if (field === 'fecha_etd' || field === 'fecha_eta') {
+    if (field === 'fecha_etd' || field === 'fecha_eta' || field === 'fecha_etd_factura' || field === 'fecha_eta_factura') {
       normalizedExistingValue = normalizeDate(existingValue);
     }
     // Normalizar decimales

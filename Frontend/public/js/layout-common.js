@@ -125,6 +125,8 @@ function setupTokenWatcher(apiBase) {
 
         if (response.ok && data.token) {
           localStorage.setItem('token', data.token);
+          // Refrescar cookie para que SSR/fetches que lean cookie sigan autenticados
+          document.cookie = `token=${data.token}; path=/; SameSite=Strict; max-age=3600`;
           modal.classList.add('hidden');
         } else {
           logout();

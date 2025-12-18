@@ -76,11 +76,13 @@
 	"tooltipViewItems": "View items list",
 	"tooltipExpandItems": "Expand items in table",
 	"tooltipOrderDetails": "View order details",
-	"gastoAdicional": "Additional Expense",
-	"cliente": "Customer",
-	"cantidad": "Quantity",
-	"precioUnitario": "Unit Price",
-	"viewDocuments": "Documents",
-	"documents": "Documents",
-	"onlyOpen": "Open Only"
+ "gastoAdicional": "Additional Expense",
+ "cliente": "Customer",
+ "cantidad": "Quantity",
+  "kgSolicitados": "Requested KG",
+  "kgFacturados": "Invoiced KG",
+ "precioUnitario": "Unit Price",
+ "viewDocuments": "Documents",
+ "documents": "Documents",
+ "onlyOpen": "Open Only"
 }

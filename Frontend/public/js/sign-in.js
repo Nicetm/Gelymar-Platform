@@ -72,7 +72,7 @@ export function initSignIn(config = {}) {
     }
   };
 
-  const normalizedAdminUrl = normalizePortalUrl(adminAppUrl || '/admin/', '/admin/');
+  const normalizedAdminUrl = normalizePortalUrl(adminAppUrl || '/admin/orders', '/admin/orders');
   let normalizedClientUrl = normalizePortalUrl(clientAppUrl || '/client/documents', '/client/documents', true);
   if (normalizedClientUrl && !normalizedClientUrl.includes('/client/documents')) {
     const hasTrailingSlash = normalizedClientUrl.endsWith('/');
@@ -384,7 +384,31 @@ export function initSignIn(config = {}) {
               );
               return;
             }
-            navigateTo(normalizedAdminUrl);
+            let adminTarget = normalizedAdminUrl && normalizedAdminUrl.trim() !== ''
+              ? normalizedAdminUrl.trim()
+              : '/admin/orders';
+
+            // Si es URL relativa y apunta a /admin o /admin/, enviar a /admin/orders
+            const normalizedRelative = adminTarget.replace(/\/+$/, '');
+            if (!isAbsoluteUrl(adminTarget) && (normalizedRelative === '/admin' || normalizedRelative === 'admin')) {
+              adminTarget = '/admin/orders';
+            }
+
+            // Si es URL absoluta y termina en /admin o /admin/, anexar /orders
+            if (isAbsoluteUrl(adminTarget)) {
+              try {
+                const parsed = new URL(adminTarget);
+                const normalizedPath = parsed.pathname.replace(/\/+$/, '');
+                if (normalizedPath === '/admin') {
+                  parsed.pathname = '/admin/orders';
+                  adminTarget = parsed.toString();
+                }
+              } catch {
+                // Si falla el parseo, dejar adminTarget tal cual
+              }
+            }
+
+            navigateTo(adminTarget);
           } else if (userRole === 'seller') {
             if (!allowSellerAccess) {
               clearSessionAfterMismatch();

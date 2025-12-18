@@ -342,7 +342,7 @@ function generateModernTable(doc, items, data = {}) {
       doc.restore();
     }
     
-    const productName = item.item_name || '';
+    const productName = item.descripcion || item.item_name || '';
     const quantity = parseNumeric(item.kg_solicitados ?? item.kg_facturados ?? 0) || 0;
     const unitPrice = parseNumeric(item.unit_price) || 0;
     const total = quantity * unitPrice;
@@ -350,12 +350,12 @@ function generateModernTable(doc, items, data = {}) {
     doc.fontSize(9).font(STYLES.font).fillColor(STYLES.textPrimary)
       .text(productName, itemX, y + 8, { width: 210 })
       .text(`${formatNumber(quantity, data.lang)} kg`, qtyX, y + 8, { width: 60, align: 'center' })
-      .text(`${formatCurrency(unitPrice, data.currency)}`, priceX, y + 8, { width: 70, align: 'center' });
+      .text(`${formatCurrency(unitPrice, data.currency, 4)}`, priceX, y + 8, { width: 70, align: 'center' });
     
     if (Number.isFinite(total)) {
       grandTotal += total;
       doc.font(STYLES.fontBold)
-        .text(`${formatCurrency(total, data.currency)}`, totalX, y + 8, { width: 90, align: 'center' });
+        .text(`${formatCurrency(total, data.currency, 2)}`, totalX, y + 8, { width: 90, align: 'center' });
     } else {
       doc.font(STYLES.fontBold)
         .text('-', totalX, y + 8, { width: 90, align: 'center' });
@@ -376,7 +376,7 @@ function generateModernTable(doc, items, data = {}) {
     
     doc.fontSize(9).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
       .text(t.total_general || 'TOTAL GENERAL', priceX - 40, totalY + 12, { width: 110, align: 'right' })
-      .text(`${formatCurrency(grandTotal, data.currency)}`, totalX, totalY + 12, { width: 90, align: 'center' });
+      .text(`${formatCurrency(grandTotal, data.currency, 2)}`, totalX, totalY + 12, { width: 90, align: 'center' });
     
     doc.moveTo(tableX, totalY + rowHeight).lineTo(tableX + tableWidth, totalY + rowHeight)
       .strokeColor(STYLES.lineColor).lineWidth(1).stroke();
@@ -416,7 +416,7 @@ function generateEmbarqueTable(doc, items, data = {}) {
       doc.restore();
     }
     
-    const productName = item.item_name || '';
+    const productName = item.descripcion || item.item_name || '';
     let quantity = parseNumeric(item.kg_facturados ?? item.kg_solicitados ?? 0);
     if (!Number.isFinite(quantity)) quantity = 0;
     else totalQuantity += quantity;
@@ -564,7 +564,7 @@ function generateEntregaTable(doc, items, data = {}) {
       doc.restore();
     }
     
-    const productName = item.item_name || '';
+    const productName = item.descripcion || item.item_name || '';
     let quantity = parseNumeric(item.kg_solicitados ?? item.kg_facturados ?? 0);
     if (!Number.isFinite(quantity)) quantity = 0;
     else totalQuantity += quantity;
@@ -711,7 +711,7 @@ function generateDisponibilidadTable(doc, items, data = {}) {
       doc.restore();
     }
     
-    const productName = item.item_name || '';
+    const productName = item.descripcion || item.item_name || '';
     let quantity = parseNumeric(item.kg_facturados ?? item.kg_solicitados ?? 0);
     if (!Number.isFinite(quantity)) quantity = 0;
     else totalQuantity += quantity;
@@ -746,14 +746,15 @@ function generateDisponibilidadTable(doc, items, data = {}) {
 }
 
 function drawSignatureSection(doc, data) {
-  doc.moveDown(4);
+  doc.moveDown(1);
   
   const signY = doc.y;
   const signWidth = 220;
   const signX = (doc.page.width - signWidth) / 2;
+  const signatureImage = data.signImagePath || data.signatureImagePath; // ruta opcional
 
   doc.save();
-  doc.roundedRect(signX, signY - 5, signWidth, 70, 10)
+  doc.roundedRect(signX, signY - 5, signWidth, 75, 10)
     .strokeColor(STYLES.lineColor)
     .lineWidth(1)
     .stroke();
@@ -763,16 +764,24 @@ function drawSignatureSection(doc, data) {
   //doc.fontSize(9).font(STYLES.font).fillColor(STYLES.textSecondary)
   // .text(t.signature_title || 'FIRMA AUTORIZADA', signX + 10, signY + 2);
 
+  // Imagen de firma (si se pasa la ruta)
+  if (signatureImage) {
+    const imgWidth = 80;
+    doc.image(signatureImage, signX + (signWidth - imgWidth) / 2, signY + 6, { width: imgWidth });
+  }
+
   doc.moveTo(signX + 20, signY + 30).lineTo(signX + signWidth - 20, signY + 30)
     .strokeColor(STYLES.lineColor).lineWidth(0.7).stroke();
 
   const signName = data.signName || t.signature_name || 'Carla Torres';
   const signRole = data.signRole || t.signature_role || 'Customer Service';
+  const signPhone = data.signPhone || t.signature_phone || '+56 9 9760 4855';
   
   doc.fontSize(10).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
     .text(signName, signX + 10, signY + 36, { width: signWidth - 20, align: 'center' })
     .fontSize(8).font(STYLES.font).fillColor(STYLES.textSecondary)
-    .text(signRole, signX + 10, signY + 50, { width: signWidth - 20, align: 'center' });
+    .text(signRole, signX + 10, signY + 50, { width: signWidth - 20, align: 'center' })
+    .text(signPhone, signX + 10, signY + 58, { width: signWidth - 20, align: 'center' });
 }
 
 function drawFooter(doc, currentPage, totalPages, data = {}) {
@@ -840,7 +849,7 @@ function parseNumeric(value) {
   return Number.isFinite(numeric) ? numeric : NaN;
 }
 
-function formatCurrency(value, currency) {
+function formatCurrency(value, currency, fractionDigits = 4) {
   const numericValue = parseNumeric(value);
   if (!Number.isFinite(numericValue)) {
     return '-';
@@ -860,8 +869,6 @@ function formatCurrency(value, currency) {
     default:
       locales = 'en-US';
   }
-
-  const fractionDigits = currency === 'USD' ? 2 : 4;
 
   return new Intl.NumberFormat(locales, {
     style: 'currency',

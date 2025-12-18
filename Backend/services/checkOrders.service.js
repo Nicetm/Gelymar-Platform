@@ -218,9 +218,12 @@ async function fetchOrderFilesFromNetwork() {
             puerto_destino: normalizeValue(record.Puerto_Destino?.trim()),
             fecha_eta: normalizeDate(record.ETA_OV?.trim()),
             fecha_etd: normalizeDate(record.ETD_OV?.trim()),
+            fecha_eta_factura: normalizeDate(record.ETA_ENC_FAC?.trim()),
+            fecha_etd_factura: normalizeDate(record.ETD_ENC_FAC?.trim()),
             certificados: normalizeValue(record.Certificados?.trim()),
             estado_ov: normalizeValue(record.EstadoOV?.trim()),
             medio_envio_factura: normalizeValue(record.MedioDeEnvioFact?.trim()),
+            medio_envio_ov: normalizeValue(record.MedioDeEnvioOV?.trim()),
             gasto_adicional_flete: normalizeDecimal(record.GtoAdicFlete?.trim(), 4),
             gasto_adicional_flete_factura: normalizeDecimal(record.GtoAdicFleteFactura?.trim(), 4),
             fecha_incoterm: normalizeDate(record.FechaOriginalCompromisoCliente?.trim()),
@@ -275,9 +278,12 @@ async function fetchOrderFilesFromNetwork() {
               puerto_destino: normalizeValue(record.Puerto_Destino?.trim()),
               fecha_eta: normalizeDate(record.ETA_OV?.trim()),
               fecha_etd: normalizeDate(record.ETD_OV?.trim()),
+              fecha_eta_factura: normalizeDate(record.ETA_ENC_FAC?.trim()),
+              fecha_etd_factura: normalizeDate(record.ETD_ENC_FAC?.trim()),
               certificados: normalizeValue(record.Certificados?.trim()),
               estado_ov: normalizeValue(record.EstadoOV?.trim()),
               medio_envio_factura: normalizeValue(record.MedioDeEnvioFact?.trim()),
+              medio_envio_ov: normalizeValue(record.MedioDeEnvioOV?.trim()),
               gasto_adicional_flete: normalizeDecimal(record.GtoAdicFlete?.trim(), 4),
               gasto_adicional_flete_factura: normalizeDecimal(record.GtoAdicFleteFactura?.trim(), 4),
               fecha_incoterm: normalizeDate(record.FechaOriginalCompromisoCliente?.trim()),
@@ -399,8 +405,8 @@ async function compareOrderDetailFields(existingDetail, newRecord) {
   const fieldsToCompare = [
     'fecha', 'tipo', 'incoterm', 'currency', 'direccion_destino', 
     'direccion_alterna', 'puerto_embarque', 'puerto_destino', 
-    'fecha_eta', 'fecha_etd', 'certificados', 'estado_ov', 
-    'medio_envio_factura', 'gasto_adicional_flete', 'gasto_adicional_flete_factura', 'fecha_incoterm', 
+    'fecha_eta', 'fecha_etd', 'fecha_eta_factura', 'fecha_etd_factura', 'certificados', 'estado_ov', 
+    'medio_envio_factura', 'medio_envio_ov', 'gasto_adicional_flete', 'gasto_adicional_flete_factura', 'fecha_incoterm', 
     'localizacion', 'codigo_impuesto', 'vendedor', 'nave', 'condicion_venta'
   ];
   
@@ -429,12 +435,18 @@ async function compareOrderDetailFields(existingDetail, newRecord) {
       newValue = normalizeDate(newRecord.ETA_OV?.trim());
     } else if (field === 'fecha_etd') {
       newValue = normalizeDate(newRecord.ETD_OV?.trim());
+    } else if (field === 'fecha_eta_factura') {
+      newValue = normalizeDate(newRecord.ETA_ENC_FAC?.trim());
+    } else if (field === 'fecha_etd_factura') {
+      newValue = normalizeDate(newRecord.ETD_ENC_FAC?.trim());
     } else if (field === 'certificados') {
       newValue = normalizeValue(newRecord.Certificados?.trim());
     } else if (field === 'estado_ov') {
       newValue = normalizeValue(newRecord.EstadoOV?.trim());
     } else if (field === 'medio_envio_factura') {
       newValue = normalizeValue(newRecord.MedioDeEnvioFact?.trim());
+    } else if (field === 'medio_envio_ov') {
+      newValue = normalizeValue(newRecord.MedioDeEnvioOV?.trim());
     } else if (field === 'gasto_adicional_flete') {
       newValue = normalizeDecimal(newRecord.GtoAdicFlete?.trim(), 4);
     } else if (field === 'gasto_adicional_flete_factura') {
@@ -472,7 +484,9 @@ async function compareOrderDetailFields(existingDetail, newRecord) {
     let normalizedExistingValue;
     if (field === 'fecha' || field === 'fecha_eta' || field === 'fecha_etd' || field === 'fecha_incoterm') {
       normalizedExistingValue = normalizeExistingValue(existingValue, 'date');
-    } else if (field === 'gasto_adicional_flete' || field === 'gasto_adicional_flete_factura' || field === 'kg_solicitados' || field === 'kg_planificados' || 
+    } else if (field === 'fecha_eta_factura' || field === 'fecha_etd_factura') {
+      normalizedExistingValue = normalizeExistingValue(existingValue, 'date');
+    } else if (field === 'medio_envio_ov' || field === 'gasto_adicional_flete' || field === 'gasto_adicional_flete_factura' || field === 'kg_solicitados' || field === 'kg_planificados' || 
                field === 'kg_programados' || field === 'kg_despachados' || field === 'kg_fabricados' || 
                field === 'kg_facturados' || field === 'unit_price' || field === 'volumen') {
       normalizedExistingValue = normalizeDecimal(existingValue, 4);

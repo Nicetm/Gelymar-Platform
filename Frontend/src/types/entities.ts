@@ -33,6 +33,7 @@ export interface Orders {
   fecha_eta?: string | null;
   currency?: string | null;
   medio_envio_factura?: string | null;
+  medio_envio_ov?: string | null;
 }
 
 // --- USERS ---
@@ -91,6 +92,7 @@ export interface Folders {
   currency?: string | null;
   medio_envio?: string | null;
   medio_envio_factura?: string | null;
+  medio_envio_ov?: string | null;
   fecha_factura?: string | null;
 }
 

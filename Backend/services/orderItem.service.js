@@ -15,9 +15,9 @@ const insertOrderLine = async (data) => {
         order_id, pc, linea, sublinea, factura, localizacion, item_id, descripcion, 
         kg_solicitados, kg_despachados, unit_price, observacion, 
         mercado, embalaje, volumen, etiqueta, kto_etiqueta5, 
-        tipo, fecha_etd, fecha_eta, kg_facturados, unique_key,
+        tipo, fecha_etd, fecha_eta, fecha_etd_factura, fecha_eta_factura, kg_facturados, unique_key,
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
     `;
 
     const params = [
@@ -41,6 +41,8 @@ const insertOrderLine = async (data) => {
       data.tipo,
       data.fecha_etd,
       data.fecha_eta,
+      data.fecha_etd_factura,
+      data.fecha_eta_factura,
       data.kg_facturados,
       data.unique_key
     ];

@@ -14,6 +14,7 @@ class Folder {
     currency = null,
     medio_envio = null,
     medio_envio_factura = null,
+    medio_envio_ov = null,
     fecha = null,
     fecha_factura = null,
     fecha_etd = null,
@@ -36,6 +37,7 @@ class Folder {
     this.currency = currency;
     this.medio_envio = medio_envio;
     this.medio_envio_factura = medio_envio_factura;
+    this.medio_envio_ov = medio_envio_ov;
     this.fecha = fecha;
     this.fecha_factura = fecha_factura;
     this.fecha_etd = fecha_etd;

@@ -9,10 +9,10 @@ async function insertOrderDetail(orderDetailData) {
     `INSERT INTO order_detail (
       order_id, fecha, tipo, incoterm, currency, direccion_destino, 
       direccion_alterna, puerto_embarque, puerto_destino, fecha_eta, 
-      fecha_etd, certificados, estado_ov, medio_envio_factura, 
-      gasto_adicional_flete, fecha_incoterm, localizacion, codigo_impuesto, 
+      fecha_etd, fecha_eta_factura, fecha_etd_factura, certificados, estado_ov, medio_envio_factura, 
+      medio_envio_ov, gasto_adicional_flete, gasto_adicional_flete_factura, fecha_incoterm, localizacion, codigo_impuesto, 
       vendedor, nave, condicion_venta, linea, unique_key, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       orderDetailData.order_id,
       orderDetailData.fecha,
@@ -25,10 +25,14 @@ async function insertOrderDetail(orderDetailData) {
       orderDetailData.puerto_destino,
       orderDetailData.fecha_eta,
       orderDetailData.fecha_etd,
+      orderDetailData.fecha_eta_factura,
+      orderDetailData.fecha_etd_factura,
       orderDetailData.certificados,
       orderDetailData.estado_ov,
       orderDetailData.medio_envio_factura,
+      orderDetailData.medio_envio_ov,
       orderDetailData.gasto_adicional_flete,
+      orderDetailData.gasto_adicional_flete_factura,
       orderDetailData.fecha_incoterm,
       orderDetailData.localizacion,
       orderDetailData.codigo_impuesto,
