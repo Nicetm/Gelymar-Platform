@@ -1110,15 +1110,6 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
     const path = require('path');
 
     const automaticReceptionEnabled = await isSendOrderReceptionEnabled();
-    if (!automaticReceptionEnabled) {
-      return res.status(200).json({
-        message: 'Envio de recepcion de orden deshabilitado por configuracion',
-        processed: 0,
-        errors: 0,
-        total: 0,
-        skipped: true
-      });
-    }
     
     // 1. Obtener order_ids de new_orders
     const orderIds = await getNewOrders();
@@ -1132,6 +1123,7 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
         
     let processed = 0;
     let errors = 0;
+    let skipped = 0;
     
     // 2. Procesar cada orden
     for (const orderId of orderIds) {
@@ -1289,19 +1281,21 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
           lang: customerLang
         };
         
-        // 9. Enviar correo solo a emails con reports = true
-        await sendFileToClient(fileData, { recipients: reportEmails });
-        
-        // 10. Actualizar fecha_envio del archivo
-        await fileService.updateFile({
-          id: file.id,
-          fecha_envio: new Date(),
-          updated_at: new Date()
-        });
-        
-        // 11. Marcar orden como enviada
-        await markOrderAsSent(orderId);
-        processed++;
+        // 9-11. Solo si la recepción automática está habilitada
+        if (automaticReceptionEnabled) {
+          await sendFileToClient(fileData, { recipients: reportEmails });
+          
+          await fileService.updateFile({
+            id: file.id,
+            fecha_envio: new Date(),
+            updated_at: new Date()
+          });
+          
+          await markOrderAsSent(orderId);
+          processed++;
+        } else {
+          skipped++;
+        }
         
       } catch (error) {
         console.error(`Error procesando orden ${orderId}:`, error.message);
@@ -1314,6 +1308,7 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
       message: 'Procesamiento de órdenes nuevas completado',
       processed,
       errors,
+      skipped,
       total: orderIds.length
     });
 

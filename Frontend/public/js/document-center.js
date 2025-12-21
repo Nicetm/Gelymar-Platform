@@ -14,7 +14,7 @@ const itemsPerPage = 1000; // Mostrar todas las tarjetas
 
 // Variables globales para paginación de órdenes
 let currentOrderPage = 1;
-const ordersPerPage = 5;
+const ordersPerPage = 10;
 
 // Variables globales para búsqueda
 let allOrders = [];
@@ -26,6 +26,18 @@ const documentsSection = document.getElementById('documents-section');
 const documentsContainer = document.getElementById('documents-container');
 const searchInput = document.querySelector('input[placeholder="Search documents..."]');
 const typeFilter = document.querySelector('select');
+const docsModal = document.getElementById('docsModal');
+const docsListBody = document.getElementById('docsListBody');
+const docsOrderTitle = document.getElementById('docsOrderTitle');
+const closeDocsModalBtn = document.getElementById('closeDocsModalBtn');
+
+// Estado para tooltips flotantes (para evitar clipping)
+const floatingTooltipState = {
+  el: null,
+  currentTarget: null,
+  removeTimeout: null,
+  globalHandlersBound: false
+};
 
 // ▸ Configuración de colores para estados
 const statusColors = {
@@ -114,6 +126,131 @@ function showErrorState(message) {
   }
 }
 
+function ensureFloatingTooltipElement() {
+  if (!floatingTooltipState.el) {
+    const tooltip = document.createElement('div');
+    tooltip.setAttribute('role', 'tooltip');
+    Object.assign(tooltip.style, {
+      position: 'fixed',
+      zIndex: '50',
+      backgroundColor: '#1f2937',
+      color: '#ffffff',
+      padding: '6px 10px',
+      borderRadius: '6px',
+      fontSize: '12px',
+      fontWeight: '500',
+      lineHeight: '1.4',
+      boxShadow: '0 8px 18px rgba(0, 0, 0, 0.25)',
+      pointerEvents: 'none',
+      whiteSpace: 'nowrap',
+      opacity: '0',
+      transition: 'opacity 120ms ease',
+      maxWidth: '320px',
+      textAlign: 'center'
+    });
+    floatingTooltipState.el = tooltip;
+  }
+  return floatingTooltipState.el;
+}
+
+function ensureFloatingTooltipHandlers() {
+  if (floatingTooltipState.globalHandlersBound) return;
+  floatingTooltipState.globalHandlersBound = true;
+  const hideOnChange = () => hideFloatingTooltip();
+  window.addEventListener('scroll', hideOnChange, true);
+  window.addEventListener('resize', hideOnChange, true);
+  window.addEventListener('keydown', event => {
+    if (event.key === 'Escape') hideFloatingTooltip();
+  }, true);
+}
+
+function positionFloatingTooltip(target, tooltipEl) {
+  const rect = target.getBoundingClientRect();
+  const tooltipRect = tooltipEl.getBoundingClientRect();
+  const spacing = 10;
+
+  let top = rect.top - tooltipRect.height - spacing;
+  if (top < spacing) top = rect.bottom + spacing;
+
+  const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+  let left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
+  left = Math.min(Math.max(spacing, left), viewportWidth - tooltipRect.width - spacing);
+
+  tooltipEl.style.top = `${Math.round(top)}px`;
+  tooltipEl.style.left = `${Math.round(left)}px`;
+}
+
+function showFloatingTooltip(target) {
+  if (!target || !(target instanceof HTMLElement)) return;
+  const text = target.getAttribute('data-tooltip');
+  if (!text) return;
+
+  ensureFloatingTooltipHandlers();
+  clearTimeout(floatingTooltipState.removeTimeout);
+
+  const tooltipEl = ensureFloatingTooltipElement();
+  tooltipEl.textContent = text;
+
+  if (!tooltipEl.isConnected) document.body.appendChild(tooltipEl);
+
+  tooltipEl.style.opacity = '0';
+  tooltipEl.style.visibility = 'hidden';
+
+  requestAnimationFrame(() => {
+    tooltipEl.style.visibility = 'visible';
+    positionFloatingTooltip(target, tooltipEl);
+    requestAnimationFrame(() => {
+      tooltipEl.style.opacity = '1';
+    });
+  });
+
+  floatingTooltipState.currentTarget = target;
+}
+
+function hideFloatingTooltip() {
+  if (!floatingTooltipState.el) return;
+  const tooltipEl = floatingTooltipState.el;
+  tooltipEl.style.opacity = '0';
+  floatingTooltipState.currentTarget = null;
+  clearTimeout(floatingTooltipState.removeTimeout);
+  floatingTooltipState.removeTimeout = window.setTimeout(() => {
+    if (tooltipEl.parentElement) tooltipEl.parentElement.removeChild(tooltipEl);
+    tooltipEl.style.visibility = 'hidden';
+  }, 150);
+}
+
+function handleTooltipEnter(event) {
+  showFloatingTooltip(event.currentTarget);
+}
+
+function handleTooltipLeave(event) {
+  const target = event.currentTarget;
+  if (floatingTooltipState.currentTarget === target) {
+    if (event.type === 'mouseleave' && document.activeElement === target) return;
+    hideFloatingTooltip();
+  }
+}
+
+function setupFloatingTooltips(container) {
+  if (!container) return;
+  const tooltipTargets = container.querySelectorAll('[data-tooltip]');
+  tooltipTargets.forEach(target => {
+    target.addEventListener('mouseenter', handleTooltipEnter);
+    target.addEventListener('mouseleave', handleTooltipLeave);
+    target.addEventListener('focus', handleTooltipEnter);
+    target.addEventListener('blur', handleTooltipLeave);
+  });
+}
+
+function resolveShippingMethod(order) {
+  const facturaVal = order.factura;
+  const hasFactura = facturaVal !== null && facturaVal !== undefined && facturaVal !== '' && facturaVal !== '0';
+  const medioOv = order.medio_envio_ov;
+  const medioFact = order.medio_envio_factura;
+  const value = hasFactura ? (medioFact || medioOv) : (medioOv || medioFact);
+  return value || '-';
+}
+
 /**
  * Carga órdenes desde la API
  */
@@ -121,6 +258,7 @@ async function loadOrdersFromAPI() {
   try {
     const token = localStorage.getItem('token');
     if (!token) {
+      console.warn('loadOrdersFromAPI -> no token');
       throw new Error('No hay token de autenticación');
     }
 
@@ -131,11 +269,16 @@ async function loadOrdersFromAPI() {
       }
     });
 
+    console.log('loadOrdersFromAPI -> status', response.status);
     if (!response.ok) {
+      const text = await response.text();
+      console.warn('loadOrdersFromAPI -> error body', text);
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
-    window.orders = await response.json();
+    const data = await response.json();
+    console.log('loadOrdersFromAPI -> data length', Array.isArray(data) ? data.length : 'not array');
+    window.orders = data;
 
   } catch (error) {
     console.error('Error cargando órdenes desde API:', error);
@@ -194,32 +337,47 @@ function renderOrders() {
       </td>
       <td class="px-6 py-2">
         <div class="flex items-center">
-          <span class="text-sm text-gray-900 dark:text-gray-200">${order.documents}</span>
+          <span class="text-sm text-gray-900 dark:text-gray-200">${order.documents ?? 0}</span>
         </div>
       </td>
       <td class="px-6 py-2">
         <p class="text-sm text-gray-900 dark:text-gray-200">${order.factura || '-'}</p>
       </td>
       <td class="px-6 py-2">
-        <p class="text-sm text-gray-900 dark:text-gray-200">${formatDateOnly(order.fecha_factura)}</p>
+        <p class="text-sm text-gray-900 dark:text-gray-200">${formatDateOnly(order.fecha_incoterm)}</p>
       </td>
-      <td class="px-6 py-2 text-center">
+      <td class="px-6 py-2">
+        <p class="text-sm text-gray-900 dark:text-gray-200">${formatDateOnly(order.fecha_eta_factura)}</p>
+      </td>
+      <td class="px-6 py-2">
+        <p class="text-sm text-gray-900 dark:text-gray-200">${formatDateOnly(order.fecha_etd_factura)}</p>
+      </td>
+      <td class="px-6 py-2">
+        <p class="text-sm text-gray-900 dark:text-gray-200">${order.incoterm || '-'}</p>
+      </td>
+      <td class="px-6 py-2">
+        <p class="text-sm text-gray-900 dark:text-gray-200">${resolveShippingMethod(order)}</p>
+      </td>
+      <td class="px-6 py-2">
+        <p class="text-sm text-gray-900 dark:text-gray-200">${order.puerto_destino || '-'}</p>
+      </td>
+      <td class="px-6 py-2 text-center relative overflow-visible">
         <div class="flex items-center justify-center space-x-3">
-          <!-- Ver lista de items -->
-          <div class="relative group">
-            <button class="view-items-btn text-gray-900 dark:text-white hover:text-green-500 transition"
-                   data-order-pc="${order.pc}" data-order-oc="${order.orderNumber}" data-factura="${order.factura}">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
-              </svg>
-            </button>
-            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2
-                        bg-green-600 text-white text-xs rounded px-2 py-1 shadow-lg
-                        opacity-0 group-hover:opacity-100 transition
-                        pointer-events-none whitespace-nowrap z-50">
-              ${window.translations?.carpetas?.tooltipViewItems || 'Ver lista de items'}
-            </div>
-          </div>
+          <button class="view-items-btn text-gray-900 dark:text-white hover:text-green-500 transition"
+                 data-order-pc="${order.pc}" data-order-oc="${order.orderNumber}" data-factura="${order.factura}"
+                 data-tooltip="${window.translations?.carpetas?.tooltipViewItems || 'Ver lista de items'}">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+            </svg>
+          </button>
+          <button class="view-docs-btn text-gray-900 dark:text-white hover:text-blue-500 transition"
+                 data-order-id="${order.id}"
+                 data-tooltip="${window.translations?.documentos?.viewDocuments || 'View documents'}">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8 4h11a1 1 0 011 1v14a1 1 0 01-1 1H8l-4-4V5a1 1 0 011-1h3z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 9h8M9 13h6M9 17h4"/>
+            </svg>
+          </button>
         </div>
       </td>
     `;
@@ -229,6 +387,8 @@ function renderOrders() {
 
   // Actualizar paginación
   updateOrdersPagination();
+  // Activar tooltips flotantes en los botones de acción
+  setupFloatingTooltips(ordersGrid);
 }
 
 /**
@@ -247,6 +407,7 @@ async function selectOrder(orderId) {
   try {
     // Cargar documentos desde la API
     await loadOrderDocumentsFromAPI(orderId);
+    console.log('selectOrder -> documents loaded', documents.length);
   } catch (error) {
     console.error('Error cargando documentos:', error);
     // Fallback a datos estáticos si hay error
@@ -277,12 +438,6 @@ async function selectOrder(orderId) {
   if (selectedCard) {
     selectedCard.classList.add('ring-2', 'ring-blue-500', 'border-blue-500');
   }
-  
-  // Mostrar notificación
-  const order = window.orders.find(o => o.id === orderId);
-  if (order) {
-    showNotification(`Selected order: ${order.orderNumber}`);
-  }
 }
 
 /**
@@ -290,18 +445,17 @@ async function selectOrder(orderId) {
  */
 function showDocumentsLoading() {
   const documentsContainer = document.getElementById('documents-container');
-  if (documentsContainer) {
-    documentsContainer.innerHTML = `
-      <div class="text-center py-12">
-        <div class="inline-flex items-center justify-center w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-full mb-3">
-          <svg class="w-4 h-4 text-blue-600 dark:text-blue-400 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-        </div>
-        <p class="text-sm text-gray-600 dark:text-gray-400">Cargando documentos...</p>
+  if (!documentsContainer) return;
+  documentsContainer.innerHTML = `
+    <div class="text-center py-12">
+      <div class="inline-flex items-center justify-center w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-full mb-3">
+        <svg class="w-4 h-4 text-blue-600 dark:text-blue-400 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
       </div>
-    `;
-  }
+      <p class="text-sm text-gray-600 dark:text-gray-400">Cargando documentos...</p>
+    </div>
+  `;
 }
 
 /**
@@ -318,6 +472,7 @@ async function loadOrderDocumentsFromAPI(orderId) {
   try {
     const token = localStorage.getItem('token');
     if (!token) {
+      console.warn('loadOrderDocumentsFromAPI -> no token');
       throw new Error('No hay token de autenticación');
     }
 
@@ -328,11 +483,16 @@ async function loadOrderDocumentsFromAPI(orderId) {
       }
     });
 
+    console.log('loadOrderDocumentsFromAPI -> status', response.status, 'orderId', orderId);
     if (!response.ok) {
+      const text = await response.text();
+      console.warn('loadOrderDocumentsFromAPI -> error body', text);
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
     const data = await response.json();
+    console.log('loadOrderDocumentsFromAPI -> data', data);
+    console.log('loadOrderDocumentsFromAPI -> docs length', Array.isArray(data.documents) ? data.documents.length : 'not array');
     
     // Convertir documentos al formato esperado por el frontend
     documents = data.documents.map(doc => ({
@@ -457,7 +617,7 @@ function renderDocuments(docs, page) {
       </div>
 
       <div class="flex items-center justify-end space-x-2 mt-auto dark:bg-gray-900"> <span class="text-xs text-gray-500 dark:text-gray-400">${window.translations?.documentos?.downloadDocument || 'Descargar documento'}</span>
-        <a href="#" onclick="downloadFileClient(${doc.id})" class="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors duration-200" data-doc-id="${doc.id}" title="Download document">
+        <a href="#" onclick="downloadFileClient(${doc.id})" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors duration-200" data-doc-id="${doc.id}" title="Download document">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
           </svg>
@@ -980,7 +1140,9 @@ function getCurrentLocale() {
 }
 
 function formatDateOnly(dateString) {
+  if (!dateString) return '-';
   const date = new Date(dateString);
+  if (isNaN(date.getTime())) return '-';
   return date.toLocaleDateString(getCurrentLocale(), {
     year: 'numeric',
     month: 'long',
@@ -1108,7 +1270,27 @@ function setupEventListeners() {
       const factura = viewItemsBtn.dataset.factura;
       openItemsModal(orderPc, orderOc, factura);
     }
+
+    const viewDocsBtn = e.target.closest('.view-docs-btn');
+    if (viewDocsBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const orderId = viewDocsBtn.dataset.orderId;
+      const order = window.orders?.find(o => o.id === Number(orderId));
+      openDocsModal(order);
+    }
   });
+
+  if (closeDocsModalBtn && docsModal) {
+    closeDocsModalBtn.addEventListener('click', () => {
+      docsModal.classList.add('hidden');
+    });
+    docsModal.addEventListener('click', (e) => {
+      if (e.target === docsModal) {
+        docsModal.classList.add('hidden');
+      }
+    });
+  }
 }
 
 // =============================================================================
@@ -1917,11 +2099,11 @@ async function openItemsModal(orderPc, orderOc, factura) {
         
         return `
           <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition">
-            <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">${item.item_code || 'N/A'}</td>
-            <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">${item.descripcion || 'N/A'}</td>
-            <td class="px-6 py-4 text-sm text-center text-gray-900 dark:text-gray-100">${formatQuantity(quantity, unit)}</td>
-            <td class="px-6 py-4 text-sm text-center text-gray-900 dark:text-gray-100">${formatUnitPrice(unitPrice, currency)}</td>
-            <td class="px-6 py-4 text-sm text-center font-semibold text-gray-900 dark:text-gray-100">${formatTotal(total, currency)}</td>
+            <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">${item.item_code || 'N/A'}</td>
+            <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">${item.descripcion || 'N/A'}</td>
+            <td class="px-4 py-2 text-sm text-center text-gray-900 dark:text-gray-100">${formatQuantity(quantity, unit)}</td>
+            <td class="px-4 py-2 text-sm text-center text-gray-900 dark:text-gray-100">${formatUnitPrice(unitPrice, currency)}</td>
+            <td class="px-4 py-2 text-sm text-center font-semibold text-gray-900 dark:text-gray-100">${formatTotal(total, currency)}</td>
           </tr>
         `;
       }).join('');
@@ -1956,6 +2138,48 @@ async function openItemsModal(orderPc, orderOc, factura) {
     console.error('Error loading order items:', error);
     showNotification('Error al cargar los items de la orden', 'error');
   }
+}
+
+// Función para abrir el modal de documentos
+async function openDocsModal(order) {
+  if (!order || !docsModal || !docsListBody) return;
+  try {
+    await loadOrderDocumentsFromAPI(order.id);
+  } catch (error) {
+    console.error('Error loading documents for modal:', error);
+    showNotification('Error al cargar los documentos', 'error');
+    return;
+  }
+
+  if (docsOrderTitle) {
+    docsOrderTitle.textContent = `${window.translations?.documentos?.order || 'Order'}: ${order.orderNumber}`;
+  }
+
+  docsListBody.innerHTML = documents.length === 0
+    ? `<tr><td colspan="5" class="px-4 py-3 text-center text-sm text-gray-500 dark:text-gray-400">${window.translations?.documentos?.noDocs || 'No documents available'}</td></tr>`
+    : documents.map(doc => {
+        const status = doc.status || 'Unread';
+        return `
+          <tr>
+            <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">${doc.name}</td>
+            <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">${doc.type?.toUpperCase() || '-'}</td>
+            <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">${status}</td>
+            <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">${formatDateOnly(doc.created)}</td>
+            <td class="px-4 py-2 text-center">
+              <a href="#" onclick="downloadFileClient(${doc.id})"
+                 class="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm leading-none"
+                 data-doc-id="${doc.id}" title="${window.translations?.documentos?.downloadDocument || 'Download document'}">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                ${window.translations?.documentos?.downloadDocument || 'Download'}
+              </a>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+  docsModal.classList.remove('hidden');
 }
 
 // Funciones de formateo
@@ -2126,9 +2350,29 @@ function sortOrders(column, direction) {
         aValue = (a.factura || '').toLowerCase();
         bValue = (b.factura || '').toLowerCase();
         break;
-      case 'invoice_date':
-        aValue = a.fecha_factura || '';
-        bValue = b.fecha_factura || '';
+      case 'fecha_incoterm':
+        aValue = a.fecha_incoterm || '';
+        bValue = b.fecha_incoterm || '';
+        break;
+      case 'fecha_eta_factura':
+        aValue = a.fecha_eta_factura || '';
+        bValue = b.fecha_eta_factura || '';
+        break;
+      case 'fecha_etd_factura':
+        aValue = a.fecha_etd_factura || '';
+        bValue = b.fecha_etd_factura || '';
+        break;
+      case 'incoterm':
+        aValue = (a.incoterm || '').toLowerCase();
+        bValue = (b.incoterm || '').toLowerCase();
+        break;
+      case 'shipping':
+        aValue = resolveShippingMethod(a).toLowerCase();
+        bValue = resolveShippingMethod(b).toLowerCase();
+        break;
+      case 'puerto_destino':
+        aValue = (a.puerto_destino || '').toLowerCase();
+        bValue = (b.puerto_destino || '').toLowerCase();
         break;
       case 'items_count':
         aValue = parseInt(a.items_count) || 0;

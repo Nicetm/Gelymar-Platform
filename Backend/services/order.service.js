@@ -112,10 +112,18 @@ const getClientDashboardOrders = async (customerUUID) => {
     c.name AS clientName,
     o.factura,
     o.fecha_factura,
+    od.fecha_incoterm,
+    od.fecha_eta_factura,
+    od.fecha_etd_factura,
+    od.incoterm,
+    od.medio_envio_ov,
+    od.medio_envio_factura,
+    od.puerto_destino,
     COUNT(DISTINCT CASE WHEN f.is_visible_to_client = 1 THEN f.id END) AS documents,
     COALESCE(oi_counts.items_count, 0) AS items_count
     FROM orders o
     JOIN customers c ON o.customer_id = c.id
+    LEFT JOIN order_detail od ON od.order_id = o.id
     LEFT JOIN order_files f ON f.order_id = o.id
     LEFT JOIN (
         SELECT factura, COUNT(*) AS items_count
@@ -123,7 +131,7 @@ const getClientDashboardOrders = async (customerUUID) => {
         GROUP BY factura
     ) oi_counts ON oi_counts.factura = o.factura
     WHERE c.uuid = ?
-    GROUP BY o.id, o.pc, o.oc, c.name, o.factura, o.fecha_factura, oi_counts.items_count
+    GROUP BY o.id, o.pc, o.oc, c.name, o.factura, o.fecha_factura, od.fecha_incoterm, od.fecha_eta_factura, od.fecha_etd_factura, od.incoterm, od.medio_envio_ov, od.medio_envio_factura, od.puerto_destino, oi_counts.items_count
     ORDER BY o.fecha_factura DESC;
   `;
   
@@ -137,7 +145,14 @@ const getClientDashboardOrders = async (customerUUID) => {
     factura: row.factura,
     fecha_factura: row.fecha_factura,
     documents: row.documents,
-    items_count: row.items_count
+    items_count: row.items_count,
+    fecha_incoterm: row.fecha_incoterm,
+    fecha_eta_factura: row.fecha_eta_factura,
+    fecha_etd_factura: row.fecha_etd_factura,
+    incoterm: row.incoterm,
+    medio_envio_ov: row.medio_envio_ov,
+    medio_envio_factura: row.medio_envio_factura,
+    puerto_destino: row.puerto_destino
   }));
 };
 

@@ -58,37 +58,17 @@ async function generateDefaultFiles() {
             }
             totalDirectoriesCreated++;
 
-            // Crear los cuatro documentos por defecto
-            const defaultDocuments = [
-              {
-                name: 'Order Receipt Notice',
-                order_id: order.id,
-                pc: order.pc,
-                oc: order.oc,
-                path: directoryPath
-              },
-              {
-                name: 'Shipment Notice',
-                order_id: order.id,
-                pc: order.pc,
-                oc: order.oc,
-                path: directoryPath
-              },
-              {
-                name: 'Order Delivery Notice',
-                order_id: order.id,
-                pc: order.pc,
-                oc: order.oc,
-                path: directoryPath
-              },
-              {
-                name: 'Availability Notice',
-                order_id: order.id,
-                pc: order.pc,
-                oc: order.oc,
-                path: directoryPath
-              }
-            ];
+            // Decidir documentos según factura
+            const hasFactura = order.factura !== null && order.factura !== undefined && order.factura !== '' && order.factura !== 0 && order.factura !== '0';
+            const defaultDocuments = hasFactura
+              ? [
+                  { name: 'Shipment Notice', order_id: order.id, pc: order.pc, oc: order.oc, path: directoryPath },
+                  { name: 'Order Delivery Notice', order_id: order.id, pc: order.pc, oc: order.oc, path: directoryPath },
+                  { name: 'Availability Notice', order_id: order.id, pc: order.pc, oc: order.oc, path: directoryPath }
+                ]
+              : [
+                  { name: 'Order Receipt Notice', order_id: order.id, pc: order.pc, oc: order.oc, path: directoryPath }
+                ];
             
             // Insertar los documentos
             for (const doc of defaultDocuments) {

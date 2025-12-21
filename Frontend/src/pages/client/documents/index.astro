@@ -2,8 +2,8 @@
 import LayoutSidebarClient from '../../../app/LayoutSidebarClient.astro';
 import AuthGuard from '../../../components/AuthGuard.astro';
 import OrdersGrid from '../../../modules/client/OrderGrid.astro';
-import DocumentsSection from '../../../modules/client/DocumentsSection.astro';
 import EmailModal from '../../../modules/client/EmailModal.astro';
+import { loadTranslations, getServerLang } from '../../../lib/i18n.js';
 
 // Validación de rol en el servidor
 import { validateRole } from '../../../lib/auth.js';
@@ -16,6 +16,8 @@ const fileServer = import.meta.env.PUBLIC_FILE_SERVER;
 const token = Astro.cookies.get('token')?.value;
 
 let orders = [];
+const lang = getServerLang(Astro.cookies) || 'es';
+let translations = {};
 
 try {
   const response = await fetch(`${apiBase}/api/orders/client/dashboard`, {
@@ -31,6 +33,16 @@ try {
 } catch (error) {
   console.error('API Error:', error instanceof Error ? error.message : String(error));
   orders = [];
+}
+
+try {
+  translations = {
+    documentos: await loadTranslations(lang, 'documentos'),
+    carpetas: await loadTranslations(lang, 'carpetas'),
+  };
+} catch (error) {
+  console.warn('Error cargando traducciones de documentos:', error);
+  translations = {};
 }
 ---
 
@@ -55,9 +67,6 @@ try {
       <div id="orders-section" class="hidden">
         <OrdersGrid {orders} />
       </div>
-
-      <!-- Estadísticas + lista de documentos -->
-      <DocumentsSection />
     </div>
   </div>
 
@@ -65,10 +74,12 @@ try {
   <EmailModal />
 
   <!-- Configuración para JavaScript -->
-  <script define:vars={{ apiBase, orders, fileServer }}>
+  <script define:vars={{ apiBase, orders, fileServer, translations, lang }}>
     window.apiBase = apiBase || 'http://localhost:3000';
     window.fileServer = fileServer || 'http://localhost:8080';
     window.orders = orders || [];
+    window.translations = translations || {};
+    window.lang = lang || 'es';
   </script>
 
   <!-- Lógica -->

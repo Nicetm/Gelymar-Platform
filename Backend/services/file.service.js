@@ -3,6 +3,7 @@ const File = require('../models/file');
 const fs = require('fs').promises;
 const path = require('path');
 const { cleanDirectoryName } = require('../utils/directoryUtils');
+const { getOrderByIdSimple } = require('./order.service');
 
 /**
  * Inserta un nuevo archivo en la base de datos
@@ -17,8 +18,6 @@ const insertFile = async ({
   name,
   path,
   file_identifier = null,
-  eta = null,
-  etd = null,
   was_sent = false,
   document_type = null,
   file_type = 'PDF',
@@ -34,7 +33,6 @@ const insertFile = async ({
     throw new Error('Cliente no encontrado');
   }
   
-  const realCustomerId = rows[0].id;
   const visibleValue = (() => {
     if (is_visible_to_customer === null || is_visible_to_customer === undefined || is_visible_to_customer === '') {
       return null;
@@ -59,8 +57,8 @@ const insertFile = async ({
     return null;
   })();
 
-  const [result] = await pool.query(
-    `INSERT INTO order_files (
+  const [result] = await pool.query(`
+    INSERT INTO order_files (
       order_id, pc, oc, name, path, file_identifier,
       created_at, updated_at, was_sent, 
       document_type, file_type, status_id, is_generated, is_visible_to_client
@@ -386,41 +384,20 @@ const createDefaultFilesForOrder = async (orderId, customerName, pc, oc) => {
       throw new Error('Error creando directorio físico');
     }
 
-    // Definir los 4 archivos por defecto
-    const defaultDocuments = [
-      {
-        name: 'Order Receipt Notice',
-        order_id: orderId,
-        pc: pc,
-        oc: oc,
-        path: directoryPath,
-        file_identifier: fileIdentifier
-      },
-      {
-        name: 'Shipment Notice',
-        order_id: orderId,
-        pc: pc,
-        oc: oc,
-        path: directoryPath,
-        file_identifier: fileIdentifier
-      },
-      {
-        name: 'Order Delivery Notice',
-        order_id: orderId,
-        pc: pc,
-        oc: oc,
-        path: directoryPath,
-        file_identifier: fileIdentifier
-      },
-      {
-        name: 'Availability Notice',
-        order_id: orderId,
-        pc: pc,
-        oc: oc,
-        path: directoryPath,
-        file_identifier: fileIdentifier
-      }
-    ];
+    // Definir documentos según factura (solo ORN si no hay factura; 3 docs restantes si hay factura)
+    // Traer la orden para revisar la factura
+    const orderData = await getOrderByIdSimple(orderId);
+    const hasFactura = orderData && orderData.factura !== null && orderData.factura !== undefined && orderData.factura !== '' && orderData.factura !== 0 && orderData.factura !== '0';
+
+    const defaultDocuments = hasFactura
+      ? [
+          { name: 'Shipment Notice', order_id: orderId, pc: pc, oc: oc, path: directoryPath, file_identifier: fileIdentifier },
+          { name: 'Order Delivery Notice', order_id: orderId, pc: pc, oc: oc, path: directoryPath, file_identifier: fileIdentifier },
+          { name: 'Availability Notice', order_id: orderId, pc: pc, oc: oc, path: directoryPath, file_identifier: fileIdentifier }
+        ]
+      : [
+          { name: 'Order Receipt Notice', order_id: orderId, pc: pc, oc: oc, path: directoryPath, file_identifier: fileIdentifier }
+        ];
 
     // Insertar los archivos en la base de datos
     const createdFiles = [];

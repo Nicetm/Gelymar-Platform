@@ -78,7 +78,12 @@
   "searchOrders": "Buscar órdenes...",
   "documentsCount": "Documentos de Embarque",
   "invoice": "Factura",
-  "invoiceDate": "Fecha Factura",
+  "deliveryDate": "Fecha Entrega",
+  "fechaEtaFactura": "Fecha ETA",
+  "fechaEtdFactura": "Fecha ETD",
+  "incoterm": "Incoterm",
+  "shippingMethod": "Medio de envío",
+  "puertoDestino": "Puerto Destino",
   "itemsCount": "N° Items",
   "actions": "Acciones",
   "showingOrders": "Mostrando 0-0 de 0 órdenes",
@@ -101,5 +106,10 @@
   "images": "Imágenes",
   "others": "Otros",
   "searchDocuments": "Buscar documentos...",
-  "downloadDocument": "Descargar documento"
+  "downloadDocument": "Descargar documento",
+  "documentList": "Lista de documentos",
+  "documentListSubtitle": "Documentos compartidos de esta orden",
+  "documentName": "Nombre documento",
+  "noDocs": "No hay documentos disponibles",
+  "view": "Ver"
 }
