@@ -847,7 +847,7 @@ export function initFilesScript() {
         currentPage = 1;
         
         // Actualizar estado del botón de crear archivos por defecto
-        updateCreateDefaultFilesButtonState(files.length);
+        updateCreateDefaultFilesButtonState(files);
         
         // Adjuntar event listeners a los checkboxes de visibilidad
         attachVisibilityEvents();
@@ -858,10 +858,17 @@ export function initFilesScript() {
     }
   }
 
-  function updateCreateDefaultFilesButtonState(filesCount) {
-    if (createDefaultFilesBtn) {
-      createDefaultFilesBtn.disabled = filesCount > 0;
-    }
+  function updateCreateDefaultFilesButtonState(files = []) {
+    if (!createDefaultFilesBtn) return;
+    const names = files.map(f => (f.name || '').toLowerCase());
+    const required = [
+      'order receipt notice',
+      'shipment notice',
+      'order delivery notice',
+      'availability notice'
+    ];
+    const hasAll = required.every(r => names.includes(r));
+    createDefaultFilesBtn.disabled = hasAll;
   }
 
   function resolveRecipientState() {
@@ -1952,14 +1959,17 @@ export function initFilesScript() {
   const confirmUploadBtn = qs('#confirmUploadBtn');
   if (confirmUploadBtn) {
     confirmUploadBtn.addEventListener('click', async () => {
-      const fileName = qs('#uploadFileName')?.value?.trim();
+      const uploadSelect = qs('#uploadFileName');
+      const selectedOption = uploadSelect?.selectedOptions?.[0];
+      const fileId = selectedOption?.value?.trim();
+      const fileName = selectedOption?.dataset?.fileName || selectedOption?.textContent?.trim();
       const fileType = qs('#uploadFileType')?.value;
       const pcName = qs('#uploadModal')?.dataset?.folderName;
       const idFolder = qs('#uploadModal')?.dataset?.folderId;
       const isVisibleToCustomer = qs('#isVisibleToClient')?.value;
       const fileObject = qs('#uploadFileInput')?.files?.[0];
 
-      if (!fileName || !fileType || !fileObject) {
+      if (!fileId || !fileName || !fileType || !fileObject) {
         showNotification('Debe completar todos los campos y seleccionar un archivo', 'error');
         return;
       }
@@ -1985,6 +1995,7 @@ export function initFilesScript() {
         formData.append('client_name', clientName);
         formData.append('subfolder', pcName);
         formData.append('name', fileName);
+        formData.append('file_id', fileId);
         formData.append('file', fileObject);
         formData.append('is_visible_to_customer', isVisibleToCustomer);
 

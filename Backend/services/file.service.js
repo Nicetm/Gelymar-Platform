@@ -18,6 +18,7 @@ const insertFile = async ({
   name,
   path,
   file_identifier = null,
+  file_id = null,
   was_sent = false,
   document_type = null,
   file_type = 'PDF',
@@ -46,11 +47,11 @@ const insertFile = async ({
       return is_visible_to_customer === 0 ? 0 : 1;
     }
 
-    const normalized = String(is_visible_to_customer).trim().toLowerCase();
-    if (normalized === 'true' || normalized === '1' || normalized === 'yes') {
-      return 1;
-    }
-    if (normalized === 'false' || normalized === '0' || normalized === 'no') {
+  const normalized = String(is_visible_to_customer).trim().toLowerCase();
+  if (normalized === 'true' || normalized === '1' || normalized === 'yes') {
+    return 1;
+  }
+  if (normalized === 'false' || normalized === '0' || normalized === 'no') {
       return 0;
     }
 
@@ -59,12 +60,12 @@ const insertFile = async ({
 
   const [result] = await pool.query(`
     INSERT INTO order_files (
-      order_id, pc, oc, name, path, file_identifier,
+      order_id, pc, oc, name, path, file_identifier, file_id,
       created_at, updated_at, was_sent, 
       document_type, file_type, status_id, is_generated, is_visible_to_client
-    ) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW(), ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), ?, ?, ?, ?, ?, ?)`,
     [
-      order_id, pc, oc, name, path, file_identifier,
+      order_id, pc, oc, name, path, file_identifier, file_id,
       was_sent, document_type, file_type, status_id, is_generated, visibleValue
     ]
   );
@@ -306,7 +307,7 @@ const duplicateFile = async (fileId, newPath = null) => {
 const getAllOrdersGroupedByRut = async () => {
   const pool = await poolPromise;
   const [rows] = await pool.query(`
-    SELECT id, rut, pc, oc, created_at 
+    SELECT id, rut, pc, oc, factura, created_at 
     FROM orders 
     WHERE rut IS NOT NULL AND pc IS NOT NULL AND oc IS NOT NULL
     ORDER BY rut, created_at
@@ -369,35 +370,56 @@ const getFilesByFolderId = async (orderId) => {
  */
 const createDefaultFilesForOrder = async (orderId, customerName, pc, oc) => {
   try {
-    // Verificar si ya existen archivos para esta orden
-    const existingFiles = await getFilesByFolderId(orderId);
-    if (existingFiles.length > 0) {
-      throw new Error('Ya existen archivos para esta orden');
-    }
+    const FILE_ID_MAP = {
+      'Order Receipt Notice': 9,
+      'Shipment Notice': 19,
+      'Order Delivery Notice': 15,
+      'Availability Notice': 6
+    };
 
-    // Generar identificador único para esta fila (incrementador)
-    const fileIdentifier = await getNextFileIdentifier(pc);
-
-    // Crear directorio físico
-    const directoryPath = await createClientDirectory(customerName, pc, fileIdentifier);
-    if (!directoryPath) {
-      throw new Error('Error creando directorio físico');
-    }
-
-    // Definir documentos según factura (solo ORN si no hay factura; 3 docs restantes si hay factura)
     // Traer la orden para revisar la factura
     const orderData = await getOrderByIdSimple(orderId);
     const hasFactura = orderData && orderData.factura !== null && orderData.factura !== undefined && orderData.factura !== '' && orderData.factura !== 0 && orderData.factura !== '0';
 
-    const defaultDocuments = hasFactura
-      ? [
-          { name: 'Shipment Notice', order_id: orderId, pc: pc, oc: oc, path: directoryPath, file_identifier: fileIdentifier },
-          { name: 'Order Delivery Notice', order_id: orderId, pc: pc, oc: oc, path: directoryPath, file_identifier: fileIdentifier },
-          { name: 'Availability Notice', order_id: orderId, pc: pc, oc: oc, path: directoryPath, file_identifier: fileIdentifier }
-        ]
-      : [
-          { name: 'Order Receipt Notice', order_id: orderId, pc: pc, oc: oc, path: directoryPath, file_identifier: fileIdentifier }
-        ];
+    // Verificar si ya existen archivos para esta orden
+    const existingFiles = await getFilesByFolderId(orderId);
+    const existingFileIds = new Set(existingFiles.map(f => f.file_id));
+
+    // Documentos requeridos según factura
+    const requiredDocs = hasFactura
+      ? ['Shipment Notice', 'Order Delivery Notice', 'Availability Notice']
+      : ['Order Receipt Notice'];
+
+    // Determinar cuáles faltan
+    const missingDocs = requiredDocs.filter(name => !existingFileIds.has(FILE_ID_MAP[name]));
+
+    if (missingDocs.length === 0) {
+      throw new Error('Ya existen archivos para esta orden');
+    }
+
+    // Usar path/identificador existente si ya había algún archivo, de lo contrario crear nuevos
+    let directoryPath;
+    let fileIdentifier;
+    if (existingFiles.length > 0) {
+      directoryPath = existingFiles[0].path;
+      fileIdentifier = existingFiles[0].file_identifier || await getNextFileIdentifier(pc);
+    } else {
+      fileIdentifier = await getNextFileIdentifier(pc);
+      directoryPath = await createClientDirectory(customerName, pc, fileIdentifier);
+      if (!directoryPath) {
+        throw new Error('Error creando directorio físico');
+      }
+    }
+
+    const defaultDocuments = missingDocs.map(name => ({
+      name,
+      order_id: orderId,
+      pc,
+      oc,
+      path: directoryPath,
+      file_identifier: fileIdentifier,
+      file_id: FILE_ID_MAP[name]
+    }));
 
     // Insertar los archivos en la base de datos
     const createdFiles = [];
@@ -469,10 +491,10 @@ const insertDefaultFile = async (fileData) => {
   try {
     const query = `
       INSERT INTO order_files (
-        order_id, pc, oc, name, path, file_identifier, was_sent, 
+        order_id, pc, oc, name, path, file_identifier, file_id, was_sent, 
         document_type, file_type, status_id, is_visible_to_client, 
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, 'PDF', 1, 0, NOW(), NOW())
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, 'PDF', 1, 0, NOW(), NOW())
     `;
 
     const params = [
@@ -481,7 +503,8 @@ const insertDefaultFile = async (fileData) => {
       fileData.oc,
       fileData.name,
       fileData.path,
-      fileData.file_identifier
+      fileData.file_identifier,
+      fileData.file_id || null
     ];
 
     const [result] = await pool.query(query, params);

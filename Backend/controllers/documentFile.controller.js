@@ -352,6 +352,7 @@ exports.handleUpload = async (req, res) => {
       status_id: 2,
       is_visible_to_customer: is_visible_to_customer,
       is_generated: 0,
+      file_id: req.body.file_id || null
     };
 
     await insertFile(fileData);

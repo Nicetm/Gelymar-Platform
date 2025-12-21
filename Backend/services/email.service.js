@@ -257,9 +257,9 @@ async function sendFileToClient(file, options = {}) {
     bestRegards: translations.mail.bestRegards,
     gelymarTeam: translations.mail.gelymarTeam,
     internationalLogisticsServices: translations.mail.internationalLogisticsServices,
-    contactEmail: 'info@gelymar.com',
+    contactEmail: 'carla.torres@gelymar.com',
     contactWebsite: 'www.gelymar.com',
-    contactPhone: '+56 2 2345 6789',
+    contactPhone: '+56 9 9760 4855',
     disclaimer: translations.mail.disclaimer
   };
 

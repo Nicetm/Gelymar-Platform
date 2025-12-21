@@ -125,6 +125,7 @@ type ContactMetadata = {
   name: string;
   sh_documents: boolean;
   reports: boolean;
+  cco: boolean;
 };
 
 const contactEmailMap = new Map<string, ContactMetadata>();
@@ -249,8 +250,7 @@ const emailRecipients = contactEmailMetadata
           <button id="createDefaultFilesBtn" class="flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-semibold shadow-sm
               bg-green-600 hover:bg-green-700 text-white transition-all
               focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500
-              disabled:bg-gray-400 disabled:cursor-not-allowed disabled:hover:bg-gray-400" 
-              disabled={files.length > 0}>
+              disabled:bg-gray-400 disabled:cursor-not-allowed disabled:hover:bg-gray-400">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
             </svg>
@@ -420,7 +420,7 @@ const emailRecipients = contactEmailMetadata
 				          class="appearance-none pr-10 pl-3 py-2 block w-full border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 text-xs">
 				    <option value="" disabled selected>- {t.documentos.selectDocumentName} -</option>
 				    {documentTypes.map((docType: any) => (
-				      <option value={docType.name}>{docType.name}</option>
+				      <option value={docType.id} data-file-name={docType.name}>{docType.name}</option>
 				    ))}
 				  </select>
 				</div>

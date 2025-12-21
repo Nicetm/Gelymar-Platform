@@ -42,36 +42,62 @@ async function generateDefaultFiles() {
               continue;
             }
             
-            // Verificar si ya existen documentos por defecto para esta orden
-            // Si existe al menos un registro, NO crear ni registros en BD ni directorio
+            // Verificar si ya existen documentos para esta orden
             const existingFiles = await checkExistingFiles(order.id, order.pc);
-            if (existingFiles.length > 0) {
+            // Determinar ruta base: usar la existente si hay archivos previos
+            let directoryPath = existingFiles[0]?.path;
+
+            // Crear directorio físico en el servidor de archivos si no existen registros previos
+            if (!directoryPath) {
+              directoryPath = await createClientDirectory(customer.name, order.pc);
+              if (!directoryPath) {
+                console.log(`[${new Date().toISOString()}] -> Check Default Files Process -> Error creando directorio para orden ${order.id}, omitiendo`);
+                continue;
+              }
+              totalDirectoriesCreated++;
+            }
+
+            // Decidir documentos según factura y asignar file_id
+            const FILE_ID_MAP = {
+              'Order Receipt Notice': 9,
+              'Shipment Notice': 19,
+              'Order Delivery Notice': 15,
+              'Availability Notice': 6
+            };
+            const hasFactura = order.factura !== null && order.factura !== undefined && order.factura !== '' && order.factura !== 0 && order.factura !== '0';
+
+            // Determinar documentos requeridos según estado de factura
+            const requiredDocs = hasFactura
+              ? [
+                  'Shipment Notice',
+                  'Order Delivery Notice',
+                  'Availability Notice'
+                ]
+              : [
+                  'Order Receipt Notice'
+                ];
+
+            // Filtrar los que ya existen
+            const existingNames = new Set(existingFiles.map(f => f.name));
+            const documentsToCreate = requiredDocs
+              .filter(name => !existingNames.has(name))
+              .map(name => ({
+                name,
+                order_id: order.id,
+                pc: order.pc,
+                oc: order.oc,
+                path: directoryPath,
+                file_id: FILE_ID_MAP[name]
+              }));
+
+            // Si no hay documentos por crear, continuar
+            if (documentsToCreate.length === 0) {
               totalOrdersProcessed++;
               continue;
             }
-
-            // Crear directorio físico en el servidor de archivos SOLO si no existen registros
-            const directoryPath = await createClientDirectory(customer.name, order.pc);
-            if (!directoryPath) {
-              console.log(`[${new Date().toISOString()}] -> Check Default Files Process -> Error creando directorio para orden ${order.id}, omitiendo`);
-              continue;
-            }
-            totalDirectoriesCreated++;
-
-            // Decidir documentos según factura
-            const hasFactura = order.factura !== null && order.factura !== undefined && order.factura !== '' && order.factura !== 0 && order.factura !== '0';
-            const defaultDocuments = hasFactura
-              ? [
-                  { name: 'Shipment Notice', order_id: order.id, pc: order.pc, oc: order.oc, path: directoryPath },
-                  { name: 'Order Delivery Notice', order_id: order.id, pc: order.pc, oc: order.oc, path: directoryPath },
-                  { name: 'Availability Notice', order_id: order.id, pc: order.pc, oc: order.oc, path: directoryPath }
-                ]
-              : [
-                  { name: 'Order Receipt Notice', order_id: order.id, pc: order.pc, oc: order.oc, path: directoryPath }
-                ];
             
             // Insertar los documentos
-            for (const doc of defaultDocuments) {
+            for (const doc of documentsToCreate) {
               try {
                 await insertDefaultFile(doc);
                 totalFilesCreated++;
@@ -123,10 +149,10 @@ async function insertDefaultFile(fileData) {
   try {
     const query = `
       INSERT INTO order_files (
-        order_id, pc, oc, name, path, eta, etd, was_sent, 
+        order_id, pc, oc, name, path, eta, etd, file_id, was_sent, 
         document_type, file_type, status_id, is_visible_to_client, 
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, 'PDF', 1, 0, NOW(), NOW())
+      ) VALUES (?, ?, ?, ?, ?, NULL, NULL, ?, NULL, NULL, 'PDF', 1, 0, NOW(), NOW())
     `;
 
     const params = [
@@ -134,7 +160,8 @@ async function insertDefaultFile(fileData) {
       fileData.pc,
       fileData.oc,
       fileData.name,
-      fileData.path
+      fileData.path,
+      fileData.file_id || null
     ];
 
     const [result] = await pool.query(query, params);
