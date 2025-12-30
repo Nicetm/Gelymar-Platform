@@ -341,16 +341,13 @@ function renderOrders() {
         </div>
       </td>
       <td class="px-6 py-2">
-        <p class="text-sm text-gray-900 dark:text-gray-200">${order.factura || '-'}</p>
-      </td>
-      <td class="px-6 py-2">
         <p class="text-sm text-gray-900 dark:text-gray-200">${formatDateOnly(order.fecha_incoterm)}</p>
       </td>
       <td class="px-6 py-2">
-        <p class="text-sm text-gray-900 dark:text-gray-200">${formatDateOnly(order.fecha_eta_factura)}</p>
+        <p class="text-sm text-gray-900 dark:text-gray-200">${formatDateOnly(order.fecha_etd_factura)}</p>
       </td>
       <td class="px-6 py-2">
-        <p class="text-sm text-gray-900 dark:text-gray-200">${formatDateOnly(order.fecha_etd_factura)}</p>
+        <p class="text-sm text-gray-900 dark:text-gray-200">${formatDateOnly(order.fecha_eta_factura)}</p>
       </td>
       <td class="px-6 py-2">
         <p class="text-sm text-gray-900 dark:text-gray-200">${order.incoterm || '-'}</p>

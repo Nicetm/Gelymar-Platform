@@ -190,6 +190,37 @@ async function fetchOrderFilesFromNetwork() {
         // Buscar orden existente por unique_key
         const existingOrder = await getOrderByUniqueKey(uniqueKey);
         
+        const buildOrderDetailData = (includeCreatedAt) => ({
+          fecha: normalizeDate(record.Fecha?.trim()),
+          tipo: normalizeValue(record.Tipo?.trim()),
+          incoterm: normalizeValue(record.Clausula?.trim()),
+          currency: normalizeValue(record.Job?.trim()),
+          direccion_destino: normalizeValue(record.Direccion?.trim()),
+          direccion_alterna: normalizeValue(record.Direccion_Alterna?.trim()),
+          puerto_embarque: normalizeValue(record.Puerto_Embarque?.trim()),
+          puerto_destino: normalizeValue(record.Puerto_Destino?.trim()),
+          fecha_eta: normalizeDate(record.ETA_OV?.trim()),
+          fecha_etd: normalizeDate(record.ETD_OV?.trim()),
+          fecha_eta_factura: normalizeDate(record.ETA_ENC_FAC?.trim()),
+          fecha_etd_factura: normalizeDate(record.ETD_ENC_FAC?.trim()),
+          certificados: normalizeValue(record.Certificados?.trim()),
+          estado_ov: normalizeValue(record.EstadoOV?.trim()),
+          medio_envio_factura: normalizeValue(record.MedioDeEnvioFact?.trim()),
+          medio_envio_ov: normalizeValue(record.MedioDeEnvioOV?.trim()),
+          gasto_adicional_flete: normalizeDecimal(record.GtoAdicFlete?.trim(), 4),
+          gasto_adicional_flete_factura: normalizeDecimal(record.GtoAdicFleteFactura?.trim(), 4),
+          fecha_incoterm: normalizeDate(record.FechaOriginalCompromisoCliente?.trim()),
+          localizacion: normalizeValue(record.Localizacion?.trim()),
+          codigo_impuesto: normalizeValue(record.Cod_Impto?.trim()),
+          vendedor: normalizeValue(record.Vendedor?.trim()),
+          nave: normalizeValue(record.Nave?.trim()),
+          condicion_venta: normalizeValue(record.Condicion_venta?.trim()),
+          linea: parseInt(linea),
+          unique_key: uniqueKey,
+          ...(includeCreatedAt ? { created_at: new Date() } : {}),
+          updated_at: new Date()
+        });
+
         if (!existingOrder) {
           // NUEVA ORDEN - Insertar
           const orderId = await insertOrder({
@@ -207,36 +238,7 @@ async function fetchOrderFilesFromNetwork() {
           });
 
           // Insertar order detail
-          await createOrderDetail(orderId, {
-            fecha: normalizeDate(record.Fecha?.trim()),
-            tipo: normalizeValue(record.Tipo?.trim()),
-            incoterm: normalizeValue(record.Clausula?.trim()),
-            currency: normalizeValue(record.Job?.trim()),
-            direccion_destino: normalizeValue(record.Direccion?.trim()),
-            direccion_alterna: normalizeValue(record.Direccion_Alterna?.trim()),
-            puerto_embarque: normalizeValue(record.Puerto_Embarque?.trim()),
-            puerto_destino: normalizeValue(record.Puerto_Destino?.trim()),
-            fecha_eta: normalizeDate(record.ETA_OV?.trim()),
-            fecha_etd: normalizeDate(record.ETD_OV?.trim()),
-            fecha_eta_factura: normalizeDate(record.ETA_ENC_FAC?.trim()),
-            fecha_etd_factura: normalizeDate(record.ETD_ENC_FAC?.trim()),
-            certificados: normalizeValue(record.Certificados?.trim()),
-            estado_ov: normalizeValue(record.EstadoOV?.trim()),
-            medio_envio_factura: normalizeValue(record.MedioDeEnvioFact?.trim()),
-            medio_envio_ov: normalizeValue(record.MedioDeEnvioOV?.trim()),
-            gasto_adicional_flete: normalizeDecimal(record.GtoAdicFlete?.trim(), 4),
-            gasto_adicional_flete_factura: normalizeDecimal(record.GtoAdicFleteFactura?.trim(), 4),
-            fecha_incoterm: normalizeDate(record.FechaOriginalCompromisoCliente?.trim()),
-            localizacion: normalizeValue(record.Localizacion?.trim()),
-            codigo_impuesto: normalizeValue(record.Cod_Impto?.trim()),
-            vendedor: normalizeValue(record.Vendedor?.trim()),
-            nave: normalizeValue(record.Nave?.trim()),
-            condicion_venta: normalizeValue(record.Condicion_venta?.trim()),
-            linea: parseInt(linea),
-            unique_key: uniqueKey,
-            created_at: new Date(),
-            updated_at: new Date()
-          });
+          await createOrderDetail(orderId, buildOrderDetailData(true));
           
           // Insertar en tabla new_orders para procesamiento posterior
           await insertNewOrderRecord(orderId);
@@ -250,6 +252,10 @@ async function fetchOrderFilesFromNetwork() {
           // También verificar cambios en order_detail
           const existingDetail = await getOrderDetailByOrderId(existingOrder.id);
           const hasDetailChanges = existingDetail ? await compareOrderDetailFields(existingDetail, record) : false;
+
+          if (!existingDetail) {
+            await createOrderDetail(existingOrder.id, buildOrderDetailData(true));
+          }
           
           if (hasOrderChanges || hasDetailChanges) {
             // ACTUALIZAR orden
@@ -265,37 +271,11 @@ async function fetchOrderFilesFromNetwork() {
               unique_key: uniqueKey,
               updated_at: new Date()
             });
-
-            // ACTUALIZAR order detail
-            await updateOrderDetail(existingOrder.id, {
-              fecha: normalizeDate(record.Fecha?.trim()),
-              tipo: normalizeValue(record.Tipo?.trim()),
-              incoterm: normalizeValue(record.Clausula?.trim()),
-              currency: normalizeValue(record.Job?.trim()),
-              direccion_destino: normalizeValue(record.Direccion?.trim()),
-              direccion_alterna: normalizeValue(record.Direccion_Alterna?.trim()),
-              puerto_embarque: normalizeValue(record.Puerto_Embarque?.trim()),
-              puerto_destino: normalizeValue(record.Puerto_Destino?.trim()),
-              fecha_eta: normalizeDate(record.ETA_OV?.trim()),
-              fecha_etd: normalizeDate(record.ETD_OV?.trim()),
-              fecha_eta_factura: normalizeDate(record.ETA_ENC_FAC?.trim()),
-              fecha_etd_factura: normalizeDate(record.ETD_ENC_FAC?.trim()),
-              certificados: normalizeValue(record.Certificados?.trim()),
-              estado_ov: normalizeValue(record.EstadoOV?.trim()),
-              medio_envio_factura: normalizeValue(record.MedioDeEnvioFact?.trim()),
-              medio_envio_ov: normalizeValue(record.MedioDeEnvioOV?.trim()),
-              gasto_adicional_flete: normalizeDecimal(record.GtoAdicFlete?.trim(), 4),
-              gasto_adicional_flete_factura: normalizeDecimal(record.GtoAdicFleteFactura?.trim(), 4),
-              fecha_incoterm: normalizeDate(record.FechaOriginalCompromisoCliente?.trim()),
-              localizacion: normalizeValue(record.Localizacion?.trim()),
-              codigo_impuesto: normalizeValue(record.Cod_Impto?.trim()),
-              vendedor: normalizeValue(record.Vendedor?.trim()),
-              nave: normalizeValue(record.Nave?.trim()),
-              condicion_venta: normalizeValue(record.Condicion_venta?.trim()),
-              linea: parseInt(linea),
-              unique_key: uniqueKey,
-              updated_at: new Date()
-            });
+            
+            if (existingDetail) {
+              // ACTUALIZAR order detail
+              await updateOrderDetail(existingOrder.id, buildOrderDetailData(false));
+            }
             
             console.log(`[${new Date().toISOString()}] -> Check Order Process -> ORDEN ACTUALIZADA: PC=${pc}, OC=${oc}, unique_key=${uniqueKey}`);
             insertados++;
@@ -486,7 +466,7 @@ async function compareOrderDetailFields(existingDetail, newRecord) {
       normalizedExistingValue = normalizeExistingValue(existingValue, 'date');
     } else if (field === 'fecha_eta_factura' || field === 'fecha_etd_factura') {
       normalizedExistingValue = normalizeExistingValue(existingValue, 'date');
-    } else if (field === 'medio_envio_ov' || field === 'gasto_adicional_flete' || field === 'gasto_adicional_flete_factura' || field === 'kg_solicitados' || field === 'kg_planificados' || 
+    } else if (field === 'gasto_adicional_flete' || field === 'gasto_adicional_flete_factura' || field === 'kg_solicitados' || field === 'kg_planificados' || 
                field === 'kg_programados' || field === 'kg_despachados' || field === 'kg_fabricados' || 
                field === 'kg_facturados' || field === 'unit_price' || field === 'volumen') {
       normalizedExistingValue = normalizeDecimal(existingValue, 4);

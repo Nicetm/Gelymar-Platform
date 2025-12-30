@@ -2,7 +2,6 @@ const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
 const { insertFile, getFiles, RenameFile, createDefaultFilesForOrder } = require('../services/file.service');
-const { poolPromise } = require('../config/db');
 const { 
   generateRecepcionOrden,
   generateAvisoEmbarque,
@@ -15,6 +14,7 @@ const {
 const fileService = require('../services/file.service');
 const emailService = require('../services/email.service');
 const orderService = require('../services/order.service');
+const documentFileService = require('../services/documentFile.service');
 const { logger } = require('../utils/logger');
 const { cleanDirectoryName } = require('../utils/directoryUtils');
 const { validateFilePath, setSecureFilePermissions } = require('../utils/filePermissions');
@@ -42,75 +42,16 @@ function getDocumentGenerator(documentName) {
  * @returns {Object} Datos formateados para el template
  */
 async function getPDFData(file, lang = 'es') {
-  const pool = await poolPromise;
-  
-  // Obtener datos de la orden
-  const [[order]] = await pool.query(`
-    SELECT o.*, c.name as customer_name, c.email as customer_email
-    FROM orders o
-    JOIN customers c ON o.customer_id = c.id
-    WHERE o.id = ?
-  `, [file.order_id]);
+  const order = await documentFileService.getOrderWithCustomerForPdf(file.order_id);
+  const orderDetail = await documentFileService.getOrderDetailForPdf(file.order_id);
 
-  // Obtener datos de la orden detalle
-  const [[orderDetail]] = await pool.query(`
-    SELECT * FROM order_detail WHERE order_id = ?
-  `, [file.order_id]);
-
-  // Obtener items de la orden usando la misma query que order.service.js
-  let [orderItems] = await pool.query(`
-    SELECT DISTINCT
-      oi.id,
-      oi.order_id,
-      oi.item_id,
-      oi.descripcion,
-      oi.kg_solicitados,
-      oi.unit_price,
-      oi.volumen,
-      oi.tipo,
-      oi.mercado,
-      oi.kg_despachados,
-      oi.kg_facturados,
-      oi.fecha_etd,
-      oi.fecha_eta,
-      i.item_code,
-      i.item_name,
-      i.unidad_medida,
-      oi.factura
-    FROM order_items oi
-    JOIN items i ON oi.item_id = i.id
-    JOIN orders o ON oi.order_id = o.id
-    WHERE oi.pc = ? AND o.oc = ? AND (oi.factura = ? OR (oi.factura IS NULL AND ? IS NULL))
-    ORDER BY oi.id
-  `, [order.pc, order.oc, order.factura, order.factura]);
+  let orderItems = [];
+  if (order?.pc && order?.oc) {
+    orderItems = await documentFileService.getOrderItemsByPcOcFactura(order.pc, order.oc, order.factura);
+  }
 
   if (!orderItems.length && order?.id) {
-    const [fallbackItems] = await pool.query(`
-      SELECT
-        oi.id,
-        oi.order_id,
-        oi.item_id,
-        oi.descripcion,
-        oi.kg_solicitados,
-        oi.unit_price,
-        oi.volumen,
-        oi.tipo,
-        oi.mercado,
-        oi.kg_despachados,
-        oi.kg_facturados,
-        oi.fecha_etd,
-        oi.fecha_eta,
-        i.item_code,
-        i.item_name,
-        i.unidad_medida,
-        oi.factura
-      FROM order_items oi
-      JOIN items i ON oi.item_id = i.id
-      WHERE oi.order_id = ?
-      ORDER BY oi.id
-    `, [order.id]);
-
-    orderItems = fallbackItems;
+    orderItems = await documentFileService.getOrderItemsByOrderId(order.id);
   }
 
   // Fechas actuales
@@ -271,22 +212,15 @@ exports.handleUpload = async (req, res) => {
     }
 
     // Obtener los datos de la orden para pc y oc
-    const pool = await poolPromise;
-    const [[order]] = await pool.query('SELECT pc, oc FROM orders WHERE id = ?', [folder_id]);
+    const order = await documentFileService.getOrderPcOcById(folder_id);
     
     if (!order) {
       logger.warn(`Orden no encontrada ID: ${folder_id}`);
       return res.status(404).json({ message: 'Orden no encontrada' });
     }
 
-    // Obtener el file_identifier para esta orden (el más reciente)
-    const [[latestFile]] = await pool.query(`
-      SELECT file_identifier 
-      FROM order_files 
-      WHERE order_id = ? AND file_identifier IS NOT NULL
-      ORDER BY file_identifier DESC 
-      LIMIT 1
-    `, [folder_id]);
+    // Obtener el file_identifier para esta orden (el mas reciente)
+    const latestFile = await documentFileService.getLatestFileIdentifierByOrderId(folder_id);
 
     // Limpiar nombres de directorios para la ruta en la BD
     const cleanClientName = cleanDirectoryName(client_name);
@@ -297,13 +231,7 @@ exports.handleUpload = async (req, res) => {
     
     if (!fileIdentifier) {
       // Buscar el último identificador usado para este PC
-      const [[lastPCFile]] = await pool.query(`
-        SELECT file_identifier 
-        FROM order_files 
-        WHERE pc = ? AND file_identifier IS NOT NULL
-        ORDER BY file_identifier DESC 
-        LIMIT 1
-      `, [order.pc]);
+      const lastPCFile = await documentFileService.getLastFileIdentifierByPc(order.pc);
       
       fileIdentifier = lastPCFile ? lastPCFile.file_identifier + 1 : 1;
     }
@@ -374,7 +302,6 @@ exports.viewFile = async (req, res) => {
   const { id } = req.params;
   
   try {
-    const pool = await poolPromise;
     
     // Obtener información del archivo
     const file = await fileService.getFileById(id);
@@ -390,14 +317,7 @@ exports.viewFile = async (req, res) => {
     // Si es admin, puede acceder a todos los archivos
     if (userRole !== 'admin') {
       // Verificar que el archivo pertenece a un cliente del usuario
-      const [[customerCheck]] = await pool.query(`
-        SELECT c.id 
-        FROM customers c
-        JOIN orders o ON c.id = o.customer_id
-        JOIN files f ON o.id = f.order_id
-        JOIN users u ON u.email = c.rut
-        WHERE f.id = ? AND u.id = ?
-      `, [id, userId]);
+      const customerCheck = await documentFileService.getCustomerCheckForViewFile(id, userId);
       
       if (!customerCheck) {
         logger.warn(`Usuario ${userId} intentó acceder a archivo ${id} sin permisos`);
@@ -533,39 +453,15 @@ exports.viewWithToken = async (req, res) => {
     
     // Si es admin, puede acceder a todos los archivos
     if (userRole !== 'admin') {
-      const pool = await poolPromise;
-      
       // Primero obtener el customer del usuario
-      const [[userCustomer]] = await pool.query(`
-        SELECT c.id, c.rut, c.name 
-        FROM customers c
-        JOIN users u ON u.email = c.rut
-        WHERE u.id = ?
-      `, [userId]);
+      const userCustomer = await documentFileService.getUserCustomerByUserId(userId);
       
       if (!userCustomer) {
         return res.status(403).json({ message: 'No tienes permisos para acceder a este archivo' });
       }
       
       // Verificar que el archivo pertenece a una orden del customer
-      const query = `
-        SELECT f.id, f.name, o.id as order_id, c.id as customer_id
-        FROM order_files f
-        JOIN orders o ON f.order_id = o.id
-        JOIN customers c ON o.customer_id = c.id
-        WHERE f.id = ? AND c.id = ?
-      `;
-      const queryParams = [id, userCustomer.id];
-      
-      console.log('=== QUERY customerCheck ===');
-      console.log('SQL Query:', query);
-      console.log('Parameters:', { fileId: id, customerId: userCustomer.id });
-      console.log('Query Params:', queryParams);
-      
-      const [[customerCheck]] = await pool.query(query, queryParams);
-      
-      console.log('Query Result:', customerCheck);
-      console.log('=== END QUERY customerCheck ===');
+      const customerCheck = await documentFileService.getFileCustomerCheck(id, userCustomer.id);
       
       if (!customerCheck) {
         return res.status(403).json({ message: 'No tienes permisos para acceder a este archivo' });
@@ -614,7 +510,6 @@ exports.downloadFile = async (req, res) => {
   const { id } = req.params;
   
   try {
-    const pool = await poolPromise;
     
     // Obtener información del archivo
     const file = await fileService.getFileById(id);
@@ -632,14 +527,7 @@ exports.downloadFile = async (req, res) => {
     if (userRole !== 'admin') {
       // Verificar que el archivo pertenece a un cliente del usuario
       // La relación es: users.email = customers.rut
-      const [[customerCheck]] = await pool.query(`
-        SELECT c.id 
-        FROM customers c
-        JOIN orders o ON c.id = o.customer_id
-        JOIN order_files f ON o.id = f.order_id
-        JOIN users u ON u.email = c.rut
-        WHERE f.id = ? AND u.id = ?
-      `, [id, userId]);
+      const customerCheck = await documentFileService.getCustomerCheckForDownload(id, userId);
       
       if (!customerCheck) {
         logger.warn(`Usuario ${userId} intentó acceder a archivo ${id} sin permisos`);
@@ -692,8 +580,7 @@ exports.getFilesByCustomerAndFolder = async (req, res) => {
   const folderId = req.query.f;
 
   try {
-    const pool = await poolPromise;
-    const [[customer]] = await pool.query(`SELECT id FROM customers WHERE uuid = ?`, [customerUuid]);
+    const customer = await documentFileService.getCustomerByUuid(customerUuid);
 
     if (!customer) {
       logger.warn(`Cliente no encontrado UUID: ${customerUuid}`);
@@ -1062,13 +949,7 @@ exports.createDefaultFiles = async (req, res) => {
 
   try {
     // Obtener información de la orden y cliente
-    const pool = await poolPromise;
-    const [[order]] = await pool.query(`
-      SELECT o.*, c.name as customer_name 
-      FROM orders o
-      JOIN customers c ON o.customer_id = c.id
-      WHERE o.id = ?
-    `, [orderId]);
+    const order = await documentFileService.getOrderWithCustomerForDefaultFiles(orderId);
 
     if (!order) {
       logger.warn(`Orden no encontrada ID: ${orderId}`);
@@ -1098,11 +979,13 @@ exports.createDefaultFiles = async (req, res) => {
 // Nuevo endpoint para procesar órdenes nuevas y enviar recepción de orden
 exports.processNewOrdersAndSendReception = async (req, res) => {
   try {
-    const { poolPromise } = require('../config/db');
     const {
       getNewOrders,
       getOrderData,
+      getOrderWithCustomer,
+      getOrdersWithFacturaAndMissingFiles,
       getReceptionFile,
+      getReportEmailsAndLang,
       markOrderAsSent,
       isSendOrderReceptionEnabled
     } = require('../services/checkOrderReception.service');
@@ -1137,32 +1020,41 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
           continue;
         }
         
-        // 4. Verificar si existen archivos por defecto, si no, crearlos
+        // 4. Verificar archivos por defecto y crear segun factura
         const existingFiles = await fileService.getFilesByFolderId(orderId);
-        
-        if (existingFiles.length === 0) {
-          
-          // Obtener datos completos de la orden para crear archivos
-          const pool = await poolPromise;
-          const [[fullOrderData]] = await pool.query(`
-            SELECT o.*, c.name as customer_name 
-            FROM orders o
-            JOIN customers c ON o.customer_id = c.id
-            WHERE o.id = ?
-          `, [orderId]);
-          
-          if (!fullOrderData) {
-            errors++;
-            continue;
-          }
-          
-          // Crear archivos por defecto
+
+        // Obtener datos completos de la orden para crear archivos
+        const fullOrderData = await getOrderWithCustomer(orderId);
+        if (!fullOrderData) {
+          errors++;
+          continue;
+        }
+
+        const hasFactura = fullOrderData.factura !== null && fullOrderData.factura !== undefined && fullOrderData.factura !== '' && fullOrderData.factura !== 0 && fullOrderData.factura !== '0';
+        const requiredDocs = hasFactura
+          ? ['Shipment Notice', 'Order Delivery Notice', 'Availability Notice']
+          : ['Order Receipt Notice'];
+        const existingNames = new Set(existingFiles.map(fileItem => fileItem.name));
+        const missingDocs = requiredDocs.filter(name => !existingNames.has(name));
+
+        if (missingDocs.length > 0) {
           await fileService.createDefaultFilesForOrder(
             orderId,
             fullOrderData.customer_name,
             fullOrderData.pc,
             fullOrderData.oc
           );
+        }
+
+        // Si tiene factura, no generar ni enviar ORN
+        if (hasFactura) {
+          if (automaticReceptionEnabled) {
+            await markOrderAsSent(orderId);
+            processed++;
+          } else {
+            skipped++;
+          }
+          continue;
         }
 
         // 5. Obtener archivo de recepción (id, path)
@@ -1173,43 +1065,9 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
           continue;
         }
         
-        // 6. Obtener emails con reports = true del JSON de customer_contacts
-        const pool = await poolPromise;
-        const [contactRows] = await pool.query(
-          'SELECT contact_email FROM customer_contacts WHERE customer_id = ?',
-          [orderData.customer_id]
-        );
+        // 6. Obtener emails con reports=true y el idioma del cliente
+        const { reportEmails, customerLang } = await getReportEmailsAndLang(orderData.customer_id);
 
-        let reportEmails = [];
-        let customerLang = 'en'; // Idioma por defecto
-        
-        if (contactRows.length > 0 && contactRows[0].contact_email) {
-          try {
-            const contacts = typeof contactRows[0].contact_email === 'string'
-              ? JSON.parse(contactRows[0].contact_email)
-              : contactRows[0].contact_email;
-            
-            if (Array.isArray(contacts)) {
-              // Solo extraer emails de contactos con reports = true
-              const reportContacts = contacts.filter(contact => contact.reports === true);
-              reportEmails = reportContacts
-                .map(contact => contact.email)
-                .filter(email => email && email.trim());
-              
-              // Obtener idioma del cliente si está disponible
-              const [customerRows] = await pool.query(
-                'SELECT c.country, cl.lang FROM customers c INNER JOIN country_lang cl ON c.country = cl.country WHERE c.id = ?',
-                [orderData.customer_id]
-              );
-              if (customerRows.length > 0) {
-                customerLang = customerRows[0].lang || 'en';
-              }
-            }
-          } catch (error) {
-            console.error(`Error parseando contact_email para cliente ${orderData.customer_id}:`, error);
-          }
-        }
-        
         if (reportEmails.length === 0) {
           console.error(`No se encontraron emails con reports=true para cliente ${orderData.customer_id}`);
           errors++;
@@ -1303,6 +1161,25 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
         errors++;
         // Continuar con la siguiente orden
       }
+    }
+
+    // 3. Crear documentos faltantes para ordenes con factura (sin envio de correo)
+    try {
+      const ordersWithFactura = await getOrdersWithFacturaAndMissingFiles();
+      for (const orderItem of ordersWithFactura) {
+        try {
+          await fileService.createDefaultFilesForOrder(
+            orderItem.id,
+            orderItem.customer_name,
+            orderItem.pc,
+            orderItem.oc
+          );
+        } catch (fileError) {
+          console.error(`Error creando archivos faltantes para orden ${orderItem.id}:`, fileError.message);
+        }
+      }
+    } catch (missingError) {
+      console.error('Error buscando ordenes con factura para crear archivos:', missingError.message);
     }
     
     res.status(200).json({
