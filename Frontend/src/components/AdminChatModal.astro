@@ -4,6 +4,7 @@ import { loadTranslations, getServerLang } from '../lib/i18n.js';
 
 const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
 const apiPublic = import.meta.env.PUBLIC_API_URL;
+const fileServerUrl = import.meta.env.PUBLIC_FILE_SERVER_URL;
 const lang = getServerLang(Astro.cookies);
 
 let t: any = {};
@@ -52,17 +53,28 @@ try {
       
       <!-- Input area -->
       <div class="p-4 border-t border-gray-200 dark:border-gray-600">
-        <div class="flex gap-2">
+        <div class="flex gap-1">
           <input 
             id="admin-chat-input" 
             type="text" 
             placeholder={t.messages?.chat?.write_message || "Escribe tu mensaje..."} 
             class="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
+          <input id="admin-chat-image-input" type="file" accept="image/png,image/jpeg" class="hidden">
+          <button 
+            id="admin-chat-image-btn"
+            type="button"
+            class="px-2 py-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+            title="Adjuntar imagen"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21.44 11.05l-8.49 8.49a5.5 5.5 0 01-7.78-7.78l9.19-9.19a3.5 3.5 0 014.95 4.95l-9.19 9.19a1.5 1.5 0 01-2.12-2.12l8.49-8.49"/>
+            </svg>
+          </button>
           <button 
             id="admin-emoji-btn"
             type="button"
-            class="px-3 py-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+            class="px-2 py-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
             title="Add emoji"
           >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -84,8 +96,21 @@ try {
   </div>
 </div>
 
-<script is:inline define:vars={{ apiPublic, apiBase, lang, t }}>
+<!-- Modal de imagen -->
+<div id="admin-chat-image-modal" class="fixed inset-0 z-[60] hidden items-center justify-center bg-black/70 p-4">
+  <div class="relative max-w-4xl w-full">
+    <button id="admin-chat-image-modal-close" class="absolute -top-3 -right-3 bg-white text-gray-700 rounded-full w-8 h-8 flex items-center justify-center shadow">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+      </svg>
+    </button>
+    <img id="admin-chat-image-modal-img" alt="Imagen adjunta" class="w-full h-auto rounded-lg shadow-lg bg-white" />
+  </div>
+</div>
+
+<script is:inline define:vars={{ apiPublic, apiBase, fileServerUrl, lang, t }}>
   window.apiBase = apiPublic;
+  window.fileServerUrl = fileServerUrl;
   
   // Socket.io service (inline)
   class SocketService {
@@ -162,8 +187,13 @@ try {
   const chatModal = document.getElementById('admin-chat-modal');
   const chatMessages = document.getElementById('admin-chat-messages');
   const chatInput = document.getElementById('admin-chat-input');
+  const chatImageInput = document.getElementById('admin-chat-image-input');
+  const chatImageBtn = document.getElementById('admin-chat-image-btn');
   const sendButton = document.getElementById('admin-chat-send');
   const closeButton = document.getElementById('admin-chat-close');
+  const imageModal = document.getElementById('admin-chat-image-modal');
+  const imageModalImg = document.getElementById('admin-chat-image-modal-img');
+  const imageModalClose = document.getElementById('admin-chat-image-modal-close');
   const customerName = document.getElementById('admin-chat-customer-name');
   const customerCompany = document.getElementById('admin-chat-customer-company');
   const emojiBtn = document.getElementById('admin-emoji-btn');
@@ -311,6 +341,48 @@ try {
   }
 
   // Agregar mensaje al chat
+  function buildChatImageUrl(rawUrl, rawPath) {
+    const baseUrl = window.fileServerUrl || '';
+    if (rawPath) {
+      const normalizedPath = String(rawPath).replace(/\\/g, '/').replace(/^\/+/, '');
+      if (baseUrl) {
+        return `${baseUrl.replace(/\/$/, '')}/${normalizedPath}`;
+      }
+      return `/${normalizedPath}`;
+    }
+    if (!rawUrl) {
+      return '';
+    }
+    const url = String(rawUrl);
+    if (/^https?:\/\//i.test(url)) {
+      return url;
+    }
+    if (baseUrl) {
+      return `${baseUrl.replace(/\/$/, '')}/${url.replace(/^\/+/, '')}`;
+    }
+    return url;
+  }
+
+  function parseChatPayload(message) {
+    if (typeof message !== 'string') {
+      return { type: 'text', text: '' };
+    }
+    try {
+      const parsed = JSON.parse(message);
+      if (parsed && parsed.type === 'image' && (parsed.url || parsed.path)) {
+        const imageUrl = buildChatImageUrl(parsed.url, parsed.path);
+        return {
+          type: 'image',
+          url: imageUrl,
+          text: parsed.text || ''
+        };
+      }
+    } catch (error) {
+      // Ignorar JSON invalido
+    }
+    return { type: 'text', text: message };
+  }
+
   function addMessageToChat(message, sender, createdAt = null, isReadByClient = false) {
     // Ocultar indicador de typing cuando llega un mensaje
     if (sender === 'client') {
@@ -350,7 +422,34 @@ try {
       });
     }
 
-    messageBubble.innerHTML = `<p class="text-sm">${message}</p>`;
+    const content = parseChatPayload(message);
+    if (content.type === 'image') {
+      const imageEl = document.createElement('img');
+      imageEl.src = content.url;
+      imageEl.alt = 'Imagen adjunta';
+      imageEl.className = 'rounded-lg max-w-[220px] h-auto';
+      imageEl.loading = 'lazy';
+      imageEl.style.cursor = 'zoom-in';
+      imageEl.addEventListener('click', () => {
+        if (imageModal && imageModalImg) {
+          imageModalImg.src = content.url;
+          imageModal.classList.remove('hidden');
+          imageModal.classList.add('flex');
+        }
+      });
+      messageBubble.appendChild(imageEl);
+      if (content.text) {
+        const textEl = document.createElement('p');
+        textEl.className = 'text-sm mt-2';
+        textEl.textContent = content.text;
+        messageBubble.appendChild(textEl);
+      }
+    } else {
+      const textEl = document.createElement('p');
+      textEl.className = 'text-sm';
+      textEl.textContent = content.text;
+      messageBubble.appendChild(textEl);
+    }
     messageContainer.appendChild(messageBubble);
 
     // Meta (hora + checkmarks)
@@ -391,6 +490,15 @@ try {
     chatMessages.appendChild(messageDiv);
 
     chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  function closeAdminImageModal() {
+    if (!imageModal) return;
+    imageModal.classList.add('hidden');
+    imageModal.classList.remove('flex');
+    if (imageModalImg) {
+      imageModalImg.src = '';
+    }
   }
 
   // Actualizar check marks de mensajes del admin
@@ -599,6 +707,40 @@ try {
   }
 
   // Enviar mensaje
+  function hasSelectedAdminImage() {
+    return !!(chatImageInput && chatImageInput.files && chatImageInput.files.length > 0);
+  }
+
+  function updateAdminSendButtonState() {
+    if (!sendButton || !chatInput) return;
+    sendButton.disabled = !chatInput.value.trim() && !hasSelectedAdminImage();
+  }
+
+  async function uploadAdminChatImage(file, customerId, adminId) {
+    const apiBase = window.apiBase;
+    const token = localStorage.getItem('token');
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('customer_id', customerId);
+    if (adminId) {
+      formData.append('admin_id', adminId);
+    }
+
+    const response = await fetch(`${apiBase}/api/chat/upload-image`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      body: formData
+    });
+
+    if (!response.ok) {
+      throw new Error('Error subiendo imagen');
+    }
+
+    return response.json();
+  }
+
   async function sendAdminMessage() {
 
     const apiBase = window.apiBase;
@@ -606,15 +748,47 @@ try {
     if (!chatInput || !sendButton || !currentCustomerId) return;
     
     const message = chatInput.value.trim();
-    if (!message || isTyping) return;
+    const imageFile = chatImageInput?.files?.[0] || null;
+    if ((!message && !imageFile) || isTyping) return;
 
     isTyping = true;
     sendButton.disabled = true;
 
     try {
+      if (imageFile) {
+        const allowedTypes = ['image/jpeg', 'image/png'];
+        if (!allowedTypes.includes(imageFile.type)) {
+          addMessageToChat('Solo se permiten imagenes JPG o PNG.', 'admin', new Date());
+          isTyping = false;
+          sendButton.disabled = false;
+          return;
+        }
+        if (imageFile.size > 5 * 1024 * 1024) {
+          addMessageToChat('La imagen supera 5MB.', 'admin', new Date());
+          isTyping = false;
+          sendButton.disabled = false;
+          return;
+        }
+      }
+
+      let payloadMessage = message;
+      if (imageFile) {
+        const uploadResult = await uploadAdminChatImage(imageFile, currentCustomerId, window.currentAdminId);
+        payloadMessage = JSON.stringify({
+          type: 'image',
+          url: uploadResult.url,
+          path: uploadResult.path,
+          text: message
+        });
+      }
+
       // Agregar mensaje del admin inmediatamente
-      addMessageToChat(message, 'admin', new Date(), false);
+      addMessageToChat(payloadMessage, 'admin', new Date(), false);
       chatInput.value = '';
+      if (chatImageInput) {
+        chatImageInput.value = '';
+      }
+      updateAdminSendButtonState();
 
       const token = localStorage.getItem('token');
       if (!token) {
@@ -631,7 +805,7 @@ try {
         body: JSON.stringify({ 
           customer_id: currentCustomerId, 
           admin_id: window.currentAdminId, 
-          message: message, 
+          message: payloadMessage, 
           sender_role: 'admin' 
         })
       });
@@ -685,7 +859,7 @@ try {
     setTimeout(() => {
       chatInput?.focus();
       if (sendButton) {
-        sendButton.disabled = !chatInput.value.trim();
+        updateAdminSendButtonState();
       }
     }, 200);
   };
@@ -733,6 +907,15 @@ try {
   // Event listeners
   closeButton?.addEventListener('click', closeAdminChatModal);
   sendButton?.addEventListener('click', sendAdminMessage);
+  chatImageBtn?.addEventListener('click', () => {
+    chatImageInput?.click();
+  });
+  chatImageInput?.addEventListener('change', () => {
+    updateAdminSendButtonState();
+    if (hasSelectedAdminImage() && chatInput && !chatInput.value.trim()) {
+      sendAdminMessage();
+    }
+  });
   
   chatInput?.addEventListener('keypress', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -742,9 +925,7 @@ try {
   });
 
   chatInput?.addEventListener('input', () => {
-    if (sendButton) {
-      sendButton.disabled = !chatInput.value.trim();
-    }
+    updateAdminSendButtonState();
   });
 
   // Event listener for emoji button
@@ -767,6 +948,19 @@ try {
   // Inicializar chat del admin al cargar la página
   document.addEventListener('DOMContentLoaded', () => {
     initializeSocket();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && imageModal && !imageModal.classList.contains('hidden')) {
+      closeAdminImageModal();
+    }
+  });
+
+  imageModalClose?.addEventListener('click', closeAdminImageModal);
+  imageModal?.addEventListener('click', (e) => {
+    if (e.target === imageModal) {
+      closeAdminImageModal();
+    }
   });
 </script>
 

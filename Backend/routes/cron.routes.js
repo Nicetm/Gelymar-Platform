@@ -11,6 +11,7 @@ const { generateDefaultFiles } = require('../services/checkDefaultFiles.service'
 const { checkOrdersWithETD } = require('../services/checkETD.service');
 const { cleanDatabaseAndDirectories } = require('../services/cleanDatabase.service');
 const { getCronTasksConfig } = require('../services/cronConfig.service');
+const { sendDailyAdminNotificationSummary } = require('../services/adminNotificationSummary.service');
 
 // Endpoint para procesar clientes
 router.post('/check-clients', async (req, res) => {
@@ -121,6 +122,19 @@ router.post('/clean-database', async (req, res) => {
   }
 });
 
+// Endpoint para enviar resumen diario de notificaciones admin
+router.post('/send-admin-notification-summary', async (req, res) => {
+  try {
+    console.log('Iniciando envio de resumen diario de notificaciones...');
+    const result = await sendDailyAdminNotificationSummary();
+    console.log('Envio de resumen diario completado');
+    res.json({ success: true, ...result });
+  } catch (error) {
+    console.error('Error enviando resumen diario:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Endpoint para obtener configuración de tareas cron
 router.get('/tasks-config', async (req, res) => {
   try {
@@ -143,3 +157,5 @@ router.get('/tasks-config', async (req, res) => {
 });
 
 module.exports = router;
+
+

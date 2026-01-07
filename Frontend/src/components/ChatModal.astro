@@ -4,6 +4,7 @@ import { loadTranslations, getServerLang } from '../lib/i18n.js';
 // Modal de chat para comunicación cliente-admin
 const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
 const apiPublic = import.meta.env.PUBLIC_API_URL;
+const fileServerUrl = import.meta.env.PUBLIC_FILE_SERVER_URL;
 const lang = getServerLang(Astro.cookies);
 
 let t: any = {};
@@ -90,17 +91,28 @@ try {
   
       <!-- Área de escritura -->
       <div id="chat-input-area" class="p-4 border-t border-gray-200 dark:border-gray-700 hidden">
-        <div class="flex gap-2">
+        <div class="flex gap-1">
           <input 
             id="chat-input" 
             type="text" 
             placeholder={t.messages?.chat?.write_message || "Write your message..."}
             class="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
+          <input id="chat-image-input" type="file" accept="image/png,image/jpeg" class="hidden" />
+          <button
+            id="chat-image-btn"
+            type="button"
+            class="px-2 py-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+            title="Adjuntar imagen"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21.44 11.05l-8.49 8.49a5.5 5.5 0 01-7.78-7.78l9.19-9.19a3.5 3.5 0 014.95 4.95l-9.19 9.19a1.5 1.5 0 01-2.12-2.12l8.49-8.49"/>
+            </svg>
+          </button>
           <button 
             id="emoji-btn"
             type="button"
-            class="px-3 py-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+            class="px-2 py-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
             title="Add emoji"
           >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -122,16 +134,29 @@ try {
   </div>
 </div>
 
+<!-- Modal de imagen -->
+<div id="chat-image-modal" class="fixed inset-0 z-[60] hidden items-center justify-center bg-black/70 p-4">
+  <div class="relative max-w-4xl w-full">
+    <button id="chat-image-modal-close" class="absolute -top-3 -right-3 bg-white text-gray-700 rounded-full w-8 h-8 flex items-center justify-center shadow">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    <img id="chat-image-modal-img" alt="Imagen adjunta" class="w-full h-auto rounded-lg shadow-lg bg-white" />
+  </div>
+</div>
+
 
 <script
   type="module"
-  define:vars={{ apiPublic, apiBase, lang, t }}
+  define:vars={{ apiPublic, apiBase, fileServerUrl, lang, t }}
 >
   import { initChatModal } from '/js/chat-modal.js';
 
   initChatModal({
     apiBase,
     apiPublic,
+    fileServerUrl,
     lang,
     translations: t,
   });

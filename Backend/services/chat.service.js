@@ -1,6 +1,27 @@
 const ChatMessage = require('../models/chatMessage.model');
 const EncryptionService = require('./encryption.service');
 const UserService = require('./user.service');
+const CustomerService = require('./customer.service');
+const { sendChatNotification } = require('./email.service');
+
+function parseChatPayload(message) {
+  if (typeof message !== 'string') {
+    return { type: 'text', text: '' };
+  }
+  try {
+    const parsed = JSON.parse(message);
+    if (parsed && parsed.type === 'image' && parsed.url) {
+      return {
+        type: 'image',
+        url: parsed.url,
+        text: parsed.text || ''
+      };
+    }
+  } catch (error) {
+    // Ignorar JSON invalido
+  }
+  return { type: 'text', text: message };
+}
 
 class ChatService {
   static async sendMessage(messageData) {
@@ -62,6 +83,10 @@ class ChatService {
             console.error('Error desencriptando mensaje reciente:', error);
             chat.last_message = '[Mensaje no disponible]';
           }
+        }
+        const parsed = parseChatPayload(chat.last_message);
+        if (parsed.type === 'image') {
+          chat.last_message = parsed.text ? `${parsed.text} [Imagen adjunta]` : '[Imagen adjunta]';
         }
         return chat;
       });
@@ -135,6 +160,34 @@ class ChatService {
     } catch (error) {
       throw error;
     }
+  }
+
+  static async notifyAdminOfClientMessage({ customerId, adminId, message }) {
+    if (!adminId || !customerId || !message) {
+      return;
+    }
+
+    const admin = await UserService.getAdminUserById(adminId);
+    if (!admin || !admin.message_mail) {
+      return;
+    }
+
+    const customer = await CustomerService.getCustomerById(customerId);
+    const portalBase = process.env.FRONTEND_BASE_URL || 'http://localhost:2121';
+    const portalUrl = `${portalBase}/admin`;
+
+    const parsed = parseChatPayload(message);
+    const previewMessage = parsed.type === 'image'
+      ? (parsed.text ? `${parsed.text}\n[Imagen adjunta]` : '[Imagen adjunta]')
+      : message;
+
+    await sendChatNotification({
+      adminEmail: admin.message_mail,
+      adminName: admin.full_name || admin.message_mail,
+      customerName: customer?.name || customer?.rut || 'Cliente',
+      message: previewMessage,
+      portalUrl
+    });
   }
 }
 

@@ -8,11 +8,15 @@ export function initChatModal(config = {}) {
     apiPublic = '',
     lang = 'es',
     translations = {},
+    fileServerUrl = '',
   } = config;
 
   const resolvedApiBase = apiPublic || apiBase || window.apiBase || '';
   if (resolvedApiBase) {
     window.apiBase = resolvedApiBase;
+  }
+  if (fileServerUrl) {
+    window.fileServerUrl = fileServerUrl;
   }
 
   window.lang = lang;
@@ -93,7 +97,12 @@ export function initChatModal(config = {}) {
   const minimizeChatBtn = document.getElementById('minimize-chat-btn');
   const chatMessagesDiv = document.getElementById('chat-messages');
   const chatInput = document.getElementById('chat-input');
+  const chatImageInput = document.getElementById('chat-image-input');
+  const chatImageBtn = document.getElementById('chat-image-btn');
   const sendMessageBtn = document.getElementById('send-message-btn');
+  const chatImageModal = document.getElementById('chat-image-modal');
+  const chatImageModalImg = document.getElementById('chat-image-modal-img');
+  const chatImageModalClose = document.getElementById('chat-image-modal-close');
   const emojiBtn = document.getElementById('emoji-btn');
   const adminStatusContainer = document.getElementById('chat-admin-status');
   const adminStatusText = document.getElementById('chat-admin-status-text');
@@ -474,6 +483,40 @@ export function initChatModal(config = {}) {
   }
   
   // Función para enviar mensaje
+  function hasSelectedImage() {
+    return !!(chatImageInput && chatImageInput.files && chatImageInput.files.length > 0);
+  }
+
+  function updateSendButtonState() {
+    if (!sendMessageBtn || !chatInput) return;
+    sendMessageBtn.disabled = !chatInput.value.trim() && !hasSelectedImage();
+  }
+
+  async function uploadChatImage(file, customerId, adminId) {
+    const apiBase = window.apiBase;
+    const token = localStorage.getItem('token');
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('customer_id', customerId);
+    if (adminId) {
+      formData.append('admin_id', adminId);
+    }
+
+    const response = await fetch(`${apiBase}/api/chat/upload-image`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      body: formData
+    });
+
+    if (!response.ok) {
+      throw new Error('Error subiendo imagen');
+    }
+
+    return response.json();
+  }
+
   async function sendMessage() {
 
     const apiBase = window.apiBase;
@@ -481,24 +524,64 @@ export function initChatModal(config = {}) {
     if (!chatInput || !sendMessageBtn || !chatMessagesDiv) return;
     
     const message = chatInput.value.trim();
-    if (!message || isTyping) return;
+    const imageFile = chatImageInput?.files?.[0] || null;
+    if ((!message && !imageFile) || isTyping) return;
     
     isTyping = true;
     sendMessageBtn.disabled = true;
     
     try {
-      // Validar y sanitizar el mensaje
-      const validationResult = validateAndSanitizeMessage(message);
-      if (!validationResult.isValid) {
-        showSecurityWarning(validationResult.reason);
-        isTyping = false;
-        sendMessageBtn.disabled = false;
-        return;
+      let sanitizedMessage = '';
+      if (message) {
+        // Validar y sanitizar el mensaje
+        const validationResult = validateAndSanitizeMessage(message);
+        if (!validationResult.isValid) {
+          showSecurityWarning(validationResult.reason);
+          isTyping = false;
+          sendMessageBtn.disabled = false;
+          return;
+        }
+        sanitizedMessage = validationResult.message;
       }
 
-      // Agregar mensaje del usuario (enviado, no leído aún)
-      addMessageToChat(validationResult.message, 'user', new Date(), false);
+      if (imageFile) {
+        const allowedTypes = ['image/jpeg', 'image/png'];
+        if (!allowedTypes.includes(imageFile.type)) {
+          addMessageToChat('Solo se permiten imagenes JPG o PNG.', 'admin', new Date());
+          isTyping = false;
+          sendMessageBtn.disabled = false;
+          return;
+        }
+        if (imageFile.size > 5 * 1024 * 1024) {
+          addMessageToChat('La imagen supera 5MB.', 'admin', new Date());
+          isTyping = false;
+          sendMessageBtn.disabled = false;
+          return;
+        }
+      }
+      
+      let payloadMessage = sanitizedMessage;
+      if (imageFile) {
+        const customerId = await getCustomerId();
+        if (!customerId) {
+          throw new Error('customerId no encontrado');
+        }
+        const uploadResult = await uploadChatImage(imageFile, customerId, selectedAdminId);
+        payloadMessage = JSON.stringify({
+          type: 'image',
+          url: uploadResult.url,
+          path: uploadResult.path,
+          text: sanitizedMessage
+        });
+      }
+
+      // Agregar mensaje del usuario (enviado, no leido aun)
+      addMessageToChat(payloadMessage, 'user', new Date(), false);
       chatInput.value = '';
+      if (chatImageInput) {
+        chatImageInput.value = '';
+      }
+      updateSendButtonState();
       
       // Enviar mensaje a la API
       const token = localStorage.getItem('token');
@@ -518,7 +601,7 @@ export function initChatModal(config = {}) {
         body: JSON.stringify({
           customer_id: customerId,
           admin_id: selectedAdminId,
-          message: validationResult.message,
+          message: payloadMessage,
           sender_role: 'client'
         })
       });
@@ -548,6 +631,48 @@ export function initChatModal(config = {}) {
   }
   
   // Función para agregar mensaje al chat
+  function buildChatImageUrl(rawUrl, rawPath) {
+    const baseUrl = window.fileServerUrl || '';
+    if (rawPath) {
+      const normalizedPath = String(rawPath).replace(/\\/g, '/').replace(/^\/+/, '');
+      if (baseUrl) {
+        return `${baseUrl.replace(/\/$/, '')}/${normalizedPath}`;
+      }
+      return `/${normalizedPath}`;
+    }
+    if (!rawUrl) {
+      return '';
+    }
+    const url = String(rawUrl);
+    if (/^https?:\/\//i.test(url)) {
+      return url;
+    }
+    if (baseUrl) {
+      return `${baseUrl.replace(/\/$/, '')}/${url.replace(/^\/+/, '')}`;
+    }
+    return url;
+  }
+
+  function parseChatPayload(message) {
+    if (typeof message !== 'string') {
+      return { type: 'text', text: '' };
+    }
+    try {
+      const parsed = JSON.parse(message);
+      if (parsed && parsed.type === 'image' && (parsed.url || parsed.path)) {
+        const imageUrl = buildChatImageUrl(parsed.url, parsed.path);
+        return {
+          type: 'image',
+          url: imageUrl,
+          text: parsed.text || ''
+        };
+      }
+    } catch (error) {
+      // Ignorar JSON invalido
+    }
+    return { type: 'text', text: message };
+  }
+
   function addMessageToChat(message, sender, createdAt = null, isReadByAdmin = false) {
     if (!chatMessagesDiv) return;
 
@@ -583,7 +708,34 @@ export function initChatModal(config = {}) {
       });
     }
 
-    messageBubble.innerHTML = `<p class="text-sm">${message}</p>`;
+    const content = parseChatPayload(message);
+    if (content.type === 'image') {
+      const imageEl = document.createElement('img');
+      imageEl.src = content.url;
+      imageEl.alt = 'Imagen adjunta';
+      imageEl.className = 'rounded-lg max-w-[220px] h-auto';
+      imageEl.loading = 'lazy';
+      imageEl.style.cursor = 'zoom-in';
+      imageEl.addEventListener('click', () => {
+        if (chatImageModal && chatImageModalImg) {
+          chatImageModalImg.src = content.url;
+          chatImageModal.classList.remove('hidden');
+          chatImageModal.classList.add('flex');
+        }
+      });
+      messageBubble.appendChild(imageEl);
+      if (content.text) {
+        const textEl = document.createElement('p');
+        textEl.className = 'text-sm mt-2';
+        textEl.textContent = content.text;
+        messageBubble.appendChild(textEl);
+      }
+    } else {
+      const textEl = document.createElement('p');
+      textEl.className = 'text-sm';
+      textEl.textContent = content.text;
+      messageBubble.appendChild(textEl);
+    }
     messageContainer.appendChild(messageBubble);
 
     // Meta (hora + checkmarks)
@@ -624,6 +776,15 @@ export function initChatModal(config = {}) {
     chatMessagesDiv.appendChild(messageDiv);
 
     chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+  }
+
+  function closeChatImageModal() {
+    if (!chatImageModal) return;
+    chatImageModal.classList.add('hidden');
+    chatImageModal.classList.remove('flex');
+    if (chatImageModalImg) {
+      chatImageModalImg.src = '';
+    }
   }
 
   
@@ -962,6 +1123,16 @@ export function initChatModal(config = {}) {
   });
   
   sendMessageBtn?.addEventListener('click', sendMessage);
+
+  chatImageBtn?.addEventListener('click', () => {
+    chatImageInput?.click();
+  });
+  chatImageInput?.addEventListener('change', async () => {
+    updateSendButtonState();
+    if (hasSelectedImage() && chatInput && !chatInput.value.trim()) {
+      await sendMessage();
+    }
+  });
   
   chatInput?.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
@@ -969,17 +1140,24 @@ export function initChatModal(config = {}) {
     }
   });
   
-  // Habilitar/deshabilitar botón de envío según input
   chatInput?.addEventListener('input', () => {
-    if (sendMessageBtn && chatInput) {
-      sendMessageBtn.disabled = !chatInput.value.trim();
-    }
+    updateSendButtonState();
   });
   
   // Cerrar con Escape
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && chatModal && !chatModal.classList.contains('hidden')) {
       closeChatModal();
+    }
+    if (e.key === 'Escape' && chatImageModal && !chatImageModal.classList.contains('hidden')) {
+      closeChatImageModal();
+    }
+  });
+
+  chatImageModalClose?.addEventListener('click', closeChatImageModal);
+  chatImageModal?.addEventListener('click', (e) => {
+    if (e.target === chatImageModal) {
+      closeChatImageModal();
     }
   });
   

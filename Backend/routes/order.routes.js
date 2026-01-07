@@ -3,6 +3,7 @@ const router = express.Router();
 const orderController = require('../controllers/order.controller');
 const configController = require('../controllers/config.controller');
 const authMiddleware = require('../middleware/auth.middleware');
+const headerPreferredAuth = authMiddleware.createAuthMiddleware({ tokenSource: 'both', preferHeader: true });
 const { authorizeRoles } = require('../middleware/role.middleware');
 
 /**
@@ -74,6 +75,34 @@ router.get('/', authMiddleware, authorizeRoles(['admin', 'client']), orderContro
  *         description: Configuración no encontrada
  */
 router.get('/alerts/missing-documents', authMiddleware, authorizeRoles(['admin']), configController.getOrdersMissingDocumentsAlert);
+
+/**
+ * @swagger
+ * /api/orders/admin/dashboard/sales:
+ *   get:
+ *     summary: Obtiene metricas de ventas para dashboard admin
+ *     tags: [òrdenes]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Datos de ventas
+ */
+router.get('/admin/dashboard/sales', authMiddleware, authorizeRoles(['admin']), orderController.getAdminSalesDashboard);
+
+/**
+ * @swagger
+ * /api/orders/admin/price-analysis:
+ *   get:
+ *     summary: Obtiene datos de analisis de precios (solo Carla)
+ *     tags: [•rdenes]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Datos de analisis de precios
+ */
+router.get('/admin/price-analysis', headerPreferredAuth, authorizeRoles(['admin']), orderController.getAdminPriceAnalysis);
 
 /**
  * @swagger

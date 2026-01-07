@@ -2,6 +2,47 @@ const { poolPromise } = require('../config/db');
 const Order = require('../models/order.model');
 const mysql = require('mysql2');
 
+const formatDateOnly = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const normalizeDateInput = (value) => {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return null;
+  }
+  return trimmed;
+};
+
+const clampDateRange = (startInput, endInput) => {
+  const today = new Date();
+  const defaultEnd = formatDateOnly(today);
+  const defaultStartDate = new Date(today);
+  defaultStartDate.setDate(defaultStartDate.getDate() - 29);
+  const defaultStart = formatDateOnly(defaultStartDate);
+
+  let startDate = normalizeDateInput(startInput) || defaultStart;
+  let endDate = normalizeDateInput(endInput) || defaultEnd;
+
+  if (startDate > endDate) {
+    const temp = startDate;
+    startDate = endDate;
+    endDate = temp;
+  }
+
+  return { startDate, endDate };
+};
+
+const subtractDays = (endDate, days) => {
+  const base = new Date(`${endDate}T00:00:00`);
+  base.setDate(base.getDate() - days);
+  return formatDateOnly(base);
+};
+
 /**
  * Busca órdenes por filtros opcionales
  * @param {object} filters
@@ -788,6 +829,424 @@ const getOrdersMissingDocumentsAlert = async ({ fechaAlerta, minDocuments = 5 })
   }
 };
 
+const getSalesDashboardData = async ({ startDate, endDate, metricType }) => {
+  const pool = await poolPromise;
+  const range = clampDateRange(startDate, endDate);
+  const today = formatDateOnly(new Date());
+  const metric = metricType === 'solicitados' ? 'solicitados' : 'facturados';
+  const kgExpr = metric === 'solicitados' ? 'COALESCE(oi.kg_solicitados, 0)' : 'COALESCE(oi.kg_facturados, 0)';
+  const amountExpr = `${kgExpr} * oi.unit_price`;
+  const orderDetailJoin = `
+    LEFT JOIN (
+      SELECT
+        order_id,
+        MAX(UPPER(TRIM(currency))) AS currency,
+        MAX(fecha) AS fecha_detalle
+      FROM order_detail
+      GROUP BY order_id
+    ) od ON od.order_id = o.id
+  `;
+  const dateExpr = 'DATE(o.fecha_factura)';
+
+  const baseWhere = `
+    o.fecha_factura IS NOT NULL
+    AND ${dateExpr} BETWEEN ? AND ?
+    AND o.factura IS NOT NULL
+    AND o.factura <> ''
+    AND o.factura <> '0'
+    AND o.factura <> 0
+    AND ${kgExpr} > 0
+  `;
+
+  const withCurrency = `${baseWhere} AND od.currency = ?`;
+
+  const totalsQuery = `
+    SELECT
+      COALESCE(SUM(${amountExpr}), 0) AS total_sales,
+      COALESCE(SUM(${kgExpr}), 0) AS total_kg,
+      COUNT(DISTINCT o.id) AS total_orders
+    FROM orders o
+    JOIN order_items oi ON oi.order_id = o.id
+    ${orderDetailJoin}
+    WHERE ${withCurrency}
+  `;
+
+  const startOfWeek = (dateStr) => {
+    const date = new Date(`${dateStr}T00:00:00`);
+    const day = date.getDay();
+    const diff = day === 0 ? 6 : day - 1;
+    date.setDate(date.getDate() - diff);
+    return formatDateOnly(date);
+  };
+
+  const startOfMonth = (dateStr) => {
+    const date = new Date(`${dateStr}T00:00:00`);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`;
+  };
+
+  const startOfYear = (dateStr) => {
+    const date = new Date(`${dateStr}T00:00:00`);
+    return `${date.getFullYear()}-01-01`;
+  };
+
+
+  const computeCalendarTotal = async (periodStart, currency) => {
+    const [[row]] = await pool.query(totalsQuery, [periodStart, today, currency]);
+    return Number(row?.total_sales || 0);
+  };
+
+  const buildSeries = (seriesRows, groupByMonth) => {
+    const buildSeriesKey = (value) => {
+      if (value instanceof Date) {
+        if (groupByMonth) {
+          const year = value.getFullYear();
+          const month = String(value.getMonth() + 1).padStart(2, '0');
+          return `${year}-${month}`;
+        }
+        return formatDateOnly(value);
+      }
+      return String(value);
+    };
+
+    const seriesMap = new Map(
+      seriesRows.map((row) => [
+        buildSeriesKey(row.period),
+        { sales: Number(row.total_sales || 0), kg: Number(row.total_kg || 0) }
+      ])
+    );
+
+    const labels = [];
+    const sales = [];
+    const kg = [];
+
+    if (groupByMonth) {
+      const start = new Date(`${range.startDate}T00:00:00`);
+      const end = new Date(`${range.endDate}T00:00:00`);
+      const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+      const endCursor = new Date(end.getFullYear(), end.getMonth(), 1);
+
+      while (cursor <= endCursor) {
+        const label = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`;
+        const entry = seriesMap.get(label) || { sales: 0, kg: 0 };
+        labels.push(label);
+        sales.push(entry.sales);
+        kg.push(entry.kg);
+        cursor.setMonth(cursor.getMonth() + 1);
+      }
+    } else {
+      const start = new Date(`${range.startDate}T00:00:00`);
+      const end = new Date(`${range.endDate}T00:00:00`);
+      const cursor = new Date(start);
+      while (cursor <= end) {
+        const label = formatDateOnly(cursor);
+        const entry = seriesMap.get(label) || { sales: 0, kg: 0 };
+        labels.push(label);
+        sales.push(entry.sales);
+        kg.push(entry.kg);
+        cursor.setDate(cursor.getDate() + 1);
+      }
+    }
+
+    return { labels, sales, kg };
+  };
+
+  const fetchCurrencyData = async (currency) => {
+    const normalizedCurrency = String(currency || '').toUpperCase();
+    const start = new Date(`${range.startDate}T00:00:00`);
+    const end = new Date(`${range.endDate}T00:00:00`);
+    const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24));
+    const groupByMonth = diffDays > 90;
+    const periodExpr = groupByMonth
+      ? "DATE_FORMAT(o.fecha_factura, '%Y-%m')"
+      : 'DATE(o.fecha_factura)';
+
+    const seriesQuery = `
+      SELECT
+        ${periodExpr} AS period,
+        COALESCE(SUM(${amountExpr}), 0) AS total_sales,
+        COALESCE(SUM(${kgExpr}), 0) AS total_kg
+      FROM orders o
+      JOIN order_items oi ON oi.order_id = o.id
+      ${orderDetailJoin}
+      WHERE ${withCurrency}
+      GROUP BY period
+      ORDER BY period ASC
+    `;
+
+    const topProductsQuery = `
+      SELECT
+        COALESCE(NULLIF(oi.descripcion, ''), i.item_name, i.item_code, 'Producto') AS product_name,
+        COALESCE(SUM(${kgExpr}), 0) AS total_kg,
+        COALESCE(SUM(${amountExpr}), 0) AS total_sales
+      FROM orders o
+      JOIN order_items oi ON oi.order_id = o.id
+      LEFT JOIN items i ON i.id = oi.item_id
+      ${orderDetailJoin}
+      WHERE ${withCurrency}
+      GROUP BY product_name
+      ORDER BY total_sales DESC
+      LIMIT 10
+    `;
+
+    const topCustomersQuery = `
+      SELECT
+        c.name AS customer_name,
+        COALESCE(SUM(${kgExpr}), 0) AS total_kg,
+        COALESCE(SUM(${amountExpr}), 0) AS total_sales
+      FROM orders o
+      JOIN customers c ON c.id = o.customer_id
+      JOIN order_items oi ON oi.order_id = o.id
+      ${orderDetailJoin}
+      WHERE ${withCurrency}
+      GROUP BY c.id, c.name
+      ORDER BY total_sales DESC
+      LIMIT 10
+    `;
+
+    const [[rangeTotals], [seriesRows], [topProductsRows], [topCustomersRows]] = await Promise.all([
+      pool.query(totalsQuery, [range.startDate, range.endDate, normalizedCurrency]),
+      pool.query(seriesQuery, [range.startDate, range.endDate, normalizedCurrency]),
+      pool.query(topProductsQuery, [range.startDate, range.endDate, normalizedCurrency]),
+      pool.query(topCustomersQuery, [range.startDate, range.endDate, normalizedCurrency])
+    ]);
+
+    const seriesTotals = seriesRows.reduce(
+      (acc, row) => {
+        acc.sales += Number(row.total_sales || 0);
+        acc.kg += Number(row.total_kg || 0);
+        return acc;
+      },
+      { sales: 0, kg: 0 }
+    );
+
+    const [weeklySales, monthlySales, annualSales] = await Promise.all([
+      computeCalendarTotal(startOfWeek(today), normalizedCurrency),
+      computeCalendarTotal(startOfMonth(today), normalizedCurrency),
+      computeCalendarTotal(startOfYear(today), normalizedCurrency)
+    ]);
+
+    const series = buildSeries(seriesRows, groupByMonth);
+
+    const avgTicket = rangeTotals.total_orders ? rangeTotals.total_sales / rangeTotals.total_orders : 0;
+    const avgKg = rangeTotals.total_orders ? rangeTotals.total_kg / rangeTotals.total_orders : 0;
+
+    return {
+      currency: normalizedCurrency,
+      rangeTotals: {
+        sales: Number(seriesTotals.sales || 0),
+        kg: Number(seriesTotals.kg || 0),
+        orders: Number(rangeTotals.total_orders || 0)
+      },
+      period: {
+        weeklySales,
+        monthlySales,
+        annualSales
+      },
+      series: {
+        groupBy: groupByMonth ? 'month' : 'day',
+        labels: series.labels,
+        sales: series.sales,
+        kg: series.kg
+      },
+      summary: {
+        avgTicket,
+        avgKg
+      },
+      topProducts: topProductsRows.map((row) => ({
+        name: row.product_name || 'Producto',
+        kg: Number(row.total_kg || 0),
+        sales: Number(row.total_sales || 0)
+      })),
+      topCustomers: topCustomersRows.map((row) => ({
+        name: row.customer_name || 'Cliente',
+        kg: Number(row.total_kg || 0),
+        sales: Number(row.total_sales || 0)
+      }))
+    };
+  };
+
+  const [usdData, eurData] = await Promise.all([
+    fetchCurrencyData('USD'),
+    fetchCurrencyData('EUR')
+  ]);
+
+  return {
+    range,
+    today,
+    metric,
+    currencies: {
+      USD: usdData,
+      EUR: eurData
+    }
+  };
+};
+
+const getPriceAnalysisData = async ({ startDate, endDate, productId, customerId, market, currency }) => {
+  const pool = await poolPromise;
+  const range = clampDateRange(startDate, endDate);
+  const normalizedCurrency = currency ? String(currency).trim().toUpperCase() : null;
+  const normalizedMarket = market ? String(market).trim() : null;
+
+  const orderDetailJoin = `
+    LEFT JOIN (
+      SELECT
+        order_id,
+        MAX(UPPER(TRIM(currency))) AS currency
+      FROM order_detail
+      GROUP BY order_id
+    ) od ON od.order_id = o.id
+  `;
+
+  const where = [
+    'o.fecha_factura IS NOT NULL',
+    "o.factura IS NOT NULL",
+    "o.factura <> ''",
+    "o.factura <> '0'",
+    'o.factura <> 0',
+    'DATE(o.fecha_factura) BETWEEN ? AND ?'
+  ];
+  const params = [range.startDate, range.endDate];
+
+  if (Number.isFinite(Number(productId))) {
+    where.push('oi.item_id = ?');
+    params.push(Number(productId));
+  }
+
+  if (Number.isFinite(Number(customerId))) {
+    where.push('c.id = ?');
+    params.push(Number(customerId));
+  }
+
+  if (normalizedMarket) {
+    where.push('oi.mercado = ?');
+    params.push(normalizedMarket);
+  }
+
+  if (normalizedCurrency) {
+    where.push('od.currency = ?');
+    params.push(normalizedCurrency);
+  }
+
+  const baseFrom = `
+    FROM orders o
+    JOIN order_items oi ON oi.order_id = o.id
+    LEFT JOIN items i ON i.id = oi.item_id
+    JOIN customers c ON c.id = o.customer_id
+    ${orderDetailJoin}
+    WHERE ${where.join(' AND ')}
+  `;
+
+  const summaryQuery = `
+    SELECT
+      MIN(oi.unit_price) AS min_price,
+      MAX(oi.unit_price) AS max_price,
+      AVG(oi.unit_price) AS avg_price,
+      COALESCE(SUM(oi.kg_facturados), 0) AS total_kg,
+      COALESCE(SUM(oi.kg_facturados * oi.unit_price), 0) AS total_sales,
+      COUNT(*) AS total_rows,
+      COUNT(DISTINCT o.id) AS total_orders
+    ${baseFrom}
+  `;
+
+  const rowsQuery = `
+    SELECT
+      o.id AS order_id,
+      o.pc,
+      o.oc,
+      o.factura,
+      DATE(o.fecha_factura) AS fecha,
+      c.name AS customer_name,
+      oi.item_id,
+      COALESCE(NULLIF(oi.descripcion, ''), i.item_name, i.item_code, 'Producto') AS product_name,
+      i.item_code,
+      oi.mercado,
+      oi.unit_price,
+      COALESCE(oi.kg_facturados, 0) AS kg_facturados,
+      od.currency AS currency
+    ${baseFrom}
+    ORDER BY fecha DESC, product_name ASC, customer_name ASC
+    LIMIT 500
+  `;
+
+  const productsQuery = `
+    SELECT DISTINCT
+      oi.item_id AS id,
+      COALESCE(NULLIF(oi.descripcion, ''), i.item_name, i.item_code, 'Producto') AS name
+    ${baseFrom}
+      AND oi.item_id IS NOT NULL
+    ORDER BY name ASC
+  `;
+
+  const customersQuery = `
+    SELECT DISTINCT
+      c.id AS id,
+      c.name AS name
+    ${baseFrom}
+    ORDER BY name ASC
+  `;
+
+  const marketsQuery = `
+    SELECT DISTINCT
+      oi.mercado AS name
+    ${baseFrom}
+      AND oi.mercado IS NOT NULL
+      AND oi.mercado <> ''
+    ORDER BY name ASC
+  `;
+
+  const currenciesQuery = `
+    SELECT DISTINCT
+      od.currency AS name
+    ${baseFrom}
+      AND od.currency IS NOT NULL
+      AND od.currency <> ''
+    ORDER BY name ASC
+  `;
+
+  const [[summary], [rows], [products], [customers], [markets], [currencies]] = await Promise.all([
+    pool.query(summaryQuery, params),
+    pool.query(rowsQuery, params),
+    pool.query(productsQuery, params),
+    pool.query(customersQuery, params),
+    pool.query(marketsQuery, params),
+    pool.query(currenciesQuery, params)
+  ]);
+
+  return {
+    range,
+    filters: {
+      products: products.map((row) => ({ id: row.id, name: row.name })),
+      customers: customers.map((row) => ({ id: row.id, name: row.name })),
+      markets: markets.map((row) => row.name),
+      currencies: currencies.map((row) => row.name)
+    },
+    summary: {
+      minPrice: Number(summary?.min_price || 0),
+      maxPrice: Number(summary?.max_price || 0),
+      avgPrice: Number(summary?.avg_price || 0),
+      totalKg: Number(summary?.total_kg || 0),
+      totalSales: Number(summary?.total_sales || 0),
+      totalRows: Number(summary?.total_rows || 0),
+      totalOrders: Number(summary?.total_orders || 0)
+    },
+    rows: rows.map((row) => ({
+      orderId: row.order_id,
+      pc: row.pc,
+      oc: row.oc,
+      factura: row.factura,
+      fecha: row.fecha,
+      customer: row.customer_name,
+      itemId: row.item_id,
+      product: row.product_name,
+      itemCode: row.item_code,
+      market: row.mercado,
+      unitPrice: Number(row.unit_price || 0),
+      kgFacturados: Number(row.kg_facturados || 0),
+      currency: row.currency || ''
+    }))
+  };
+};
+
 module.exports = {
   getOrdersByFilters,
   getClientDashboardOrders,
@@ -802,5 +1261,7 @@ module.exports = {
   getOrderByIdSimple,
   getOrderDetails,
   getOrderDetail,
-  getOrdersMissingDocumentsAlert
+  getOrdersMissingDocumentsAlert,
+  getSalesDashboardData,
+  getPriceAnalysisData
 };

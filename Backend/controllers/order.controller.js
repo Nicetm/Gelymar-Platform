@@ -230,3 +230,44 @@ exports.getOrderDetail = async (req, res) => {
     res.status(500).json({ message: 'Error al obtener detalles de la orden' });
   }
 };
+
+/**
+ * GET /api/orders/admin/dashboard/sales
+ * Devuelve metricas de ventas para el dashboard admin
+ */
+exports.getAdminSalesDashboard = async (req, res) => {
+  try {
+    const { start, end, metric } = req.query;
+    const data = await orderService.getSalesDashboardData({
+      startDate: start,
+      endDate: end,
+      metricType: metric
+    });
+    res.json(data);
+  } catch (err) {
+    console.error('[getAdminSalesDashboard] Error:', err.message);
+    res.status(500).json({ message: 'Error al obtener metricas del dashboard' });
+  }
+};
+
+/**
+ * GET /api/orders/admin/price-analysis
+ * Devuelve datos de analisis de precios (solo Carla)
+ */
+exports.getAdminPriceAnalysis = async (req, res) => {
+  try {
+    const { start, end, productId, customerId, market, currency } = req.query;
+    const data = await orderService.getPriceAnalysisData({
+      startDate: start,
+      endDate: end,
+      productId,
+      customerId,
+      market,
+      currency
+    });
+    res.json(data);
+  } catch (err) {
+    console.error('[getAdminPriceAnalysis] Error:', err.message);
+    res.status(500).json({ message: 'Error al obtener analisis de precios' });
+  }
+};

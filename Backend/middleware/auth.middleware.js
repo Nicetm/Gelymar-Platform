@@ -10,12 +10,14 @@ const userService = require('../services/user.service');
  * @param {boolean} options.requireAuth - Si requiere autenticación (default: true)
  * @param {boolean} options.allowExpired - Si permite tokens expirados (default: false)
  * @param {string} options.tokenSource - Fuente del token ('both', 'header', 'cookie')
+ * @param {boolean} options.preferHeader - Prioriza Authorization header cuando tokenSource = 'both'
  */
 const createAuthMiddleware = (options = {}) => {
   const {
     requireAuth = true,
     allowExpired = false,
-    tokenSource = 'both'
+    tokenSource = 'both',
+    preferHeader = false
   } = options;
 
   return async (req, res, next) => {
@@ -23,15 +25,22 @@ const createAuthMiddleware = (options = {}) => {
       let token = null;
 
       // Obtener token según la fuente especificada
-      if (tokenSource === 'both' || tokenSource === 'cookie') {
-        token = req.cookies?.token;
-      }
-      
-      if (!token && (tokenSource === 'both' || tokenSource === 'header')) {
+      const readFromHeader = () => {
         const authHeader = req.headers['authorization'];
         if (authHeader?.startsWith('Bearer ')) {
-          token = authHeader.split(' ')[1];
+          return authHeader.split(' ')[1];
         }
+        return null;
+      };
+
+      const readFromCookie = () => req.cookies?.token || null;
+
+      if (tokenSource === 'both') {
+        token = preferHeader ? (readFromHeader() || readFromCookie()) : (readFromCookie() || readFromHeader());
+      } else if (tokenSource === 'header') {
+        token = readFromHeader();
+      } else if (tokenSource === 'cookie') {
+        token = readFromCookie();
       }
 
       if (!token) {

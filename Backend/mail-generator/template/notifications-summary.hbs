@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>{{subject}}</title>
+</head>
+<body style="font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;color:#333;max-width:600px;margin:0 auto;padding:20px">
+
+  <div style="text-align:center;margin-bottom:20px">
+    <img src="{{logoUrl}}" alt="Gelymar Logo" style="max-width:200px;height:auto">
+  </div>
+
+  <div style="background:#F4940C;padding:20px;border-radius:8px 8px 0 0;text-align:center">
+    <h1 style="color:white;margin:0;font-size:24px">{{title}}</h1>
+  </div>
+
+  <div style="background:#f8fafc;padding:30px;border-radius:0 0 8px 8px;border:1px solid #e2e8f0">
+    <p style="font-size:16px;line-height:1.6;margin-bottom:20px">
+      Hola <strong style="color:#163F6F">{{adminName}}</strong>,
+    </p>
+
+    <p style="font-size:16px;line-height:1.6;margin-bottom:20px">
+      Este es tu resumen diario de tareas pendientes:
+    </p>
+
+    <div style="background:white;padding:20px;border-radius:6px;border-left:4px solid #F4940C;margin:20px 0">
+      <p style="font-size:16px;line-height:1.6;margin:0">
+        {{{summaryHtml}}}
+      </p>
+    </div>
+
+    {{#if portalUrl}}
+    <div style="text-align:center;margin:30px 0">
+      <a href="{{portalUrl}}" style="background:#163F6F;color:#fff;text-decoration:none;padding:12px 18px;border-radius:6px;display:inline-block">
+        Ir al portal
+      </a>
+    </div>
+    {{/if}}
+
+    <div style="text-align:center;margin:0 0 20px 0">
+      {{#if ordersUrl}}
+      <a href="{{ordersUrl}}" style="color:#163F6F;text-decoration:none;margin:0 8px">Ver órdenes</a>
+      {{/if}}
+      {{#if clientsUrl}}
+      <a href="{{clientsUrl}}" style="color:#163F6F;text-decoration:none;margin:0 8px">Ver clientes</a>
+      {{/if}}
+    </div>
+
+    <div style="border-top:2px solid #e2e8f0;padding-top:20px">
+      <p style="font-size:16px;line-height:1.6;margin-bottom:5px">
+        <strong style="color:#163F6F">Saludos</strong>
+      </p>
+      <p style="font-size:18px;font-weight:bold;color:#F4940C;margin:5px 0">
+        Gelymar
+      </p>
+      <p style="font-size:14px;color:#64748b;margin:5px 0">
+        International Logistics Services
+      </p>
+    </div>
+
+    <div style="border-top:1px solid #e2e8f0;padding-top:15px;margin-top:20px;text-align:center">
+      <p style="font-size:12px;color:#94a3b8;margin:0;font-style:italic">
+        This is an automated email. Please do not reply directly to this message.
+      </p>
+    </div>
+  </div>
+</body>
+</html>

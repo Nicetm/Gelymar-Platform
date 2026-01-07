@@ -280,9 +280,90 @@ async function sendFileToClient(file, options = {}) {
   await transporter.sendMail(mailOptions);
 }
 
+async function sendChatNotification({
+  adminEmail,
+  adminName,
+  customerName,
+  message,
+  portalUrl
+}) {
+  if (!adminEmail) {
+    throw new Error('No se proporciono email de administrador');
+  }
+
+  const templatePath = path.join(__dirname, '../mail-generator/template/chat.hbs');
+  const templateContent = fs.readFileSync(templatePath, 'utf8');
+  const template = Handlebars.compile(templateContent);
+
+  const subject = 'Nuevo mensaje de chat - Gelymar';
+  const safeMessage = typeof message === 'string' ? message.trim() : '';
+  const messageHtml = safeMessage ? safeMessage.replace(/\n/g, '<br />') : '-';
+
+  const templateData = {
+    subject,
+    title: 'Nuevo mensaje de chat',
+    adminName: adminName || 'Administrador',
+    customerName: customerName || 'Cliente',
+    messageHtml,
+    portalUrl,
+    logoUrl: 'https://www.gelymar.com/wp-content/uploads/2014/08/gelymar-logo.jpg'
+  };
+
+  const htmlContent = template(templateData);
+
+  const mailOptions = {
+    from: `Gelymar <${process.env.SMTP_USER}>`,
+    to: adminEmail,
+    subject,
+    html: htmlContent
+  };
+
+  await transporter.sendMail(mailOptions);
+}
+
+async function sendAdminNotificationSummary({
+  adminEmail,
+  adminName,
+  summaryText,
+  portalUrl,
+  links = {}
+}) {
+  if (!adminEmail) {
+    throw new Error('No se proporciono email de administrador');
+  }
+
+  const templatePath = path.join(__dirname, '../mail-generator/template/notifications-summary.hbs');
+  const templateContent = fs.readFileSync(templatePath, 'utf8');
+  const template = Handlebars.compile(templateContent);
+
+  const subject = 'Recordatorio diario de tareas pendientes - Gelymar';
+  const summaryHtml = (summaryText || '').replace(/\n/g, '<br />');
+
+  const templateData = {
+    subject,
+    title: 'Tareas pendientes',
+    adminName: adminName || 'Administrador',
+    summaryHtml,
+    portalUrl,
+    ordersUrl: links.orders || '',
+    clientsUrl: links.clients || '',
+    logoUrl: 'https://www.gelymar.com/wp-content/uploads/2014/08/gelymar-logo.jpg'
+  };
+
+  const htmlContent = template(templateData);
+
+  const mailOptions = {
+    from: `Gelymar <${process.env.SMTP_USER}>`,
+    to: adminEmail,
+    subject,
+    html: htmlContent
+  };
+
+  await transporter.sendMail(mailOptions);
+}
 
 async function translateNameOfDocument(name) {
   return DOC_NAME_MAP[name] || name;
 }
 
-module.exports = { sendFileToClient };
+module.exports = { sendFileToClient, sendChatNotification, sendAdminNotificationSummary };

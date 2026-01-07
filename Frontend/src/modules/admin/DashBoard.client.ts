@@ -1,662 +1,373 @@
-/* eslint-disable max-lines */
-
 import ApexCharts from 'apexcharts';
 
-const getMainChartOptions = () => {
-	let mainChartColors = {};
+declare global {
+  interface Window {
+    apiBase?: string;
+  }
+}
 
-	if (document.documentElement.classList.contains('dark')) {
-		mainChartColors = {
-			borderColor: '#374151',
-			labelColor: '#9CA3AF',
-			opacityFrom: 0,
-			opacityTo: 0.15,
-		};
-	} else {
-		mainChartColors = {
-			borderColor: '#F3F4F6',
-			labelColor: '#6B7280',
-			opacityFrom: 0.45,
-			opacityTo: 0,
-		};
-	}
+type TopRow = { name: string; kg: number; sales: number };
 
-	return {
-		chart: {
-			height: 420,
-			type: 'area',
-			fontFamily: 'Inter, sans-serif',
-			foreColor: mainChartColors.labelColor,
-			toolbar: {
-				show: false,
-			},
-		},
-		fill: {
-			type: 'gradient',
-			gradient: {
-				enabled: true,
-				opacityFrom: mainChartColors.opacityFrom,
-				opacityTo: mainChartColors.opacityTo,
-			},
-		},
-		dataLabels: {
-			enabled: false,
-		},
-		tooltip: {
-			style: {
-				fontSize: '14px',
-				fontFamily: 'Inter, sans-serif',
-			},
-		},
-		grid: {
-			show: true,
-			borderColor: mainChartColors.borderColor,
-			strokeDashArray: 1,
-			padding: {
-				left: 35,
-				bottom: 15,
-			},
-		},
-		series: [
-			{
-				name: 'Revenue',
-				data: [6356, 6218, 6156, 6526, 6356, 6256, 6056],
-				color: '#1A56DB',
-			},
-			{
-				name: 'Revenue (previous period)',
-				data: [6556, 6725, 6424, 6356, 6586, 6756, 6616],
-				color: '#FDBA8C',
-			},
-		],
-		markers: {
-			size: 5,
-			strokeColors: '#ffffff',
-			hover: {
-				size: undefined,
-				sizeOffset: 3,
-			},
-		},
-		xaxis: {
-			categories: [
-				'01 Feb',
-				'02 Feb',
-				'03 Feb',
-				'04 Feb',
-				'05 Feb',
-				'06 Feb',
-				'07 Feb',
-			],
-			labels: {
-				style: {
-					colors: [mainChartColors.labelColor],
-					fontSize: '14px',
-					fontWeight: 500,
-				},
-			},
-			axisBorder: {
-				color: mainChartColors.borderColor,
-			},
-			axisTicks: {
-				color: mainChartColors.borderColor,
-			},
-			crosshairs: {
-				show: true,
-				position: 'back',
-				stroke: {
-					color: mainChartColors.borderColor,
-					width: 1,
-					dashArray: 10,
-				},
-			},
-		},
-		yaxis: {
-			labels: {
-				style: {
-					colors: [mainChartColors.labelColor],
-					fontSize: '14px',
-					fontWeight: 500,
-				},
-				formatter(value) {
-					return `$${value}`;
-				},
-			},
-		},
-		legend: {
-			fontSize: '14px',
-			fontWeight: 500,
-			fontFamily: 'Inter, sans-serif',
-			labels: {
-				colors: [mainChartColors.labelColor],
-			},
-			itemMargin: {
-				horizontal: 10,
-			},
-		},
-		responsive: [
-			{
-				breakpoint: 1024,
-				options: {
-					xaxis: {
-						labels: {
-							show: false,
-						},
-					},
-				},
-			},
-		],
-	};
+type CurrencyPayload = {
+  currency: string;
+  rangeTotals: { sales: number; kg: number; orders: number };
+  period: { weeklySales: number; monthlySales: number; annualSales: number };
+  series: { groupBy: string; labels: string[]; sales: number[]; kg: number[] };
+  summary: { avgTicket: number; avgKg: number };
+  topProducts: TopRow[];
+  topCustomers: TopRow[];
 };
 
-if (document.getElementById('main-chart')) {
-	const chart = new ApexCharts(
-		document.getElementById('main-chart'),
-		getMainChartOptions(),
-	);
-	chart.render();
-
-	// init again when toggling dark mode
-	document.addEventListener('dark-mode', () => {
-		chart.updateOptions(getMainChartOptions());
-	});
-}
-
-if (document.getElementById('new-products-chart')) {
-	const options = {
-		colors: ['#1A56DB', '#FDBA8C'],
-		series: [
-			{
-				name: 'Quantity',
-				color: '#1A56DB',
-				data: [
-					{ x: '01 Feb', y: 170 },
-					{ x: '02 Feb', y: 180 },
-					{ x: '03 Feb', y: 164 },
-					{ x: '04 Feb', y: 145 },
-					{ x: '05 Feb', y: 194 },
-					{ x: '06 Feb', y: 170 },
-					{ x: '07 Feb', y: 155 },
-				],
-			},
-		],
-		chart: {
-			type: 'bar',
-			height: '140px',
-			fontFamily: 'Inter, sans-serif',
-			foreColor: '#4B5563',
-			toolbar: {
-				show: false,
-			},
-		},
-		plotOptions: {
-			bar: {
-				columnWidth: '90%',
-				borderRadius: 3,
-			},
-		},
-		tooltip: {
-			shared: false,
-			intersect: false,
-			style: {
-				fontSize: '14px',
-				fontFamily: 'Inter, sans-serif',
-			},
-		},
-		states: {
-			hover: {
-				filter: {
-					type: 'darken',
-					value: 1,
-				},
-			},
-		},
-		stroke: {
-			show: true,
-			width: 5,
-			colors: ['transparent'],
-		},
-		grid: {
-			show: false,
-		},
-		dataLabels: {
-			enabled: false,
-		},
-		legend: {
-			show: false,
-		},
-		xaxis: {
-			floating: false,
-			labels: {
-				show: false,
-			},
-			axisBorder: {
-				show: false,
-			},
-			axisTicks: {
-				show: false,
-			},
-		},
-		yaxis: {
-			show: false,
-		},
-		fill: {
-			opacity: 1,
-		},
-	};
-
-	const chart = new ApexCharts(
-		document.getElementById('new-products-chart'),
-		options,
-	);
-	chart.render();
-}
-
-if (document.getElementById('sales-by-category')) {
-	const options = {
-		colors: ['#1A56DB', '#FDBA8C'],
-		series: [
-			{
-				name: 'Desktop PC',
-				color: '#1A56DB',
-				data: [
-					{ x: '01 Feb', y: 170 },
-					{ x: '02 Feb', y: 180 },
-					{ x: '03 Feb', y: 164 },
-					{ x: '04 Feb', y: 145 },
-					{ x: '05 Feb', y: 194 },
-					{ x: '06 Feb', y: 170 },
-					{ x: '07 Feb', y: 155 },
-				],
-			},
-			{
-				name: 'Phones',
-				color: '#FDBA8C',
-				data: [
-					{ x: '01 Feb', y: 120 },
-					{ x: '02 Feb', y: 294 },
-					{ x: '03 Feb', y: 167 },
-					{ x: '04 Feb', y: 179 },
-					{ x: '05 Feb', y: 245 },
-					{ x: '06 Feb', y: 182 },
-					{ x: '07 Feb', y: 143 },
-				],
-			},
-			{
-				name: 'Gaming/Console',
-				color: '#17B0BD',
-				data: [
-					{ x: '01 Feb', y: 220 },
-					{ x: '02 Feb', y: 194 },
-					{ x: '03 Feb', y: 217 },
-					{ x: '04 Feb', y: 279 },
-					{ x: '05 Feb', y: 215 },
-					{ x: '06 Feb', y: 263 },
-					{ x: '07 Feb', y: 183 },
-				],
-			},
-		],
-		chart: {
-			type: 'bar',
-			height: '420px',
-			fontFamily: 'Inter, sans-serif',
-			foreColor: '#4B5563',
-			toolbar: {
-				show: false,
-			},
-		},
-		plotOptions: {
-			bar: {
-				columnWidth: '90%',
-				borderRadius: 3,
-			},
-		},
-		tooltip: {
-			shared: true,
-			intersect: false,
-			style: {
-				fontSize: '14px',
-				fontFamily: 'Inter, sans-serif',
-			},
-		},
-		states: {
-			hover: {
-				filter: {
-					type: 'darken',
-					value: 1,
-				},
-			},
-		},
-		stroke: {
-			show: true,
-			width: 5,
-			colors: ['transparent'],
-		},
-		grid: {
-			show: false,
-		},
-		dataLabels: {
-			enabled: false,
-		},
-		legend: {
-			show: false,
-		},
-		xaxis: {
-			floating: false,
-			labels: {
-				show: false,
-			},
-			axisBorder: {
-				show: false,
-			},
-			axisTicks: {
-				show: false,
-			},
-		},
-		yaxis: {
-			show: false,
-		},
-		fill: {
-			opacity: 1,
-		},
-	};
-
-	const chart = new ApexCharts(
-		document.getElementById('sales-by-category'),
-		options,
-	);
-	chart.render();
-}
-
-const getVisitorsChartOptions = () => {
-	let visitorsChartColors = {};
-
-	if (document.documentElement.classList.contains('dark')) {
-		visitorsChartColors = {
-			fillGradientShade: 'dark',
-			fillGradientShadeIntensity: 0.45,
-		};
-	} else {
-		visitorsChartColors = {
-			fillGradientShade: 'light',
-			fillGradientShadeIntensity: 1,
-		};
-	}
-
-	return {
-		series: [
-			{
-				name: 'Visitors',
-				data: [500, 590, 600, 520, 610, 550, 600],
-			},
-		],
-		labels: [
-			'01 Feb',
-			'02 Feb',
-			'03 Feb',
-			'04 Feb',
-			'05 Feb',
-			'06 Feb',
-			'07 Feb',
-		],
-		chart: {
-			type: 'area',
-			height: '305px',
-			fontFamily: 'Inter, sans-serif',
-			sparkline: {
-				enabled: true,
-			},
-			toolbar: {
-				show: false,
-			},
-		},
-		fill: {
-			type: 'gradient',
-			gradient: {
-				shade: visitorsChartColors.fillGradientShade,
-				shadeIntensity: visitorsChartColors.fillGradientShadeIntensity,
-			},
-		},
-		plotOptions: {
-			area: {
-				fillTo: 'end',
-			},
-		},
-		theme: {
-			monochrome: {
-				enabled: true,
-				color: '#1A56DB',
-			},
-		},
-		tooltip: {
-			style: {
-				fontSize: '14px',
-				fontFamily: 'Inter, sans-serif',
-			},
-		},
-	};
+type DashboardResponse = {
+  range: { startDate: string; endDate: string };
+  today: string;
+  metric: string;
+  currencies: {
+    USD: CurrencyPayload;
+    EUR: CurrencyPayload;
+  };
 };
 
-const getSignupsChartOptions = () => {
-	let signupsChartColors = {};
+const apiBase = (window.apiBase || '').replace(/\/$/, '');
+const token = localStorage.getItem('token');
 
-	if (document.documentElement.classList.contains('dark')) {
-		signupsChartColors = {
-			backgroundBarColors: [
-				'#374151',
-				'#374151',
-				'#374151',
-				'#374151',
-				'#374151',
-				'#374151',
-				'#374151',
-			],
-		};
-	} else {
-		signupsChartColors = {
-			backgroundBarColors: [
-				'#E5E7EB',
-				'#E5E7EB',
-				'#E5E7EB',
-				'#E5E7EB',
-				'#E5E7EB',
-				'#E5E7EB',
-				'#E5E7EB',
-			],
-		};
-	}
+const startInput = document.getElementById('sales-start-date') as HTMLInputElement | null;
+const endInput = document.getElementById('sales-end-date') as HTMLInputElement | null;
+const metricSelect = document.getElementById('sales-metric-type') as HTMLSelectElement | null;
+const currencySelect = document.getElementById('sales-currency') as HTMLSelectElement | null;
+const applyBtn = document.getElementById('sales-apply-range');
 
-	return {
-		series: [
-			{
-				name: 'Users',
-				data: [1334, 2435, 1753, 1328, 1155, 1632, 1336],
-			},
-		],
-		labels: [
-			'01 Feb',
-			'02 Feb',
-			'03 Feb',
-			'04 Feb',
-			'05 Feb',
-			'06 Feb',
-			'07 Feb',
-		],
-		chart: {
-			type: 'bar',
-			height: '140px',
-			foreColor: '#4B5563',
-			fontFamily: 'Inter, sans-serif',
-			toolbar: {
-				show: false,
-			},
-		},
-		theme: {
-			monochrome: {
-				enabled: true,
-				color: '#1A56DB',
-			},
-		},
-		plotOptions: {
-			bar: {
-				columnWidth: '25%',
-				borderRadius: 3,
-				colors: {
-					backgroundBarColors: signupsChartColors.backgroundBarColors,
-					backgroundBarRadius: 3,
-				},
-			},
-			dataLabels: {
-				hideOverflowingLabels: false,
-			},
-		},
-		xaxis: {
-			floating: false,
-			labels: {
-				show: false,
-			},
-			axisBorder: {
-				show: false,
-			},
-			axisTicks: {
-				show: false,
-			},
-		},
-		tooltip: {
-			shared: true,
-			intersect: false,
-			style: {
-				fontSize: '14px',
-				fontFamily: 'Inter, sans-serif',
-			},
-		},
-		states: {
-			hover: {
-				filter: {
-					type: 'darken',
-					value: 0.8,
-				},
-			},
-		},
-		fill: {
-			opacity: 1,
-		},
-		yaxis: {
-			show: false,
-		},
-		grid: {
-			show: false,
-		},
-		dataLabels: {
-			enabled: false,
-		},
-		legend: {
-			show: false,
-		},
-	};
+const weeklyEl = document.getElementById('weekly-sales');
+const monthlyEl = document.getElementById('monthly-sales');
+const annualEl = document.getElementById('annual-sales');
+const rangeSalesEl = document.getElementById('range-sales');
+const rangeLabelEl = document.getElementById('range-label');
+const weeklyRangeEl = document.getElementById('weekly-range');
+const monthlyRangeEl = document.getElementById('monthly-range');
+const annualRangeEl = document.getElementById('annual-range');
+const totalKgEl = document.getElementById('total-kg');
+const totalOrdersEl = document.getElementById('total-orders');
+const avgTicketEl = document.getElementById('avg-ticket');
+const avgKgEl = document.getElementById('avg-kg');
+const seriesGranularityEl = document.getElementById('series-granularity');
+const chartEl = document.getElementById('sales-chart');
+const topProductsBody = document.getElementById('top-products');
+const topCustomersBody = document.getElementById('top-customers');
+
+const formatDate = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
-if (document.getElementById('week-signups-chart')) {
-	const chart = new ApexCharts(
-		document.getElementById('week-signups-chart'),
-		getSignupsChartOptions(),
-	);
-	chart.render();
+const parseDateLabel = (label: unknown): Date | null => {
+  if (!label) return null;
+  if (label instanceof Date) return label;
+  if (typeof label === 'number') return new Date(label);
+  if (typeof label !== 'string') return null;
+  const trimmed = label.trim();
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/;
+  const monthOnly = /^(\d{4})-(\d{2})$/;
+  const dateTime = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/;
 
-	// init again when toggling dark mode
-	document.addEventListener('dark-mode', () => {
-		chart.updateOptions(getSignupsChartOptions());
-	});
-}
+  let match = trimmed.match(dateOnly);
+  if (match) {
+    const [, year, month, day] = match;
+    return new Date(Number(year), Number(month) - 1, Number(day));
+  }
 
-const getTrafficChannelsChartOptions = () => {
-	let trafficChannelsChartColors = {};
+  match = trimmed.match(monthOnly);
+  if (match) {
+    const [, year, month] = match;
+    return new Date(Number(year), Number(month) - 1, 1);
+  }
 
-	if (document.documentElement.classList.contains('dark')) {
-		trafficChannelsChartColors = {
-			strokeColor: '#1f2937',
-		};
-	} else {
-		trafficChannelsChartColors = {
-			strokeColor: '#ffffff',
-		};
-	}
+  match = trimmed.match(dateTime);
+  if (match) {
+    const [, year, month, day, hour, minute, second] = match;
+    return new Date(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      Number(hour),
+      Number(minute),
+      Number(second || 0)
+    );
+  }
 
-	return {
-		series: [70, 5, 25],
-		labels: ['Desktop', 'Tablet', 'Phone'],
-		colors: ['#16BDCA', '#FDBA8C', '#1A56DB'],
-		chart: {
-			type: 'donut',
-			height: 400,
-			fontFamily: 'Inter, sans-serif',
-			toolbar: {
-				show: false,
-			},
-		},
-		responsive: [
-			{
-				breakpoint: 430,
-				options: {
-					chart: {
-						height: 300,
-					},
-				},
-			},
-		],
-		stroke: {
-			colors: [trafficChannelsChartColors.strokeColor],
-		},
-		states: {
-			hover: {
-				filter: {
-					type: 'darken',
-					value: 0.9,
-				},
-			},
-		},
-		tooltip: {
-			shared: true,
-			followCursor: false,
-			fillSeriesColor: false,
-			inverseOrder: true,
-			style: {
-				fontSize: '14px',
-				fontFamily: 'Inter, sans-serif',
-			},
-			x: {
-				show: true,
-				formatter(_, { seriesIndex, w }) {
-					const label = w.config.labels[seriesIndex];
-					return label;
-				},
-			},
-			y: {
-				formatter(value) {
-					return `${value}%`;
-				},
-			},
-		},
-		grid: {
-			show: false,
-		},
-		dataLabels: {
-			enabled: false,
-		},
-		legend: {
-			show: false,
-		},
-	};
+  const normalized = trimmed.replace(' ', 'T');
+  const parsed = new Date(normalized);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
-if (document.getElementById('traffic-by-device')) {
-	const chart = new ApexCharts(
-		document.getElementById('traffic-by-device'),
-		getTrafficChannelsChartOptions(),
-	);
-	chart.render();
+const formatLabel = (label: string | number | Date, groupBy: string) => {
+  if (!label) return '';
+  if (groupBy === 'month') {
+    const monthDate = typeof label === 'string' ? parseDateLabel(`${label}-01`) : parseDateLabel(label);
+    if (!monthDate) return String(label);
+    return monthDate.toLocaleDateString('es-CL', { month: 'short', year: 'numeric' });
+  }
+  const date = parseDateLabel(label);
+  if (!date) return String(label);
+  return date.toLocaleDateString('es-CL', { day: '2-digit', month: 'short' });
+};
 
-	// init again when toggling dark mode
-	document.addEventListener('dark-mode', () => {
-		chart.updateOptions(getTrafficChannelsChartOptions());
-	});
-}
+const formatRangeLabel = (start: Date, end: Date) => {
+  const startLabel = start.toLocaleDateString('es-CL', { day: '2-digit', month: 'short' });
+  const endLabel = end.toLocaleDateString('es-CL', { day: '2-digit', month: 'short' });
+  return `${startLabel} - ${endLabel}`;
+};
+
+const getStartOfWeek = (date: Date) => {
+  const day = date.getDay();
+  const diff = day === 0 ? 6 : day - 1;
+  const start = new Date(date);
+  start.setDate(date.getDate() - diff);
+  return start;
+};
+
+const getEndOfWeek = (date: Date) => {
+  const start = getStartOfWeek(date);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  return end;
+};
+
+const currencyFormatter = (currency: string) => new Intl.NumberFormat('es-CL', {
+  style: 'currency',
+  currency,
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2
+});
+
+const numberFormatter = new Intl.NumberFormat('es-CL', {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2
+});
+
+const setDefaultDates = () => {
+  const today = new Date();
+  const start = new Date();
+  start.setDate(today.getDate() - 29);
+
+  if (startInput) startInput.value = formatDate(start);
+  if (endInput) endInput.value = formatDate(today);
+};
+
+const buildUrl = (start?: string, end?: string, metric?: string) => {
+  const params = new URLSearchParams();
+  if (start) params.set('start', start);
+  if (end) params.set('end', end);
+  if (metric) params.set('metric', metric);
+  return `${apiBase}/api/orders/admin/dashboard/sales?${params.toString()}`;
+};
+
+const getChartColors = () => {
+  const isDark = document.documentElement.classList.contains('dark');
+  return {
+    borderColor: isDark ? '#374151' : '#E5E7EB',
+    labelColor: isDark ? '#9CA3AF' : '#6B7280',
+    opacityFrom: isDark ? 0 : 0.45,
+    opacityTo: isDark ? 0.2 : 0
+  };
+};
+
+const buildChartOptions = (labels: string[], usdSeries: number[], eurSeries: number[]) => {
+  const colors = getChartColors();
+  return {
+    chart: {
+      height: 320,
+      type: 'area',
+      fontFamily: 'Inter, sans-serif',
+      foreColor: colors.labelColor,
+      toolbar: { show: false }
+    },
+    dataLabels: { enabled: false },
+    grid: {
+      show: true,
+      borderColor: colors.borderColor,
+      strokeDashArray: 2,
+      padding: { left: 20, right: 10, bottom: 10 }
+    },
+    fill: {
+      type: 'gradient',
+      gradient: {
+        opacityFrom: colors.opacityFrom,
+        opacityTo: colors.opacityTo
+      }
+    },
+    stroke: { width: 2 },
+    series: [
+      {
+        name: 'Ventas USD',
+        data: usdSeries,
+        color: '#2563EB'
+      },
+      {
+        name: 'Ventas EUR',
+        data: eurSeries,
+        color: '#EF4444'
+      }
+    ],
+    xaxis: {
+      categories: labels,
+      labels: {
+        style: { colors: colors.labelColor, fontSize: '12px' }
+      },
+      axisBorder: { color: colors.borderColor },
+      axisTicks: { color: colors.borderColor }
+    },
+    yaxis: {
+      labels: {
+        formatter: (value: number) => numberFormatter.format(value)
+      }
+    },
+    tooltip: {
+      y: {
+        formatter: (value: number) => numberFormatter.format(value)
+      }
+    }
+  };
+};
+
+const renderTableRows = (rows: TopRow[], container: HTMLElement | null, emptyLabel: string, currency: string) => {
+  if (!container) return;
+  if (!rows.length) {
+    container.innerHTML = `
+      <tr>
+        <td colspan="3" class="px-4 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+          ${emptyLabel}
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  container.innerHTML = rows.map((row) => `
+    <tr>
+      <td class="px-4 py-3 text-sm text-gray-900 dark:text-white">${row.name}</td>
+      <td class="px-4 py-3 text-right text-sm text-gray-500 dark:text-gray-300">${numberFormatter.format(row.kg)}</td>
+      <td class="px-4 py-3 text-right text-sm font-semibold text-gray-900 dark:text-white">${currencyFormatter(currency).format(row.sales)}</td>
+    </tr>
+  `).join('');
+};
+
+let salesChart: ApexCharts | null = null;
+let latestData: DashboardResponse | null = null;
+
+const updateSummaryRanges = (today: string) => {
+  const todayDate = parseDateLabel(today);
+  if (!todayDate) return;
+
+  const weekStart = getStartOfWeek(todayDate);
+  const weekEnd = getEndOfWeek(todayDate);
+  if (weeklyRangeEl) weeklyRangeEl.textContent = formatRangeLabel(weekStart, weekEnd);
+
+  const monthStart = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1);
+  const monthEnd = new Date(todayDate.getFullYear(), todayDate.getMonth() + 1, 0);
+  if (monthlyRangeEl) monthlyRangeEl.textContent = formatRangeLabel(monthStart, monthEnd);
+
+  const yearStart = new Date(todayDate.getFullYear(), 0, 1);
+  const yearEnd = new Date(todayDate.getFullYear(), 11, 31);
+  if (annualRangeEl) annualRangeEl.textContent = formatRangeLabel(yearStart, yearEnd);
+};
+
+const updateCurrencySection = (payload: CurrencyPayload, range: { startDate: string; endDate: string }) => {
+  const formatter = currencyFormatter(payload.currency);
+
+  if (weeklyEl) weeklyEl.textContent = formatter.format(payload.period.weeklySales || 0);
+  if (monthlyEl) monthlyEl.textContent = formatter.format(payload.period.monthlySales || 0);
+  if (annualEl) annualEl.textContent = formatter.format(payload.period.annualSales || 0);
+  if (rangeSalesEl) rangeSalesEl.textContent = formatter.format(payload.rangeTotals.sales || 0);
+  if (rangeLabelEl) rangeLabelEl.textContent = `${range.startDate} a ${range.endDate}`;
+
+  if (totalKgEl) totalKgEl.textContent = numberFormatter.format(payload.rangeTotals.kg || 0);
+  if (totalOrdersEl) totalOrdersEl.textContent = numberFormatter.format(payload.rangeTotals.orders || 0);
+
+  if (avgTicketEl) avgTicketEl.textContent = formatter.format(payload.summary.avgTicket || 0);
+  if (avgKgEl) avgKgEl.textContent = numberFormatter.format(payload.summary.avgKg || 0);
+
+  if (seriesGranularityEl) {
+    seriesGranularityEl.textContent = payload.series.groupBy === 'month' ? 'mes' : 'dia';
+  }
+
+  renderTableRows(payload.topProducts || [], topProductsBody, 'Sin datos', payload.currency);
+  renderTableRows(payload.topCustomers || [], topCustomersBody, 'Sin datos', payload.currency);
+};
+
+const updateChart = (data: DashboardResponse) => {
+  if (!chartEl) return;
+
+  const usd = data.currencies.USD;
+  const eur = data.currencies.EUR;
+  const labelsSource = usd.series.labels.length ? usd : eur;
+  const labels = labelsSource.series.labels.map((label) => formatLabel(label, labelsSource.series.groupBy));
+
+  const usdSeries = usd.series.sales;
+  const eurSeries = eur.series.sales;
+
+  if (!salesChart) {
+    salesChart = new ApexCharts(chartEl, buildChartOptions(labels, usdSeries, eurSeries));
+    salesChart.render();
+  } else {
+    salesChart.updateOptions(buildChartOptions(labels, usdSeries, eurSeries));
+  }
+};
+
+const applyCurrencySelection = () => {
+  if (!latestData) return;
+  const currency = currencySelect ? currencySelect.value : 'USD';
+  const payload = currency === 'EUR' ? latestData.currencies.EUR : latestData.currencies.USD;
+  updateCurrencySection(payload, latestData.range);
+};
+
+const updateDashboard = (data: DashboardResponse) => {
+  latestData = data;
+  updateSummaryRanges(data.today);
+  updateChart(data);
+  applyCurrencySelection();
+};
+
+const fetchDashboard = async () => {
+  if (!apiBase || !token) return;
+  const start = startInput ? startInput.value : '';
+  const end = endInput ? endInput.value : '';
+  const metric = metricSelect ? metricSelect.value : 'facturados';
+
+  const response = await fetch(buildUrl(start, end, metric), {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+
+  if (!response.ok) {
+    return;
+  }
+
+  const data = await response.json();
+  updateDashboard(data);
+};
+
+const init = () => {
+  setDefaultDates();
+  fetchDashboard();
+
+  if (applyBtn) {
+    applyBtn.addEventListener('click', fetchDashboard);
+  }
+
+  currencySelect?.addEventListener('change', applyCurrencySelection);
+
+  document.addEventListener('dark-mode', () => {
+    if (salesChart && latestData) {
+      const usd = latestData.currencies.USD;
+      const eur = latestData.currencies.EUR;
+      const labelsSource = usd.series.labels.length ? usd : eur;
+      const labels = labelsSource.series.labels.map((label) => formatLabel(label, labelsSource.series.groupBy));
+      salesChart.updateOptions(buildChartOptions(labels, usd.series.sales, eur.series.sales));
+    }
+  });
+};
+
+document.addEventListener('DOMContentLoaded', init);

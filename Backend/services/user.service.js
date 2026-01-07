@@ -191,6 +191,23 @@ async function getAdminUsers() {
   return rows;
 }
 
+async function getAdminUserById(adminId) {
+  const pool = await poolPromise;
+  const [rows] = await pool.query(
+    'SELECT id, message_mail, full_name FROM users WHERE id = ? AND role_id = 1',
+    [adminId]
+  );
+  return rows[0] || null;
+}
+
+async function getAdminNotificationRecipients() {
+  const pool = await poolPromise;
+  const [rows] = await pool.query(
+    'SELECT message_mail AS email, full_name FROM users WHERE role_id = 1 AND message_mail IS NOT NULL AND message_mail <> \'\''
+  );
+  return rows;
+}
+
 async function createAdminUser({ email, full_name, phone, agent, password }) {
   const pool = await poolPromise;
   const hashed = await bcrypt.hash(password, 10);
@@ -247,6 +264,8 @@ module.exports = {
   createUser,
   updateUser2FASecret,
   getAdminUsers,
+  getAdminUserById,
+  getAdminNotificationRecipients,
   createAdminUser,
   updateAdminUser,
   deleteUserById,

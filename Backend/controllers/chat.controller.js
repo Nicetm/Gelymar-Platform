@@ -1,8 +1,68 @@
 const ChatService = require('../services/chat.service');
 const ChatMessage = require('../models/chatMessage.model');
 const EncryptionService = require('../services/encryption.service');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const { validateFilePath, setSecureFilePermissions } = require('../utils/filePermissions');
+
+const chatImageUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    const allowed = ['.jpg', '.jpeg', '.png'];
+    if (allowed.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Tipo de archivo no permitido'), false);
+    }
+  }
+});
 
 class ChatController {
+  static async uploadChatImage(req, res) {
+    chatImageUpload.single('image')(req, res, async (err) => {
+      if (err) {
+        return res.status(400).json({ message: err.message || 'Error subiendo imagen' });
+      }
+
+      try {
+        const { customer_id } = req.body;
+        const file = req.file;
+
+        if (!customer_id || !file) {
+          return res.status(400).json({ message: 'Faltan datos para subir imagen' });
+        }
+
+        const basePath = process.env.FILE_SERVER_ROOT || '/var/www/html';
+        const fileServerUrl = process.env.FILE_SERVER_URL || '';
+        const customerFolder = path.join(basePath, 'uploads', 'chat', String(customer_id));
+        fs.mkdirSync(customerFolder, { recursive: true });
+
+        const ext = path.extname(file.originalname || '').toLowerCase();
+        const fileName = `chat_${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`;
+        const relativePath = path.join('uploads', 'chat', String(customer_id), fileName);
+
+        if (!validateFilePath(relativePath, basePath)) {
+          return res.status(400).json({ message: 'Ruta de archivo inválida' });
+        }
+
+        const absolutePath = path.join(basePath, relativePath);
+        fs.writeFileSync(absolutePath, file.buffer);
+        await setSecureFilePermissions(absolutePath);
+
+        const normalizedPath = relativePath.replace(/\\/g, '/');
+        const urlBase = fileServerUrl ? fileServerUrl.replace(/\/$/, '') : '';
+        const publicUrl = urlBase ? `${urlBase}/${normalizedPath}` : `/${normalizedPath}`;
+
+        return res.status(201).json({ url: publicUrl, path: normalizedPath });
+      } catch (uploadError) {
+        return res.status(500).json({ message: 'Error interno al subir imagen' });
+      }
+    });
+  }
+
   // Enviar mensaje (cliente o admin)
   static async sendMessage(req, res) {
     try {
@@ -38,6 +98,18 @@ class ChatController {
         sender_role, 
         is_security_message || false
       );
+
+      if (sender_role === 'client' && admin_id) {
+        try {
+          await ChatService.notifyAdminOfClientMessage({
+            customerId: parseInt(customer_id),
+            adminId: parseInt(admin_id),
+            message: message.trim()
+          });
+        } catch (emailError) {
+          console.error('Error enviando correo de chat:', emailError.message);
+        }
+      }
       
       // Emitir evento Socket.io para notificar en tiempo real
       const io = req.app.get('io');

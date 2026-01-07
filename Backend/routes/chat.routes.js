@@ -25,6 +25,7 @@ router.get('/test', async (req, res) => {
 
 // Rutas para clientes
 router.post('/send', authMiddleware, ChatController.sendMessage);
+router.post('/upload-image', authMiddleware, authorizeRoles(['client', 'admin']), ChatController.uploadChatImage);
 router.get('/messages/:customerId', authMiddleware, ChatController.getCustomerMessages);
 router.get('/unread/:customerId', authMiddleware, ChatController.getUnreadCount);
 router.put('/read/:customerId', authMiddleware, ChatController.markAsRead);
