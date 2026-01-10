@@ -23,7 +23,8 @@ async function fetchItemFilesFromNetwork() {
     console.log('Contenido leído (primeras líneas):');
     console.log(content.split('\n').slice(0, 3).join('\n'));
 
-    const records = parse(content, {
+    const normalizedContent = content.replace(/\|\|/g, ';');
+    const records = parse(normalizedContent, {
       delimiter: ';',
       columns: true,
       skip_empty_lines: true,
@@ -41,7 +42,7 @@ async function fetchItemFilesFromNetwork() {
     }
 
     // Guardar CSV en disco para verificación
-    const output = stringify(records, { header: true, delimiter: ';' });
+    const output = stringify(records, { header: true, delimiter: '||' });
     fs.ensureDirSync('documentos');
     
     // Usar timestamp para evitar conflictos de archivo

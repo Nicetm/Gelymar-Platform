@@ -9,27 +9,16 @@ const bcrypt = require('bcrypt');
  * @access Protegido (requiere JWT)
  */
 exports.getAllCustomers = async (req, res) => {
-  logger.info('Petición recibida: obtener todos los clientes');
-  logger.info('User info:', { 
-    role_id: req.user?.role_id, 
-    roleId: req.user?.roleId, 
-    email: req.user?.email,
-    role: req.user?.role 
-  });
-
   try {
     const options = {};
     const roleId = req.user?.role_id || req.user?.roleId;
     if ((roleId === 3 || req.user?.role === 'seller') && req.user?.email) {
       options.salesRut = req.user.email;
-      logger.info(`Filtrando por seller con rut: ${options.salesRut}`);
     }
 
     const customers = await customerService.getAllCustomers(options);
-    logger.info(`Se obtuvieron ${customers.length} clientes`);
     res.json(customers);
   } catch (error) {
-    logger.error(`Error al obtener clientes: ${error.message}`);
     res.status(500).json({ message: 'Error al obtener clientes desde la base de datos' });
   }
 };
@@ -41,20 +30,14 @@ exports.getAllCustomers = async (req, res) => {
  */
 exports.getCustomerById = async (req, res) => {
   const { id } = req.params;
-  logger.info(`Petición recibida: obtener cliente por ID ${id}`);
-
   try {
     const customer = await customerService.getCustomerById(id);
 
     if (!customer) {
-      logger.warn(`Cliente no encontrado con ID ${id}`);
       return res.status(404).json({ message: 'Cliente no encontrado' });
     }
-
-    logger.info(`Cliente encontrado: ID ${id}`);
     res.json(customer);
   } catch (error) {
-    logger.error(`Error al obtener cliente por ID: ${error.message}`);
     res.status(500).json({ message: 'Error al obtener cliente desde la base de datos' });
   }
 };
@@ -66,20 +49,15 @@ exports.getCustomerById = async (req, res) => {
  */
 exports.getCustomerByUUID = async (req, res) => {
   const { uuid } = req.params;
-  logger.info(`Petición recibida: obtener cliente por UUID ${uuid}`);
 
   try {
     const customer = await customerService.getCustomerByUUID(uuid);
 
     if (!customer) {
-      logger.warn(`Cliente no encontrado con UUID ${uuid}`);
       return res.status(404).json({ message: 'Cliente no encontrado' });
     }
-
-    logger.info(`Cliente encontrado: UUID ${uuid}`);
     res.json(customer);
   } catch (error) {
-    logger.error(`Error al obtener cliente por UUID: ${error.message}`);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 };
@@ -99,7 +77,6 @@ exports.createCustomerContact = async (req, res) => {
     await customerService.createCustomerContacts(customer_uuid, contacts);
     res.status(201).json({ message: 'Contactos creados correctamente' });
   } catch (error) {
-    logger.error(`Error al crear contactos: ${error.message}`);
     res.status(500).json({ message: 'Error al crear contactos' });
   }
 };
@@ -110,7 +87,6 @@ exports.getCustomerContacts = async (req, res) => {
     const contacts = await customerService.getContactsByCustomerUUID(uuid);
     res.json(contacts);
   } catch (error) {
-    logger.error(`Error al obtener contactos: ${error.message}`);
     res.status(500).json({ message: 'Error al obtener contactos' });
   }
 };
@@ -123,14 +99,10 @@ exports.getCustomerContacts = async (req, res) => {
 exports.deleteCustomerContact = async (req, res) => {
   const { customerUuid, contactIdx } = req.params;
   
-  logger.info(`Petición recibida: eliminar contacto ${contactIdx} del cliente ${customerUuid}`);
-
   try {
     await customerService.deleteCustomerContact(customerUuid, contactIdx);
-    logger.info(`Contacto eliminado exitosamente: cliente ${customerUuid}, contacto ${contactIdx}`);
     res.json({ message: 'Contacto eliminado correctamente' });
   } catch (error) {
-    logger.error(`Error al eliminar contacto: ${error.message}`);
     res.status(500).json({ message: error.message || 'Error al eliminar contacto' });
   }
 };
@@ -154,7 +126,6 @@ exports.updateCustomerContact = async (req, res) => {
 
     res.json({ message: 'Contacto actualizado correctamente', contact: updated });
   } catch (error) {
-    logger.error(`Error al actualizar contacto: ${error.message}`);
     res.status(500).json({ message: error.message || 'Error al actualizar contacto' });
   }
 };
@@ -168,20 +139,15 @@ exports.updateCustomer = async (req, res) => {
   const { uuid } = req.params;
   const updateData = req.body;
   
-  logger.info(`Petición recibida: actualizar cliente con UUID ${uuid}`, updateData);
-
   try {
     const updatedCustomer = await customerService.updateCustomerByUUID(uuid, updateData);
     
     if (!updatedCustomer) {
-      logger.warn(`Cliente no encontrado con UUID ${uuid}`);
       return res.status(404).json({ message: 'Cliente no encontrado' });
     }
 
-    logger.info(`Cliente actualizado exitosamente: UUID ${uuid}`);
     res.json(updatedCustomer);
   } catch (error) {
-    logger.error(`Error al actualizar cliente: ${error.message}`);
     res.status(500).json({ message: 'Error al actualizar cliente' });
   }
 };
@@ -195,8 +161,6 @@ exports.changeCustomerPassword = async (req, res) => {
   const { uuid } = req.params;
   const { password } = req.body;
   
-  logger.info(`Petición recibida: cambiar contraseña para cliente UUID ${uuid}`);
-
   try {
     // Validar que se proporcione la contraseña
     if (!password) {
@@ -210,7 +174,6 @@ exports.changeCustomerPassword = async (req, res) => {
     // Obtener el cliente por UUID
     const customer = await customerService.getCustomerByUUID(uuid);
     if (!customer) {
-      logger.warn(`Cliente no encontrado con UUID: ${uuid}`);
       return res.status(404).json({ message: 'Cliente no encontrado' });
     }
 
@@ -224,7 +187,6 @@ exports.changeCustomerPassword = async (req, res) => {
     );
 
     if (users.length === 0) {
-      logger.warn(`Usuario no encontrado para RUT: ${customer.rut}`);
       return res.status(404).json({ message: 'Usuario no encontrado para este cliente' });
     }
 
@@ -239,11 +201,9 @@ exports.changeCustomerPassword = async (req, res) => {
       [hashedPassword, user.id]
     );
 
-    logger.info(`Contraseña actualizada exitosamente para usuario ${user.email} (cliente UUID: ${uuid})`);
     res.json({ message: 'Contraseña actualizada exitosamente' });
 
   } catch (error) {
-    logger.error(`Error al cambiar contraseña del cliente: ${error.message}`);
     res.status(500).json({ message: 'Error al cambiar contraseña' });
   }
 };
@@ -257,35 +217,27 @@ exports.getCustomersWithoutAccount = async (req, res) => {
 
   try {
     const customers = await customerService.getCustomersWithoutAccount();
-    logger.info(`Se obtuvieron ${customers.length} clientes sin cuenta`);
     res.json({ customers });
   } catch (error) {
-    logger.error(`Error al obtener clientes sin cuenta: ${error.message}`);
     res.status(500).json({ message: 'Error al obtener clientes sin cuenta desde la base de datos' });
   }
 };
 
 exports.getCustomerByRut = async (req, res) => {
-  logger.info('Petición recibida: obtener cliente por RUT');
   try {
     const { rut } = req.params;
     const customer = await customerService.getCustomerByRut(rut);
     
     if (!customer) {
-      logger.warn(`Cliente no encontrado con RUT: ${rut}`);
       return res.status(404).json({ message: 'Cliente no encontrado' });
     }
-    
-    logger.info(`Cliente encontrado: ${customer.name}`);
     res.json(customer);
   } catch (error) {
-    logger.error(`Error al obtener cliente por RUT: ${error.message}`);
     res.status(500).json({ message: 'Error al obtener cliente desde la base de datos' });
   }
 };
 
 exports.createCustomerAccount = async (req, res) => {
-  logger.info('Petición recibida: crear cuenta de cliente');
   try {
     const { customerId } = req.params;
     const { customerName, customerRut } = req.body;
@@ -318,7 +270,6 @@ exports.createCustomerAccount = async (req, res) => {
     
     const userId = await userService.createUser(userData);
     
-    logger.info(`Cuenta creada para cliente: ${customer.name} (${customer.rut})`);
     res.json({ 
       message: 'Cuenta creada exitosamente',
       userId: userId,
@@ -327,7 +278,6 @@ exports.createCustomerAccount = async (req, res) => {
     });
     
   } catch (error) {
-    logger.error(`Error al crear cuenta de cliente: ${error.message}`);
     res.status(500).json({ message: 'Error al crear cuenta de cliente' });
   }
 };

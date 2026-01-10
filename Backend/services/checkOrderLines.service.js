@@ -20,7 +20,8 @@ async function fetchOrderLineFilesFromNetwork() {
     console.log('Ruta del archivo:', inputPath);
     
     const content = fs.readFileSync(inputPath, 'latin1');
-    const records = parse(content, {
+    const normalizedContent = content.replace(/\|\|/g, ';');
+    const records = parse(normalizedContent, {
       delimiter: ';',
       columns: true,
       skip_empty_lines: true,
@@ -62,7 +63,7 @@ async function fetchOrderLineFilesFromNetwork() {
     }
 
     // Guardar CSV en disco para verificación
-    const output = stringify(recordsWithSublinea, { header: true, delimiter: ';' });
+    const output = stringify(recordsWithSublinea, { header: true, delimiter: '||' });
     fs.ensureDirSync('documentos');
     
     // Generar CSV sin fecha para evitar conflictos
@@ -157,8 +158,8 @@ async function fetchOrderLineFilesFromNetwork() {
         const ktoEtiqueta5 = record.Kto_Etiqueta5?.trim();
         const fechaEtd = record.ETD_Item_OV?.trim();
         const fechaEta = record.ETA_Item_OV?.trim();
-        const fechaEtdFactura = record.ETD_ENC_FAC?.trim();
-        const fechaEtaFactura = record.ETA_ENC_FAC?.trim();
+        const fechaEtdFactura = record.ETD_ENC_FA?.trim();
+        const fechaEtaFactura = record.ETA_ENC_FA?.trim();
         const kgFacturados = record.KilosFacturados?.trim();
         const factura = record.Factura?.trim() || '';
         
@@ -334,9 +335,9 @@ async function compareOrderLineFields(existingLine, newRecord) {
     } else if (field === 'fecha_eta') {
       newValue = newRecord.ETA_Item_OV && newRecord.ETA_Item_OV.trim() !== '' ? normalizeDate(newRecord.ETA_Item_OV) : null;
     } else if (field === 'fecha_etd_factura') {
-      newValue = newRecord.ETD_ENC_FAC && newRecord.ETD_ENC_FAC.trim() !== '' ? normalizeDate(newRecord.ETD_ENC_FAC) : null;
+      newValue = newRecord.ETD_ENC_FA && newRecord.ETD_ENC_FA.trim() !== '' ? normalizeDate(newRecord.ETD_ENC_FA) : null;
     } else if (field === 'fecha_eta_factura') {
-      newValue = newRecord.ETA_ENC_FAC && newRecord.ETA_ENC_FAC.trim() !== '' ? normalizeDate(newRecord.ETA_ENC_FAC) : null;
+      newValue = newRecord.ETA_ENC_FA && newRecord.ETA_ENC_FA.trim() !== '' ? normalizeDate(newRecord.ETA_ENC_FA) : null;
     } else if (field === 'factura') {
       newValue = normalizeValue(newRecord.Factura?.trim());
     } else if (field === 'descripcion') {

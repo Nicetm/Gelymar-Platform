@@ -8,7 +8,6 @@ const { fetchItemFilesFromNetwork } = require('../services/checkItems.service');
 const { fetchOrderFilesFromNetwork } = require('../services/checkOrders.service');
 const { fetchOrderLineFilesFromNetwork } = require('../services/checkOrderLines.service');
 const { generateDefaultFiles } = require('../services/checkDefaultFiles.service');
-const { checkOrdersWithETD } = require('../services/checkETD.service');
 const { cleanDatabaseAndDirectories } = require('../services/cleanDatabase.service');
 const { getCronTasksConfig } = require('../services/cronConfig.service');
 const { sendDailyAdminNotificationSummary } = require('../services/adminNotificationSummary.service');
@@ -96,19 +95,6 @@ router.post('/generate-default-files', async (req, res) => {
   }
 });
 
-// Endpoint para verificar ETD
-router.post('/check-etd', async (req, res) => {
-  try {
-    console.log('Iniciando verificación de ETD...');
-    await checkOrdersWithETD();
-    console.log('Verificación de ETD completada');
-    res.json({ success: true, message: 'ETD verificado correctamente' });
-  } catch (error) {
-    console.error('Error verificando ETD:', error.message);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
 // Endpoint para limpiar base de datos
 router.post('/clean-database', async (req, res) => {
   try {
@@ -157,5 +143,4 @@ router.get('/tasks-config', async (req, res) => {
 });
 
 module.exports = router;
-
 

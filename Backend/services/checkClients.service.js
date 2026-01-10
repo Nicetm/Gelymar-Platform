@@ -13,7 +13,8 @@ async function fetchClientFilesFromNetwork() {
     console.log('Ruta del archivo:', inputPath);
     
     const content = fs.readFileSync(inputPath, 'latin1');
-    const records = parse(content, {
+    const normalizedContent = content.replace(/\|\|/g, ';');
+    const records = parse(normalizedContent, {
       delimiter: ';',
       columns: true,
       skip_empty_lines: true,
@@ -24,7 +25,7 @@ async function fetchClientFilesFromNetwork() {
     console.log(`Total de registros parseados: ${records.length}`);
       
     // Guardar CSV en disco
-    const output = stringify(records, { header: true, delimiter: ';' });
+    const output = stringify(records, { header: true, delimiter: '||' });
     fs.ensureDirSync('documentos');
     
     // Usar timestamp para evitar conflictos de archivo

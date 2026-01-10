@@ -73,7 +73,8 @@ async function fetchOrderFilesFromNetwork() {
     console.log('Intentando leer archivo desde:', inputPath);
     const content = fs.readFileSync(inputPath, 'latin1');
 
-    const records = parse(content, {
+    const normalizedContent = content.replace(/\|\|/g, ';');
+    const records = parse(normalizedContent, {
       delimiter: ';',
       columns: true,
       skip_empty_lines: true,
@@ -109,7 +110,7 @@ async function fetchOrderFilesFromNetwork() {
     console.log(`Total de registros con linea: ${recordsWithLinea.length}`);
     
     // Guardar CSV en disco para verificación
-    const output = stringify(recordsWithLinea, { header: true, delimiter: ';' });
+    const output = stringify(recordsWithLinea, { header: true, delimiter: '||' });
     fs.ensureDirSync('documentos');
     
     // Usar timestamp para evitar conflictos de archivo
@@ -201,8 +202,8 @@ async function fetchOrderFilesFromNetwork() {
           puerto_destino: normalizeValue(record.Puerto_Destino?.trim()),
           fecha_eta: normalizeDate(record.ETA_OV?.trim()),
           fecha_etd: normalizeDate(record.ETD_OV?.trim()),
-          fecha_eta_factura: normalizeDate(record.ETA_ENC_FAC?.trim()),
-          fecha_etd_factura: normalizeDate(record.ETD_ENC_FAC?.trim()),
+          fecha_eta_factura: normalizeDate(record.ETA_ENC_FA?.trim()),
+          fecha_etd_factura: normalizeDate(record.ETD_ENC_FA?.trim()),
           certificados: normalizeValue(record.Certificados?.trim()),
           estado_ov: normalizeValue(record.EstadoOV?.trim()),
           medio_envio_factura: normalizeValue(record.MedioDeEnvioFact?.trim()),
@@ -416,9 +417,9 @@ async function compareOrderDetailFields(existingDetail, newRecord) {
     } else if (field === 'fecha_etd') {
       newValue = normalizeDate(newRecord.ETD_OV?.trim());
     } else if (field === 'fecha_eta_factura') {
-      newValue = normalizeDate(newRecord.ETA_ENC_FAC?.trim());
+      newValue = normalizeDate(newRecord.ETA_ENC_FA?.trim());
     } else if (field === 'fecha_etd_factura') {
-      newValue = normalizeDate(newRecord.ETD_ENC_FAC?.trim());
+      newValue = normalizeDate(newRecord.ETD_ENC_FA?.trim());
     } else if (field === 'certificados') {
       newValue = normalizeValue(newRecord.Certificados?.trim());
     } else if (field === 'estado_ov') {

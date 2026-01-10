@@ -201,8 +201,16 @@ app.use('/api/document-types', authMiddleware, authorizeRoles(['admin']), docume
 app.use('/api/chat', chatRoutes);
 
 // Ruta especial para procesamiento de órdenes nuevas (sin autenticación para cron)
-const { processNewOrdersAndSendReception } = require('./controllers/documentFile.controller');
+const {
+  processNewOrdersAndSendReception,
+  processShipmentNotices,
+  processOrderDeliveryNotices,
+  processAvailabilityNotices
+} = require('./controllers/documentFile.controller');
 app.post('/api/cron/process-new-orders', processNewOrdersAndSendReception);
+app.post('/api/cron/process-shipment-notices', processShipmentNotices);
+app.post('/api/cron/process-order-delivery-notices', processOrderDeliveryNotices);
+app.post('/api/cron/process-availability-notices', processAvailabilityNotices);
 
 // Rutas de cron (sin autenticación para acceso interno)
 app.use('/api/cron', cronRoutes);
@@ -342,10 +350,8 @@ io.on('connection', (socket) => {
       if (socket?.user?.id) {
         await userService.updateUserOnlineStatus(socket.user.id, 0);
         io.to('admin-room').emit('updateNotifications');
-        logger.info(`Usuario ${socket.user.email || socket.user.id} marcado como offline (desconexión socket)`);
       }
     } catch (error) {
-      logger.error(`Error al actualizar estado online en disconnect: ${error.message}`);
     }
   });
 });

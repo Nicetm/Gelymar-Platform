@@ -164,7 +164,7 @@ exports.login = async (req, res) => {
     res.cookie('token', token, cookieOptions);
 
     logger.info(`Login exitoso para usuario ${user.email || user.username || 'undefined'}`);
-    logger.info(`Usuario encontrado:`, { id: user.id, email: user.email, username: user.username, role: user.role });
+    logger.info(`Usuario encontrado:`, { id: user.id, rut: user.email, username: user.username, role: user.role });
     res.json({ 
       token,
       customersWithoutAccount 

@@ -47,7 +47,7 @@ export async function initOrdersScript() {
   let filteredOrders = [];
   let currentPage = 1;
   let itemsPerPage = parseInt(itemsPerPageSelect.value, 10);
-  let currentSort = { column: null, direction: 'asc' };
+  let currentSort = { column: 'fecha', direction: 'desc' };
 
   // Función para formatear fechas
   function formatDateShort(dateString) {

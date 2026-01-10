@@ -245,7 +245,6 @@ graph TD
 - `checkClients` - Sincronizar clientes
 - `checkItems` - Sincronizar items/productos
 - `checkDefaultFiles` - Crear estructura de directorios
-- `checkETD` - Verificar fechas de embarque
 
 ### 5. Flujo de Chat en Tiempo Real
 

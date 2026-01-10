@@ -94,6 +94,86 @@ async function getOrderData(orderId) {
   }
 }
 
+async function isSendOrderDeliveryEnabled() {
+  try {
+    const config = await configService.getConfigByName('sendAutomaticOrderDelivery');
+    logger.info(`[sendAutomaticOrderDelivery] config: ${JSON.stringify(config)}`);
+    if (!config) {
+      return false;
+    }
+
+    const params = parseConfigParams(config.params);
+    logger.info(`[sendAutomaticOrderDelivery] params: ${JSON.stringify(params)}`);
+    const { enable } = params;
+
+    if (enable === undefined || enable === null) {
+      return false;
+    }
+
+    const numericEnable = Number(enable);
+    if (!Number.isNaN(numericEnable)) {
+      return numericEnable === 1;
+    }
+
+    return String(enable).toLowerCase() === 'true';
+  } catch (error) {
+    logger.error(`Error obteniendo configuracion sendAutomaticOrderDelivery: ${error.message}`);
+    return false;
+  }
+}
+
+async function isSendOrderShipmentEnabled() {
+  try {
+    const config = await configService.getConfigByName('sendAutomaticOrderShipment');
+    if (!config) {
+      return false;
+    }
+
+    const params = parseConfigParams(config.params);
+    const { enable } = params;
+
+    if (enable === undefined || enable === null) {
+      return false;
+    }
+
+    const numericEnable = Number(enable);
+    if (!Number.isNaN(numericEnable)) {
+      return numericEnable === 1;
+    }
+
+    return String(enable).toLowerCase() === 'true';
+  } catch (error) {
+    logger.error(`Error obteniendo configuracion sendAutomaticOrderShipment: ${error.message}`);
+    return false;
+  }
+}
+
+async function isSendOrderAvailabilityEnabled() {
+  try {
+    const config = await configService.getConfigByName('sendAutomaticOrderAvailability');
+    if (!config) {
+      return false;
+    }
+
+    const params = parseConfigParams(config.params);
+    const { enable } = params;
+
+    if (enable === undefined || enable === null) {
+      return false;
+    }
+
+    const numericEnable = Number(enable);
+    if (!Number.isNaN(numericEnable)) {
+      return numericEnable === 1;
+    }
+
+    return String(enable).toLowerCase() === 'true';
+  } catch (error) {
+    logger.error(`Error obteniendo configuracion sendAutomaticOrderAvailability: ${error.message}`);
+    return false;
+  }
+}
+
 /**
  * Obtiene datos completos de la orden junto al nombre del cliente
  * @param {number} orderId - ID de la orden
@@ -272,5 +352,8 @@ module.exports = {
   getReceptionFile,
   getCustomerEmail,
   markOrderAsSent,
-  isSendOrderReceptionEnabled
+  isSendOrderReceptionEnabled,
+  isSendOrderDeliveryEnabled,
+  isSendOrderShipmentEnabled,
+  isSendOrderAvailabilityEnabled
 };

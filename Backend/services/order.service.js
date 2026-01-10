@@ -102,7 +102,7 @@ const getOrdersByFilters = async (filters = {}) => {
     query += ` WHERE ${conditions.join(' AND ')}`;
   }
 
-  query += ' ORDER BY o.fecha_factura DESC';
+  query += ' ORDER BY COALESCE(od.fecha, o.fecha_factura, o.created_at) DESC';
 
   const [rows] = await pool.query(query, params);
 

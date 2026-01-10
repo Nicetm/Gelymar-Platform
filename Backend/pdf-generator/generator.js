@@ -294,12 +294,17 @@ function drawInfoSectionEmbarque(doc, data) {
     .text(` ${data.incotermDeliveryDate || ''}`, { width: 180 });
 
   doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
-    .text(`${t.etd || 'ETD:'}`, rightColumn, row2Y, { continued: true })
+    .text(`${t.incoterm || 'Incoterm:'}`, rightColumn, row2Y, { continued: true })
+    .font(STYLES.font).fillColor(STYLES.textSecondary)
+    .text(` ${data.incoterm || '-'}`, { width: 180 });
+
+  doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text(`${t.etd || 'ETD:'}`, rightColumn, row3Y, { continued: true })
     .font(STYLES.font).fillColor(STYLES.textSecondary)
     .text(` ${formatDateByLanguage(data.etd, data.lang)}`, { width: 180 });
 
   doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
-    .text(`${t.eta || 'ETA:'}`, rightColumn, row3Y, { continued: true })
+    .text(`${t.eta || 'ETA:'}`, rightColumn, row4Y, { continued: true })
     .font(STYLES.font).fillColor(STYLES.textSecondary)
     .text(` ${formatDateByLanguage(data.eta, data.lang)}`, { width: 180 });
 
@@ -921,12 +926,22 @@ function getWeekOfYear(dateString, lang = 'es') {
 
 function formatDateByLanguage(dateString, lang) {
   if (!dateString) return '-';
-  const date = new Date(dateString);
+  let date;
+  if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString.trim())) {
+    const [year, month, day] = dateString.trim().split('-').map(Number);
+    date = new Date(Date.UTC(year, month - 1, day));
+  } else {
+    date = new Date(dateString);
+  }
+  if (Number.isNaN(date.getTime())) {
+    return '-';
+  }
 
   const options = {
     year: 'numeric',
     month: 'long',
-    day: 'numeric'
+    day: 'numeric',
+    timeZone: 'UTC'
   };
 
   if (lang === 'en') {

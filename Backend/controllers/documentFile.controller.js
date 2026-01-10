@@ -65,10 +65,26 @@ async function getPDFData(file, lang = 'es') {
   // Ruta opcional de firma
   const signaturePath = path.join(__dirname, '../pdf-generator/assets/firma_carla.png');
 
-  // Datos base para todos los templates
-  // PARA ETD y ETA, si ETD_ENC_FAC no es nulo, usar ETD_ENC_FAC y ETA_ENC_FAC, si no, usar ETD_OV y ETA_OV
-  //const etd = orderDetail?.fecha_etd_enc_fac || orderDetail?.fecha_etd_ov || '-';
-  //const eta = orderDetail?.fecha_eta_enc_fac || orderDetail?.fecha_eta_ov || '-';
+  const resolvePdfDate = (...values) => {
+    for (const value of values) {
+      if (!value) continue;
+      const normalized =
+        value instanceof Date
+          ? value.toISOString().slice(0, 10)
+          : String(value).trim();
+      if (!normalized || normalized === '0' || normalized.toLowerCase() === 'null') {
+        continue;
+      }
+      const parsed = new Date(normalized);
+      if (!Number.isNaN(parsed.getTime())) {
+        return normalized;
+      }
+    }
+    return null;
+  };
+
+  const etd = resolvePdfDate(orderDetail?.fecha_etd_factura, orderDetail?.fecha_etd);
+  const eta = resolvePdfDate(orderDetail?.fecha_eta_factura, orderDetail?.fecha_eta);
 
   const baseData = {
     title: file.name,
@@ -80,8 +96,8 @@ async function getPDFData(file, lang = 'es') {
     responsiblePerson: 'Sistema Gelymar',
     destinationPort: orderDetail?.puerto_destino || '-',
     incoterm: orderDetail?.incoterm || '-',
-    etd: orderDetail?.fecha_etd || '-',
-    eta: orderDetail?.fecha_eta || '-',
+    etd,
+    eta,
     currency: orderDetail?.currency || 'USD',
     paymentCondition: orderDetail?.condicion_venta || '-',
     incotermDeliveryDate: getWeekOfYear(orderDetail?.fecha_incoterm, lang),
@@ -112,8 +128,6 @@ async function getPDFData(file, lang = 'es') {
     },
     'Shipment Notice': {
       ...baseData,
-      etd: orderDetail?.fecha_etd,
-      eta: orderDetail?.fecha_eta,
       portOfShipment: 'Puerto de Valparaíso',
       vesselName: 'M/V Gelymar Express',
       containerNumber: `GEL-${Math.floor(Math.random() * 900000) + 100000}`,
@@ -1198,3 +1212,439 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
     });
   }
 };
+
+// Nuevo endpoint para enviar Shipment Notice automáticos
+exports.processShipmentNotices = async (req, res) => {
+  try {
+    const {
+      getOrdersReadyForShipmentNotice,
+      getShipmentFile
+    } = require('../services/checkShipmentNotice.service');
+    const {
+      getReportEmailsAndLang,
+      isSendOrderShipmentEnabled
+    } = require('../services/checkOrderReception.service');
+    const { sendFileToClient } = require('../services/email.service');
+    const fs = require('fs');
+    const path = require('path');
+
+    const automaticReceptionEnabled = await isSendOrderShipmentEnabled();
+
+    const orders = await getOrdersReadyForShipmentNotice();
+    if (!orders.length) {
+      return res.status(200).json({
+        message: 'No hay ordenes listas para Shipment Notice',
+        processed: 0
+      });
+    }
+
+    let processed = 0;
+    let errors = 0;
+    let skipped = 0;
+    const skipReasons = {
+      missing_eta: 0,
+      already_sent: 0,
+      disabled_config: 0
+    };
+
+    for (const orderRow of orders) {
+      try {
+        if (!orderRow.etd || !orderRow.eta) {
+          skipped++;
+          continue;
+        }
+
+        if (!orderRow.shipment_file_id) {
+          await fileService.createDefaultFilesForOrder(
+            orderRow.id,
+            orderRow.customer_name,
+            orderRow.pc,
+            orderRow.oc
+          );
+        }
+
+        const shipmentFile = await getShipmentFile(orderRow.id);
+        if (!shipmentFile) {
+          errors++;
+          continue;
+        }
+
+        if (shipmentFile.fecha_envio) {
+          skipped++;
+          continue;
+        }
+
+        const file = await fileService.getFileById(shipmentFile.id);
+        if (!file) {
+          errors++;
+          continue;
+        }
+
+        const { reportEmails, customerLang } = await getReportEmailsAndLang(orderRow.customer_id);
+        if (reportEmails.length === 0) {
+          errors++;
+          continue;
+        }
+
+        const FILE_SERVER_ROOT = process.env.FILE_SERVER_ROOT || '/var/www/html';
+        const cleanCustomerName = cleanDirectoryName(file.customer_name);
+        const cleanFolderName = cleanDirectoryName(file.pc);
+        const folderName = file.file_identifier ? `${cleanFolderName}_${file.file_identifier}` : cleanFolderName;
+        const customerFolder = path.join(FILE_SERVER_ROOT, 'uploads', cleanCustomerName, folderName);
+
+        if (!fs.existsSync(customerFolder)) {
+          fs.mkdirSync(customerFolder, { recursive: true });
+        }
+
+        const fileName = `${file.name}.pdf`;
+        const filePath = path.join(customerFolder, fileName);
+
+        const generator = getDocumentGenerator(file.name);
+        const pdfData = await getPDFData(file, customerLang);
+
+        let updateData;
+        try {
+          await generator(filePath, pdfData);
+          updateData = {
+            id: file.id,
+            status_id: 3,
+            is_visible_to_client: 1,
+            updated_at: new Date(),
+            fecha_generacion: new Date(),
+            path: path.relative(FILE_SERVER_ROOT, filePath)
+          };
+
+
+          await fileService.updateFile(updateData);
+        } catch (pdfError) {
+          errors++;
+          continue;
+        }
+
+        const fileData = {
+          id: file.id,
+          name: file.name,
+          path: updateData.path,
+          customer_name: file.customer_name,
+          customer_id: file.customer_id,
+          lang: customerLang
+        };
+
+        if (automaticReceptionEnabled) {
+          await sendFileToClient(fileData, { recipients: reportEmails });
+          await fileService.updateFile({
+            id: file.id,
+            fecha_envio: new Date(),
+            updated_at: new Date()
+          });
+          processed++;
+        } else {
+          skipReasons.disabled_config++;
+          skipped++;
+        }
+      } catch (error) {
+        errors++;
+      }
+    }
+
+    res.status(200).json({
+      message: 'Procesamiento de Shipment Notice completado',
+      processed,
+      skipped,
+      errors
+    });
+  } catch (error) {
+    logger.error(`Error en processShipmentNotices: ${error.message}`);
+    res.status(500).json({ message: 'Error procesando Shipment Notice' });
+  }
+};
+
+exports.processOrderDeliveryNotices = async (req, res) => {
+  try {
+    const {
+      getOrdersReadyForOrderDeliveryNotice,
+      getOrderDeliveryFile
+    } = require('../services/checkOrderDeliveryNotice.service');
+    const {
+      getReportEmailsAndLang,
+      isSendOrderDeliveryEnabled
+    } = require('../services/checkOrderReception.service');
+    const { sendFileToClient } = require('../services/email.service');
+    const fs = require('fs');
+    const path = require('path');
+
+    const automaticReceptionEnabled = await isSendOrderDeliveryEnabled();
+
+    const orders = await getOrdersReadyForOrderDeliveryNotice();
+    if (!orders.length) {
+      return res.status(200).json({
+        message: 'No hay ordenes listas para Order Delivery Notice',
+        processed: 0
+      });
+    }
+
+    let processed = 0;
+    let errors = 0;
+    let skipped = 0;
+    const skipReasons = {
+      missing_eta: 0,
+      already_sent: 0
+    };
+
+    for (const orderRow of orders) {
+      try {
+        if (!orderRow.eta) {
+          logger.warn(`Order Delivery Notice omitida: orden ${orderRow.id} sin ETA`);
+          console.warn(`[Order Delivery Notice] Omitida: orden ${orderRow.id} sin ETA`);
+          skipReasons.missing_eta++;
+          skipped++;
+          continue;
+        }
+
+          if (!orderRow.delivery_file_id) {
+          await fileService.createDefaultFilesForOrder(
+            orderRow.id,
+            orderRow.customer_name,
+            orderRow.pc,
+            orderRow.oc
+          );
+        }
+
+          const deliveryFile = await getOrderDeliveryFile(orderRow.id);
+          if (!deliveryFile) {
+            logger.error(`Order Delivery Notice sin archivo: orden ${orderRow.id}`);
+            console.error(`[Order Delivery Notice] Sin archivo: orden ${orderRow.id}`);
+            errors++;
+            continue;
+          }
+
+        if (deliveryFile.fecha_envio) {
+            skipReasons.already_sent++;
+            skipped++;
+            continue;
+          }
+
+          const file = await fileService.getFileById(deliveryFile.id);
+          if (!file) {
+            logger.error(`Order Delivery Notice file no encontrado: order_file ${deliveryFile.id} orden ${orderRow.id}`);
+            console.error(`[Order Delivery Notice] File no encontrado: order_file ${deliveryFile.id} orden ${orderRow.id}`);
+            errors++;
+            continue;
+          }
+
+          const { reportEmails, customerLang } = await getReportEmailsAndLang(orderRow.customer_id);
+          if (reportEmails.length === 0) {
+            logger.warn(`Order Delivery Notice sin emails report: cliente ${orderRow.customer_id} orden ${orderRow.id}`);
+            console.warn(`[Order Delivery Notice] Sin emails report: cliente ${orderRow.customer_id} orden ${orderRow.id}`);
+            errors++;
+            continue;
+          }
+
+        const FILE_SERVER_ROOT = process.env.FILE_SERVER_ROOT || '/var/www/html';
+        const cleanCustomerName = cleanDirectoryName(file.customer_name);
+        const cleanFolderName = cleanDirectoryName(file.pc);
+        const folderName = file.file_identifier ? `${cleanFolderName}_${file.file_identifier}` : cleanFolderName;
+        const customerFolder = path.join(FILE_SERVER_ROOT, 'uploads', cleanCustomerName, folderName);
+
+        if (!fs.existsSync(customerFolder)) {
+          fs.mkdirSync(customerFolder, { recursive: true });
+        }
+
+        const fileName = `${file.name}.pdf`;
+        const filePath = path.join(customerFolder, fileName);
+
+        const generator = getDocumentGenerator(file.name);
+        const pdfData = await getPDFData(file, customerLang);
+
+        let updateData;
+        try {
+          await generator(filePath, pdfData);
+          updateData = {
+            id: file.id,
+            status_id: 3,
+            is_visible_to_client: 1,
+            updated_at: new Date(),
+            fecha_generacion: new Date(),
+            path: path.relative(FILE_SERVER_ROOT, filePath)
+          };
+          await fileService.updateFile(updateData);
+          } catch (pdfError) {
+            logger.error(`Error generando Order Delivery Notice: orden ${orderRow.id} - ${pdfError.message}`);
+            console.error(`[Order Delivery Notice] Error generando PDF: orden ${orderRow.id} - ${pdfError.message}`);
+            errors++;
+            continue;
+          }
+
+        const fileData = {
+          id: file.id,
+          name: file.name,
+          path: updateData.path,
+          customer_name: file.customer_name,
+          customer_id: file.customer_id,
+          lang: customerLang
+        };
+
+        if (automaticReceptionEnabled) {
+          await sendFileToClient(fileData, { recipients: reportEmails });
+          await fileService.updateFile({
+            id: file.id,
+            fecha_envio: new Date(),
+            updated_at: new Date()
+          });
+          processed++;
+        } else {
+          skipped++;
+        }
+        } catch (error) {
+          logger.error(`Error procesando Order Delivery Notice: orden ${orderRow.id} - ${error.message}`);
+          console.error(`[Order Delivery Notice] Error procesando: orden ${orderRow.id} - ${error.message}`);
+          errors++;
+        }
+      }
+
+    res.status(200).json({
+      message: 'Procesamiento de Order Delivery Notice completado',
+      processed,
+      skipped,
+      errors,
+      automatic_enabled: automaticReceptionEnabled,
+      skip_reasons: skipReasons
+    });
+  } catch (error) {
+    logger.error(`Error en processOrderDeliveryNotices: ${error.message}`);
+    res.status(500).json({ message: 'Error procesando Order Delivery Notice' });
+  }
+};
+
+exports.processAvailabilityNotices = async (req, res) => {
+  try {
+    const {
+      getOrdersReadyForAvailabilityNotice,
+      getAvailabilityFile
+    } = require('../services/checkAvailabilityNotice.service');
+    const {
+      getReportEmailsAndLang,
+      isSendOrderAvailabilityEnabled
+    } = require('../services/checkOrderReception.service');
+    const { sendFileToClient } = require('../services/email.service');
+    const fs = require('fs');
+    const path = require('path');
+
+    const automaticReceptionEnabled = await isSendOrderAvailabilityEnabled();
+
+    const orders = await getOrdersReadyForAvailabilityNotice();
+    if (!orders.length) {
+      return res.status(200).json({
+        message: 'No hay ordenes listas para Availability Notice',
+        processed: 0
+      });
+    }
+
+    let processed = 0;
+    let errors = 0;
+    let skipped = 0;
+
+    for (const orderRow of orders) {
+      try {
+        if (!orderRow.availability_file_id) {
+          await fileService.createDefaultFilesForOrder(
+            orderRow.id,
+            orderRow.customer_name,
+            orderRow.pc,
+            orderRow.oc
+          );
+        }
+
+        const availabilityFile = await getAvailabilityFile(orderRow.id);
+        if (!availabilityFile) {
+          errors++;
+          continue;
+        }
+
+        if (availabilityFile.fecha_envio) {
+          skipped++;
+          continue;
+        }
+
+        const file = await fileService.getFileById(availabilityFile.id);
+        if (!file) {
+          errors++;
+          continue;
+        }
+
+        const { reportEmails, customerLang } = await getReportEmailsAndLang(orderRow.customer_id);
+        if (reportEmails.length === 0) {
+          errors++;
+          continue;
+        }
+
+        const FILE_SERVER_ROOT = process.env.FILE_SERVER_ROOT || '/var/www/html';
+        const cleanCustomerName = cleanDirectoryName(file.customer_name);
+        const cleanFolderName = cleanDirectoryName(file.pc);
+        const folderName = file.file_identifier ? `${cleanFolderName}_${file.file_identifier}` : cleanFolderName;
+        const customerFolder = path.join(FILE_SERVER_ROOT, 'uploads', cleanCustomerName, folderName);
+
+        if (!fs.existsSync(customerFolder)) {
+          fs.mkdirSync(customerFolder, { recursive: true });
+        }
+
+        const fileName = `${file.name}.pdf`;
+        const filePath = path.join(customerFolder, fileName);
+
+        const generator = getDocumentGenerator(file.name);
+        const pdfData = await getPDFData(file, customerLang);
+
+        let updateData;
+        try {
+          await generator(filePath, pdfData);
+          updateData = {
+            id: file.id,
+            status_id: 3,
+            is_visible_to_client: 1,
+            updated_at: new Date(),
+            fecha_generacion: new Date(),
+            path: path.relative(FILE_SERVER_ROOT, filePath)
+          };
+          await fileService.updateFile(updateData);
+        } catch (pdfError) {
+          errors++;
+          continue;
+        }
+
+        const fileData = {
+          id: file.id,
+          name: file.name,
+          path: updateData.path,
+          customer_name: file.customer_name,
+          customer_id: file.customer_id,
+          lang: customerLang
+        };
+
+        if (automaticReceptionEnabled) {
+          await sendFileToClient(fileData, { recipients: reportEmails });
+          await fileService.updateFile({
+            id: file.id,
+            fecha_envio: new Date(),
+            updated_at: new Date()
+          });
+          processed++;
+        } else {
+          skipped++;
+        }
+      } catch (error) {
+        errors++;
+      }
+    }
+
+    res.status(200).json({
+      message: 'Procesamiento de Availability Notice completado',
+      processed,
+      skipped,
+      errors
+    });
+  } catch (error) {
+    logger.error(`Error en processAvailabilityNotices: ${error.message}`);
+    res.status(500).json({ message: 'Error procesando Availability Notice' });
+  }
+};
+

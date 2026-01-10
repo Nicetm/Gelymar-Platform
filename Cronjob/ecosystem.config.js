@@ -11,17 +11,35 @@ module.exports = {
         kill_timeout: 5000
       },
       {
-        name: 'gelymar-etd-checker',
-        script: './cron/checkETD.js',
+        name: 'gelymar-order-reception',
+        script: './cron/sendOrderReception.js',
         watch: false,
-        autorestart: false,
+        autorestart: true,
         wait_ready: true,
         listen_timeout: 10000,
         kill_timeout: 5000
       },
       {
-        name: 'gelymar-order-reception',
-        script: './cron/sendOrderReception.js',
+        name: 'gelymar-shipment-notice',
+        script: './cron/sendShipmentNotice.js',
+        watch: false,
+        autorestart: true,
+        wait_ready: true,
+        listen_timeout: 10000,
+        kill_timeout: 5000
+      },
+      {
+        name: 'gelymar-order-delivery-notice',
+        script: './cron/sendOrderDeliveryNotice.js',
+        watch: false,
+        autorestart: true,
+        wait_ready: true,
+        listen_timeout: 10000,
+        kill_timeout: 5000
+      },
+      {
+        name: 'gelymar-availability-notice',
+        script: './cron/sendAvailableNotice.js',
         watch: false,
         autorestart: true,
         wait_ready: true,
