@@ -241,8 +241,6 @@ async function fetchOrderFilesFromNetwork() {
           // Insertar order detail
           await createOrderDetail(orderId, buildOrderDetailData(true));
           
-          // Insertar en tabla new_orders para procesamiento posterior
-          await insertNewOrderRecord(orderId);
           
           console.log(`[${new Date().toISOString()}] -> Check Order Process -> NUEVA ORDEN insertada: PC=${pc}, OC=${oc}, unique_key=${uniqueKey}`);
           insertados++;
@@ -607,17 +605,6 @@ async function updateOrderDetail(orderId, detailData) {
   }
 }
 
-// Función para insertar orden nueva en tabla new_orders
-async function insertNewOrderRecord(orderId) {
-  try {
-    const pool = await poolPromise;
-    await pool.query('INSERT INTO new_orders (order_id) VALUES (?)', [orderId]);
-  } catch (error) {
-    console.error(`[${new Date().toISOString()}] -> New Order Record -> Error insertando orden ${orderId} en new_orders:`, error.message);
-    // No lanzar error para no interrumpir el proceso principal
-  }
-}
-
 module.exports = {
   fetchOrderFilesFromNetwork
-}; 
+};

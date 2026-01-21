@@ -1,9 +1,15 @@
 const { poolPromise } = require('../config/db');
 const { logger } = require('../utils/logger');
 
-async function getOrdersReadyForOrderDeliveryNotice() {
+async function getOrdersReadyForOrderDeliveryNotice(sendFromDate = null) {
   const pool = await poolPromise;
   try {
+    const params = [];
+    let sendFromFilter = '';
+    if (sendFromDate) {
+      sendFromFilter = ' AND DATE(o.fecha_factura) >= ?';
+      params.push(sendFromDate);
+    }
     const [rows] = await pool.query(
       `
         SELECT
@@ -12,6 +18,7 @@ async function getOrdersReadyForOrderDeliveryNotice() {
           o.pc,
           o.oc,
           c.name AS customer_name,
+          o.fecha_factura,
           COALESCE(
             STR_TO_DATE(LEFT(TRIM(od.fecha_eta_factura), 10), '%Y-%m-%d'),
             STR_TO_DATE(LEFT(TRIM(od.fecha_eta), 10), '%Y-%m-%d')
@@ -28,17 +35,11 @@ async function getOrdersReadyForOrderDeliveryNotice() {
           FROM order_detail
           GROUP BY order_id
         ) od ON od.order_id = o.id
-        LEFT JOIN order_files f ON f.order_id = o.id AND f.name = 'Order Delivery Notice'
+        LEFT JOIN order_files f ON f.order_id = o.id AND f.file_id = 15
         WHERE o.factura IS NOT NULL
           AND o.factura <> ''
           AND o.factura <> 0
           AND o.factura <> '0'
-          AND EXISTS (
-            SELECT 1
-            FROM order_detail od2
-            WHERE od2.order_id = o.id
-              AND od2.incoterm IN ('CFR', 'CIF', 'CIP', 'DAP', 'DDP')
-          )
           AND COALESCE(
             STR_TO_DATE(LEFT(TRIM(od.fecha_eta_factura), 10), '%Y-%m-%d'),
             STR_TO_DATE(LEFT(TRIM(od.fecha_eta), 10), '%Y-%m-%d')
@@ -49,10 +50,12 @@ async function getOrdersReadyForOrderDeliveryNotice() {
               STR_TO_DATE(LEFT(TRIM(od.fecha_eta), 10), '%Y-%m-%d')
             ),
             INTERVAL 7 DAY
-          ) = CURDATE()
+          ) <= CURDATE()
           AND (f.id IS NULL OR f.fecha_envio IS NULL)
+          ${sendFromFilter}
         ORDER BY o.id ASC
-      `
+      `,
+      params
     );
     return rows;
   } catch (error) {
@@ -65,8 +68,8 @@ async function getOrderDeliveryFile(orderId) {
   const pool = await poolPromise;
   try {
     const [rows] = await pool.query(
-      `SELECT id, path, fecha_envio FROM order_files WHERE order_id = ? AND name = ? ORDER BY id DESC LIMIT 1`,
-      [orderId, 'Order Delivery Notice']
+      `SELECT id, path, fecha_envio FROM order_files WHERE order_id = ? AND file_id = ? ORDER BY id DESC LIMIT 1`,
+      [orderId, 15]
     );
     return rows.length > 0 ? rows[0] : null;
   } catch (error) {

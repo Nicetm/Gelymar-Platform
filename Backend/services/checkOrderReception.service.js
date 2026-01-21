@@ -22,8 +22,12 @@ function parseConfigParams(rawParams) {
     try {
       params = JSON.parse(trimmed);
     } catch (error) {
-      logger.error(`Error parseando parametros de configuracion sendAutomaticOrderReception: ${error.message}`);
-      return {};
+      try {
+        params = JSON.parse(trimmed.replace(/'/g, '"'));
+      } catch (fallbackError) {
+        logger.error(`Error parseando parametros de configuracion sendAutomaticOrderReception: ${fallbackError.message}`);
+        return {};
+      }
     }
   }
 
@@ -32,6 +36,31 @@ function parseConfigParams(rawParams) {
   }
 
   return params;
+}
+
+async function getSendFromDate(configName) {
+  try {
+    const config = await configService.getConfigByName(configName);
+    if (!config) {
+      return null;
+    }
+
+    const params = parseConfigParams(config.params);
+    const sendFrom = params.sendFrom;
+    if (!sendFrom) {
+      return null;
+    }
+
+    const parsed = new Date(String(sendFrom).trim());
+    if (Number.isNaN(parsed.getTime())) {
+      return null;
+    }
+
+    return parsed.toISOString().slice(0, 10);
+  } catch (error) {
+    logger.error(`Error obteniendo sendFrom para ${configName}: ${error.message}`);
+    return null;
+  }
 }
 
 async function isSendOrderReceptionEnabled() {
@@ -60,20 +89,44 @@ async function isSendOrderReceptionEnabled() {
   }
 }
 
-/**
- * Obtiene todos los order_id de la tabla new_orders que no han sido enviadas
- * @returns {Promise<Array>} Array de order_ids
- */
-async function getNewOrders() {
+async function getOrdersReadyForOrderReceiptNotice(sendFromDate = null) {
   const pool = await poolPromise;
   try {
-    const [rows] = await pool.query('SELECT order_id FROM new_orders WHERE has_sent = 0 ORDER BY id ASC');
-    return rows.map(row => row.order_id);
+    const params = [];
+    let sendFromFilter = '';
+    if (sendFromDate) {
+      sendFromFilter = ' AND DATE(o.fecha_ingreso) >= ?';
+      params.push(sendFromDate);
+    }
+
+    const [rows] = await pool.query(
+      `
+        SELECT
+          o.id,
+          o.customer_id,
+          o.pc,
+          o.oc,
+          o.fecha_ingreso,
+          c.name AS customer_name,
+          f.id AS receipt_file_id,
+          f.fecha_envio AS receipt_fecha_envio
+        FROM orders o
+        JOIN customers c ON o.customer_id = c.id
+        LEFT JOIN order_files f ON f.order_id = o.id AND f.file_id = 9
+        WHERE (o.factura IS NULL OR o.factura = '' OR o.factura = 0 OR o.factura = '0')
+          AND (f.id IS NULL OR f.fecha_envio IS NULL)
+          ${sendFromFilter}
+        ORDER BY o.id ASC
+      `,
+      params
+    );
+    return rows;
   } catch (error) {
-    logger.error(`Error obteniendo nuevas órdenes: ${error.message}`);
+    logger.error(`Error obteniendo ordenes para Order Receipt Notice: ${error.message}`);
     throw error;
   }
 }
+
 
 /**
  * Obtiene datos de una orden específica
@@ -255,8 +308,8 @@ async function getReceptionFile(orderId) {
   const pool = await poolPromise;
   try {
     const [rows] = await pool.query(
-      'SELECT id, path FROM order_files WHERE order_id = ? AND name = ?',
-      [orderId, 'Order Receipt Notice']
+      'SELECT id, path FROM order_files WHERE order_id = ? AND file_id = ?',
+      [orderId, 9]
     );
     return rows.length > 0 ? rows[0] : null;
   } catch (error) {
@@ -324,36 +377,18 @@ async function getCustomerEmail(customerId, rut) {
   }
 }
 
-/**
- * Marca una orden como enviada en new_orders
- * @param {number} orderId - ID de la orden
- * @returns {Promise<boolean>} True si se marcó correctamente
- */
-async function markOrderAsSent(orderId) {
-  const pool = await poolPromise;
-  try {
-    const [result] = await pool.query(
-      'UPDATE new_orders SET has_sent = 1 WHERE order_id = ?',
-      [orderId]
-    );
-    return result.affectedRows > 0;
-  } catch (error) {
-    logger.error(`Error marcando orden ${orderId} como enviada: ${error.message}`);
-    throw error;
-  }
-}
 
 module.exports = {
-  getNewOrders,
   getOrderData,
   getOrderWithCustomer,
   getOrdersWithFacturaAndMissingFiles,
   getReportEmailsAndLang,
   getReceptionFile,
   getCustomerEmail,
-  markOrderAsSent,
   isSendOrderReceptionEnabled,
   isSendOrderDeliveryEnabled,
   isSendOrderShipmentEnabled,
-  isSendOrderAvailabilityEnabled
+  isSendOrderAvailabilityEnabled,
+  getOrdersReadyForOrderReceiptNotice,
+  getSendFromDate
 };

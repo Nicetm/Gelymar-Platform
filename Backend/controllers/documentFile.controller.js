@@ -19,6 +19,63 @@ const { logger } = require('../utils/logger');
 const { cleanDirectoryName } = require('../utils/directoryUtils');
 const { validateFilePath, setSecureFilePermissions } = require('../utils/filePermissions');
 
+
+const DOC_NAME_MAP_ES = {
+  'Order Receipt Notice': 'Aviso de Recepcion de Orden',
+  'Shipment Notice': 'Aviso de Embarque',
+  'Order Delivery Notice': 'Aviso de Entrega',
+  'Availability Notice': 'Aviso de Disponibilidad de Orden'
+};
+
+const FILE_ID_NAME_MAP = {
+  9: 'Order Receipt Notice',
+  19: 'Shipment Notice',
+  15: 'Order Delivery Notice',
+  6: 'Availability Notice'
+};
+
+
+function getDocumentDisplayName(documentName, lang) {
+  if (lang === 'es') {
+    return DOC_NAME_MAP_ES[documentName] || documentName;
+  }
+  return documentName;
+}
+
+function resolveDocumentName(file) {
+  if (file && file.file_id && FILE_ID_NAME_MAP[file.file_id]) {
+    return FILE_ID_NAME_MAP[file.file_id];
+  }
+  return file?.name || '';
+}
+
+function sanitizeFileNamePart(value) {
+  if (!value || typeof value !== 'string') return '';
+  return value
+    .replace(/[<>:"/\\|?*]/g, '')
+    .replace(/[\x00-\x1f\x7f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normalizePONumber(value) {
+  if (!value) return '-';
+  const normalized = String(value).replace(/^GEL\s*/i, '').trim();
+  return normalized || '-';
+}
+
+function buildDocumentFileBaseName(documentName, file, pdfData, lang) {
+  const docName = sanitizeFileNamePart(getDocumentDisplayName(documentName, lang)) || 'Documento';
+  const customerName = sanitizeFileNamePart(pdfData?.customerName || file.customer_name) || 'Cliente';
+  const poNumber = normalizePONumber(pdfData?.orderNumber || file.oc);
+  const poLabel = sanitizeFileNamePart(`PO ${poNumber}`) || 'PO -';
+  return `${docName} - ${customerName} - ${poLabel}`;
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 /**
  * Mapea el nombre del documento al generador correspondiente
  * @param {string} documentName - Nombre del documento
@@ -44,6 +101,7 @@ function getDocumentGenerator(documentName) {
 async function getPDFData(file, lang = 'es') {
   const order = await documentFileService.getOrderWithCustomerForPdf(file.order_id);
   const orderDetail = await documentFileService.getOrderDetailForPdf(file.order_id);
+  const documentName = resolveDocumentName(file);
 
   let orderItems = [];
   if (order?.pc && order?.oc) {
@@ -86,8 +144,18 @@ async function getPDFData(file, lang = 'es') {
   const etd = resolvePdfDate(orderDetail?.fecha_etd_factura, orderDetail?.fecha_etd);
   const eta = resolvePdfDate(orderDetail?.fecha_eta_factura, orderDetail?.fecha_eta);
 
+  const hasFactura =
+    order?.factura !== null &&
+    order?.factura !== undefined &&
+    order?.factura !== '' &&
+    order?.factura !== 0 &&
+    order?.factura !== '0';
+  const shippingMethod = hasFactura
+    ? (orderDetail?.medio_envio_factura || orderDetail?.medio_envio_ov)
+    : (orderDetail?.medio_envio_ov || orderDetail?.medio_envio_factura);
+
   const baseData = {
-    title: file.name,
+    title: documentName,
     subtitle: `Documento generado para ${order?.customer_name || file.customer_name}`,
     customerName: order?.customer_name || file.customer_name,
     internalOrderNumber: order?.pc || '-',
@@ -96,10 +164,12 @@ async function getPDFData(file, lang = 'es') {
     responsiblePerson: 'Sistema Gelymar',
     destinationPort: orderDetail?.puerto_destino || '-',
     incoterm: orderDetail?.incoterm || '-',
+    shippingMethod: shippingMethod || '-',
     etd,
     eta,
     currency: orderDetail?.currency || 'USD',
     paymentCondition: orderDetail?.condicion_venta || '-',
+    additionalCharge: orderDetail?.gasto_adicional_flete_factura,
     incotermDeliveryDate: getWeekOfYear(orderDetail?.fecha_incoterm, lang),
     receptionDate,
     shipmentDate,
@@ -124,7 +194,7 @@ async function getPDFData(file, lang = 'es') {
       origin: 'Chile',
       destination: 'Internacional',
       priority: 'Normal',
-      shippingMethod: orderDetail?.medio_envio_ov || '-'
+      shippingMethod: baseData.shippingMethod
     },
     'Shipment Notice': {
       ...baseData,
@@ -136,7 +206,7 @@ async function getPDFData(file, lang = 'es') {
       totalWeight: orderItems.reduce((sum, item) => sum + (item.kg_solicitados || 0), 0),
       totalVolume: orderItems.reduce((sum, item) => sum + (item.volumen || 0), 0),
       specialInstructions: 'Manejar con cuidado. Mercancía frágil.',
-      shippingMethod: orderDetail?.tipo === 'ST' ? orderDetail?.medio_envio_ov : '-'
+      shippingMethod: baseData.shippingMethod
     },
     'Order Delivery Notice': {
       ...baseData,
@@ -145,7 +215,7 @@ async function getPDFData(file, lang = 'es') {
       serviceType: 'Servicio Logístico Completo',
       dimensions: 'Variable según producto',
       factura: orderDetail?.factura || '-',
-      shippingMethod: orderDetail?.tipo === 'ST' ? orderDetail?.medio_envio_ov : '-'
+      shippingMethod: baseData.shippingMethod
     },
     'Availability Notice': {
       ...baseData,
@@ -155,7 +225,7 @@ async function getPDFData(file, lang = 'es') {
       origin: 'Chile',
       destination: 'Internacional',
       priority: 'Normal',
-      shippingMethod: orderDetail?.tipo === 'ST' ? orderDetail?.medio_envio_ov : '-'
+      shippingMethod: baseData.shippingMethod
     }
   };
 
@@ -163,17 +233,17 @@ async function getPDFData(file, lang = 'es') {
   const { getDocumentTranslations } = require('../pdf-generator/i18n');
   let translationKey = 'aviso_recepcion'; // Default
   
-  if (file.name === 'Shipment Notice') {
+  if (documentName === 'Shipment Notice') {
     translationKey = 'aviso_embarque';
-  } else if (file.name === 'Order Delivery Notice') {
+  } else if (documentName === 'Order Delivery Notice') {
     translationKey = 'aviso_entrega';
-  } else if (file.name === 'Availability Notice') {
+  } else if (documentName === 'Availability Notice') {
     translationKey = 'aviso_disponibilidad';
   }
   
   const translations = getDocumentTranslations(translationKey, lang);
   
-  const result = specificData[file.name] || baseData;
+  const result = specificData[documentName] || baseData;
   return {
     ...result,
     translations,
@@ -663,21 +733,22 @@ exports.generateFile = async (req, res) => {
       fs.mkdirSync(customerFolder, { recursive: true });
       logger.info(`Directorio creado: ${customerFolder}`);
     }
+    const documentName = resolveDocumentName(file);
+    const generator = getDocumentGenerator(documentName);
 
-    const fileName = `${file.name}.pdf`;
-    const filePath = path.join(customerFolder, fileName);
-
-    // Obtener el generador correspondiente según el nombre del documento
-    const generator = getDocumentGenerator(file.name);
-    
     // Obtener datos reales de la BD
     const pdfData = await getPDFData(file, lang);
+
+    const baseName = buildDocumentFileBaseName(documentName, file, pdfData, lang);
+    const fileName = `${baseName}.pdf`;
+    const filePath = path.join(customerFolder, fileName);
     
     // Generar el PDF con el generador y datos correspondientes
     await generator(filePath, pdfData);
 
     const updateData = {
       id: file.id,
+      name: baseName,
       status_id: 2,
       updated_at: new Date(),
       fecha_generacion: new Date(),
@@ -840,39 +911,45 @@ exports.regenerateFile = async (req, res) => {
       fs.mkdirSync(customerFolder, { recursive: true });
       logger.info(`Directorio creado: ${customerFolder}`);
     }
+    const documentName = resolveDocumentName(file);
+    const generator = getDocumentGenerator(documentName);
+
+    // Obtener datos reales de la BD
+    const pdfData = await getPDFData(file, lang);
+
+    const baseName = buildDocumentFileBaseName(documentName, file, pdfData, lang);
+    const versionPrefix = `${baseName}_v`;
+    const versionRegex = new RegExp(`^${escapeRegExp(baseName)}_v(\\d+)\\.pdf$`);
 
     // Generar nombre de archivo con versión
     // Buscar archivos existentes con patrón _v*
-    const existingFiles = fs.readdirSync(customerFolder).filter(f => 
-      f.startsWith(`${file.name}_v`) && f.endsWith('.pdf')
+    const existingFiles = fs.readdirSync(customerFolder).filter(f =>
+      f.startsWith(versionPrefix) && f.endsWith('.pdf')
     );
     
     let version = 1;
     if (existingFiles.length > 0) {
       // Extraer números de versión existentes
       const versions = existingFiles.map(f => {
-        const match = f.match(/_v(\d+)\.pdf$/);
-        return match ? parseInt(match[1]) : 0;
+        const match = f.match(versionRegex);
+        return match ? parseInt(match[1], 10) : 0;
       }).filter(v => v > 0);
       
       // Encontrar el siguiente número disponible
-      version = Math.max(...versions) + 1;
+      if (versions.length > 0) {
+        version = Math.max(...versions) + 1;
+      }
     }
     
-    const fileName = `${file.name}_v${version}.pdf`;
+    const recordName = `${versionPrefix}${version}`;
+    const fileName = `${recordName}.pdf`;
     const filePath = path.join(customerFolder, fileName);
-
-    // Obtener el generador correspondiente según el nombre del documento
-    const generator = getDocumentGenerator(file.name);
-    
-    // Obtener datos reales de la BD
-    const pdfData = await getPDFData(file, lang);
     
     // Generar el PDF con el generador y datos correspondientes
     await generator(filePath, pdfData);
 
     // Duplicar el archivo con la nueva versión
-    const newFileId = await fileService.duplicateFile(id, path.relative(FILE_SERVER_ROOT, filePath));
+    const newFileId = await fileService.duplicateFile(id, path.relative(FILE_SERVER_ROOT, filePath), recordName);
 
     logger.info(`Archivo regenerado correctamente ID: ${id} - Versión: ${fileName} - Nuevo ID: ${newFileId}`);
     res.json({ 
@@ -994,243 +1071,169 @@ exports.createDefaultFiles = async (req, res) => {
 exports.processNewOrdersAndSendReception = async (req, res) => {
   try {
     const {
-      getNewOrders,
-      getOrderData,
-      getOrderWithCustomer,
-      getOrdersWithFacturaAndMissingFiles,
+      getOrdersReadyForOrderReceiptNotice,
       getReceptionFile,
       getReportEmailsAndLang,
-      markOrderAsSent,
-      isSendOrderReceptionEnabled
+      isSendOrderReceptionEnabled,
+      getSendFromDate
     } = require('../services/checkOrderReception.service');
     const { sendFileToClient } = require('../services/email.service');
     const fs = require('fs');
     const path = require('path');
 
     const automaticReceptionEnabled = await isSendOrderReceptionEnabled();
-    
-    // 1. Obtener order_ids de new_orders
-    const orderIds = await getNewOrders();
-    
-    if (orderIds.length === 0) {
-      return res.status(200).json({ 
+    const sendFromDate = await getSendFromDate('sendAutomaticOrderReception');
+
+    const orders = await getOrdersReadyForOrderReceiptNotice(sendFromDate);
+
+    if (orders.length === 0) {
+      return res.status(200).json({
         message: 'No hay órdenes nuevas para procesar',
-        processed: 0 
+        processed: 0
       });
     }
-        
+
     let processed = 0;
     let errors = 0;
     let skipped = 0;
-    
-    // 2. Procesar cada orden
-    for (const orderId of orderIds) {
-      try {        
-        // 3. Obtener datos de la orden (rut, customer_id)
-        const orderData = await getOrderData(orderId);
-        if (!orderData) {
-          console.error(`No se encontraron datos para orden ${orderId}`);
-          errors++;
-          continue;
-        }
-        
-        // 4. Verificar archivos por defecto y crear segun factura
-        const existingFiles = await fileService.getFilesByFolderId(orderId);
 
-        // Obtener datos completos de la orden para crear archivos
-        const fullOrderData = await getOrderWithCustomer(orderId);
-        if (!fullOrderData) {
-          errors++;
-          continue;
-        }
-
-        const hasFactura = fullOrderData.factura !== null && fullOrderData.factura !== undefined && fullOrderData.factura !== '' && fullOrderData.factura !== 0 && fullOrderData.factura !== '0';
-        const requiredDocs = hasFactura
-          ? ['Shipment Notice', 'Order Delivery Notice', 'Availability Notice']
-          : ['Order Receipt Notice'];
-        const existingNames = new Set(existingFiles.map(fileItem => fileItem.name));
-        const missingDocs = requiredDocs.filter(name => !existingNames.has(name));
-
-        if (missingDocs.length > 0) {
+    for (const orderRow of orders) {
+      try {
+        if (!orderRow.receipt_file_id) {
           await fileService.createDefaultFilesForOrder(
-            orderId,
-            fullOrderData.customer_name,
-            fullOrderData.pc,
-            fullOrderData.oc
+            orderRow.id,
+            orderRow.customer_name,
+            orderRow.pc,
+            orderRow.oc
           );
         }
 
-        // Si tiene factura, no generar ni enviar ORN
-        if (hasFactura) {
-          if (automaticReceptionEnabled) {
-            await markOrderAsSent(orderId);
-            processed++;
-          } else {
-            skipped++;
-          }
-          continue;
-        }
-
-        // 5. Obtener archivo de recepción (id, path)
-        const receptionFile = await getReceptionFile(orderId);
+        const receptionFile = await getReceptionFile(orderRow.id);
         if (!receptionFile) {
-          console.error(`No se encontró archivo de recepción para orden ${orderId}`);
+          console.error(`No se encontró archivo de recepción para orden ${orderRow.id}`);
           errors++;
           continue;
         }
-        
-        // 6. Obtener emails con reports=true y el idioma del cliente
-        const { reportEmails, customerLang } = await getReportEmailsAndLang(orderData.customer_id);
+
+        const { reportEmails, customerLang } = await getReportEmailsAndLang(orderRow.customer_id);
 
         if (reportEmails.length === 0) {
-          console.error(`No se encontraron emails con reports=true para cliente ${orderData.customer_id}`);
+          console.error(`No se encontraron emails con reports=true para cliente ${orderRow.customer_id}`);
           errors++;
           continue;
         }
 
-        // 7. Generar archivo PDF usando el mismo flujo que el botón
-        // Obtener el archivo completo (como lo hace el botón)
         const file = await fileService.getFileById(receptionFile.id);
         if (!file) {
-          console.error(`No se encontró archivo con ID ${receptionFile.id} para orden ${orderId}`);
+          console.error(`No se encontró archivo con ID ${receptionFile.id} para orden ${orderRow.id}`);
           errors++;
           continue;
         }
-        
-        // Usar el mismo flujo que generateFile
+
         const FILE_SERVER_ROOT = process.env.FILE_SERVER_ROOT || '/var/www/html';
         const cleanCustomerName = cleanDirectoryName(file.customer_name);
         const cleanFolderName = cleanDirectoryName(file.pc);
-        
-        // Usar file_identifier si existe, sino usar solo PC
         const folderName = file.file_identifier ? `${cleanFolderName}_${file.file_identifier}` : cleanFolderName;
         const customerFolder = path.join(FILE_SERVER_ROOT, 'uploads', cleanCustomerName, folderName);
-        
-        // Crear directorio si no existe
+
         if (!fs.existsSync(customerFolder)) {
           fs.mkdirSync(customerFolder, { recursive: true });
         }
+        const documentName = resolveDocumentName(file);
+        const generator = getDocumentGenerator(documentName);
 
-        const fileName = `${file.name}.pdf`;
+        const pdfData = await getPDFData(file, customerLang);
+
+        const baseName = buildDocumentFileBaseName(documentName, file, pdfData, customerLang);
+        const fileName = `${baseName}.pdf`;
         const filePath = path.join(customerFolder, fileName);
 
-        // Obtener el generador correspondiente según el nombre del documento
-        const generator = getDocumentGenerator(file.name);
-        
-        // Obtener datos reales de la BD usando getPDFData
-        const pdfData = await getPDFData(file, customerLang); // Usar idioma del cliente
-        
         let updateData;
-        
+
         try {
-          // Generar el PDF con el generador y datos correspondientes
           await generator(filePath, pdfData);
-          
-          // Actualizar el archivo en la BD
-          updateData = {
-            id: file.id,
-            status_id: 3,
-            is_visible_to_client: 1,
-            updated_at: new Date(),
-            fecha_generacion: new Date(),
-            path: path.relative(FILE_SERVER_ROOT, filePath)
+
+            updateData = {
+              id: file.id,
+              name: baseName,
+              status_id: 3,
+              is_visible_to_client: 1,
+              updated_at: new Date(),
+              fecha_generacion: new Date(),
+              path: path.relative(FILE_SERVER_ROOT, filePath)
           };
+
           await fileService.updateFile(updateData);
-          
         } catch (pdfError) {
-          console.error(`Error generando PDF para orden ${orderId}:`, pdfError.message);
-          console.error(`Stack trace:`, pdfError.stack);
+          console.error(`Error generando PDF para orden ${orderRow.id}:`, pdfError.message);
           errors++;
           continue;
         }
-        
-        // 8. Preparar datos para envío
-        const fileData = {
-          id: file.id,
-          name: file.name,
-          path: updateData.path, // Usar la ruta del PDF generado desde updateData
-          customer_name: file.customer_name,
-          customer_id: file.customer_id,
-          lang: customerLang
-        };
-        
-        // 9-11. Solo si la recepción automática está habilitada
+
+          const fileData = {
+            id: file.id,
+            name: baseName,
+            path: updateData.path,
+            customer_name: file.customer_name,
+            customer_id: file.customer_id,
+            lang: customerLang
+          };
+
         if (automaticReceptionEnabled) {
           await sendFileToClient(fileData, { recipients: reportEmails });
-          
+
           await fileService.updateFile({
             id: file.id,
             fecha_envio: new Date(),
             updated_at: new Date()
           });
-          
-          await markOrderAsSent(orderId);
+
           processed++;
         } else {
           skipped++;
         }
-        
       } catch (error) {
-        console.error(`Error procesando orden ${orderId}:`, error.message);
+        console.error(`Error procesando orden ${orderRow.id}:`, error.message);
         errors++;
-        // Continuar con la siguiente orden
       }
     }
 
-    // 3. Crear documentos faltantes para ordenes con factura (sin envio de correo)
-    try {
-      const ordersWithFactura = await getOrdersWithFacturaAndMissingFiles();
-      for (const orderItem of ordersWithFactura) {
-        try {
-          await fileService.createDefaultFilesForOrder(
-            orderItem.id,
-            orderItem.customer_name,
-            orderItem.pc,
-            orderItem.oc
-          );
-        } catch (fileError) {
-          console.error(`Error creando archivos faltantes para orden ${orderItem.id}:`, fileError.message);
-        }
-      }
-    } catch (missingError) {
-      console.error('Error buscando ordenes con factura para crear archivos:', missingError.message);
-    }
-    
     res.status(200).json({
       message: 'Procesamiento de órdenes nuevas completado',
       processed,
       errors,
       skipped,
-      total: orderIds.length
+      total: orders.length
     });
 
   } catch (error) {
     console.error('Error en processNewOrdersAndSendReception:', error);
-    res.status(500).json({ 
-      message: 'Error al procesar órdenes nuevas', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Error al procesar órdenes nuevas',
+      error: error.message
     });
   }
 };
 
-// Nuevo endpoint para enviar Shipment Notice automáticos
 exports.processShipmentNotices = async (req, res) => {
   try {
     const {
       getOrdersReadyForShipmentNotice,
       getShipmentFile
     } = require('../services/checkShipmentNotice.service');
-    const {
-      getReportEmailsAndLang,
-      isSendOrderShipmentEnabled
-    } = require('../services/checkOrderReception.service');
+      const {
+        getReportEmailsAndLang,
+        isSendOrderShipmentEnabled,
+        getSendFromDate
+      } = require('../services/checkOrderReception.service');
     const { sendFileToClient } = require('../services/email.service');
     const fs = require('fs');
     const path = require('path');
 
-    const automaticReceptionEnabled = await isSendOrderShipmentEnabled();
+      const automaticReceptionEnabled = await isSendOrderShipmentEnabled();
+      const sendFromDate = await getSendFromDate('sendAutomaticOrderShipment');
 
-    const orders = await getOrdersReadyForShipmentNotice();
+      const orders = await getOrdersReadyForShipmentNotice(sendFromDate);
     if (!orders.length) {
       return res.status(200).json({
         message: 'No hay ordenes listas para Shipment Notice',
@@ -1295,18 +1298,20 @@ exports.processShipmentNotices = async (req, res) => {
         if (!fs.existsSync(customerFolder)) {
           fs.mkdirSync(customerFolder, { recursive: true });
         }
-
-        const fileName = `${file.name}.pdf`;
-        const filePath = path.join(customerFolder, fileName);
-
-        const generator = getDocumentGenerator(file.name);
+        const documentName = resolveDocumentName(file);
+        const generator = getDocumentGenerator(documentName);
         const pdfData = await getPDFData(file, customerLang);
+
+        const baseName = buildDocumentFileBaseName(documentName, file, pdfData, customerLang);
+        const fileName = `${baseName}.pdf`;
+        const filePath = path.join(customerFolder, fileName);
 
         let updateData;
         try {
           await generator(filePath, pdfData);
           updateData = {
             id: file.id,
+            name: baseName,
             status_id: 3,
             is_visible_to_client: 1,
             updated_at: new Date(),
@@ -1323,7 +1328,7 @@ exports.processShipmentNotices = async (req, res) => {
 
         const fileData = {
           id: file.id,
-          name: file.name,
+          name: baseName,
           path: updateData.path,
           customer_name: file.customer_name,
           customer_id: file.customer_id,
@@ -1367,15 +1372,17 @@ exports.processOrderDeliveryNotices = async (req, res) => {
     } = require('../services/checkOrderDeliveryNotice.service');
     const {
       getReportEmailsAndLang,
-      isSendOrderDeliveryEnabled
+      isSendOrderDeliveryEnabled,
+      getSendFromDate
     } = require('../services/checkOrderReception.service');
     const { sendFileToClient } = require('../services/email.service');
     const fs = require('fs');
     const path = require('path');
 
     const automaticReceptionEnabled = await isSendOrderDeliveryEnabled();
+    const sendFromDate = await getSendFromDate('sendAutomaticOrderDelivery');
 
-    const orders = await getOrdersReadyForOrderDeliveryNotice();
+    const orders = await getOrdersReadyForOrderDeliveryNotice(sendFromDate);
     if (!orders.length) {
       return res.status(200).json({
         message: 'No hay ordenes listas para Order Delivery Notice',
@@ -1449,18 +1456,20 @@ exports.processOrderDeliveryNotices = async (req, res) => {
         if (!fs.existsSync(customerFolder)) {
           fs.mkdirSync(customerFolder, { recursive: true });
         }
-
-        const fileName = `${file.name}.pdf`;
-        const filePath = path.join(customerFolder, fileName);
-
-        const generator = getDocumentGenerator(file.name);
+        const documentName = resolveDocumentName(file);
+        const generator = getDocumentGenerator(documentName);
         const pdfData = await getPDFData(file, customerLang);
+
+        const baseName = buildDocumentFileBaseName(documentName, file, pdfData, customerLang);
+        const fileName = `${baseName}.pdf`;
+        const filePath = path.join(customerFolder, fileName);
 
         let updateData;
         try {
           await generator(filePath, pdfData);
           updateData = {
             id: file.id,
+            name: baseName,
             status_id: 3,
             is_visible_to_client: 1,
             updated_at: new Date(),
@@ -1477,7 +1486,7 @@ exports.processOrderDeliveryNotices = async (req, res) => {
 
         const fileData = {
           id: file.id,
-          name: file.name,
+          name: baseName,
           path: updateData.path,
           customer_name: file.customer_name,
           customer_id: file.customer_id,
@@ -1524,15 +1533,17 @@ exports.processAvailabilityNotices = async (req, res) => {
     } = require('../services/checkAvailabilityNotice.service');
     const {
       getReportEmailsAndLang,
-      isSendOrderAvailabilityEnabled
+      isSendOrderAvailabilityEnabled,
+      getSendFromDate
     } = require('../services/checkOrderReception.service');
     const { sendFileToClient } = require('../services/email.service');
     const fs = require('fs');
     const path = require('path');
 
     const automaticReceptionEnabled = await isSendOrderAvailabilityEnabled();
+    const sendFromDate = await getSendFromDate('sendAutomaticOrderAvailability');
 
-    const orders = await getOrdersReadyForAvailabilityNotice();
+    const orders = await getOrdersReadyForAvailabilityNotice(sendFromDate);
     if (!orders.length) {
       return res.status(200).json({
         message: 'No hay ordenes listas para Availability Notice',
@@ -1587,18 +1598,20 @@ exports.processAvailabilityNotices = async (req, res) => {
         if (!fs.existsSync(customerFolder)) {
           fs.mkdirSync(customerFolder, { recursive: true });
         }
-
-        const fileName = `${file.name}.pdf`;
-        const filePath = path.join(customerFolder, fileName);
-
-        const generator = getDocumentGenerator(file.name);
+        const documentName = resolveDocumentName(file);
+        const generator = getDocumentGenerator(documentName);
         const pdfData = await getPDFData(file, customerLang);
+
+        const baseName = buildDocumentFileBaseName(documentName, file, pdfData, customerLang);
+        const fileName = `${baseName}.pdf`;
+        const filePath = path.join(customerFolder, fileName);
 
         let updateData;
         try {
           await generator(filePath, pdfData);
           updateData = {
             id: file.id,
+            name: baseName,
             status_id: 3,
             is_visible_to_client: 1,
             updated_at: new Date(),
@@ -1613,7 +1626,7 @@ exports.processAvailabilityNotices = async (req, res) => {
 
         const fileData = {
           id: file.id,
-          name: file.name,
+          name: baseName,
           path: updateData.path,
           customer_name: file.customer_name,
           customer_id: file.customer_id,

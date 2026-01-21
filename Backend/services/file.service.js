@@ -242,6 +242,11 @@ const updateFile = async(data) => {
     fields.push('path = ?');
     values.push(data.path);
   }
+
+  if (data.name !== undefined) {
+    fields.push('name = ?');
+    values.push(data.name);
+  }
   
   if (data.fecha_generacion !== undefined) {
     fields.push('fecha_generacion = ?');
@@ -269,7 +274,7 @@ const updateFile = async(data) => {
   await pool.query(query, values);
 }
 
-const duplicateFile = async (fileId, newPath = null) => {
+const duplicateFile = async (fileId, newPath = null, newName = null) => {
 
   const pool = await poolPromise;
 
@@ -281,6 +286,7 @@ const duplicateFile = async (fileId, newPath = null) => {
 
   // Usar el nuevo path si se proporciona, sino usar el original
   const pathToUse = newPath || file.path;
+  const nameToUse = newName || file.name;
 
   // Insertar el nuevo registro duplicado
   const [result] = await pool.query(`
@@ -291,7 +297,7 @@ const duplicateFile = async (fileId, newPath = null) => {
       fecha_generacion, fecha_envio
     ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), ?, ?, ?, ?, ?, ?, ?)`,
     [
-      file.order_id, file.pc, file.oc, file.name, pathToUse, file.file_identifier, file.file_id,
+      file.order_id, file.pc, file.oc, nameToUse, pathToUse, file.file_identifier, file.file_id,
       true, file.document_type, file.file_type, 4, file.is_visible_to_client,
       file.fecha_generacion, file.fecha_envio
     ]

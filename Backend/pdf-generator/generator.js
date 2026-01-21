@@ -370,6 +370,11 @@ function generateModernTable(doc, items, data = {}) {
       .strokeColor(STYLES.lineColor).lineWidth(0.7).stroke();
   });
 
+  const additionalCharge = parseNumeric(data.additionalCharge);
+  if (Number.isFinite(additionalCharge)) {
+    grandTotal += additionalCharge;
+  }
+
   if (Number.isFinite(grandTotal)) {
     const totalY = tableTop + rowHeight * (items.length + 1);
     doc.save();
@@ -911,18 +916,20 @@ function formatNumber(value, lang = 'es') {
 
 function getWeekOfYear(dateString, lang = 'es') {
   if (!dateString) return '';
+
   const date = new Date(dateString);
-  const start = new Date(date.getFullYear(), 0, 1);
-  const diff = date - start;
-  const oneWeek = 1000 * 60 * 60 * 24 * 7;
-  const week = Math.floor(diff / oneWeek) + 1;
-  
-  if (lang === 'en') {
-    return `Week ${week}`;
-  } else {
-    return `Semana ${week}`;
-  }
+  // Convertir a UTC para evitar problemas de zona horaria
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  // ISO: mover al jueves de esta semana
+  const dayNum = d.getUTCDay() || 7; // domingo = 7
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  // Primer día del año ISO
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  // Calcular semana ISO
+  const week = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  return lang === 'en' ? `Week ${week}` : `Semana ${week}`;
 }
+
 
 function formatDateByLanguage(dateString, lang) {
   if (!dateString) return '-';

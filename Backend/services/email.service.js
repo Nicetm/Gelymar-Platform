@@ -265,17 +265,18 @@ async function sendFileToClient(file, options = {}) {
 
   const htmlContent = template(templateData);
 
-  const mailOptions = {
-    from: `Gelymar <${process.env.SMTP_USER}>`,
-    to: uniqueEmails.join(','),
-    bcc: uniqueBcc.length ? uniqueBcc.join(',') : undefined,
-    subject: templateData.subject,
-    html: htmlContent,
-    attachments: [{
-      filename: file.name.endsWith('.pdf') ? file.name : `${file.name}.pdf`,
-      path: absolutePath
-    }]
-  };
+    const attachmentName = path.basename(absolutePath);
+    const mailOptions = {
+      from: `Gelymar <${process.env.SMTP_USER}>`,
+      to: uniqueEmails.join(','),
+      bcc: uniqueBcc.length ? uniqueBcc.join(',') : undefined,
+      subject: templateData.subject,
+      html: htmlContent,
+      attachments: [{
+        filename: attachmentName || (file.name.endsWith('.pdf') ? file.name : `${file.name}.pdf`),
+        path: absolutePath
+      }]
+    };
 
   await transporter.sendMail(mailOptions);
 }
