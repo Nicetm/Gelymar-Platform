@@ -51,6 +51,7 @@
             padding: 1rem 0;
         }
         
+        
         .nav-item {
             display: block;
             padding: 0.75rem 1.5rem;
@@ -268,6 +269,9 @@
             height: 300px;
             margin: 1rem 0;
         }
+
+        .h-102 { height: 32rem; }
+        .h-95 { height: 95%; }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -3049,9 +3053,9 @@ fi`;
                         </div>
                     </div>
                     <div id="terminal-${containerData.name}" class="hidden border-t">
-                        <div class="bg-gray-900 h-96 p-4">
+                        <div class="bg-gray-900 h-102 p-4">
                             <div class="text-white text-sm mb-2">Terminal: ${containerData.name}</div>
-                            <div class="bg-black h-full rounded p-2 text-green-400 font-mono text-sm overflow-auto" id="terminal-content-${containerData.name}">
+                            <div class="bg-black h-95 rounded text-green-400 font-mono text-sm overflow-auto" id="terminal-content-${containerData.name}">
                                 <div>🔗 Conectando al contenedor...</div>
                                 <div>📦 Usando contenedor: ${containerData.name}</div>
                                 <div>✅ Terminal cargado. Escribe comandos:</div>

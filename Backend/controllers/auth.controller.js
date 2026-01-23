@@ -3,6 +3,9 @@ const bcrypt = require('bcrypt');
 const speakeasy = require('speakeasy');
 const qrcode = require('qrcode');
 const userService = require('../services/user.service');
+const fs = require('fs');
+const path = require('path');
+const Handlebars = require('handlebars');
 const customerService = require('../services/customer.service');
 const { generateToken } = require('../utils/jwt.util');
 const { sendEmail } = require('../utils/email.util');
@@ -37,6 +40,22 @@ const verifyRecaptcha = async (token) => {
     logger.error(`Error verifying reCAPTCHA: ${error.message}`);
     return false;
   }
+};
+
+const renderPasswordResetEmail = ({ userName, resetUrl }) => {
+  const templatePath = path.join(__dirname, '../mail-generator/template/password-reset.hbs');
+  const templateContent = fs.readFileSync(templatePath, 'utf8');
+  const template = Handlebars.compile(templateContent);
+
+  return template({
+    subject: 'Reestablece tu contraseña',
+    title: 'Reestablece tu contraseña',
+    userName: userName || 'Usuario',
+    resetUrl,
+    logoUrl: 'https://www.gelymar.com/wp-content/uploads/2014/08/gelymar-logo.jpg',
+    supportEmail: 'carla.torres@gelymar.com',
+    disclaimer: 'Este es un correo automático. No respondas directamente a este mensaje.'
+  });
 };
 
 const extractTwoFAPayload = (req) => {
@@ -321,25 +340,40 @@ exports.check2FAStatus = async (req, res) => {
  * @access Público
  */
 exports.recoverPassword = async (req, res) => {
-  const { email } = req.body;
-
-  try {
-    const user = await userService.findUserByEmailOrUsername(email);
-    if (!user) {
-      logger.warn(`Usuario no encontrado en recoverPassword: ${email}`);
-      return res.status(404).json({ message: 'Usuario no encontrado' });
+    const { email, captchaResponse } = req.body;
+  
+    try {
+      logger.info(`recoverPassword request for ${email || 'unknown'} from ${req.ip || 'unknown-ip'}`);
+      const isHuman = await verifyRecaptcha(captchaResponse);
+      if (!isHuman) {
+        logger.warn(`Recaptcha invalido en recoverPassword: ${email}`);
+        return res.status(400).json({ message: 'Captcha invalido' });
+      }
+      const user = await userService.findUserForPasswordRecovery(email);
+      if (!user) {
+        logger.warn(`Usuario no encontrado en recoverPassword: ${email}`);
+        return res.status(404).json({ message: 'Usuario no encontrado' });
     }
 
-    const token = jwt.sign({ email }, process.env.JWT_SECRET, { expiresIn: '15m' });
+      const recipientEmail = user.message_mail || user.customer_email;
+      if (!recipientEmail) {
+        logger.warn(`Email real no encontrado para recoverPassword: ${email}`);
+        return res.status(404).json({ message: 'Email no encontrado para la cuenta' });
+      }
+
+      const token = jwt.sign({ userId: user.id, email }, process.env.JWT_SECRET, { expiresIn: '15m' });
     const resetUrl = `${process.env.FRONTEND_BASE_URL || 'http://localhost:2121'}/authentication/reset-password?token=${token}`;
 
-    await sendEmail({
-      to: email,
-      subject: 'Recuperación de contraseña',
-      html: `<p>Haz clic <a href="${resetUrl}">aquí</a> para restablecer tu contraseña.</p>`
-    });
+      await sendEmail({
+        to: recipientEmail,
+        subject: 'Reestablece tu contraseña',
+        html: renderPasswordResetEmail({
+          userName: user.full_name || recipientEmail,
+          resetUrl
+        })
+      });
 
-    logger.info(`Correo de recuperación enviado a ${email}`);
+      logger.info(`Correo de recuperación enviado a ${recipientEmail}`);
     res.json({ message: 'Correo enviado con instrucciones' });
 
   } catch (err) {
@@ -353,20 +387,28 @@ exports.recoverPassword = async (req, res) => {
  * @desc Cambia la contraseña usando el token de recuperación
  * @access Público
  */
-exports.resetPassword = async (req, res) => {
-  const { token, newPassword } = req.body;
-  if (!token || !newPassword) {
-    logger.warn('Faltan datos en resetPassword');
-    return res.status(400).json({ message: 'Faltan datos' });
-  }
-
-  try {
-    const { email } = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await userService.findUserByEmailOrUsername(email);
-    if (!user) {
-      logger.warn(`Usuario no encontrado en resetPassword: ${email}`);
-      return res.status(404).json({ message: 'Usuario no encontrado' });
+  exports.resetPassword = async (req, res) => {
+    const { token, newPassword, captchaResponse } = req.body;
+    if (!token || !newPassword) {
+      logger.warn('Faltan datos en resetPassword');
+      return res.status(400).json({ message: 'Faltan datos' });
     }
+  
+    try {
+      const isHuman = await verifyRecaptcha(captchaResponse);
+      if (!isHuman) {
+        logger.warn('Recaptcha invalido en resetPassword');
+        return res.status(400).json({ message: 'Captcha invalido' });
+      }
+
+      const { email, userId } = jwt.verify(token, process.env.JWT_SECRET);
+      const user = userId
+        ? await userService.findUserById(userId)
+        : await userService.findUserForPasswordRecovery(email);
+      if (!user) {
+        logger.warn(`Usuario no encontrado en resetPassword: ${email}`);
+        return res.status(404).json({ message: 'Usuario no encontrado' });
+      }
 
     const hashed = await bcrypt.hash(newPassword, 10);
     const pool = await require('../config/db').poolPromise;

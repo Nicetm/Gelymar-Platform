@@ -46,6 +46,16 @@ module.exports = {
         listen_timeout: 10000,
         kill_timeout: 5000
       },
+
+      {
+        name: 'gelymar-db-backup',
+        script: './cron/sendDbBackup.js',
+        watch: false,
+        autorestart: true,
+        wait_ready: true,
+        listen_timeout: 10000,
+        kill_timeout: 5000
+      },
       {
         name: 'gelymar-admin-notifications',
         script: './cron/sendAdminNotifications.js',

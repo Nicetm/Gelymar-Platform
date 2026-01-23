@@ -50,7 +50,7 @@ async function getOrdersReadyForOrderDeliveryNotice(sendFromDate = null) {
               STR_TO_DATE(LEFT(TRIM(od.fecha_eta), 10), '%Y-%m-%d')
             ),
             INTERVAL 7 DAY
-          ) <= CURDATE()
+          ) = CURDATE()
           AND (f.id IS NULL OR f.fecha_envio IS NULL)
           ${sendFromFilter}
         ORDER BY o.id ASC

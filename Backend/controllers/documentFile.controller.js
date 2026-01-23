@@ -1257,14 +1257,20 @@ exports.processShipmentNotices = async (req, res) => {
           continue;
         }
 
-        if (!orderRow.shipment_file_id) {
-          await fileService.createDefaultFilesForOrder(
-            orderRow.id,
-            orderRow.customer_name,
-            orderRow.pc,
-            orderRow.oc
-          );
-        }
+          if (!orderRow.shipment_file_id) {
+            try {
+              await fileService.createDefaultFilesForOrder(
+                orderRow.id,
+                orderRow.customer_name,
+                orderRow.pc,
+                orderRow.oc
+              );
+            } catch (fileError) {
+              if (fileError.message !== 'Ya existen archivos para esta orden') {
+                throw fileError;
+              }
+            }
+          }
 
         const shipmentFile = await getShipmentFile(orderRow.id);
         if (!shipmentFile) {
@@ -1409,13 +1415,19 @@ exports.processOrderDeliveryNotices = async (req, res) => {
         }
 
           if (!orderRow.delivery_file_id) {
-          await fileService.createDefaultFilesForOrder(
-            orderRow.id,
-            orderRow.customer_name,
-            orderRow.pc,
-            orderRow.oc
-          );
-        }
+            try {
+              await fileService.createDefaultFilesForOrder(
+                orderRow.id,
+                orderRow.customer_name,
+                orderRow.pc,
+                orderRow.oc
+              );
+            } catch (fileError) {
+              if (fileError.message !== 'Ya existen archivos para esta orden') {
+                throw fileError;
+              }
+            }
+          }
 
           const deliveryFile = await getOrderDeliveryFile(orderRow.id);
           if (!deliveryFile) {
@@ -1557,14 +1569,20 @@ exports.processAvailabilityNotices = async (req, res) => {
 
     for (const orderRow of orders) {
       try {
-        if (!orderRow.availability_file_id) {
-          await fileService.createDefaultFilesForOrder(
-            orderRow.id,
-            orderRow.customer_name,
-            orderRow.pc,
-            orderRow.oc
-          );
-        }
+          if (!orderRow.availability_file_id) {
+            try {
+              await fileService.createDefaultFilesForOrder(
+                orderRow.id,
+                orderRow.customer_name,
+                orderRow.pc,
+                orderRow.oc
+              );
+            } catch (fileError) {
+              if (fileError.message !== 'Ya existen archivos para esta orden') {
+                throw fileError;
+              }
+            }
+          }
 
         const availabilityFile = await getAvailabilityFile(orderRow.id);
         if (!availabilityFile) {

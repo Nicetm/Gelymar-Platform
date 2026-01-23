@@ -40,6 +40,52 @@ async function findUserByEmailOrUsername(emailOrUsername) {
   return rows[0];
 }
 
+// Buscar usuario para recuperacion de contrasena usando correo real (message_mail o customers.email)
+async function findUserForPasswordRecovery(email) {
+  const pool = await poolPromise;
+
+  const [rows] = await pool.query(
+    `
+    SELECT u.id, u.email, u.password, u.role_id,
+           u.twoFASecret, u.twoFAEnabled, u.change_pw,
+           u.full_name, u.phone, u.country, u.city,
+           u.message_mail, c.email AS customer_email,
+           r.name AS role
+    FROM users u
+    LEFT JOIN roles r ON u.role_id = r.id
+    LEFT JOIN customers c ON u.email = c.rut
+    WHERE LOWER(u.message_mail) = LOWER(?)
+       OR LOWER(c.email) = LOWER(?)
+       OR LOWER(u.email) = LOWER(?)
+    LIMIT 1
+    `,
+    [email, email, email]
+  );
+
+  return rows[0];
+}
+
+async function findUserById(id) {
+  const pool = await poolPromise;
+  const [rows] = await pool.query(
+    `
+    SELECT u.id, u.email, u.password, u.role_id,
+           u.twoFASecret, u.twoFAEnabled, u.change_pw,
+           u.full_name, u.phone, u.country, u.city,
+           u.message_mail, c.email AS customer_email,
+           r.name AS role
+    FROM users u
+    LEFT JOIN roles r ON u.role_id = r.id
+    LEFT JOIN customers c ON u.email = c.rut
+    WHERE u.id = ?
+    LIMIT 1
+    `,
+    [id]
+  );
+
+  return rows[0];
+}
+
 // Buscar customer_id por RUT
 async function findCustomerIdByRut(rut) {
   const pool = await poolPromise;
@@ -254,6 +300,8 @@ async function resetAdminPassword(id, newPassword = '123456') {
 module.exports = {
   getAllUsers,
   findUserByEmailOrUsername,
+  findUserForPasswordRecovery,
+  findUserById,
   findCustomerIdByRut,
   updateUserOnlineStatus,
   getPrimaryAdminPresence,
