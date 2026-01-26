@@ -6,6 +6,7 @@ import ModalPdfMailList from '../components/modals/settings/ModalPdfMailList.ast
 import ModalNotificationEmailList from '../components/modals/settings/ModalNotificationEmailList.astro';
 import ModalAdminSettings from '../components/modals/settings/ModalAdminSettings.astro';
 import ModalAdminUsers from '../components/modals/settings/ModalAdminUsers.astro';
+import ModalAdminChangePassword from '../components/modals/settings/ModalAdminChangePassword.astro';
 
 const apiBase = getApiBase();
 const clientApiBase = getPublicApiUrl();
@@ -45,7 +46,7 @@ try {
 }
 
 if (!user) {
-  user = { full_name: 'Admin', email: 'admin@example.com', role: 'admin', avatar: '' };
+  user = { full_name: 'Admin', rut: '', email: 'admin@example.com', role: 'admin', avatar: '' };
 }
 
 if (user) {
@@ -207,7 +208,7 @@ let avatarDarkSrc = user?.avatar
         {user?.full_name || 'Admin'}
       </p>
       <p class="text-xs text-gray-500 dark:text-gray-400">
-        {user?.email || ''}
+        {user?.email || user?.rut || ''}
       </p>
     </div>
 
@@ -280,6 +281,13 @@ let avatarDarkSrc = user?.avatar
             class="settings-option flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200"
           >
             <i data-lucide="users" class="w-4 h-4"></i> Admin users
+          </a>
+          <a
+            href="#"
+            data-setting="change-password"
+            class="settings-option flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200"
+          >
+            <i data-lucide="key-round" class="w-4 h-4"></i> {t.admin_settings.change_password_option}
           </a>
           <a
             href="#"
@@ -388,6 +396,7 @@ let avatarDarkSrc = user?.avatar
   user={user}
 />
 <ModalAdminUsers adminSettings={t.admin_settings} />
+<ModalAdminChangePassword adminSettings={t.admin_settings} />
 <!-- Backdrop móvil -->
 <div
   class="fixed inset-0 z-10 hidden bg-gray-900/50 dark:bg-gray-900/90"

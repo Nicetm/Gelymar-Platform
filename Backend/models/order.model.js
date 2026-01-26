@@ -18,6 +18,8 @@ class Order {
     fecha = null,
     fecha_etd = null,
     fecha_eta = null,
+    fecha_etd_factura = null,
+    fecha_eta_factura = null,
     currency = null,
     medio_envio_factura = null,
     medio_envio_ov = null,
@@ -44,6 +46,8 @@ class Order {
     this.fecha = fecha;
     this.fecha_etd = fecha_etd;
     this.fecha_eta = fecha_eta;
+    this.fecha_etd_factura = fecha_etd_factura;
+    this.fecha_eta_factura = fecha_eta_factura;
     this.currency = currency;
     this.medio_envio_factura = medio_envio_factura;
     this.medio_envio_ov = medio_envio_ov;

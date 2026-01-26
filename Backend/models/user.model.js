@@ -3,7 +3,7 @@
 class User {
   constructor({
     id = null,
-    email,
+    rut,
     full_name,
     phone,
     country,
@@ -15,7 +15,7 @@ class User {
     change_pw = 1
   }) {
     this.id = id;
-    this.email = email;
+    this.rut = rut;
     this.full_name = full_name;
     this.phone = phone;
     this.country = country;

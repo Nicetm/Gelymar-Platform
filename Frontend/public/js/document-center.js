@@ -2088,7 +2088,7 @@ async function openItemsModal(orderPc, orderOc, factura) {
     // Renderizar tabla de items
     if (itemsTableBody) {
       itemsTableBody.innerHTML = items.map(item => {
-        const quantity = parseFloat(item.kg_solicitados) || 0;
+        const quantity = parseFloat(item.kg_facturados) || 0;
         const unitPrice = parseFloat(item.unit_price) || 0;
         const total = quantity * unitPrice;
         const unit = item.unidad_medida || 'KG';
@@ -2110,12 +2110,12 @@ async function openItemsModal(orderPc, orderOc, factura) {
     const totalItemsCount = items.length;
     
     const totalQuantitySum = items.reduce((sum, item) => {
-      const quantity = parseFloat(item.kg_solicitados) || 0;
+      const quantity = parseFloat(item.kg_facturados) || 0;
       return sum + quantity;
     }, 0);
     
     const totalValueSum = items.reduce((sum, item) => {
-      const quantity = parseFloat(item.kg_solicitados) || 0;
+      const quantity = parseFloat(item.kg_facturados) || 0;
       const price = parseFloat(item.unit_price) || 0;
       const itemTotal = quantity * price;
       return sum + itemTotal;

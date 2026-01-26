@@ -75,7 +75,7 @@ const users: Users[] = await fetch(`${apiBase}/api/users`, {
 			</div>
 			<div>
 				<p class="font-medium text-gray-900 dark:text-white">{user.full_name}</p>
-				<p class="text-sm text-gray-500 dark:text-gray-400">{user.email}</p>
+				<p class="text-sm text-gray-500 dark:text-gray-400">{user.rut ?? user.email}</p>
 			</div>
 			</td>
             <td class="px-6 py-4 text-gray-900 dark:text-white">{user.phone}</td>

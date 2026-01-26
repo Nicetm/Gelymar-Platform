@@ -25,5 +25,20 @@
   "confirmSaveMessage": "Se actualizará la lista de correos para PDFs.",
   "confirmSaveMessageNotification": "Se actualizará la lista de correos para notificaciones.",
   "saveSuccess": "Lista de emails actualizada correctamente",
-  "saveError": "Error al guardar la lista de emails"
+  "saveError": "Error al guardar la lista de emails",
+  "change_password_option": "Cambiar contraseña",
+  "change_password_title": "Cambiar contraseña",
+  "current_password_label": "Contraseña actual",
+  "new_password_label": "Nueva contraseña",
+  "confirm_password_label": "Repite la nueva contraseña",
+  "current_password_placeholder": "Ingresa tu contraseña actual",
+  "new_password_placeholder": "Ingresa la nueva contraseña",
+  "confirm_password_placeholder": "Repite la nueva contraseña",
+  "change_password_button": "Cambiar",
+  "confirmChangePasswordTitle": "¿Cambiar contraseña?",
+  "confirmChangePasswordMessage": "Tu contraseña se actualizará.",
+  "passwordMismatch": "Las contraseñas no coinciden",
+  "passwordRequired": "Todos los campos son obligatorios",
+  "passwordChangeSuccess": "Contraseña actualizada correctamente",
+  "passwordChangeError": "Error al actualizar la contraseña"
 }

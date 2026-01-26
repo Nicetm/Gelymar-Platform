@@ -86,45 +86,46 @@ const extractTwoFAPayload = (req) => {
  * @desc Login con 2FA opcional
  * @access Público
  */
-exports.login = async (req, res) => {
-  const { email, username, password, otp, captchaResponse } = req.body;
+  exports.login = async (req, res) => {
+    const { email, username, password, otp, captchaResponse } = req.body;
+    const identifier = email || username;
 
   const captchaValid = await verifyRecaptcha(captchaResponse);
   /*
   if (!captchaValid) {
-    logger.warn(`Failed captcha verification for ${email || username}`);
+      logger.warn(`Failed captcha verification for ${identifier}`);
     return res.status(400).json({ message: 'Captcha verification failed' });
   }*/
 
-  logger.info(`Intento de login para: ${email || username}`);
+    logger.info(`Intento de login para: ${identifier}`);
 
   try {
-    const user = await userService.findUserByEmailOrUsername(email || username);
-    if (!user) {
-      logger.warn(`Usuario no encontrado: ${email || username}`);
-      return res.status(401).json({ message: 'Usuario o clave incorrecta' });
-    }
-
-    const validPassword = await bcrypt.compare(password, user.password);
-    if (!validPassword) {
-      logger.warn(`Contraseña incorrecta para usuario: ${email || username}`);
-      return res.status(401).json({ message: 'Usuario o clave incorrecta' });
-    }
-
-    if (user.twoFAEnabled) {
-      if (!user.twoFASecret) {
-        logger.warn(`Usuario ${email || username} no enrolado en 2FA`);
-        return res.status(401).json({ message: 'Cuenta no enrolada en 2FA. Escanee el QR y configure su autenticación.' });
+      const user = await userService.findUserByEmailOrUsername(identifier);
+      if (!user) {
+        logger.warn(`Usuario no encontrado: ${identifier}`);
+        return res.status(401).json({ message: 'Usuario o clave incorrecta' });
       }
 
-      if (!otp) {
-        logger.warn(`Código 2FA requerido para usuario ${email || username}`);
-        const twoFAToken = jwt.sign(
-          {
-            id: user.id,
-            email: user.email,
-            purpose: 'twofa'
-          },
+    const validPassword = await bcrypt.compare(password, user.password);
+      if (!validPassword) {
+        logger.warn(`Contraseña incorrecta para usuario: ${identifier}`);
+        return res.status(401).json({ message: 'Usuario o clave incorrecta' });
+      }
+
+      if (user.twoFAEnabled) {
+        if (!user.twoFASecret) {
+          logger.warn(`Usuario ${identifier} no enrolado en 2FA`);
+          return res.status(401).json({ message: 'Cuenta no enrolada en 2FA. Escanee el QR y configure su autenticación.' });
+        }
+
+        if (!otp) {
+          logger.warn(`Código 2FA requerido para usuario ${identifier}`);
+          const twoFAToken = jwt.sign(
+            {
+              id: user.id,
+              rut: user.rut,
+              purpose: 'twofa'
+            },
           process.env.JWT_SECRET,
           { expiresIn: '5m' }
         );
@@ -143,20 +144,20 @@ exports.login = async (req, res) => {
         window: 1
       });
 
-      if (!verified) {
-        logger.warn(`Código 2FA inválido para usuario ${email || username}`);
-        return res.status(401).json({ message: 'Código de autenticación inválido' });
+        if (!verified) {
+          logger.warn(`Código 2FA inválido para usuario ${identifier}`);
+          return res.status(401).json({ message: 'Código de autenticación inválido' });
+        }
       }
-    }
 
     const normalizedRole = normalizeRole(user.role, user.role_id);
 
-    const token = generateToken({
-      id: user.id,
-      email: user.email,
-      username: user.username || null,
-      role: normalizedRole,
-      roleId: user.role_id,
+      const token = generateToken({
+        id: user.id,
+        rut: user.rut,
+        username: user.username || null,
+        role: normalizedRole,
+        roleId: user.role_id,
       cardCode: user.cardCode || null
     });
 
@@ -182,8 +183,8 @@ exports.login = async (req, res) => {
 
     res.cookie('token', token, cookieOptions);
 
-    logger.info(`Login exitoso para usuario ${user.email || user.username || 'undefined'}`);
-    logger.info(`Usuario encontrado:`, { id: user.id, rut: user.email, username: user.username, role: user.role });
+      logger.info(`Login exitoso para usuario ${user.rut || user.username || 'undefined'}`);
+      logger.info(`Usuario encontrado:`, { id: user.id, rut: user.rut, username: user.username, role: user.role });
     res.json({ 
       token,
       customersWithoutAccount 
@@ -205,27 +206,28 @@ exports.refreshToken = async (req, res) => {
     // El middleware ya validó el token (incluso si está expirado)
     const decoded = req.user;
     
-    if (!decoded || !decoded.email) {
-      return res.status(400).json({ message: 'Token inválido - sin email' });
-    }
+      const decodedRut = decoded?.rut || decoded?.email;
+      if (!decoded || !decodedRut) {
+        return res.status(400).json({ message: 'Token inválido - sin rut' });
+      }
+      
+      const user = await userService.findUserByEmailOrUsername(decodedRut);
     
-    const user = await userService.findUserByEmailOrUsername(decoded.email);
-    
-    if (!user) {
-      logger.warn(`Usuario no encontrado en refresh: ${decoded.email}`);
-      return res.status(404).json({ message: 'Usuario no encontrado' });
-    }
+      if (!user) {
+        logger.warn(`Usuario no encontrado en refresh: ${decodedRut}`);
+        return res.status(404).json({ message: 'Usuario no encontrado' });
+      }
 
     const normalizedRole = normalizeRole(user.role, user.role_id);
 
-    const newToken = generateToken({
-      id: user.id,
-      email: user.email,
-      username: user.username || null,
-      role: normalizedRole,
-      roleId: user.role_id,
-      cardCode: user.cardCode || null
-    });
+      const newToken = generateToken({
+        id: user.id,
+        rut: user.rut,
+        username: user.username || null,
+        role: normalizedRole,
+        roleId: user.role_id,
+        cardCode: user.cardCode || null
+      });
 
     const cookieOptions = {
       httpOnly: true,
@@ -237,7 +239,7 @@ exports.refreshToken = async (req, res) => {
 
     res.cookie('token', newToken, cookieOptions);
 
-    logger.info(`Token refrescado para ${decoded.email}`);
+      logger.info(`Token refrescado para ${decodedRut}`);
     res.status(200).json({ token: newToken });
   } catch (error) {
     logger.error(`Error en refreshToken: ${error.message}`);
@@ -259,7 +261,7 @@ exports.setup2FA = async (req, res) => {
   }
 
   try {
-    const identifier = payload.email || payload.username;
+      const identifier = payload.rut || payload.email || payload.username;
     const user = await userService.findUserByEmailOrUsername(identifier);
     if (!user || user.id !== payload.id) {
       logger.warn(`Token 2FA no coincide con usuario solicitado: ${identifier}`);
@@ -269,12 +271,12 @@ exports.setup2FA = async (req, res) => {
     if (user.twoFASecret) {
       const otpauthUrl = speakeasy.otpauthURL({
         secret: user.twoFASecret,
-        label: `Gelymar:${user.email}`,
+          label: `Gelymar:${user.rut}`,
         issuer: 'Gelymar Panel',
         encoding: 'base32'
       });
 
-      logger.info(`QR regenerado para usuario ${user.email}`);
+        logger.info(`QR regenerado para usuario ${user.rut}`);
       return qrcode.toDataURL(otpauthUrl, (err, dataURL) => {
         if (err) {
           logger.error(`Error generando QR en setup2FA: ${err.message}`);
@@ -284,7 +286,7 @@ exports.setup2FA = async (req, res) => {
       });
     }
 
-    const secret = speakeasy.generateSecret({ name: `Gelymar:${user.email}`, length: 20 });
+      const secret = speakeasy.generateSecret({ name: `Gelymar:${user.rut}`, length: 20 });
     await userService.updateUser2FASecret(user.id, secret.base32);
 
     qrcode.toDataURL(secret.otpauth_url, (err, dataURL) => {
@@ -292,7 +294,7 @@ exports.setup2FA = async (req, res) => {
         logger.error(`Error generando QR nuevo en setup2FA: ${err.message}`);
         return res.status(500).json({ message: 'Error generando QR' });
       }
-      logger.info(`Nuevo 2FA enrolado para usuario ${user.email}`);
+        logger.info(`Nuevo 2FA enrolado para usuario ${user.rut}`);
       return res.json({ qr: dataURL, secret: secret.base32 });
     });
 
@@ -315,13 +317,14 @@ exports.check2FAStatus = async (req, res) => {
   }
 
   try {
-    const user = await userService.findUserByEmailOrUsername(payload.email);
-    if (!user || user.id !== payload.id) {
-      logger.warn(`Token 2FA no coincide con usuario solicitado: ${payload.email}`);
-      return res.status(403).json({ message: 'Token 2FA inválido' });
-    }
+      const identifier = payload.rut || payload.email;
+      const user = await userService.findUserByEmailOrUsername(identifier);
+      if (!user || user.id !== payload.id) {
+        logger.warn(`Token 2FA no coincide con usuario solicitado: ${identifier}`);
+        return res.status(403).json({ message: 'Token 2FA inválido' });
+      }
 
-    logger.info(`Consulta de 2FA para usuario ${payload.email}`);
+      logger.info(`Consulta de 2FA para usuario ${identifier}`);
     res.json({
       twoFAEnabled: !!user.twoFASecret,
       hasSecret: !!user.twoFASecret,
@@ -355,7 +358,7 @@ exports.recoverPassword = async (req, res) => {
         return res.status(404).json({ message: 'Usuario no encontrado' });
     }
 
-      const recipientEmail = user.message_mail || user.customer_email;
+      const recipientEmail = user.admin_email || user.customer_email;
       if (!recipientEmail) {
         logger.warn(`Email real no encontrado para recoverPassword: ${email}`);
         return res.status(404).json({ message: 'Email no encontrado para la cuenta' });
@@ -437,7 +440,7 @@ exports.changePassword = async (req, res) => {
   }
 
   try {
-    const user = await userService.findUserByEmailOrUsername(req.user.email);
+    const user = await userService.findUserByEmailOrUsername(req.user.rut || req.user.email);
     if (!user) {
       return res.status(404).json({ message: 'Usuario no encontrado' });
     }
@@ -451,7 +454,7 @@ exports.changePassword = async (req, res) => {
     const pool = await require('../config/db').poolPromise;
     await pool.query('UPDATE users SET password = ?, change_pw = 1 WHERE id = ?', [hashed, userId]);
 
-    logger.info(`Contraseña cambiada para usuario ${user.email}`);
+      logger.info(`Contraseña cambiada para usuario ${user.rut}`);
     res.json({ message: 'Contraseña actualizada correctamente' });
 
   } catch (err) {
@@ -470,7 +473,7 @@ exports.logout = async (req, res) => {
     // Si hay usuario autenticado, actualizar online a 0
     if (req.user && req.user.id) {
       await userService.updateUserOnlineStatus(req.user.id, 0);
-      logger.info(`Usuario ${req.user.email} desconectado - online actualizado a 0`);
+        logger.info(`Usuario ${req.user.rut || req.user.email} desconectado - online actualizado a 0`);
     }
   } catch (error) {
     logger.error(`Error actualizando estado online en logout: ${error.message}`);

@@ -33,12 +33,12 @@ async function checkClientAccess() {
     console.log(`[${new Date().toISOString()}] -> Check Client Access Process -> Total de sellers encontrados: ${sellers.length}`);
 
     // 2. Obtener RUTs de usuarios existentes
-    const [existingUsers] = await pool.query(`
-      SELECT email FROM users WHERE email IS NOT NULL
-    `);
+      const [existingUsers] = await pool.query(`
+        SELECT rut FROM users WHERE rut IS NOT NULL
+      `);
 
-    const existingRuts = existingUsers.map((user) => user.email);
-    const existingRutsSet = new Set(existingUsers.map((user) => normalizeRut(user.email)));
+      const existingRuts = existingUsers.map((user) => user.rut);
+      const existingRutsSet = new Set(existingUsers.map((user) => normalizeRut(user.rut)));
     console.log(`[${new Date().toISOString()}] -> Check Client Access Process -> Usuarios existentes: ${existingRuts.length}`);
 
     // 3. Filtrar clientes y sellers que no tienen usuario
@@ -78,29 +78,21 @@ async function checkClientAccess() {
         await pool.query(
           `
           INSERT INTO users (
-            email, 
+            rut, 
             password, 
             role_id, 
             twoFASecret, 
             twoFAEnabled, 
-            full_name, 
-            phone, 
-            country, 
-            city, 
             created_at, 
             updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+          ) VALUES (?, ?, ?, ?, ?, NOW(), NOW())
         `,
           [
-            customer.rut.trim(), // email = RUT
+            customer.rut.trim(),
             hashedPassword,
             2, // role_id = 2 (cliente)
             null,
             0,
-            customer.name || 'Cliente',
-            customer.phone || null,
-            customer.country || null,
-            customer.city || null,
           ]
         );
 
@@ -133,29 +125,21 @@ async function checkClientAccess() {
         await pool.query(
           `
           INSERT INTO users (
-            email, 
+            rut, 
             password, 
             role_id, 
             twoFASecret, 
             twoFAEnabled, 
-            full_name, 
-            phone, 
-            country, 
-            city, 
             created_at, 
             updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+          ) VALUES (?, ?, ?, ?, ?, NOW(), NOW())
         `,
           [
-            seller.rut.trim(), // email = RUT seller
+            seller.rut.trim(),
             hashedPassword,
             3, // role_id = 3 (seller)
             null,
             0,
-            seller.name || null, // full_name
-            null, // phone en NULL
-            'Chile', // country fijo
-            'Santiago', // city fijo
           ]
         );
 

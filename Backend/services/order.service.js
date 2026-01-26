@@ -67,6 +67,8 @@ const getOrdersByFilters = async (filters = {}) => {
       od.fecha,
       od.fecha_etd,
       od.fecha_eta,
+      od.fecha_etd_factura,
+      od.fecha_eta_factura,
       od.currency,
       od.medio_envio_factura,
       od.medio_envio_ov,
@@ -123,6 +125,8 @@ const getOrdersByFilters = async (filters = {}) => {
       fecha: r.fecha,
       fecha_etd: r.fecha_etd,
       fecha_eta: r.fecha_eta,
+      fecha_etd_factura: r.fecha_etd_factura,
+      fecha_eta_factura: r.fecha_eta_factura,
       currency: r.currency,
       medio_envio_factura: r.medio_envio_factura,
       medio_envio_ov: r.medio_envio_ov,
@@ -359,7 +363,7 @@ const getOrderItems = async (orderPc, orderOc, factura, user) => {
 
     if (roleId === 3) {
       orderQuery += ' AND s.rut = ?';
-      orderParams.push(user.email);
+      orderParams.push(user.rut || user.email);
     }
 
     const [orderRows] = await pool.query(orderQuery, orderParams);
@@ -549,7 +553,7 @@ const getOrderById = async (orderId, user) => {
         JOIN sellers s ON s.codigo = od.vendedor
         WHERE od.order_id = o.id AND s.rut = ?
       )`;
-      params.push(user.email);
+      params.push(user.rut || user.email);
     }
 
     const [rows] = await pool.query(query, params);
@@ -600,7 +604,7 @@ const getOrderDetails = async (orderId, user) => {
         JOIN sellers s ON s.codigo = od2.vendedor
         WHERE od2.order_id = o.id AND s.rut = ?
       )`;
-      params.push(user.email);
+      params.push(user.rut || user.email);
     }
 
     const [rows] = await pool.query(query, params);
@@ -652,7 +656,7 @@ const getOrderDetail = async (orderId, user) => {
         JOIN sellers s ON s.codigo = od2.vendedor
         WHERE od2.order_id = o.id AND s.rut = ?
       )`;
-      params.push(user.email);
+      params.push(user.rut || user.email);
     }
 
     const [rows] = await pool.query(query, params);
@@ -689,7 +693,7 @@ const getOrderItemsWithoutFactura = async (orderPc, orderOc, user) => {
 
     if (roleId === 3) {
       orderQuery += ' AND s.rut = ?';
-      orderParams.push(user.email);
+      orderParams.push(user.rut || user.email);
     }
 
     const [orderRows] = await pool.query(orderQuery, orderParams);

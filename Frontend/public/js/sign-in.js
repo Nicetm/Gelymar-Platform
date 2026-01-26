@@ -226,6 +226,14 @@ export function initSignIn(config = {}) {
       return;
     }
 
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalBtnText = submitBtn ? submitBtn.textContent : '';
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Signing in...';
+      submitBtn.classList.add('opacity-70', 'cursor-not-allowed');
+    }
+
     msg.classList.add('hidden');
     msg.textContent = 'Iniciando sesión...';
     msg.classList.remove('hidden');
@@ -323,21 +331,28 @@ export function initSignIn(config = {}) {
             return 'Guest';
           };
 
-          const profilePayload = {
-            fullName: user.full_name ?? '',
-            roleName:
-              user.role ||
-              resolveRoleLabel(userRole),
-            email: user.email ?? '',
-            avatarPath: user.avatar_path || '',
-            avatarUrl:
-              !user.avatar_path && user.full_name
-                ? `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
-                    user.full_name
-                  )}&backgroundColor=4b5563&fontColor=ffffff`
-                : '',
-          };
-          localStorage.setItem('userProfile', JSON.stringify(profilePayload));
+            const profilePayload = {
+              fullName: user.full_name ?? '',
+              roleName:
+                user.role ||
+                resolveRoleLabel(userRole),
+              rut: user.rut ?? user.email ?? '',
+              email: user.email ?? '',
+              avatarPath: user.avatar_path || '',
+              avatarUrl:
+                !user.avatar_path && user.full_name
+                  ? `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
+                      user.full_name
+                    )}&backgroundColor=4b5563&fontColor=ffffff`
+                  : '',
+            };
+            localStorage.setItem('userProfile', JSON.stringify(profilePayload));
+            if (profilePayload.rut) {
+              localStorage.setItem('userRut', profilePayload.rut);
+            }
+            if (profilePayload.email) {
+              localStorage.setItem('userEmail', profilePayload.email);
+            }
 
           const isAdminContext = normalizedAppContext === 'admin';
           const isClientContext = normalizedAppContext === 'client';
@@ -449,6 +464,11 @@ export function initSignIn(config = {}) {
       msg.classList.remove('hidden');
       msg.classList.add('text-red-500');
     } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalBtnText;
+        submitBtn.classList.remove('opacity-70', 'cursor-not-allowed');
+      }
       if (recaptchaSiteKey && window.grecaptcha && typeof window.grecaptcha.reset === 'function') {
         window.grecaptcha.reset();
       }

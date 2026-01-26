@@ -284,6 +284,99 @@ export async function initFoldersScript() {
   let itemsPerPage = parseInt(itemsPerPageSelect?.value || '10', 10);
   let currentSort = { column: null, direction: 'asc' };
 
+  function setupStickyTableControls() {
+    const containers = document.querySelectorAll('[data-scroll-sync]');
+    if (!containers.length) return;
+
+    containers.forEach(container => {
+      const body = container.querySelector('[data-scroll-body]');
+      const scrollbar = container.querySelector('[data-scrollbar]');
+      const track = container.querySelector('[data-scrollbar-track]');
+      const inner = container.querySelector('[data-scrollbar-inner]');
+      const header = container.querySelector('[data-scroll-header]');
+      const headerTrack = container.querySelector('[data-scroll-header-track]');
+      const headerTable = headerTrack?.querySelector('table');
+
+      if (!body || !scrollbar || !track || !inner || !header || !headerTrack || !headerTable) return;
+
+      const table = body.querySelector('table');
+      const thead = table?.querySelector('thead');
+
+      if (thead && headerTable.children.length === 0) {
+        headerTable.appendChild(thead.cloneNode(true));
+      }
+
+      const updateSizes = () => {
+        const rect = container.getBoundingClientRect();
+        const scrollWidth = table ? table.scrollWidth : body.scrollWidth;
+        inner.style.width = `${scrollWidth}px`;
+        headerTable.style.width = `${scrollWidth}px`;
+        const hasOverflow = scrollWidth > body.clientWidth + 1;
+        const inView = rect.bottom > 0 && rect.top < window.innerHeight;
+
+        if (!hasOverflow || !inView) {
+          scrollbar.classList.add('hidden');
+          scrollbar.classList.remove('sticky-scrollbar-floating');
+          scrollbar.style.left = '';
+          scrollbar.style.width = '';
+          header.classList.add('hidden');
+          header.classList.remove('sticky-scroll-header-floating');
+          header.style.left = '';
+          header.style.width = '';
+          return;
+        }
+
+        scrollbar.classList.remove('hidden');
+
+        if (rect.bottom > window.innerHeight) {
+          scrollbar.classList.add('sticky-scrollbar-floating');
+          scrollbar.style.left = `${Math.max(rect.left, 0)}px`;
+          scrollbar.style.width = `${Math.max(rect.width, 0)}px`;
+        } else {
+          scrollbar.classList.remove('sticky-scrollbar-floating');
+          scrollbar.style.left = '';
+          scrollbar.style.width = '';
+        }
+
+        const shouldShowHeader = rect.top < 0 && rect.bottom > 0;
+        header.classList.toggle('hidden', !shouldShowHeader);
+
+        if (shouldShowHeader) {
+          header.classList.add('sticky-scroll-header-floating');
+          header.style.left = `${Math.max(rect.left, 0)}px`;
+          header.style.width = `${Math.max(rect.width, 0)}px`;
+        } else {
+          header.classList.remove('sticky-scroll-header-floating');
+          header.style.left = '';
+          header.style.width = '';
+        }
+      };
+
+      const syncFromBody = () => {
+        track.scrollLeft = body.scrollLeft;
+        headerTrack.scrollLeft = body.scrollLeft;
+      };
+
+      const syncFromTrack = () => {
+        body.scrollLeft = track.scrollLeft;
+      };
+
+      body.addEventListener('scroll', syncFromBody);
+      track.addEventListener('scroll', syncFromTrack);
+      headerTrack.addEventListener('scroll', () => {
+        body.scrollLeft = headerTrack.scrollLeft;
+      });
+
+      const resizeObserver = new ResizeObserver(updateSizes);
+      resizeObserver.observe(body);
+      if (table) resizeObserver.observe(table);
+
+      window.addEventListener('resize', updateSizes);
+      window.addEventListener('scroll', updateSizes, true);
+      updateSizes();
+    });
+  }
+
   const params = new URLSearchParams(window.location.search);
   const clientName = params.get('c');
 
@@ -539,6 +632,8 @@ export async function initFoldersScript() {
 
     setupFloatingTooltips(tableBody);
   }
+
+  setupStickyTableControls();
 
   /**
    * Función para ordenar las carpetas

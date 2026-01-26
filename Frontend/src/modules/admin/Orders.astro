@@ -95,8 +95,15 @@ try {
   </header>
 
 	<!-- Tabla de órdenes -->
-	<div class="overflow-x-auto mt-6 rounded-xl shadow ring-1 ring-gray-200 dark:ring-gray-700">
-		<table class="min-w-[1800px] divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900" style="width: max-content;">
+	<div class="mt-6 rounded-xl shadow ring-1 ring-gray-200 dark:ring-gray-700">
+		<div class="relative" data-scroll-sync="orders-table">
+			<div class="sticky top-0 z-30 bg-gray-100 dark:bg-gray-800 hidden" data-scroll-header>
+				<div class="overflow-x-auto scrollbar-hidden" data-scroll-header-track>
+					<table class="min-w-[2100px] divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900" style="width: max-content;"></table>
+				</div>
+			</div>
+			<div class="overflow-x-auto scrollbar-hidden" style="border-radius: 10px;" data-scroll-body>
+				<table class="min-w-[2100px] divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900" style="width: max-content;">
 			<thead class="bg-gray-100 dark:bg-gray-800 sticky top-0">
 				<tr>
 					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="pc">
@@ -133,7 +140,7 @@ try {
 					</th>
 					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="medio_envio_factura">
 						<div class="flex items-center justify-between">
-							<span>Shipping Method</span>
+							<span>{t.carpetas.shippingMethod}</span>
 							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
 							</svg>
@@ -157,7 +164,7 @@ try {
 					</th>
 					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="fecha_etd">
 						<div class="flex items-center justify-between">
-							<span>ETD Date</span>
+							<span>{t.carpetas.etdOv}</span>
 							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
 							</svg>
@@ -165,7 +172,23 @@ try {
 					</th>
 					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="fecha_eta">
 						<div class="flex items-center justify-between">
-							<span>ETA Date</span>
+							<span>{t.carpetas.etaOv}</span>
+							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+							</svg>
+						</div>
+					</th>
+					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="fecha_etd_factura">
+						<div class="flex items-center justify-between">
+							<span>{t.carpetas.etdFactura}</span>
+							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+							</svg>
+						</div>
+					</th>
+					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="fecha_eta_factura">
+						<div class="flex items-center justify-between">
+							<span>{t.carpetas.etaFactura}</span>
 							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
 							</svg>
@@ -196,7 +219,7 @@ try {
 			<tbody id="ordersTableBody" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-xs min-h-[600px]">
 				<!-- Los datos se cargarán dinámicamente con JavaScript -->
 				<tr id="loadingRow" class="bg-white dark:bg-gray-900">
-					<td colspan="13" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+					<td colspan="15" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
 						<div class="flex items-center justify-center">
 							<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
 								<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -207,8 +230,31 @@ try {
 					</td>
 				</tr>
 			</tbody>
-		</table>
+				</table>
+			</div>
+			<div class="sticky bottom-0 z-40 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm hidden" data-scrollbar>
+				<div class="overflow-x-auto" data-scrollbar-track>
+					<div class="h-1" data-scrollbar-inner></div>
+				</div>
+			</div>
+		</div>
 	</div>
+	<style>
+		.scrollbar-hidden {
+			scrollbar-width: none;
+		}
+		.scrollbar-hidden::-webkit-scrollbar {
+			height: 0;
+		}
+		.sticky-scrollbar-floating {
+			position: fixed;
+			bottom: 0;
+		}
+		.sticky-scroll-header-floating {
+			position: fixed;
+			top: 64px;
+		}
+	</style>
 
 	<!-- Paginación -->
 	<div class="mt-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-6 text-sm">

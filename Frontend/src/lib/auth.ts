@@ -34,7 +34,7 @@ export async function validateRole(astro: AstroGlobal, requiredRole: 'admin' | '
     const userRole = inferUserRole(user);
     
     if (userRole !== requiredRole) {
-      console.warn(`Acceso denegado: usuario ${user.email} con rol ${userRole} intentando acceder a ${requiredRole}`);
+      console.warn(`Acceso denegado: usuario ${user.rut ?? user.email} con rol ${userRole} intentando acceder a ${requiredRole}`);
       
       if (userRole === 'admin') {
         return astro.redirect('/admin');

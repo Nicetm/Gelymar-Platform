@@ -610,7 +610,7 @@ exports.downloadFile = async (req, res) => {
     // Si es admin, puede acceder a todos los archivos
     if (userRole !== 'admin') {
       // Verificar que el archivo pertenece a un cliente del usuario
-      // La relación es: users.email = customers.rut
+      // La relación es: users.rut = customers.rut
       const customerCheck = await documentFileService.getCustomerCheckForDownload(id, userId);
       
       if (!customerCheck) {

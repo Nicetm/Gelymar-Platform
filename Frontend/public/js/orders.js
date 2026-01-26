@@ -49,6 +49,98 @@ export async function initOrdersScript() {
   let itemsPerPage = parseInt(itemsPerPageSelect.value, 10);
   let currentSort = { column: 'fecha', direction: 'desc' };
 
+  function setupStickyHorizontalScrollbar() {
+    const containers = document.querySelectorAll('[data-scroll-sync]');
+    if (!containers.length) return;
+
+    containers.forEach(container => {
+      const body = container.querySelector('[data-scroll-body]');
+      const scrollbar = container.querySelector('[data-scrollbar]');
+      const track = container.querySelector('[data-scrollbar-track]');
+      const inner = container.querySelector('[data-scrollbar-inner]');
+      const header = container.querySelector('[data-scroll-header]');
+      const headerTrack = container.querySelector('[data-scroll-header-track]');
+      const headerTable = headerTrack?.querySelector('table');
+
+      if (!body || !scrollbar || !track || !inner || !header || !headerTrack || !headerTable) return;
+
+      const table = body.querySelector('table');
+      const thead = table?.querySelector('thead');
+
+      if (thead && headerTable.children.length === 0) {
+        const theadClone = thead.cloneNode(true);
+        headerTable.appendChild(theadClone);
+      }
+
+      const updateSizes = () => {
+        const rect = container.getBoundingClientRect();
+        const scrollWidth = table ? table.scrollWidth : body.scrollWidth;
+        inner.style.width = `${scrollWidth}px`;
+        headerTable.style.width = `${scrollWidth}px`;
+        const hasOverflow = scrollWidth > body.clientWidth + 1;
+        const inView = rect.bottom > 0 && rect.top < window.innerHeight;
+        const theadRect = thead?.getBoundingClientRect();
+
+        if (!hasOverflow || !inView) {
+          scrollbar.classList.add('hidden');
+          scrollbar.classList.remove('sticky-scrollbar-floating');
+          scrollbar.style.left = '';
+          scrollbar.style.width = '';
+          header.classList.add('hidden');
+          return;
+        }
+
+        scrollbar.classList.remove('hidden');
+
+        if (rect.bottom > window.innerHeight) {
+          scrollbar.classList.add('sticky-scrollbar-floating');
+          scrollbar.style.left = `${Math.max(rect.left, 0)}px`;
+          scrollbar.style.width = `${Math.max(rect.width, 0)}px`;
+        } else {
+          scrollbar.classList.remove('sticky-scrollbar-floating');
+          scrollbar.style.left = '';
+          scrollbar.style.width = '';
+        }
+
+        const shouldShowHeader = rect.top < 0 && rect.bottom > 0;
+        header.classList.toggle('hidden', !shouldShowHeader);
+
+        if (shouldShowHeader) {
+          header.classList.add('sticky-scroll-header-floating');
+          header.style.left = `${Math.max(rect.left, 0)}px`;
+          header.style.width = `${Math.max(rect.width, 0)}px`;
+        } else {
+          header.classList.remove('sticky-scroll-header-floating');
+          header.style.left = '';
+          header.style.width = '';
+        }
+      };
+
+      const syncFromBody = () => {
+        track.scrollLeft = body.scrollLeft;
+        headerTrack.scrollLeft = body.scrollLeft;
+      };
+
+      const syncFromTrack = () => {
+        body.scrollLeft = track.scrollLeft;
+      };
+
+      body.addEventListener('scroll', syncFromBody);
+      track.addEventListener('scroll', syncFromTrack);
+      headerTrack.addEventListener('scroll', () => {
+        body.scrollLeft = headerTrack.scrollLeft;
+      });
+
+      const resizeObserver = new ResizeObserver(updateSizes);
+      resizeObserver.observe(body);
+      if (table) resizeObserver.observe(table);
+
+      window.addEventListener('resize', updateSizes);
+      window.addEventListener('scroll', updateSizes, true);
+      updateSizes();
+    });
+  }
+
   // Función para formatear fechas
   function formatDateShort(dateString) {
     if (!dateString) return '-';
@@ -117,6 +209,9 @@ export async function initOrdersScript() {
     const trafficLightTitle = getTrafficLightTitle(order);
     const encodedCustomerName = encodeURIComponent(order.customer_name || '');
     const documentUrl = `${documentsPath}/${order.customer_uuid}?f=${order.id}&pc=${order.pc}&c=${encodedCustomerName}`;
+    const shippingMethod = (!order.factura || order.factura === 0 || order.factura === '0')
+      ? (order.medio_envio_ov || '-')
+      : (order.medio_envio_factura || '-');
     
     return `
       <tr data-id="${order.id}" class="hover:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition bg-white dark:bg-gray-900">
@@ -137,12 +232,14 @@ export async function initOrdersScript() {
         </td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(order.fecha)}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">
-          ${(!order.factura || order.factura === 0 || order.factura === '0') ? (order.medio_envio_ov || '-') : (order.medio_envio_factura || '-')}
+          ${shippingMethod}
         </td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${order.factura || '-'}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(order.fecha_factura)}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(order.fecha_etd)}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(order.fecha_eta)}</td>
+        <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(order.fecha_etd_factura)}</td>
+        <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(order.fecha_eta_factura)}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${order.incoterm || '-'}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${order.puerto_destino || '-'}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">
@@ -342,6 +439,7 @@ export async function initOrdersScript() {
       
       // Renderizar la tabla
       renderTable();
+      setupStickyHorizontalScrollbar();
       
       // Aplicar filtro automáticamente si hay valor en el buscador
       if (searchInput && searchInput.value.trim()) {
@@ -358,7 +456,7 @@ export async function initOrdersScript() {
       const loadingRow = document.getElementById('loadingRow');
       if (loadingRow) {
         loadingRow.innerHTML = `
-          <td colspan="13" class="px-6 py-8 text-center text-red-500">
+          <td colspan="15" class="px-6 py-8 text-center text-red-500">
             Error al cargar las órdenes. <button onclick="location.reload()" class="text-blue-500 hover:underline">Reintentar</button>
           </td>
         `;
@@ -395,7 +493,7 @@ export async function initOrdersScript() {
     if (pageData.length === 0) {
       tableBody.innerHTML = `
         <tr class="bg-white dark:bg-gray-900">
-          <td colspan="13" class="px-6 py-8 text-center text-gray-500">
+          <td colspan="15" class="px-6 py-8 text-center text-gray-500">
             No se encontraron órdenes
           </td>
         </tr>
@@ -429,7 +527,14 @@ export async function initOrdersScript() {
   function sortRows(column, direction) {
     if (!column) return;
 
-    const dateColumns = new Set(['fecha', 'fecha_factura']);
+    const dateColumns = new Set([
+      'fecha',
+      'fecha_factura',
+      'fecha_etd',
+      'fecha_eta',
+      'fecha_etd_factura',
+      'fecha_eta_factura'
+    ]);
     const localeCompareOptions = { numeric: true, sensitivity: 'base' };
     const multiplier = direction === 'desc' ? -1 : 1;
 
@@ -444,11 +549,21 @@ export async function initOrdersScript() {
         case 'fecha':
           return order.fecha ?? '';
         case 'medio_envio_factura':
-          return order.medio_envio_factura ?? '';
+          return (!order.factura || order.factura === 0 || order.factura === '0')
+            ? (order.medio_envio_ov ?? '')
+            : (order.medio_envio_factura ?? '');
         case 'factura':
           return order.factura ?? '';
         case 'fecha_factura':
           return order.fecha_factura ?? '';
+        case 'fecha_etd':
+          return order.fecha_etd ?? '';
+        case 'fecha_eta':
+          return order.fecha_eta ?? '';
+        case 'fecha_etd_factura':
+          return order.fecha_etd_factura ?? '';
+        case 'fecha_eta_factura':
+          return order.fecha_eta_factura ?? '';
         default:
           return '';
       }
@@ -525,7 +640,12 @@ export async function initOrdersScript() {
         order.oc || '',
         order.customer_name || '',
         order.medio_envio_factura || '',
+        order.medio_envio_ov || '',
         order.factura || '',
+        order.fecha_etd || '',
+        order.fecha_eta || '',
+        order.fecha_etd_factura || '',
+        order.fecha_eta_factura || '',
         order.fecha_factura || '',
         order.incoterm || '',
         order.puerto_destino || '',
@@ -604,34 +724,63 @@ export async function initOrdersScript() {
     }
 
     // Definir los encabezados de las columnas
+    const labelPc = carpetas.name || 'N° PC';
+    const labelOrder = carpetas.oc || 'Order';
+    const labelCustomer = translations?.clientes?.client_name || 'Customer Name';
+    const labelEntryDate = carpetas.fechaIngreso || 'Entry Date';
+    const labelShippingMethod = carpetas.shippingMethod || 'Shipping Method';
+    const labelInvoice = carpetas.factura || 'Invoice';
+    const labelInvoiceDate = carpetas.fechaFactura || 'Invoice Date';
+    const labelEtdOv = carpetas.etdOv || 'ETD OV';
+    const labelEtaOv = carpetas.etaOv || 'ETA OV';
+    const labelEtdFactura = carpetas.etdFactura || 'ETD Invoice';
+    const labelEtaFactura = carpetas.etaFactura || 'ETA Invoice';
+    const labelIncoterm = carpetas.incoterm || 'Incoterm';
+    const labelDestinationPort = carpetas.puertoDestino || 'Destination Port';
+    const labelDocuments = carpetas.documents || 'Documents';
+
     const headers = [
-      'N° PC',
-      'Order',
-      'Customer Name',
-      'Entry Date',
-      'Shipping Method',
-      'Invoice',
-      'Invoice Date',
-      'ETD Date',
-      'ETA Date',
-      'Incoterm',
-      'Destination Port'
+      labelPc,
+      labelOrder,
+      labelCustomer,
+      labelEntryDate,
+      labelShippingMethod,
+      labelInvoice,
+      labelInvoiceDate,
+      labelEtdOv,
+      labelEtaOv,
+      labelEtdFactura,
+      labelEtaFactura,
+      labelIncoterm,
+      labelDestinationPort,
+      labelDocuments
     ];
 
     // Preparar los datos para exportar
-    const data = ordersToExport.map(order => [
-      order.pc || '', // N° PC
-      order.oc || '', // Order
-      order.customer_name || '', // Customer Name
-      formatDateShort(order.fecha) || '', // Entry Date
-      order.medio_envio_factura || '', // Shipping Method
-      order.factura || '', // Invoice
-      formatDateShort(order.fecha_factura) || '', // Invoice Date
-      formatDateShort(order.fecha_etd) || '', // ETD Date
-      formatDateShort(order.fecha_eta) || '', // ETA Date
-      order.incoterm || '', // Incoterm
-      order.puerto_destino || '' // Destination Port
-    ]);
+    const data = ordersToExport.map(order => {
+      const encodedCustomerName = encodeURIComponent(order.customer_name || '');
+      const documentUrl = `${documentsPath}/${order.customer_uuid}?f=${order.id}&pc=${order.pc}&c=${encodedCustomerName}`;
+      const shippingMethod = (!order.factura || order.factura === 0 || order.factura === '0')
+        ? (order.medio_envio_ov || '')
+        : (order.medio_envio_factura || '');
+
+      return [
+        order.pc || '', // N° PC
+        order.oc || '', // Order
+        order.customer_name || '', // Customer Name
+        formatDateShort(order.fecha) || '', // Entry Date
+        shippingMethod, // Shipping Method
+        order.factura || '', // Invoice
+        formatDateShort(order.fecha_factura) || '', // Invoice Date
+        formatDateShort(order.fecha_etd) || '', // ETD OV
+        formatDateShort(order.fecha_eta) || '', // ETA OV
+        formatDateShort(order.fecha_etd_factura) || '', // ETD Invoice
+        formatDateShort(order.fecha_eta_factura) || '', // ETA Invoice
+        order.incoterm || '', // Incoterm
+        order.puerto_destino || '', // Destination Port
+        documentUrl // Documents
+      ];
+    });
 
     // Crear el contenido con formato Excel compatible
     // Agregar BOM UTF-8 para que Excel reconozca la codificación

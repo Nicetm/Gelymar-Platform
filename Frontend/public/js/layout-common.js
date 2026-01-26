@@ -60,6 +60,7 @@ function createLogoutHandler() {
       localStorage.removeItem('token');
       localStorage.removeItem('userRole');
       localStorage.removeItem('userEmail');
+      localStorage.removeItem('userRut');
       document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
       window.location.href = '/authentication/sign-in';
     } catch (error) {

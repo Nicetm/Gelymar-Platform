@@ -39,7 +39,8 @@ export interface Orders {
 // --- USERS ---
 export interface Users {
   id: number;
-  email: string;
+  rut: string;
+  email?: string | null;
   password: string;
   role_id: number;
   twoFASecret: string;

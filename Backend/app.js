@@ -237,7 +237,7 @@ const pathClient = path.join(__dirname, 'views-protegidas/client/index.html');
 
 app.get('/admin', authFromCookie, (req, res) => {
   if (req.user.role !== 'admin') {
-    console.warn(`Acceso denegado a /admin: usuario ${req.user.email} con rol ${req.user.role}`);
+    console.warn(`Acceso denegado a /admin: usuario ${req.user.rut || req.user.email} con rol ${req.user.role}`);
     return res.status(403).send('Acceso no autorizado - Solo administradores');
   }
   res.sendFile(pathAdmin);
@@ -245,7 +245,7 @@ app.get('/admin', authFromCookie, (req, res) => {
 
 app.get('/client', authFromCookie, (req, res) => {
   if (req.user.role !== 'client') {
-    console.warn(`Acceso denegado a /client: usuario ${req.user.email} con rol ${req.user.role}`);
+    console.warn(`Acceso denegado a /client: usuario ${req.user.rut || req.user.email} con rol ${req.user.role}`);
     return res.status(403).send('Acceso no autorizado - Solo clientes');
   }
   res.sendFile(pathClient);
@@ -254,7 +254,7 @@ app.get('/client', authFromCookie, (req, res) => {
 // 🔐 Middleware para proteger rutas de admin y client
 app.use('/admin', authFromCookie, (req, res, next) => {
   if (req.user.role !== 'admin') {
-    console.warn(`Acceso denegado a ${req.path}: usuario ${req.user.email} con rol ${req.user.role}`);
+    console.warn(`Acceso denegado a ${req.path}: usuario ${req.user.rut || req.user.email} con rol ${req.user.role}`);
     return res.status(403).send('Acceso no autorizado - Solo administradores');
   }
   next();
@@ -262,7 +262,7 @@ app.use('/admin', authFromCookie, (req, res, next) => {
 
 app.use('/client', authFromCookie, (req, res, next) => {
   if (req.user.role !== 'client') {
-    console.warn(`Acceso denegado a ${req.path}: usuario ${req.user.email} con rol ${req.user.role}`);
+    console.warn(`Acceso denegado a ${req.path}: usuario ${req.user.rut || req.user.email} con rol ${req.user.role}`);
     return res.status(403).send('Acceso no autorizado - Solo clientes');
   }
   next();

@@ -7,7 +7,7 @@ const pool = require('../config/db').pool;
 // ✅ Generar secreto, guardar en DB y devolver QR
 exports.generate2FA = async (req, res) => {
   const userId = req.user.id;
-  const secret = speakeasy.generateSecret({ name: `Gelymar (${req.user.email})` });
+  const secret = speakeasy.generateSecret({ name: `Gelymar (${req.user.rut || req.user.email})` });
 
   try {
     await pool.query(

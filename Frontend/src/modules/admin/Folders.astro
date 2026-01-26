@@ -83,9 +83,16 @@ try {
 	</header>
 
 	<!-- Tabla de carpetas -->
-	<div class="overflow-x-auto mt-6 rounded-xl shadow ring-1 ring-gray-200 dark:ring-gray-700">
-		<table class="min-w-[1800px] divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900" style="width: max-content;">
-			<thead class="bg-gray-100 dark:bg-gray-800 sticky top-0 z-10">
+	<div class="mt-6 rounded-xl shadow ring-1 ring-gray-200 dark:ring-gray-700">
+		<div class="relative" data-scroll-sync="folders-table">
+			<div class="sticky top-0 z-30 bg-gray-100 dark:bg-gray-800 hidden" data-scroll-header>
+				<div class="overflow-x-auto scrollbar-hidden" data-scroll-header-track>
+					<table class="min-w-[1800px] divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900" style="width: max-content;"></table>
+				</div>
+			</div>
+			<div class="overflow-x-auto scrollbar-hidden" style="border-radius: 10px;" data-scroll-body>
+				<table class="min-w-[1800px] divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900" style="width: max-content;">
+					<thead class="bg-gray-100 dark:bg-gray-800">
 				<tr>
 					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="pc">
 						<div class="flex items-center justify-between">
@@ -180,8 +187,8 @@ try {
 					</th>
 					<th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 sticky right-0 z-20 min-w-[120px]">{t.comond.actions}</th>
 				</tr>
-			</thead>
-			<tbody id="foldersTableBody" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-xs min-h-[600px]">
+					</thead>
+					<tbody id="foldersTableBody" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-xs min-h-[600px]">
 				<!-- Los datos se cargarán dinámicamente con JavaScript -->
 				<tr id="loadingRow" class="bg-white dark:bg-gray-900">
 					<td colspan="13" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
@@ -194,9 +201,32 @@ try {
 						</div>
 					</td>
 				</tr>
-			</tbody>
-		</table>
+					</tbody>
+				</table>
+			</div>
+			<div class="sticky bottom-0 z-40 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm hidden" data-scrollbar>
+				<div class="overflow-x-auto" data-scrollbar-track>
+					<div class="h-1" data-scrollbar-inner></div>
+				</div>
+			</div>
+		</div>
 	</div>
+	<style>
+		.scrollbar-hidden {
+			scrollbar-width: none;
+		}
+		.scrollbar-hidden::-webkit-scrollbar {
+			height: 0;
+		}
+		.sticky-scrollbar-floating {
+			position: fixed;
+			bottom: 0;
+		}
+		.sticky-scroll-header-floating {
+			position: fixed;
+			top: 64px;
+		}
+	</style>
 
 	<!-- Paginación -->
 	<div class="mt-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-6 text-sm">

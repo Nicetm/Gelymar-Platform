@@ -27,7 +27,7 @@ async function getAllCustomers(options = {}) {
       FROM customers c
       INNER JOIN orders o ON o.customer_id = c.id AND o.rut = c.rut
       LEFT JOIN customer_contacts cc ON cc.customer_id = c.id
-      LEFT JOIN users u ON u.email = c.rut
+      LEFT JOIN users u ON u.rut = c.rut
       WHERE EXISTS (
         SELECT 1 
         FROM order_detail od
@@ -51,7 +51,7 @@ async function getAllCustomers(options = {}) {
       LEFT JOIN order_detail od ON od.order_id = o.id
       LEFT JOIN sellers s ON s.codigo = od.vendedor
       LEFT JOIN customer_contacts cc ON cc.customer_id = c.id
-      LEFT JOIN users u ON u.email = c.rut
+      LEFT JOIN users u ON u.rut = c.rut
       GROUP BY c.id, cc.primary_email, u.online
     `;
   }
@@ -86,7 +86,7 @@ async function getCustomerById(id) {
       u.online
     FROM customers c
     LEFT JOIN customer_contacts cc ON cc.customer_id = c.id
-    LEFT JOIN users u ON u.email = c.rut
+    LEFT JOIN users u ON u.rut = c.rut
     WHERE c.id = ?
   `, [id]);
 
@@ -115,7 +115,7 @@ async function getCustomerByUUID(uuid) {
       u.online
     FROM customers c
     LEFT JOIN customer_contacts cc ON cc.customer_id = c.id
-    LEFT JOIN users u ON u.email = c.rut
+    LEFT JOIN users u ON u.rut = c.rut
     WHERE c.uuid = ?
   `, [uuid]);
 
@@ -145,7 +145,7 @@ async function getCustomerByRut(rut) {
         u.online
       FROM customers c
       LEFT JOIN customer_contacts cc ON cc.customer_id = c.id
-      LEFT JOIN users u ON u.email = c.rut
+      LEFT JOIN users u ON u.rut = c.rut
       WHERE c.rut = ?
     `;
     const params = [rut];
@@ -409,7 +409,7 @@ async function getCustomersWithoutAccount() {
   const pool = await poolPromise;
   const [rows] = await pool.query(`
     SELECT * FROM customers 
-    WHERE rut NOT IN (SELECT email FROM users)
+    WHERE rut NOT IN (SELECT rut FROM users)
   `);
 
   return rows.map(row => new Customer(row));

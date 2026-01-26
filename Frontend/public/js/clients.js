@@ -202,6 +202,74 @@ export async function initClientsScript() {
   let itemsPerPage = parseInt(itemsPerPageSelect.value, 10);
   let currentSort = { column: null, direction: 'asc' };
 
+  function setupStickyHeaderScroll() {
+    const containers = document.querySelectorAll('[data-scroll-sync]');
+    if (!containers.length) return;
+
+    containers.forEach(container => {
+      const body = container.querySelector('[data-scroll-body]');
+      const header = container.querySelector('[data-scroll-header]');
+      const headerTrack = container.querySelector('[data-scroll-header-track]');
+      const headerTable = headerTrack?.querySelector('table');
+
+      if (!body || !header || !headerTrack || !headerTable) return;
+
+      const table = body.querySelector('table');
+      const thead = table?.querySelector('thead');
+
+      if (thead && headerTable.children.length === 0) {
+        headerTable.appendChild(thead.cloneNode(true));
+      }
+
+      const updateSizes = () => {
+        const rect = container.getBoundingClientRect();
+        const scrollWidth = table ? table.scrollWidth : body.scrollWidth;
+        headerTable.style.width = `${scrollWidth}px`;
+
+        const inView = rect.bottom > 0 && rect.top < window.innerHeight;
+        if (!inView) {
+          header.classList.add('hidden');
+          header.classList.remove('sticky-scroll-header-floating');
+          header.style.left = '';
+          header.style.width = '';
+          return;
+        }
+
+        const shouldShowHeader = rect.top < 0 && rect.bottom > 0;
+        header.classList.toggle('hidden', !shouldShowHeader);
+
+        if (shouldShowHeader) {
+          header.classList.add('sticky-scroll-header-floating');
+          header.style.left = `${Math.max(rect.left, 0)}px`;
+          header.style.width = `${Math.max(rect.width, 0)}px`;
+        } else {
+          header.classList.remove('sticky-scroll-header-floating');
+          header.style.left = '';
+          header.style.width = '';
+        }
+      };
+
+      const syncFromBody = () => {
+        headerTrack.scrollLeft = body.scrollLeft;
+      };
+
+      const syncFromHeader = () => {
+        body.scrollLeft = headerTrack.scrollLeft;
+      };
+
+      body.addEventListener('scroll', syncFromBody);
+      headerTrack.addEventListener('scroll', syncFromHeader);
+
+      const resizeObserver = new ResizeObserver(updateSizes);
+      resizeObserver.observe(body);
+      if (table) resizeObserver.observe(table);
+
+      window.addEventListener('resize', updateSizes);
+      window.addEventListener('scroll', updateSizes, true);
+      updateSizes();
+    });
+  }
+
   // Función para renderizar una fila de cliente
   function renderCustomerRow(customer) {
     const encodedName = encodeURIComponent(customer.name || '');
@@ -247,6 +315,8 @@ export async function initClientsScript() {
       </tr>
     `;
   }
+
+  setupStickyHeaderScroll();
 
   const floatingTooltipState = {
     el: null,
@@ -806,6 +876,7 @@ export async function initClientsScript() {
     addBtn.disabled = !hasRows;
     addBtn.classList.toggle('opacity-50', !hasRows);
     addBtn.classList.toggle('cursor-not-allowed', !hasRows);
+    addBtn.classList.toggle('hidden', !hasRows);
   }
 
   function ensureContactsFormTable() {
@@ -1040,12 +1111,12 @@ export async function initClientsScript() {
 
     const actionsCell = row.querySelector('td:last-child');
     const saveBtn = document.createElement('button');
-    saveBtn.className = 'save-contact-btn text-gray-600 hover:text-green-600 transition'
+    saveBtn.className = 'save-contact-btn text-green-600 hover:text-green-500 transition'
     saveBtn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>`;
     saveBtn.dataset.contactIdx = idx;
 
     const cancelBtn = document.createElement('button');
-    cancelBtn.className = 'cancel-edit-contact-btn text-gray-600 hover:text-gray-400 transition'
+    cancelBtn.className = 'cancel-edit-contact-btn text-red-600 hover:text-red-500 transition'
     cancelBtn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>`;
     cancelBtn.dataset.contactIdx = idx;
 

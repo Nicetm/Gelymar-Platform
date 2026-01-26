@@ -13,16 +13,18 @@ async function getVendedores({ search } = {}) {
   let query = `
     SELECT 
       u.id,
-      u.email,
-      u.full_name,
-      u.phone,
-      u.country,
-      u.city,
+      u.rut,
+      u.rut AS email,
+      s.nombre AS full_name,
+      NULL AS phone,
+      NULL AS country,
+      NULL AS city,
       u.role_id,
       u.online,
       u.created_at,
       u.updated_at
     FROM users u
+    LEFT JOIN sellers s ON s.rut COLLATE utf8mb4_general_ci = u.rut COLLATE utf8mb4_general_ci
     WHERE u.role_id = 3
   `;
 
@@ -32,17 +34,14 @@ async function getVendedores({ search } = {}) {
     const normalized = `%${search.trim().toLowerCase()}%`;
     query += `
       AND (
-        LOWER(u.full_name) LIKE ?
-        OR LOWER(u.email) LIKE ?
-        OR LOWER(COALESCE(u.phone, '')) LIKE ?
-        OR LOWER(COALESCE(u.country, '')) LIKE ?
-        OR LOWER(COALESCE(u.city, '')) LIKE ?
+        LOWER(COALESCE(s.nombre, '')) LIKE ?
+        OR LOWER(u.rut) LIKE ?
       )
     `;
-    params.push(normalized, normalized, normalized, normalized, normalized);
+    params.push(normalized, normalized);
   }
 
-  query += ' ORDER BY u.full_name ASC, u.email ASC';
+  query += ' ORDER BY s.nombre ASC, u.rut ASC';
 
   const [rows] = await pool.query(query, params);
   return rows.map((row) => new Vendedor(row));
@@ -51,4 +50,3 @@ async function getVendedores({ search } = {}) {
 module.exports = {
   getVendedores,
 };
-

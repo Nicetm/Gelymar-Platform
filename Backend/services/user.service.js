@@ -1,5 +1,6 @@
 // services/user.service.js
 const { poolPromise } = require('../config/db');
+const { logger } = require('../utils/logger');
 const Users = require('../models/user.model');
 const bcrypt = require('bcrypt');
 
@@ -19,44 +20,61 @@ async function getAllUsers() {
   });
 }
 
-// Buscar por email (que contiene el RUT/username) con JOIN a roles
+// Buscar por RUT (login) con JOIN a roles
 async function findUserByEmailOrUsername(emailOrUsername) {
   const pool = await poolPromise;
-  
-  const [rows] = await pool.query(
-    `
-    SELECT u.id, u.email, u.password, u.role_id,
+  const normalized = (emailOrUsername || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\./g, '');
+
+  const query = `
+    SELECT u.id, u.rut AS rut, u.password, u.role_id,
            u.twoFASecret, u.twoFAEnabled, u.change_pw,
-           u.full_name, u.phone, u.country, u.city,
+           COALESCE(a.name, c.name, s.nombre) AS full_name,
+           COALESCE(a.phone, c.phone) AS phone,
+           COALESCE(a.country, c.country) AS country,
+           COALESCE(a.city, c.city) AS city,
            r.name AS role
     FROM users u
     LEFT JOIN roles r ON u.role_id = r.id
-    WHERE u.email = ?
+    LEFT JOIN customers c ON u.rut COLLATE utf8mb4_general_ci = c.rut COLLATE utf8mb4_general_ci
+    LEFT JOIN admins a ON u.rut COLLATE utf8mb4_general_ci = a.rut COLLATE utf8mb4_general_ci
+    LEFT JOIN sellers s ON u.rut COLLATE utf8mb4_general_ci = s.rut COLLATE utf8mb4_general_ci
+    WHERE REPLACE(LOWER(TRIM(u.rut)), '.', '') COLLATE utf8mb4_general_ci
+      = ? COLLATE utf8mb4_general_ci
     LIMIT 1
-    `,
-    [emailOrUsername]
-  );
+  `;
+  logger.info(`[findUserByEmailOrUsername] input=${emailOrUsername} normalized=${normalized}`);
+  logger.info(`[findUserByEmailOrUsername] params=${JSON.stringify([normalized])}`);
+
+  const [rows] = await pool.query(query, [normalized]);
   
   return rows[0];
 }
 
-// Buscar usuario para recuperacion de contrasena usando correo real (message_mail o customers.email)
+// Buscar usuario para recuperacion de contrasena usando correo real (admins.email o customers.email)
 async function findUserForPasswordRecovery(email) {
   const pool = await poolPromise;
 
   const [rows] = await pool.query(
     `
-    SELECT u.id, u.email, u.password, u.role_id,
+    SELECT u.id, u.rut AS rut, u.password, u.role_id,
            u.twoFASecret, u.twoFAEnabled, u.change_pw,
-           u.full_name, u.phone, u.country, u.city,
-           u.message_mail, c.email AS customer_email,
+           COALESCE(a.name, c.name, s.nombre) AS full_name,
+           COALESCE(a.phone, c.phone) AS phone,
+           COALESCE(a.country, c.country) AS country,
+           COALESCE(a.city, c.city) AS city,
+           a.email AS admin_email, c.email AS customer_email,
            r.name AS role
     FROM users u
     LEFT JOIN roles r ON u.role_id = r.id
-    LEFT JOIN customers c ON u.email = c.rut
-    WHERE LOWER(u.message_mail) = LOWER(?)
+    LEFT JOIN customers c ON u.rut COLLATE utf8mb4_general_ci = c.rut COLLATE utf8mb4_general_ci
+    LEFT JOIN admins a ON u.rut COLLATE utf8mb4_general_ci = a.rut COLLATE utf8mb4_general_ci
+    LEFT JOIN sellers s ON u.rut COLLATE utf8mb4_general_ci = s.rut COLLATE utf8mb4_general_ci
+    WHERE LOWER(a.email) = LOWER(?)
        OR LOWER(c.email) = LOWER(?)
-       OR LOWER(u.email) = LOWER(?)
+       OR LOWER(u.rut) = LOWER(?)
     LIMIT 1
     `,
     [email, email, email]
@@ -69,14 +87,19 @@ async function findUserById(id) {
   const pool = await poolPromise;
   const [rows] = await pool.query(
     `
-    SELECT u.id, u.email, u.password, u.role_id,
+    SELECT u.id, u.rut AS rut, u.password, u.role_id,
            u.twoFASecret, u.twoFAEnabled, u.change_pw,
-           u.full_name, u.phone, u.country, u.city,
-           u.message_mail, c.email AS customer_email,
+           COALESCE(a.name, c.name, s.nombre) AS full_name,
+           COALESCE(a.phone, c.phone) AS phone,
+           COALESCE(a.country, c.country) AS country,
+           COALESCE(a.city, c.city) AS city,
+           a.email AS admin_email, c.email AS customer_email,
            r.name AS role
     FROM users u
     LEFT JOIN roles r ON u.role_id = r.id
-    LEFT JOIN customers c ON u.email = c.rut
+    LEFT JOIN customers c ON u.rut COLLATE utf8mb4_general_ci = c.rut COLLATE utf8mb4_general_ci
+    LEFT JOIN admins a ON u.rut COLLATE utf8mb4_general_ci = a.rut COLLATE utf8mb4_general_ci
+    LEFT JOIN sellers s ON u.rut COLLATE utf8mb4_general_ci = s.rut COLLATE utf8mb4_general_ci
     WHERE u.id = ?
     LIMIT 1
     `,
@@ -103,8 +126,9 @@ async function updateUserOnlineStatus(userId, onlineStatus) {
 async function getPrimaryAdminPresence() {
   const pool = await poolPromise;
   const [rows] = await pool.query(
-    `SELECT u.full_name, u.email, u.online
+    `SELECT a.name, a.email, u.online
      FROM users u
+     LEFT JOIN admins a ON u.rut = a.rut
      LEFT JOIN roles r ON u.role_id = r.id
      WHERE u.role_id = 1
      ORDER BY u.online DESC, u.id ASC
@@ -123,8 +147,9 @@ async function getPrimaryAdminPresence() {
 async function getSpecificAdminPresence(adminId) {
   const pool = await poolPromise;
   const [rows] = await pool.query(
-    `SELECT u.full_name, u.email, u.online
+    `SELECT a.name, a.email, u.online
      FROM users u
+     LEFT JOIN admins a ON u.rut = a.rut
      WHERE u.id = ? AND u.role_id = 1`,
     [adminId]
   );
@@ -142,10 +167,10 @@ async function getSpecificAdminPresence(adminId) {
 async function findUserForAuth(userId) {
   const pool = await poolPromise;
   const [rows] = await pool.query(
-    `SELECT u.id, u.email, u.role_id, r.name AS role, u.twoFAEnabled, u.twoFASecret, c.id AS customer_id, c.uuid
+    `SELECT u.id, u.rut AS rut, u.role_id, r.name AS role, u.twoFAEnabled, u.twoFASecret, c.id AS customer_id, c.uuid
      FROM users u
      LEFT JOIN roles r ON u.role_id = r.id
-     LEFT JOIN customers c ON u.email = c.rut
+     LEFT JOIN customers c ON u.rut = c.rut
      WHERE u.id = ?`,
     [userId]
   );
@@ -158,12 +183,20 @@ async function getUserProfile(userId) {
   
   const [rows] = await pool.query(
     `
-    SELECT u.id, u.email, u.full_name, u.phone, u.country, u.city,
+    SELECT u.id, u.rut AS rut,
+           COALESCE(a.name, c.name, s.nombre) AS full_name,
+           COALESCE(a.phone, c.phone) AS phone,
+           COALESCE(a.country, c.country) AS country,
+           COALESCE(a.city, c.city) AS city,
            u.created_at, u.updated_at, u.change_pw,
+           COALESCE(a.email, c.email) AS email,
            r.name AS role,
            ua.file_path AS avatar_path, ua.mime_type AS avatar_mime_type
     FROM users u
     LEFT JOIN roles r ON u.role_id = r.id
+    LEFT JOIN customers c ON u.rut COLLATE utf8mb4_general_ci = c.rut COLLATE utf8mb4_general_ci
+    LEFT JOIN admins a ON u.rut COLLATE utf8mb4_general_ci = a.rut COLLATE utf8mb4_general_ci
+    LEFT JOIN sellers s ON u.rut COLLATE utf8mb4_general_ci = s.rut COLLATE utf8mb4_general_ci
     LEFT JOIN user_avatar ua ON u.id = ua.user_id AND ua.is_active = 1
     WHERE u.id = ?
     LIMIT 1
@@ -177,46 +210,62 @@ async function getUserProfile(userId) {
 // Actualizar perfil del usuario
 async function updateUserProfile(userId, profileData) {
   const pool = await poolPromise;
-  
-  const [result] = await pool.query(
-    `UPDATE users 
-     SET full_name = ?, phone = ?, country = ?, city = ?, updated_at = NOW()
-     WHERE id = ?`,
-    [profileData.full_name, profileData.phone, profileData.country, profileData.city, userId]
+  const [rows] = await pool.query(
+    'SELECT rut, role_id FROM users WHERE id = ?',
+    [userId]
   );
-  
-  return result.affectedRows > 0;
+  if (rows.length === 0) return false;
+
+  const { rut, role_id } = rows[0];
+
+  if (role_id === 1) {
+    const [result] = await pool.query(
+      `UPDATE admins
+       SET name = ?, phone = ?, country = ?, city = ?, updated_at = NOW()
+       WHERE rut = ?`,
+      [profileData.full_name, profileData.phone, profileData.country, profileData.city, rut]
+    );
+    return result.affectedRows > 0;
+  }
+
+  if (role_id === 2) {
+    const [result] = await pool.query(
+      `UPDATE customers
+       SET name = ?, phone = ?, country = ?, city = ?, updated_at = NOW()
+       WHERE rut = ?`,
+      [profileData.full_name, profileData.phone, profileData.country, profileData.city, rut]
+    );
+    return result.affectedRows > 0;
+  }
+
+  return false;
 }
 
 // Crear nuevo usuario
 async function createUser(user) {
   const pool = await poolPromise;
-  const { email, password, role_id, full_name, phone, country, city, twoFASecret } = user;
+  const { rut, email, password, role_id, twoFASecret } = user;
+  const userRut = (rut || email || '').trim();
+  if (!userRut) {
+    throw new Error('RUT requerido para crear usuario');
+  }
 
   const [result] = await pool.query(`
     INSERT INTO users (
-      email, 
+      rut,
       password, 
       role_id, 
       twoFASecret, 
       twoFAEnabled, 
-      full_name, 
-      phone, 
-      country, 
-      city, 
       created_at, 
       updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+    ) VALUES (?, ?, ?, ?, ?, NOW(), NOW())
   `, [
-    email,
+    userRut,
     password,
     role_id,
     twoFASecret,
-    false,
-    full_name,
-    phone,
-    country,
-    city
+    false
   ]);
 
   return result.insertId;
@@ -232,7 +281,11 @@ async function updateUser2FASecret(userId, secret) {
 async function getAdminUsers() {
   const pool = await poolPromise;
   const [rows] = await pool.query(
-    `SELECT id, email, full_name, phone, agent FROM users WHERE role_id = 1 ORDER BY id ASC`
+    `SELECT u.id, u.rut, a.email, a.name AS full_name, a.phone, u.agent
+     FROM users u
+     JOIN admins a ON u.rut = a.rut
+     WHERE u.role_id = 1
+     ORDER BY u.id ASC`
   );
   return rows;
 }
@@ -240,7 +293,7 @@ async function getAdminUsers() {
 async function getAdminUserById(adminId) {
   const pool = await poolPromise;
   const [rows] = await pool.query(
-    'SELECT id, message_mail, full_name FROM users WHERE id = ? AND role_id = 1',
+    'SELECT u.id, a.email, a.name FROM users u JOIN admins a ON u.rut = a.rut WHERE u.id = ? AND u.role_id = 1',
     [adminId]
   );
   return rows[0] || null;
@@ -249,35 +302,71 @@ async function getAdminUserById(adminId) {
 async function getAdminNotificationRecipients() {
   const pool = await poolPromise;
   const [rows] = await pool.query(
-    'SELECT message_mail AS email, full_name FROM users WHERE role_id = 1 AND message_mail IS NOT NULL AND message_mail <> \'\''
+    'SELECT a.email, a.name FROM users u JOIN admins a ON u.rut = a.rut WHERE u.role_id = 1 AND a.email IS NOT NULL AND a.email <> \'\''
   );
   return rows;
 }
 
-async function createAdminUser({ email, full_name, phone, agent, password }) {
+async function createAdminUser({ rut, email, full_name, phone, agent, password }) {
   const pool = await poolPromise;
   const hashed = await bcrypt.hash(password, 10);
   const [result] = await pool.query(
-    `INSERT INTO users (email, password, role_id, full_name, phone, agent, created_at, updated_at)
-     VALUES (?, ?, 1, ?, ?, ?, NOW(), NOW())`,
-    [email, hashed, full_name || null, phone || null, agent || null]
+    `INSERT INTO users (rut, password, role_id, agent, created_at, updated_at)
+     VALUES (?, ?, 1, ?, NOW(), NOW())`,
+    [rut, hashed, agent || null]
   );
+
+  await pool.query(
+    `INSERT INTO admins (rut, email, name, phone, created_at, updated_at)
+     VALUES (?, ?, ?, ?, NOW(), NOW())
+     ON DUPLICATE KEY UPDATE
+       email = VALUES(email),
+       name = VALUES(name),
+       phone = VALUES(phone),
+       updated_at = NOW()`,
+    [rut, email, full_name || null, phone || null]
+  );
+
   return result.insertId;
 }
 
-async function updateAdminUser(id, { email, full_name, phone, agent }) {
+async function updateAdminUser(id, { rut, email, full_name, phone, agent }) {
   const pool = await poolPromise;
+  const [currentRows] = await pool.query(
+    'SELECT rut FROM users WHERE id = ? AND role_id = 1',
+    [id]
+  );
+  if (currentRows.length === 0) return false;
+  const currentRut = currentRows[0].rut;
+
   const [result] = await pool.query(
     `UPDATE users
-     SET email = ?, full_name = ?, phone = ?, agent = ?, updated_at = NOW()
+     SET rut = ?, agent = ?, updated_at = NOW()
      WHERE id = ? AND role_id = 1`,
-    [email, full_name || null, phone || null, agent || null, id]
+    [rut, agent || null, id]
   );
+
+  await pool.query(
+    `UPDATE admins
+     SET rut = ?, email = ?, name = ?, phone = ?, updated_at = NOW()
+     WHERE rut = ?`,
+    [rut, email, full_name || null, phone || null, currentRut]
+  );
+
   return result.affectedRows > 0;
 }
 
 async function deleteUserById(id) {
   const pool = await poolPromise;
+  const [rows] = await pool.query(
+    'SELECT rut FROM users WHERE id = ? AND role_id = 1',
+    [id]
+  );
+  if (rows.length === 0) return false;
+  const { rut } = rows[0];
+
+  await pool.query('DELETE FROM admins WHERE rut = ?', [rut]);
+
   const [result] = await pool.query(
     `DELETE FROM users WHERE id = ? AND role_id = 1`,
     [id]

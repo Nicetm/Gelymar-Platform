@@ -1,5 +1,5 @@
 // Sidebar Admin JavaScript
-import { confirmAction, showNotification } from './utils.js';
+import { confirmAction, showNotification, showModal, hideModal, setupModalClose } from './utils.js';
 
 export function initSidebarAdmin(config) {
   const { apiBase, clientApiBase, fileServer, t, token, lang } = config;
@@ -69,6 +69,7 @@ export function initSidebarAdmin(config) {
     const pdfOption = settingsDropdown.querySelector('[data-setting="pdf-mail-list"]');
     const notificationOption = settingsDropdown.querySelector('[data-setting="notification-email-list"]');
     const profileOption = settingsDropdown.querySelector('[data-setting="profile"]');
+    const changePasswordOption = settingsDropdown.querySelector('[data-setting="change-password"]');
 
     const visibility = await fetchAdminSettingsVisibility();
 
@@ -112,10 +113,16 @@ export function initSidebarAdmin(config) {
       }
     }
 
+    if (changePasswordOption) {
+      changePasswordOption.classList.remove('hidden');
+      changePasswordOption.style.display = '';
+    }
+
     const hasVisibleSettings =
       (!!pdfOption && pdfEnabled) ||
       (!!notificationOption && notificationEnabled) ||
-      (!!profileOption && profileEnabled);
+      (!!profileOption && profileEnabled) ||
+      !!changePasswordOption;
 
     if (settingsBtn) {
       if (hasVisibleSettings) {
@@ -269,6 +276,9 @@ export function initSidebarAdmin(config) {
         case 'admin-users':
           openAdminUsersModal();
           break;
+        case 'change-password':
+          openAdminChangePasswordModal();
+          break;
       }
     });
 
@@ -286,6 +296,11 @@ export function initSidebarAdmin(config) {
     const savePdfMailBtn = document.getElementById('savePdfMailBtn');
     const emailFormContainer = document.getElementById('emailFormContainer');
     const existingEmailsTable = document.getElementById('existingEmailsTable');
+    const changePasswordModal = document.getElementById('adminChangePasswordModal');
+    const saveAdminPasswordBtn = document.getElementById('saveAdminPasswordBtn');
+    const currentPasswordInput = document.getElementById('adminCurrentPassword');
+    const newPasswordInput = document.getElementById('adminNewPassword');
+    const confirmPasswordInput = document.getElementById('adminConfirmPassword');
 
     let pdfEmails = [];
 
@@ -924,6 +939,106 @@ export function initSidebarAdmin(config) {
       return body;
     }
 
+    function updateAdminFormActions() {
+      const tableBody = document.getElementById('adminUsersFormTableBody');
+      const hasRows = !!tableBody && !!tableBody.querySelector('tr');
+      if (saveAdminUsersBtn) {
+        saveAdminUsersBtn.disabled = !hasRows;
+        saveAdminUsersBtn.classList.toggle('hidden', !hasRows);
+      }
+    }
+
+    function resetAdminPasswordForm() {
+      if (currentPasswordInput) currentPasswordInput.value = '';
+      if (newPasswordInput) newPasswordInput.value = '';
+      if (confirmPasswordInput) confirmPasswordInput.value = '';
+    }
+
+    function openAdminChangePasswordModal() {
+      resetAdminPasswordForm();
+      showModal('#adminChangePasswordModal');
+    }
+
+    setupModalClose('#adminChangePasswordModal', '#closeAdminChangePasswordModalBtn, #cancelAdminChangePasswordBtn');
+
+    async function submitAdminPasswordChange() {
+      const authToken = token || getClientToken();
+      if (!authToken) {
+        showNotification(getAdminSetting('passwordChangeError', 'Error updating password'), 'error');
+        return;
+      }
+
+      const currentPassword = currentPasswordInput?.value?.trim() || '';
+      const newPassword = newPasswordInput?.value?.trim() || '';
+      const confirmPassword = confirmPasswordInput?.value?.trim() || '';
+
+      if (!currentPassword || !newPassword || !confirmPassword) {
+        showNotification(getAdminSetting('passwordRequired', 'All fields are required'), 'error');
+        return;
+      }
+
+      if (newPassword !== confirmPassword) {
+        showNotification(getAdminSetting('passwordMismatch', 'Passwords do not match'), 'error');
+        return;
+      }
+
+      const confirmed = await confirmAction(
+        getAdminSetting('confirmChangePasswordTitle', 'Change password?'),
+        getAdminSetting('confirmChangePasswordMessage', 'Your password will be updated.'),
+        'warning',
+        {
+          confirmButtonText: getAdminSetting('change_password_button', 'Change'),
+          cancelButtonText: getAdminSetting('cancel', 'Cancel')
+        }
+      );
+
+      if (!confirmed) {
+        return;
+      }
+
+      if (saveAdminPasswordBtn) {
+        saveAdminPasswordBtn.disabled = true;
+        saveAdminPasswordBtn.classList.add('opacity-70', 'cursor-not-allowed');
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/api/auth/change-password`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${authToken}`
+          },
+          body: JSON.stringify({
+            currentPassword,
+            newPassword
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          const message = errorData.message || getAdminSetting('passwordChangeError', 'Error updating password');
+          showNotification(message, 'error');
+          return;
+        }
+
+        showNotification(getAdminSetting('passwordChangeSuccess', 'Password updated successfully'), 'success');
+        hideModal('#adminChangePasswordModal');
+        resetAdminPasswordForm();
+      } catch (error) {
+        showNotification(getAdminSetting('passwordChangeError', 'Error updating password'), 'error');
+        console.error('Error cambiando contraseña del admin:', error);
+      } finally {
+        if (saveAdminPasswordBtn) {
+          saveAdminPasswordBtn.disabled = false;
+          saveAdminPasswordBtn.classList.remove('opacity-70', 'cursor-not-allowed');
+        }
+      }
+    }
+
+    if (saveAdminPasswordBtn) {
+      saveAdminPasswordBtn.addEventListener('click', submitAdminPasswordChange);
+    }
+
     function addAdminFormRow() {
       const tbody = ensureAdminFormTableBody();
       if (!tbody) return;
@@ -932,7 +1047,8 @@ export function initSidebarAdmin(config) {
       const row = document.createElement('tr');
       row.className = 'border-t border-gray-200 dark:border-gray-600';
       row.innerHTML = `
-        <td class="p-2"><input class="admin-email w-full text-xs px-2 py-1 border rounded-md bg-white dark:bg-gray-800 dark:border-gray-700 text-gray-900 dark:text-white" type="text" placeholder="Email (RUT)"></td>
+        <td class="p-2"><input class="admin-rut w-full text-xs px-2 py-1 border rounded-md bg-white dark:bg-gray-800 dark:border-gray-700 text-gray-900 dark:text-white" type="text" placeholder="RUT"></td>
+        <td class="p-2"><input class="admin-email w-full text-xs px-2 py-1 border rounded-md bg-white dark:bg-gray-800 dark:border-gray-700 text-gray-900 dark:text-white" type="email" placeholder="Email"></td>
         <td class="p-2"><input class="admin-full-name w-full text-xs px-2 py-1 border rounded-md bg-white dark:bg-gray-800 dark:border-gray-700 text-gray-900 dark:text-white" type="text" placeholder="Nombre completo"></td>
         <td class="p-2"><input class="admin-phone w-full text-xs px-2 py-1 border rounded-md bg-white dark:bg-gray-800 dark:border-gray-700 text-gray-900 dark:text-white" type="text" placeholder="Teléfono"></td>
         <td class="p-2 text-center">
@@ -947,6 +1063,7 @@ export function initSidebarAdmin(config) {
         </td>
       `;
       tbody.appendChild(row);
+      updateAdminFormActions();
     }
 
     function resetAdminFormRows() {
@@ -955,6 +1072,7 @@ export function initSidebarAdmin(config) {
         adminFormContainer.classList.remove('hidden');
       }
       addAdminFormRow();
+      updateAdminFormActions();
     }
 
     function hideAdminForm() {
@@ -962,6 +1080,7 @@ export function initSidebarAdmin(config) {
         adminFormContainer.innerHTML = '';
         adminFormContainer.classList.add('hidden');
       }
+      updateAdminFormActions();
     }
 
     async function loadAdminUsers() {
@@ -987,7 +1106,7 @@ export function initSidebarAdmin(config) {
 
       if (!adminUsers.length) {
         const row = document.createElement('tr');
-        row.innerHTML = `<td colspan="5" class="text-center text-xs text-gray-500 dark:text-gray-400 py-4">No hay administradores</td>`;
+        row.innerHTML = `<td colspan="6" class="text-center text-xs text-gray-500 dark:text-gray-400 py-4">No hay administradores</td>`;
         tbody.appendChild(row);
       } else {
         adminUsers.forEach((a) => {
@@ -997,7 +1116,8 @@ export function initSidebarAdmin(config) {
 
           if (isEditing) {
             row.innerHTML = `
-              <td class="p-2"><input data-field="email" value="${a.email || ''}" class="w-full text-xs px-2 py-1 border rounded-md bg-white dark:bg-gray-800 dark:border-gray-700 text-gray-900 dark:text-white" type="text"></td>
+              <td class="p-2"><input data-field="rut" value="${a.rut || ''}" class="w-full text-xs px-2 py-1 border rounded-md bg-white dark:bg-gray-800 dark:border-gray-700 text-gray-900 dark:text-white" type="text"></td>
+              <td class="p-2"><input data-field="email" value="${a.email || ''}" class="w-full text-xs px-2 py-1 border rounded-md bg-white dark:bg-gray-800 dark:border-gray-700 text-gray-900 dark:text-white" type="email"></td>
               <td class="p-2"><input data-field="full_name" value="${a.full_name || ''}" class="w-full text-xs px-2 py-1 border rounded-md bg-white dark:bg-gray-800 dark:border-gray-700 text-gray-900 dark:text-white" type="text"></td>
               <td class="p-2"><input data-field="phone" value="${a.phone || ''}" class="w-full text-xs px-2 py-1 border rounded-md bg-white dark:bg-gray-800 dark:border-gray-700 text-gray-900 dark:text-white" type="text"></td>
               <td class="p-2 text-center">
@@ -1007,13 +1127,14 @@ export function initSidebarAdmin(config) {
                 <button class="save-admin-edit text-green-600 hover:text-green-500 transition" data-id="${a.id}" title="Guardar">
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
                 </button>
-                <button class="cancel-admin-edit text-gray-500 hover:text-gray-400 transition" title="Cancelar">
+                <button class="cancel-admin-edit text-red-600 hover:text-red-500 transition" title="Cancelar">
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
               </td>
             `;
           } else {
             row.innerHTML = `
+              <td class="p-2 text-xs text-gray-900 dark:text-white">${a.rut || '-'}</td>
               <td class="p-2 text-xs text-gray-900 dark:text-white">${a.email || '-'}</td>
               <td class="p-2 text-xs text-gray-900 dark:text-white">${a.full_name || '-'}</td>
               <td class="p-2 text-xs text-gray-900 dark:text-white">${a.phone || '-'}</td>
@@ -1045,6 +1166,7 @@ export function initSidebarAdmin(config) {
       hideAdminForm();
       editingAdminId = null;
       await loadAdminUsers();
+      updateAdminFormActions();
       if (adminUsersModal) {
         adminUsersModal.classList.remove('hidden');
         adminUsersModal.classList.add('flex');
@@ -1073,17 +1195,18 @@ export function initSidebarAdmin(config) {
 
       const payloads = [];
       rows.forEach((row) => {
+        const rut = row.querySelector('.admin-rut')?.value?.trim();
         const email = row.querySelector('.admin-email')?.value?.trim();
         const full_name = row.querySelector('.admin-full-name')?.value?.trim() || null;
         const phone = row.querySelector('.admin-phone')?.value?.trim() || null;
         const agent = row.querySelector('.admin-agent')?.checked ? 1 : 0;
-        if (email) {
-          payloads.push({ email, full_name, phone, agent, password: '123456' });
+        if (rut && email) {
+          payloads.push({ rut, email, full_name, phone, agent, password: '123456' });
         }
       });
 
       if (!payloads.length) {
-        showNotification('El correo es obligatorio.', 'error');
+        showNotification('El RUT y el email son obligatorios.', 'error');
         return;
       }
 
@@ -1103,6 +1226,7 @@ export function initSidebarAdmin(config) {
         console.error(err);
         showNotification('No se pudieron crear los administradores.', 'error');
       }
+      updateAdminFormActions();
     }
 
     function startEditAdmin(id) {
@@ -1116,13 +1240,14 @@ export function initSidebarAdmin(config) {
     }
 
     async function saveEditAdmin(id, row) {
+      const rut = row.querySelector('input[data-field="rut"]')?.value?.trim();
       const email = row.querySelector('input[data-field="email"]')?.value?.trim();
       const full_name = row.querySelector('input[data-field="full_name"]')?.value?.trim() || null;
       const phone = row.querySelector('input[data-field="phone"]')?.value?.trim() || null;
       const agent = row.querySelector('input[data-field="agent"]')?.checked ? 1 : 0;
 
-      if (!email) {
-        showNotification('El correo es obligatorio.', 'error');
+      if (!rut || !email) {
+        showNotification('El RUT y el email son obligatorios.', 'error');
         return;
       }
 
@@ -1130,7 +1255,7 @@ export function initSidebarAdmin(config) {
         const res = await fetch(`${API_BASE}/api/users/admins/${id}`, {
           method: 'PATCH',
           headers: authHeaders(),
-          body: JSON.stringify({ email, full_name, phone, agent })
+          body: JSON.stringify({ rut, email, full_name, phone, agent })
         });
         if (!res.ok) throw new Error();
         showNotification('Administrador actualizado.', 'success');
@@ -1190,6 +1315,7 @@ export function initSidebarAdmin(config) {
         e.preventDefault();
         const row = removeRowBtn.closest('tr');
         row?.remove();
+        updateAdminFormActions();
         return;
       }
 

@@ -40,7 +40,7 @@ export function initUserMenu(config = {}) {
   const logoutButton = document.getElementById('logoutButton');
   const nameEl = document.querySelector('#userFullName');
   const roleEl = document.querySelector('#userRole');
-  const emailEl = document.querySelector('#userEmail');
+  const rutEl = document.querySelector('#userRut');
   /** @type {HTMLImageElement|null} */
   const avatarEl = document.querySelector('#userAvatar');
 
@@ -65,6 +65,7 @@ export function initUserMenu(config = {}) {
 
         localStorage.removeItem('token');
         localStorage.removeItem('userRole');
+        localStorage.removeItem('userRut');
         localStorage.removeItem('userEmail');
         document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
         window.location.href = '/authentication/sign-in';
@@ -75,7 +76,7 @@ export function initUserMenu(config = {}) {
     });
   }
 
-  if (!nameEl || !emailEl || !avatarEl || !roleEl) {
+  if (!nameEl || !rutEl || !avatarEl || !roleEl) {
     return;
   }
 
@@ -83,7 +84,7 @@ export function initUserMenu(config = {}) {
     const {
       fullName,
       roleName,
-      email,
+      rut,
       avatarPath,
       avatarUrl,
     } = profile;
@@ -94,8 +95,8 @@ export function initUserMenu(config = {}) {
     if (roleName) {
       roleEl.textContent = roleName;
     }
-    if (email) {
-      emailEl.textContent = email;
+    if (rut) {
+      rutEl.textContent = rut;
     }
 
     if (avatarPath) {
@@ -145,12 +146,13 @@ export function initUserMenu(config = {}) {
       const fullName = u.full_name ?? 'User';
       const userRole = inferUserRole(u);
       const roleNameClient = u.role ?? resolveRoleLabel(userRole);
-      const email = u.email ?? '';
+      const rut = u.rut ?? u.email ?? '';
+      const contactEmail = u.email ?? '';
 
       const profilePayload = {
         fullName,
         roleName: roleNameClient,
-        email,
+        rut,
         avatarPath: u.avatar_path || '',
         avatarUrl: !u.avatar_path && u.full_name
           ? `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(u.full_name)}&backgroundColor=4b5563&fontColor=ffffff`
@@ -160,6 +162,12 @@ export function initUserMenu(config = {}) {
       applyUserProfile(profilePayload);
       localStorage.setItem('userRole', userRole);
       localStorage.setItem('userProfile', JSON.stringify(profilePayload));
+      if (rut) {
+        localStorage.setItem('userRut', rut);
+      }
+      if (contactEmail) {
+        localStorage.setItem('userEmail', contactEmail);
+      }
     } catch (err) {
       console.error('Client-side user fetch failed:', err);
     }

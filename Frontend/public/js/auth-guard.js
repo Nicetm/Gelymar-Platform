@@ -22,7 +22,7 @@ export function initAuthGuard(config = {}) {
       const payloadBase64 = parts[1];
       const payload = JSON.parse(atob(payloadBase64));
 
-      if (!payload?.email || !payload?.id) {
+      if (!payload?.id || (!payload?.rut && !payload?.email)) {
         throw new Error('Token sin datos requeridos');
       }
 

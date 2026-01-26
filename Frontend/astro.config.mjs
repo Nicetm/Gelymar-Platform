@@ -108,6 +108,7 @@ export default defineConfig({
       // URLs de servicios
       PUBLIC_API_URL: envField.string({ context: 'client', access: 'public' }),
       PUBLIC_FILE_SERVER_URL: envField.string({ context: 'client', access: 'public' }),
+      PUBLIC_CLIENT_FILE_SERVER_URL: envField.string({ context: 'client', access: 'public', optional: true }),
       PUBLIC_API_BASE_URL: envField.string({ context: 'client', access: 'public' }),
       PUBLIC_FRONTEND_BASE_URL: envField.string({ context: 'client', access: 'public' }),
       PUBLIC_APP_CONTEXT: envField.string({ context: 'client', access: 'public', optional: true }),

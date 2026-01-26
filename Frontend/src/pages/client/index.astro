@@ -23,11 +23,13 @@ if (redirect) return redirect;
 
   <script is:inline>
     document.addEventListener('DOMContentLoaded', () => {
-      const userEmail = localStorage.getItem('userEmail');
-      if (userEmail) {
+      const userRut = localStorage.getItem('userRut');
+      const fallbackEmail = localStorage.getItem('userEmail');
+      const displayValue = userRut || fallbackEmail;
+      if (displayValue) {
         const welcomeEl = document.getElementById('welcome-client');
         if (welcomeEl) {
-          welcomeEl.textContent = `Welcome, ${userEmail}`;
+          welcomeEl.textContent = `Welcome, ${displayValue}`;
         }
       }
     });

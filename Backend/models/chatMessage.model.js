@@ -110,7 +110,7 @@ class ChatMessage {
       FROM customers c
       INNER JOIN chat_messages cm ON c.id = cm.customer_id
       LEFT JOIN chat_messages cm2 ON c.id = cm2.customer_id
-      LEFT JOIN users u ON u.email = c.rut
+      LEFT JOIN users u ON u.rut = c.rut
       WHERE cm.id = (
         SELECT MAX(id) 
         FROM chat_messages 
@@ -183,10 +183,11 @@ class ChatMessage {
   static async getAdmins() {
     const pool = await poolPromise;
     const query = `
-      SELECT id, full_name, online 
-      FROM users 
-      WHERE role_id = 1 AND agent = 1
-      ORDER BY full_name ASC
+      SELECT u.id, COALESCE(a.name, '') AS full_name, u.online 
+      FROM users u
+      JOIN admins a ON u.rut = a.rut
+      WHERE u.role_id = 1 AND u.agent = 1
+      ORDER BY a.name ASC
     `;
     
     try {

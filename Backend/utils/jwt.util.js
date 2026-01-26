@@ -4,9 +4,10 @@ const jwt = require('jsonwebtoken');
  * Genera un token JWT válido por 1 hora
  */
 const generateToken = (user) => {
+  const rut = user.rut || user.email;
   const payload = {
     id: user.id,
-    email: user.email,
+    rut,
     role: user.role,
   };
 
@@ -22,6 +23,10 @@ const generateToken = (user) => {
 
   if (user.username !== undefined) {
     payload.username = user.username;
+  }
+
+  if (user.email !== undefined) {
+    payload.email = user.email;
   }
 
   return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });

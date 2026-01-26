@@ -135,7 +135,7 @@ async function getCustomerCheckForViewFile(fileId, userId) {
       FROM customers c
       JOIN orders o ON c.id = o.customer_id
       JOIN files f ON o.id = f.order_id
-      JOIN users u ON u.email = c.rut
+      JOIN users u ON u.rut = c.rut
       WHERE f.id = ? AND u.id = ?
     `,
     [fileId, userId]
@@ -149,7 +149,7 @@ async function getUserCustomerByUserId(userId) {
     `
       SELECT c.id, c.rut, c.name
       FROM customers c
-      JOIN users u ON u.email = c.rut
+      JOIN users u ON u.rut = c.rut
       WHERE u.id = ?
     `,
     [userId]
@@ -178,7 +178,7 @@ async function getCustomerCheckForDownload(fileId, userId) {
       FROM customers c
       JOIN orders o ON c.id = o.customer_id
       JOIN order_files f ON o.id = f.order_id
-      JOIN users u ON u.email = c.rut
+    JOIN users u ON u.rut = c.rut
       WHERE f.id = ? AND u.id = ?
     `,
     [fileId, userId]

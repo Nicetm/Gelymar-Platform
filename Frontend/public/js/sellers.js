@@ -22,6 +22,74 @@ export async function initSellersScript() {
   let currentPage = 1;
   let itemsPerPage = parseInt(itemsPerPageSelect.value, 10) || 10;
 
+  function setupStickyHeaderScroll() {
+    const containers = document.querySelectorAll('[data-scroll-sync]');
+    if (!containers.length) return;
+
+    containers.forEach(container => {
+      const body = container.querySelector('[data-scroll-body]');
+      const header = container.querySelector('[data-scroll-header]');
+      const headerTrack = container.querySelector('[data-scroll-header-track]');
+      const headerTable = headerTrack?.querySelector('table');
+
+      if (!body || !header || !headerTrack || !headerTable) return;
+
+      const table = body.querySelector('table');
+      const thead = table?.querySelector('thead');
+
+      if (thead && headerTable.children.length === 0) {
+        headerTable.appendChild(thead.cloneNode(true));
+      }
+
+      const updateSizes = () => {
+        const rect = container.getBoundingClientRect();
+        const scrollWidth = table ? table.scrollWidth : body.scrollWidth;
+        headerTable.style.width = `${scrollWidth}px`;
+
+        const inView = rect.bottom > 0 && rect.top < window.innerHeight;
+        if (!inView) {
+          header.classList.add('hidden');
+          header.classList.remove('sticky-scroll-header-floating');
+          header.style.left = '';
+          header.style.width = '';
+          return;
+        }
+
+        const shouldShowHeader = rect.top < 0 && rect.bottom > 0;
+        header.classList.toggle('hidden', !shouldShowHeader);
+
+        if (shouldShowHeader) {
+          header.classList.add('sticky-scroll-header-floating');
+          header.style.left = `${Math.max(rect.left, 0)}px`;
+          header.style.width = `${Math.max(rect.width, 0)}px`;
+        } else {
+          header.classList.remove('sticky-scroll-header-floating');
+          header.style.left = '';
+          header.style.width = '';
+        }
+      };
+
+      const syncFromBody = () => {
+        headerTrack.scrollLeft = body.scrollLeft;
+      };
+
+      const syncFromHeader = () => {
+        body.scrollLeft = headerTrack.scrollLeft;
+      };
+
+      body.addEventListener('scroll', syncFromBody);
+      headerTrack.addEventListener('scroll', syncFromHeader);
+
+      const resizeObserver = new ResizeObserver(updateSizes);
+      resizeObserver.observe(body);
+      if (table) resizeObserver.observe(table);
+
+      window.addEventListener('resize', updateSizes);
+      window.addEventListener('scroll', updateSizes, true);
+      updateSizes();
+    });
+  }
+
   const t = {
     noResults: vendedores.noResults || 'No se encontraron resultados',
     loading: vendedores.loading || 'Cargando...',
@@ -60,6 +128,8 @@ export async function initSellersScript() {
       </tr>
     `;
   }
+
+  setupStickyHeaderScroll();
 
   function renderEmptyState() {
     tableBody.innerHTML = `
@@ -213,4 +283,3 @@ function getToken() {
     null
   );
 }
-

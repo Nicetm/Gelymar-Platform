@@ -168,7 +168,7 @@ class ChatService {
     }
 
     const admin = await UserService.getAdminUserById(adminId);
-    if (!admin || !admin.message_mail) {
+    if (!admin || !admin.email) {
       return;
     }
 
@@ -181,13 +181,13 @@ class ChatService {
       ? (parsed.text ? `${parsed.text}\n[Imagen adjunta]` : '[Imagen adjunta]')
       : message;
 
-    await sendChatNotification({
-      adminEmail: admin.message_mail,
-      adminName: admin.full_name || admin.message_mail,
-      customerName: customer?.name || customer?.rut || 'Cliente',
-      message: previewMessage,
-      portalUrl
-    });
+      await sendChatNotification({
+        adminEmail: admin.email,
+        adminName: admin.full_name || admin.email,
+        customerName: customer?.name || customer?.rut || 'Cliente',
+        message: previewMessage,
+        portalUrl
+      });
   }
 }
 

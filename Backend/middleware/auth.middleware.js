@@ -58,7 +58,7 @@ const createAuthMiddleware = (options = {}) => {
         // Manejar token expirado según configuración
         if (allowExpired && err.name === 'TokenExpiredError') {
           decoded = jwt.decode(token);
-          if (!decoded || !decoded.email) {
+          if (!decoded || !(decoded.rut || decoded.email)) {
             return res.status(403).json({ message: 'Token inválido' });
           }
         } else {
@@ -68,7 +68,7 @@ const createAuthMiddleware = (options = {}) => {
               const expiredDecoded = jwt.decode(token);
               if (expiredDecoded && expiredDecoded.id) {
                 await userService.updateUserOnlineStatus(expiredDecoded.id, 0);
-                logger.info(`Token expirado para usuario ${expiredDecoded.email} - online actualizado a 0`);
+                logger.info(`Token expirado para usuario ${expiredDecoded.rut || expiredDecoded.email} - online actualizado a 0`);
               }
             } catch (error) {
               logger.error(`Error actualizando estado online por token expirado: ${error.message}`);
@@ -89,6 +89,7 @@ const createAuthMiddleware = (options = {}) => {
       // Asignar datos completos del usuario
       req.user = {
         ...decoded,
+        rut: decoded.rut || decoded.email,
         role: normalizedRole,
         roleName: user.role,
         roleId: user.role_id,

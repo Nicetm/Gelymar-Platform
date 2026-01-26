@@ -32,6 +32,7 @@ export const AUTH_CONFIG = {
   // Configuracion de tokens
   TOKEN_KEY: 'token',
   USER_ROLE_KEY: 'userRole',
+  USER_RUT_KEY: 'userRut',
   USER_EMAIL_KEY: 'userEmail',
   
   // Tiempo de expiracion (en minutos)

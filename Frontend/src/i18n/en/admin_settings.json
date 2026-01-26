@@ -25,5 +25,20 @@
   "confirmSaveMessage": "The PDF email list will be updated.",
   "confirmSaveMessageNotification": "The notification email list will be updated.",
   "saveSuccess": "Email list updated successfully",
-  "saveError": "Error saving the email list"
+  "saveError": "Error saving the email list",
+  "change_password_option": "Change password",
+  "change_password_title": "Change password",
+  "current_password_label": "Current password",
+  "new_password_label": "New password",
+  "confirm_password_label": "Confirm new password",
+  "current_password_placeholder": "Enter current password",
+  "new_password_placeholder": "Enter new password",
+  "confirm_password_placeholder": "Repeat new password",
+  "change_password_button": "Change",
+  "confirmChangePasswordTitle": "Change password?",
+  "confirmChangePasswordMessage": "Your password will be updated.",
+  "passwordMismatch": "Passwords do not match",
+  "passwordRequired": "All fields are required",
+  "passwordChangeSuccess": "Password updated successfully",
+  "passwordChangeError": "Error updating password"
 }

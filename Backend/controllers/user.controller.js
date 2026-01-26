@@ -167,11 +167,11 @@ exports.getAdminUsers = async (req, res) => {
 
 exports.createAdminUser = async (req, res) => {
   try {
-    const { email, full_name, phone, agent, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Email y contraseña son requeridos' });
+    const { rut, email, full_name, phone, agent, password } = req.body;
+    if (!rut || !email || !password) {
+      return res.status(400).json({ message: 'RUT, email y contraseña son requeridos' });
     }
-    const id = await userService.createAdminUser({ email, full_name, phone, agent, password });
+    const id = await userService.createAdminUser({ rut, email, full_name, phone, agent, password });
     res.status(201).json({ id, message: 'Admin creado' });
   } catch (error) {
     logger.error(`Error al crear admin: ${error.message}`);
@@ -182,9 +182,12 @@ exports.createAdminUser = async (req, res) => {
 exports.updateAdminUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { email, full_name, phone, agent } = req.body;
+    const { rut, email, full_name, phone, agent } = req.body;
     if (!id) return res.status(400).json({ message: 'ID requerido' });
-    const updated = await userService.updateAdminUser(id, { email, full_name, phone, agent });
+    if (!rut || !email) {
+      return res.status(400).json({ message: 'RUT y email son requeridos' });
+    }
+    const updated = await userService.updateAdminUser(id, { rut, email, full_name, phone, agent });
     if (!updated) return res.status(404).json({ message: 'Admin no encontrado' });
     res.json({ message: 'Admin actualizado' });
   } catch (error) {

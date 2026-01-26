@@ -11,7 +11,7 @@ const { logger } = require('../utils/logger');
  */
 exports.generate2FA = async (req, res) => {
   const userId = req.user.id;
-  const secret = speakeasy.generateSecret({ name: `Gelymar (${req.user.email})` });
+  const secret = speakeasy.generateSecret({ name: `Gelymar (${req.user.rut || req.user.email})` });
 
   logger.info(`Generando secreto 2FA para usuario ID: ${userId}`);
 

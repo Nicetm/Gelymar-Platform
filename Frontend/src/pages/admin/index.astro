@@ -64,11 +64,13 @@ if (redirect) return redirect;
 
   <script is:inline>
     document.addEventListener('DOMContentLoaded', () => {
-      const userEmail = localStorage.getItem('userEmail');
-      if (userEmail) {
+      const userRut = localStorage.getItem('userRut');
+      const fallbackEmail = localStorage.getItem('userEmail');
+      const displayValue = userRut || fallbackEmail;
+      if (displayValue) {
         const welcomeEl = document.getElementById('welcome-admin');
         if (welcomeEl) {
-          welcomeEl.textContent = `Welcome back, ${userEmail}`;
+          welcomeEl.textContent = `Welcome back, ${displayValue}`;
         }
       }
     });

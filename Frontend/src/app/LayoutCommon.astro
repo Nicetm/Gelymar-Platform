@@ -11,9 +11,10 @@ const { class: clazz, authRole = undefined } = Astro.props;
 const apiPublic = import.meta.env.PUBLIC_API_URL || '';
 const frontendPublic = import.meta.env.PUBLIC_FRONTEND_BASE_URL || '';
 const fileServerPublic = import.meta.env.PUBLIC_FILE_SERVER_URL || '';
+const fileServerAlt = import.meta.env.PUBLIC_FILE_SERVER || '';
 const connectSrc = buildConnectSrc(apiPublic, frontendPublic);
 const scriptSrc = SCRIPT_SRC_DIRECTIVES.join(' ');
-const imgSrcExtra = fileServerPublic ? ` ${fileServerPublic}` : '';
+const imgSrcExtra = [fileServerPublic, fileServerAlt].filter(Boolean).join(' ');
 ---
 
 <!DOCTYPE html>
@@ -44,7 +45,7 @@ const imgSrcExtra = fileServerPublic ? ` ${fileServerPublic}` : '';
       script-src ${scriptSrc};
       style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net;
       font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net;
-      img-src 'self' data: https: blob:${imgSrcExtra};
+      img-src 'self' data: https: blob:${imgSrcExtra ? ` ${imgSrcExtra}` : ''};
       connect-src ${connectSrc} https://www.google.com/recaptcha/;
       frame-src 'self' data: blob: https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/;
       object-src 'none';

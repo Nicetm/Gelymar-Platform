@@ -12,8 +12,8 @@ exports.getAllCustomers = async (req, res) => {
   try {
     const options = {};
     const roleId = req.user?.role_id || req.user?.roleId;
-    if ((roleId === 3 || req.user?.role === 'seller') && req.user?.email) {
-      options.salesRut = req.user.email;
+    if (roleId === 3 || req.user?.role === 'seller') {
+      options.salesRut = req.user?.rut || null;
     }
 
     const customers = await customerService.getAllCustomers(options);
@@ -177,12 +177,12 @@ exports.changeCustomerPassword = async (req, res) => {
       return res.status(404).json({ message: 'Cliente no encontrado' });
     }
 
-    // Buscar el usuario asociado (users.email = customers.rut)
+    // Buscar el usuario asociado (users.rut = customers.rut)
     const { poolPromise } = require('../config/db');
     const pool = await poolPromise;
     
     const [users] = await pool.query(
-      'SELECT id, email FROM users WHERE email = ?',
+      'SELECT id, rut FROM users WHERE rut = ?',
       [customer.rut]
     );
 
@@ -258,7 +258,7 @@ exports.createCustomerAccount = async (req, res) => {
     // Crear usuario usando el servicio
     
     const userData = {
-      email: customer.rut.trim(),
+      rut: customer.rut.trim(),
       password: hashedPassword,
       role_id: 2, // role_id = 2 (cliente)
       full_name: customer.name || 'Cliente',

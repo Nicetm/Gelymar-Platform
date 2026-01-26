@@ -4,6 +4,7 @@ interface ImportMetaEnv {
 	// URLs de servicios
 	readonly PUBLIC_API_URL: string;
 	readonly PUBLIC_FILE_SERVER_URL: string;
+	readonly PUBLIC_CLIENT_FILE_SERVER_URL?: string;
 	readonly PUBLIC_API_BASE_URL: string;
 	readonly PUBLIC_FRONTEND_BASE_URL: string;
 	readonly SERVER_API_URL: string;
@@ -29,7 +30,8 @@ declare namespace App {
   interface Locals {
     user: {
       id: number;
-      email: string;
+      rut: string;
+      email?: string | null;
       username: string;
       role: 'admin' | 'user' | 'client';
       cardCode?: string;

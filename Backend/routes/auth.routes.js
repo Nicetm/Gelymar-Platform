@@ -35,17 +35,18 @@ router.get('/2fa/setup', authController.setup2FA);
 router.get('/2fa/status', authController.check2FAStatus);
 router.get('/me', authMiddleware, async (req, res) => {
     try {
-        const user = await userService.findUserByEmailOrUsername(req.user.email);
+        const user = await userService.findUserById(req.user.id);
         
         // Buscar el customer_id usando el RUT (email del usuario)
         let customer_id = null;
         if (req.user.role === 'client') {
-            customer_id = await userService.findCustomerIdByRut(req.user.email);
+            customer_id = await userService.findCustomerIdByRut(req.user.rut || req.user.email);
         }
         
         res.json({
             id: req.user.id,
-            email: req.user.email,
+            rut: req.user.rut || req.user.email,
+            email: user.admin_email || user.customer_email || null,
             full_name: user.full_name,
             phone: user.phone,
             country: user.country,

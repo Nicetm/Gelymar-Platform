@@ -19,7 +19,7 @@ exports.getAllOrders = async (req, res) => {
 
     // Si es vendedor, filtrar por su propio RUT (email)
     if (roleId === 3) {
-      filters.salesRut = req.user.email;
+      filters.salesRut = req.user.rut || req.user.email;
     }
 
     const data = await orderService.getOrdersByFilters(filters);
@@ -46,7 +46,7 @@ exports.searchOrders = async (req, res) => {
     }
 
     if (roleId === 3) {
-      filters.salesRut = req.user.email;
+      filters.salesRut = req.user.rut || req.user.email;
     }
 
     const data = await orderService.getOrdersByFilters(filters);

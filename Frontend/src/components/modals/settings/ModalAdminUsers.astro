@@ -70,7 +70,8 @@ const { adminSettings } = Astro.props as Props;
   <table class="w-full text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800">
     <thead>
       <tr class="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
-        <th class="p-2 text-left">{adminSettings.email ?? 'Email (RUT)'}</th>
+        <th class="p-2 text-left">RUT</th>
+        <th class="p-2 text-left">{adminSettings.email ?? 'Email'}</th>
         <th class="p-2 text-left">{adminSettings.full_name ?? 'Full name'}</th>
         <th class="p-2 text-left">{adminSettings.phone ?? 'Phone'}</th>
         <th class="p-2 text-left">{adminSettings.agent ?? 'Agent Chat'}</th>
@@ -85,7 +86,8 @@ const { adminSettings } = Astro.props as Props;
   <table class="w-full text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800">
     <thead>
       <tr class="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
-        <th class="p-2 text-left">{adminSettings.email ?? 'Email (RUT)'}</th>
+        <th class="p-2 text-left">RUT</th>
+        <th class="p-2 text-left">{adminSettings.email ?? 'Email'}</th>
         <th class="p-2 text-left">{adminSettings.full_name ?? 'Full name'}</th>
         <th class="p-2 text-left">{adminSettings.phone ?? 'Phone'}</th>
         <th class="p-2 text-left">{adminSettings.agent ?? 'Agent Chat'}</th>

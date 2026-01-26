@@ -1,6 +1,7 @@
 class Vendedor {
   constructor({
     id,
+    rut,
     email,
     full_name,
     phone,
@@ -12,6 +13,7 @@ class Vendedor {
     updated_at
   }) {
     this.id = id;
+    this.rut = rut;
     this.email = email;
     this.full_name = full_name;
     this.phone = phone;
@@ -25,4 +27,3 @@ class Vendedor {
 }
 
 module.exports = Vendedor;
-
