@@ -15,6 +15,7 @@ const itemsPerPage = 1000; // Mostrar todas las tarjetas
 // Variables globales para paginación de órdenes
 let currentOrderPage = 1;
 const ordersPerPage = 10;
+let stickyScrollInitialized = false;
 
 // Variables globales para búsqueda
 let allOrders = [];
@@ -45,6 +46,113 @@ const statusColors = {
   'Viewed': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
   'Reviewed': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
 };
+
+function setupStickyHorizontalScrollbar() {
+  if (stickyScrollInitialized) return;
+  const containers = document.querySelectorAll('[data-scroll-sync]');
+  if (!containers.length) return;
+
+  containers.forEach(container => {
+    const body = container.querySelector('[data-scroll-body]');
+    const scrollbar = container.querySelector('[data-scrollbar]');
+    const track = container.querySelector('[data-scrollbar-track]');
+    const inner = container.querySelector('[data-scrollbar-inner]');
+    const header = container.querySelector('[data-scroll-header]');
+    const headerTrack = container.querySelector('[data-scroll-header-track]');
+    const headerTable = headerTrack?.querySelector('table');
+
+    if (!body || !scrollbar || !track || !inner || !header || !headerTrack || !headerTable) return;
+
+    const table = body.querySelector('table');
+    const thead = table?.querySelector('thead');
+
+    if (thead && headerTable.children.length === 0) {
+      const theadClone = thead.cloneNode(true);
+      headerTable.appendChild(theadClone);
+    }
+
+    const syncHeaderColumnWidths = () => {
+      const sourceCells = thead?.querySelectorAll('th') || [];
+      const cloneCells = headerTable.querySelectorAll('th');
+      if (!sourceCells.length || !cloneCells.length) return;
+      sourceCells.forEach((cell, index) => {
+        const cloneCell = cloneCells[index];
+        if (!cloneCell) return;
+        const width = cell.getBoundingClientRect().width;
+        cloneCell.style.width = `${width}px`;
+      });
+    };
+
+    const updateSizes = () => {
+      const rect = container.getBoundingClientRect();
+      const scrollWidth = table ? table.scrollWidth : body.scrollWidth;
+      inner.style.width = `${scrollWidth}px`;
+      headerTable.style.width = `${scrollWidth}px`;
+      const hasOverflow = scrollWidth > body.clientWidth + 1;
+      const inView = rect.bottom > 0 && rect.top < window.innerHeight;
+
+      if (!hasOverflow || !inView) {
+        scrollbar.classList.add('hidden');
+        scrollbar.classList.remove('sticky-scrollbar-floating');
+        scrollbar.style.left = '';
+        scrollbar.style.width = '';
+        header.classList.add('hidden');
+        return;
+      }
+
+      scrollbar.classList.remove('hidden');
+
+      if (rect.bottom > window.innerHeight) {
+        scrollbar.classList.add('sticky-scrollbar-floating');
+        scrollbar.style.left = `${Math.max(rect.left, 0)}px`;
+        scrollbar.style.width = `${Math.max(rect.width, 0)}px`;
+      } else {
+        scrollbar.classList.remove('sticky-scrollbar-floating');
+        scrollbar.style.left = '';
+        scrollbar.style.width = '';
+      }
+
+      const shouldShowHeader = rect.top < 0 && rect.bottom > 0;
+      header.classList.toggle('hidden', !shouldShowHeader);
+
+      if (shouldShowHeader) {
+        syncHeaderColumnWidths();
+        header.classList.add('sticky-scroll-header-floating');
+        header.style.left = `${Math.max(rect.left, 0)}px`;
+        header.style.width = `${Math.max(rect.width, 0)}px`;
+      } else {
+        header.classList.remove('sticky-scroll-header-floating');
+        header.style.left = '';
+        header.style.width = '';
+      }
+    };
+
+    const syncFromBody = () => {
+      track.scrollLeft = body.scrollLeft;
+      headerTrack.scrollLeft = body.scrollLeft;
+    };
+
+    const syncFromTrack = () => {
+      body.scrollLeft = track.scrollLeft;
+    };
+
+    body.addEventListener('scroll', syncFromBody);
+    track.addEventListener('scroll', syncFromTrack);
+    headerTrack.addEventListener('scroll', () => {
+      body.scrollLeft = headerTrack.scrollLeft;
+    });
+
+    const resizeObserver = new ResizeObserver(updateSizes);
+    resizeObserver.observe(body);
+    if (table) resizeObserver.observe(table);
+
+    window.addEventListener('resize', updateSizes);
+    window.addEventListener('scroll', updateSizes, true);
+    updateSizes();
+  });
+
+  stickyScrollInitialized = true;
+}
 
 // =============================================================================
 // FUNCIONES PRINCIPALES
@@ -305,7 +413,7 @@ function renderOrders() {
   if (filteredOrders.length === 0) {
     ordersGrid.innerHTML = `
       <tr>
-        <td colspan="5" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+        <td colspan="9" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
           <div class="flex flex-col items-center">
             <svg class="w-12 h-12 mb-4 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
@@ -328,37 +436,41 @@ function renderOrders() {
     row.className = 'hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors duration-200';
     row.dataset.orderId = order.id.toString();
     row.innerHTML = `
-      <td class="px-3 py-2">
+      <td class="px-6 py-4 text-xs text-gray-900 dark:text-gray-200">
         <div class="flex items-center">
           <div class="ml-3">
-            <p class="text-sm font-medium text-gray-900 dark:text-gray-200">${order.orderNumber?.replace(/^GEL\s+/, '') || order.orderNumber}</p>
+            <button class="view-docs-btn text-xs font-medium text-blue-600 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200 underline"
+                    data-order-id="${order.id}"
+                    data-tooltip="${window.translations?.documentos?.viewDocuments || 'View documents'}">
+              ${order.orderNumber?.replace(/^GEL\s+/, '') || order.orderNumber}
+            </button>
           </div>
         </div>
       </td>
-      <td class="px-6 py-2">
+      <td class="px-6 py-4 text-xs text-gray-900 dark:text-gray-200">
         <div class="flex items-center">
-          <span class="text-sm text-gray-900 dark:text-gray-200">${order.documents ?? 0}</span>
+          <span class="text-xs text-gray-900 dark:text-gray-200">${order.documents ?? 0}</span>
         </div>
       </td>
-      <td class="px-6 py-2">
-        <p class="text-sm text-gray-900 dark:text-gray-200">${formatDateOnly(order.fecha_incoterm)}</p>
+      <td class="px-6 py-4 text-xs text-gray-900 dark:text-gray-200">
+        <p class="text-xs text-gray-900 dark:text-gray-200">${formatDateOnly(order.fecha_incoterm)}</p>
       </td>
-      <td class="px-6 py-2">
-        <p class="text-sm text-gray-900 dark:text-gray-200">${formatDateOnly(order.fecha_etd_factura)}</p>
+      <td class="px-6 py-4 text-xs text-gray-900 dark:text-gray-200">
+        <p class="text-xs text-gray-900 dark:text-gray-200">${formatDateOnly(order.fecha_etd_factura)}</p>
       </td>
-      <td class="px-6 py-2">
-        <p class="text-sm text-gray-900 dark:text-gray-200">${formatDateOnly(order.fecha_eta_factura)}</p>
+      <td class="px-6 py-4 text-xs text-gray-900 dark:text-gray-200">
+        <p class="text-xs text-gray-900 dark:text-gray-200">${formatDateOnly(order.fecha_eta_factura)}</p>
       </td>
-      <td class="px-6 py-2">
-        <p class="text-sm text-gray-900 dark:text-gray-200">${order.incoterm || '-'}</p>
+      <td class="px-6 py-4 text-xs text-gray-900 dark:text-gray-200">
+        <p class="text-xs text-gray-900 dark:text-gray-200">${order.incoterm || '-'}</p>
       </td>
-      <td class="px-6 py-2">
-        <p class="text-sm text-gray-900 dark:text-gray-200">${resolveShippingMethod(order)}</p>
+      <td class="px-6 py-4 text-xs text-gray-900 dark:text-gray-200">
+        <p class="text-xs text-gray-900 dark:text-gray-200">${resolveShippingMethod(order)}</p>
       </td>
-      <td class="px-6 py-2">
-        <p class="text-sm text-gray-900 dark:text-gray-200">${order.puerto_destino || '-'}</p>
+      <td class="px-6 py-4 text-xs text-gray-900 dark:text-gray-200">
+        <p class="text-xs text-gray-900 dark:text-gray-200">${order.puerto_destino || '-'}</p>
       </td>
-      <td class="px-6 py-2 text-center relative overflow-visible">
+      <td class="px-6 py-4 text-center relative overflow-visible sticky right-0 bg-gray-50 dark:bg-gray-900 z-10 min-w-[120px]">
         <div class="flex items-center justify-center space-x-3">
           <button class="view-items-btn text-gray-900 dark:text-white hover:text-green-500 transition"
                  data-order-pc="${order.pc}" data-order-oc="${order.orderNumber}" data-factura="${order.factura}"
@@ -386,6 +498,7 @@ function renderOrders() {
   updateOrdersPagination();
   // Activar tooltips flotantes en los botones de acción
   setupFloatingTooltips(ordersGrid);
+  setupStickyHorizontalScrollbar();
 }
 
 /**

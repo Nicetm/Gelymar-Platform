@@ -52,8 +52,15 @@ interface Props {
   </div>
 
   <!-- Table -->
-  <div class="overflow-auto">
-    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+  <div class="rounded-xl shadow ring-1 ring-gray-200 dark:ring-gray-700">
+    <div class="relative" data-scroll-sync="client-orders-table">
+      <div class="sticky top-0 z-30 bg-gray-100 dark:bg-gray-800 hidden" data-scroll-header>
+        <div class="overflow-x-auto scrollbar-hidden" data-scroll-header-track>
+          <table class="min-w-[1600px] divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900" style="width: max-content;"></table>
+        </div>
+      </div>
+      <div class="overflow-x-auto scrollbar-hidden" data-scroll-body>
+        <table class="min-w-[1600px] divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900" style="width: max-content;">
       <thead class="bg-gray-100/70 dark:bg-gray-800/70 backdrop-blur-md transition-shadow sticky top-0 z-10">
         <tr>
           <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="order">
@@ -120,7 +127,7 @@ interface Props {
               </svg>
             </div>
           </th>
-          <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+          <th class="px-6 py-3 text-center text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider sticky right-0 z-20 bg-gray-100 dark:bg-gray-800 min-w-[120px]">
             {t.documentos.actions}
           </th>
         </tr>
@@ -129,6 +136,13 @@ interface Props {
         <!-- Order rows will be injected by JS -->
       </tbody>
     </table>
+      </div>
+      <div class="sticky bottom-0 z-40 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm hidden" data-scrollbar>
+        <div class="overflow-x-auto" data-scrollbar-track>
+          <div class="h-1" data-scrollbar-inner></div>
+        </div>
+      </div>
+    </div>
   </div>
   
   <!-- Pagination -->
@@ -158,6 +172,23 @@ interface Props {
     </div>
   </footer>
 </div>
+
+<style>
+  .scrollbar-hidden {
+    scrollbar-width: none;
+  }
+  .scrollbar-hidden::-webkit-scrollbar {
+    height: 0;
+  }
+  .sticky-scrollbar-floating {
+    position: fixed;
+    bottom: 0;
+  }
+  .sticky-scroll-header-floating {
+    position: fixed;
+    top: 64px;
+  }
+</style>
 
 <!-- Modal de Items -->
 <div id="itemsModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">

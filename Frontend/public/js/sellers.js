@@ -21,6 +21,7 @@ export async function initSellersScript() {
   let filteredSellers = [];
   let currentPage = 1;
   let itemsPerPage = parseInt(itemsPerPageSelect.value, 10) || 10;
+  let currentSort = { column: null, direction: 'asc' };
 
   function setupStickyHeaderScroll() {
     const containers = document.querySelectorAll('[data-scroll-sync]');
@@ -41,6 +42,18 @@ export async function initSellersScript() {
         headerTable.appendChild(thead.cloneNode(true));
       }
 
+      const syncHeaderColumnWidths = () => {
+        const sourceCells = thead?.querySelectorAll('th') || [];
+        const cloneCells = headerTable.querySelectorAll('th');
+        if (!sourceCells.length || !cloneCells.length) return;
+        sourceCells.forEach((cell, index) => {
+          const cloneCell = cloneCells[index];
+          if (!cloneCell) return;
+          const width = cell.getBoundingClientRect().width;
+          cloneCell.style.width = `${width}px`;
+        });
+      };
+
       const updateSizes = () => {
         const rect = container.getBoundingClientRect();
         const scrollWidth = table ? table.scrollWidth : body.scrollWidth;
@@ -59,6 +72,7 @@ export async function initSellersScript() {
         header.classList.toggle('hidden', !shouldShowHeader);
 
         if (shouldShowHeader) {
+          syncHeaderColumnWidths();
           header.classList.add('sticky-scroll-header-floating');
           header.style.left = `${Math.max(rect.left, 0)}px`;
           header.style.width = `${Math.max(rect.width, 0)}px`;
@@ -188,12 +202,51 @@ export async function initSellersScript() {
     updatePagination(totalPages);
   }
 
+  function sortSellers(column, direction) {
+    if (!column) return;
+    const multiplier = direction === 'desc' ? -1 : 1;
+    filteredSellers.sort((a, b) => {
+      let aVal = a[column];
+      let bVal = b[column];
+
+      if (aVal == null) aVal = '';
+      if (bVal == null) bVal = '';
+
+      if (column === 'created_at') {
+        const aDate = new Date(aVal);
+        const bDate = new Date(bVal);
+        return ((aDate - bDate) || 0) * multiplier;
+      }
+
+      if (typeof aVal === 'number' || typeof bVal === 'number') {
+        return (Number(aVal) - Number(bVal)) * multiplier;
+      }
+
+      return String(aVal).toLowerCase().localeCompare(String(bVal).toLowerCase()) * multiplier;
+    });
+  }
+
+  function updateSortIcons(activeColumn, direction) {
+    document.querySelectorAll('th[data-sort] .sort-icon').forEach(icon => {
+      icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />';
+    });
+
+    const activeHeader = document.querySelector(`th[data-sort="${activeColumn}"] .sort-icon`);
+    if (activeHeader) {
+      activeHeader.innerHTML =
+        direction === 'asc'
+          ? '<path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" />'
+          : '<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />';
+    }
+  }
+
   function filterSellers() {
     const query = searchInput.value.toLowerCase().trim();
 
     if (!query) {
       filteredSellers = [...allSellers];
       currentPage = 1;
+      sortSellers(currentSort.column, currentSort.direction);
       renderTable();
       return;
     }
@@ -213,6 +266,7 @@ export async function initSellersScript() {
     });
 
     currentPage = 1;
+    sortSellers(currentSort.column, currentSort.direction);
     renderTable();
   }
 
@@ -237,6 +291,7 @@ export async function initSellersScript() {
       allSellers = Array.isArray(data) ? data : [];
       filteredSellers = [...allSellers];
       currentPage = 1;
+      sortSellers(currentSort.column, currentSort.direction);
       renderTable();
     } catch (error) {
       console.error('Error loading sellers:', error);
@@ -271,6 +326,25 @@ export async function initSellersScript() {
   });
 
   searchInput.addEventListener('input', filterSellers);
+
+  document.addEventListener('click', (e) => {
+    const header = e.target.closest('th[data-sort]');
+    if (!header) return;
+    e.preventDefault();
+    const column = header.dataset.sort;
+
+    if (currentSort.column === column) {
+      currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+    } else {
+      currentSort.column = column;
+      currentSort.direction = 'asc';
+    }
+
+    sortSellers(currentSort.column, currentSort.direction);
+    updateSortIcons(currentSort.column, currentSort.direction);
+    currentPage = 1;
+    renderTable();
+  });
 
   await loadSellers();
 }

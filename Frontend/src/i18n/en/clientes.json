@@ -91,7 +91,12 @@
       "email": "email@example.com",
       "phone": "+1 555 123 4567"
     },
-    "edit": "Edit"
+    "edit": "Edit",
+    "helpTitle": "Contacts help",
+    "helpAdd": "Use \"Add new contact\" to create a record.",
+    "helpFields": "Fill in name, email, and phone before saving.",
+    "helpOptions": "SH Docs and Reports enable document sending. CCO adds the email to the CCO list.",
+    "helpEdit": "You can edit or delete contacts from the Actions column."
   },
   "changePassword": {
     "title": "Change password",

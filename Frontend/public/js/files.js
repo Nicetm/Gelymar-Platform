@@ -581,16 +581,6 @@ export function initFilesScript() {
         </div>`;
     }
 
-    // Definir archivos por defecto que no deben tener botón de eliminar
-    const defaultFiles = [
-      'Order Receipt Notice',
-      'Shipment Notice',
-      'Order Delivery Notice',
-      'Availability Notice'
-    ];
-    
-    const isDefaultFile = defaultFiles.includes(file.name);
-    
     if (!hideActions) {
       actions += `
         <div class="relative">
@@ -604,22 +594,18 @@ export function initFilesScript() {
             </svg>
           </a>
         </div>`;
-        
-      // Solo mostrar botón de eliminar si NO es un archivo por defecto
-      if (!isDefaultFile) {
-        actions += `
-          <div class="relative">
-            <a href="#"
-               class="delete-btn text-gray-900 dark:text-white hover:text-red-500 transition"
-               data-file-id="${file.id}"
-               data-tooltip="${window.translations?.documentos?.delete_document || 'Eliminar documento'}"
-               aria-label="${window.translations?.documentos?.delete_document || 'Eliminar documento'}">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12M10 11v6M14 11v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
-              </svg>
-            </a>
-          </div>`;
-      }
+      actions += `
+        <div class="relative">
+          <a href="#"
+             class="delete-btn text-gray-900 dark:text-white hover:text-red-500 transition"
+             data-file-id="${file.id}"
+             data-tooltip="${window.translations?.documentos?.delete_document || 'Eliminar documento'}"
+             aria-label="${window.translations?.documentos?.delete_document || 'Eliminar documento'}">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12M10 11v6M14 11v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
+            </svg>
+          </a>
+        </div>`;
     }
     
     if (!hideActions) {
@@ -951,7 +937,7 @@ export function initFilesScript() {
     if (metadataList.length) {
       metadataList.forEach((meta) => {
         const normalized = normalize(meta.email);
-        if (normalized && !meta.cco) {
+        if (normalized) {
           knownEmails.add(normalized);
         }
       });
@@ -965,7 +951,7 @@ export function initFilesScript() {
 
     const renderCco = () => {
       if (!ccoWrapper || !ccoContainer) return;
-      const ccoEmails = getCcoEmailsFromMetadata().filter((email) => !activeEmails.has(email));
+      const ccoEmails = getCcoEmailsFromMetadata();
       if (!ccoEmails.length) {
         ccoWrapper.classList.add('hidden');
         ccoContainer.innerHTML = '';
@@ -974,14 +960,21 @@ export function initFilesScript() {
       ccoWrapper.classList.remove('hidden');
       ccoContainer.innerHTML = '';
       ccoEmails.forEach((email) => {
+        const isActive = activeEmails.has(email);
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'inline-flex items-center gap-1 rounded-full border border-dashed border-gray-300 px-3 py-1 text-xs text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800';
-        button.innerHTML = `<svg class="w-3 h-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg><span>${email}</span>`;
-        button.addEventListener('click', () => {
-          activeEmails.add(email);
-          renderAll();
-        });
+        button.className = isActive
+          ? 'inline-flex items-center gap-2 rounded-full border border-green-300 px-3 py-1 text-xs text-green-700 bg-green-50 dark:border-green-700 dark:text-green-200 dark:bg-green-900/30 cursor-default'
+          : 'inline-flex items-center gap-1 rounded-full border border-dashed border-gray-300 px-3 py-1 text-xs text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800';
+        button.innerHTML = isActive
+          ? `<svg class="w-3 h-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-7.5 7.5a1 1 0 01-1.414 0l-3.5-3.5a1 1 0 011.414-1.414l2.793 2.793 6.793-6.793a1 1 0 011.414 0z" clip-rule="evenodd" /></svg><span>${email}</span>`
+          : `<svg class="w-3 h-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg><span>${email}</span>`;
+        if (!isActive) {
+          button.addEventListener('click', () => {
+            activeEmails.add(email);
+            renderAll();
+          });
+        }
         ccoContainer.appendChild(button);
       });
     };
@@ -1033,7 +1026,8 @@ export function initFilesScript() {
       if (!availableWrapper || !availableContainer) return;
       availableContainer.innerHTML = '';
 
-      const availableList = Array.from(knownEmails).filter((email) => !activeEmails.has(email));
+      const ccoSet = new Set(getCcoEmailsFromMetadata().map(normalize).filter(Boolean));
+      const availableList = Array.from(knownEmails).filter((email) => !activeEmails.has(email) && !ccoSet.has(normalize(email)));
       if (!availableList.length) {
         availableWrapper.classList.add('hidden');
         return;
@@ -1047,18 +1041,21 @@ export function initFilesScript() {
         const isAllowed = canSendToEmail(email, validationMode);
         button.className = isAllowed
           ? 'inline-flex items-center gap-1 rounded-full border border-dashed border-blue-300 px-3 py-1 text-xs text-blue-600 transition hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/30'
-          : 'inline-flex items-center gap-1 rounded-full border border-dashed border-red-300 px-3 py-1 text-xs text-red-600 transition hover:bg-red-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/30';
+          : 'inline-flex items-center gap-1 rounded-full border border-dashed border-red-300 px-3 py-1 text-xs text-red-600 opacity-70 cursor-not-allowed dark:border-red-700 dark:text-red-300';
         button.dataset.validationAllowed = String(isAllowed);
         if (!isAllowed) {
           const restrictionLabel = getRestrictionLabel(validationMode);
           button.title = `${restrictionLabel} deshabilitado para este contacto`;
+          button.setAttribute('aria-disabled', 'true');
         }
         button.setAttribute('aria-label', `${addButtonLabel} ${email}`);
         button.innerHTML = `<svg class="w-3 h-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg><span>${email}</span>`;
-        button.addEventListener('click', () => {
-          activeEmails.add(email);
-          renderAll();
-        });
+        if (isAllowed) {
+          button.addEventListener('click', () => {
+            activeEmails.add(email);
+            renderAll();
+          });
+        }
         availableContainer.appendChild(button);
       });
     };
@@ -1125,6 +1122,7 @@ export function initFilesScript() {
       activeEmails.clear();
       if (Array.isArray(list)) {
         list.map(normalize).filter(Boolean).forEach((email) => {
+          if (!canSendToEmail(email, validationMode)) return;
           activeEmails.add(email);
           knownEmails.add(email);
         });
@@ -1147,6 +1145,12 @@ export function initFilesScript() {
 
     initialNormalized.forEach((email) => knownEmails.add(email));
     baseEmails = Array.from(new Set(initialNormalized));
+    getCcoEmailsFromMetadata().forEach((email) => {
+      const normalized = normalize(email);
+      if (normalized && !baseEmails.includes(normalized)) {
+        baseEmails.push(normalized);
+      }
+    });
     setActiveFrom(baseEmails);
 
     if (!Array.isArray(window.emailRecipientsManual)) {
@@ -1181,6 +1185,11 @@ export function initFilesScript() {
       setValidationMode: (mode) => {
         validationMode = String(mode) === '0' ? '0' : '1';
         setGlobalValidationMode(validationMode);
+        if (activeEmails.size) {
+          activeEmails = new Set(
+            Array.from(activeEmails).filter((email) => canSendToEmail(email, validationMode))
+          );
+        }
         renderAll();
       },
       getValidationMode: () => validationMode
@@ -2113,9 +2122,32 @@ export function initFilesScript() {
 
   // Configurar cierre de modales
   setupModalClose('#messageModal', '#closeMessageModalBtn');
+  setupModalClose('#messageHelpModal', '#closeMessageHelpModalBtn');
   setupModalClose('#editFileModal', '#closeEditModalBtn');
   setupModalClose('#renameFileModal', '#closeRenameModalBtn');
   setupModalClose('#uploadModal', '#closeUploadModalBtn');
+  setupModalClose('#uploadHelpModal', '#closeUploadHelpModalBtn');
+  setupModalClose('#uploadHelpModal', '#closeUploadHelpModalFooterBtn');
+
+  const messageHelpBtn = qs('#messageHelpBtn');
+  if (messageHelpBtn) {
+    messageHelpBtn.addEventListener('click', () => {
+      showModal('#messageHelpModal');
+    });
+  }
+
+  const uploadHelpBtn = qs('#uploadHelpBtn');
+  if (uploadHelpBtn) {
+    uploadHelpBtn.addEventListener('click', () => {
+      showModal('#uploadHelpModal');
+    });
+  }
+  const uploadHelpInlineBtn = qs('#uploadHelpInlineBtn');
+  if (uploadHelpInlineBtn) {
+    uploadHelpInlineBtn.addEventListener('click', () => {
+      showModal('#uploadHelpModal');
+    });
+  }
 
   const closeMessageModalBtnEl = qs('#closeMessageModalBtn');
   if (closeMessageModalBtnEl) {

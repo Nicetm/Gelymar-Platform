@@ -61,17 +61,24 @@ function formatQuantity(amount, unit = 'KG') {
   };
   
   const mappedUnit = unitMap[unit] || unit.toLowerCase();
-  return `${amount.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${mappedUnit}`;
+  const numericAmount = Number(typeof amount === 'string' ? amount.replace(',', '.') : amount);
+  const safeAmount = Number.isFinite(numericAmount) ? numericAmount : 0;
+  return `${safeAmount.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${mappedUnit}`;
 }
 
 // Función para formatear precio unitario
 function formatUnitPrice(amount) {
-  return `$${amount.toFixed(4).replace(',', '.')}`;
+  const numericAmount = Number(typeof amount === 'string' ? amount.replace(',', '.') : amount);
+  const safeAmount = Number.isFinite(numericAmount) ? numericAmount : 0;
+  const parts = safeAmount.toFixed(4).split('.');
+  const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `$${integerPart},${parts[1]}`;
 }
 
 // Función para formatear total
 function formatTotal(amount) {
-  const safeAmount = parseNumber(amount);
+  const numericAmount = Number(typeof amount === 'string' ? amount.replace(',', '.') : amount);
+  const safeAmount = Number.isFinite(numericAmount) ? numericAmount : 0;
   const formattedAmount = safeAmount.toLocaleString('es-CL', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
@@ -306,6 +313,18 @@ export async function initFoldersScript() {
         headerTable.appendChild(thead.cloneNode(true));
       }
 
+      const syncHeaderColumnWidths = () => {
+        const sourceCells = thead?.querySelectorAll('th') || [];
+        const cloneCells = headerTable.querySelectorAll('th');
+        if (!sourceCells.length || !cloneCells.length) return;
+        sourceCells.forEach((cell, index) => {
+          const cloneCell = cloneCells[index];
+          if (!cloneCell) return;
+          const width = cell.getBoundingClientRect().width;
+          cloneCell.style.width = `${width}px`;
+        });
+      };
+
       const updateSizes = () => {
         const rect = container.getBoundingClientRect();
         const scrollWidth = table ? table.scrollWidth : body.scrollWidth;
@@ -342,6 +361,7 @@ export async function initFoldersScript() {
         header.classList.toggle('hidden', !shouldShowHeader);
 
         if (shouldShowHeader) {
+          syncHeaderColumnWidths();
           header.classList.add('sticky-scroll-header-floating');
           header.style.left = `${Math.max(rect.left, 0)}px`;
           header.style.width = `${Math.max(rect.width, 0)}px`;
@@ -393,7 +413,7 @@ export async function initFoldersScript() {
       tooltip.setAttribute('role', 'tooltip');
       Object.assign(tooltip.style, {
         position: 'fixed',
-        zIndex: '10',
+        zIndex: '50',
         backgroundColor: '#047857',
         color: '#ffffff',
         padding: '6px 10px',
@@ -559,20 +579,20 @@ export async function initFoldersScript() {
             <div class="relative">
               <a href="#" class="items-list-btn text-gray-900 dark:text-white hover:text-green-500 transition"
                  data-order-pc="${safePcAttr}" data-order-oc="${safeOcAttr}" data-factura="${safeFacturaAttr}"
-                 data-tooltip="${window.translations?.carpetas?.tooltipViewItems || 'Ver lista de items'}"
-                 aria-label="${window.translations?.carpetas?.tooltipViewItems || 'Ver lista de items'}">
+                 data-tooltip="${window.translations?.carpetas?.tooltipViewItemsDetailed || 'Ver items detallados'}"
+                 aria-label="${window.translations?.carpetas?.tooltipViewItemsDetailed || 'Ver items detallados'}">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
                 </svg>
               </a>
             </div>
             <div class="relative">
-              <a href="#" class="expand-items-btn text-gray-900 dark:text-white hover:text-green-500 transition"
+              <a href="#" class="items-detail-modal-btn text-gray-900 dark:text-white hover:text-green-500 transition"
                  data-order-pc="${safePcAttr}" data-order-oc="${safeOcAttr}" data-factura="${safeFacturaAttr}"
-                 data-tooltip="${window.translations?.carpetas?.tooltipExpandItems || 'Expandir items en tabla'}"
-                 aria-label="${window.translations?.carpetas?.tooltipExpandItems || 'Expandir items en tabla'}">
+                 data-tooltip="${window.translations?.carpetas?.tooltipViewItems || 'Ver lista de items'}"
+                 aria-label="${window.translations?.carpetas?.tooltipViewItems || 'Ver lista de items'}">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>
                 </svg>
               </a>
             </div>
@@ -905,23 +925,33 @@ export async function initFoldersScript() {
     };
     
     const mappedUnit = unitMap[unit] || unit.toLowerCase();
-    return `${amount.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${mappedUnit}`;
+    const numericAmount = Number(typeof amount === 'string' ? amount.replace(',', '.') : amount);
+    const safeAmount = Number.isFinite(numericAmount) ? numericAmount : 0;
+    return `${safeAmount.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${mappedUnit}`;
   }
 
   /**
    * Función para formatear precio unitario
    */
   function formatUnitPrice(amount) {
-    return `$${amount.toFixed(4).replace(',', '.')}`;
+    const numericAmount = Number(typeof amount === 'string' ? amount.replace(',', '.') : amount);
+    const safeAmount = Number.isFinite(numericAmount) ? numericAmount : 0;
+    const parts = safeAmount.toFixed(4).split('.');
+    const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return `$${integerPart},${parts[1]}`;
   }
 
   /**
    * Función para formatear total
    */
   function formatTotal(amount) {
-    const parts = amount.toFixed(4).split('.');
-    const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    return `$${integerPart},${parts[1]}`;
+    const numericAmount = Number(typeof amount === 'string' ? amount.replace(',', '.') : amount);
+    const safeAmount = Number.isFinite(numericAmount) ? numericAmount : 0;
+    const formattedAmount = safeAmount.toLocaleString('es-CL', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+    return `$${formattedAmount}`;
   }
 
   /**
@@ -963,11 +993,11 @@ export async function initFoldersScript() {
           
           return `
             <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition">
-              <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">${item.item_code || 'N/A'}</td>
-              <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">${item.item_name || 'N/A'}</td>
-              <td class="px-6 py-4 text-sm text-center text-gray-900 dark:text-gray-100">${formatQuantity(quantity, unit)}</td>
-              <td class="px-6 py-4 text-sm text-center text-gray-900 dark:text-gray-100">${formatUnitPrice(unitPrice)}</td>
-              <td class="px-6 py-4 text-sm text-center font-semibold text-gray-900 dark:text-gray-100">${formatTotal(total)}</td>
+              <td class="px-6 py-4 text-xs text-gray-900 dark:text-gray-100">${item.item_code || 'N/A'}</td>
+              <td class="px-6 py-4 text-xs text-gray-900 dark:text-gray-100">${item.item_name || 'N/A'}</td>
+              <td class="px-6 py-4 text-xs text-center text-gray-900 dark:text-gray-100">${formatQuantity(quantity, unit)}</td>
+              <td class="px-6 py-4 text-xs text-center text-gray-900 dark:text-gray-100">${formatUnitPrice(unitPrice)}</td>
+              <td class="px-6 py-4 text-xs text-center font-semibold text-gray-900 dark:text-gray-100">${formatTotal(total)}</td>
             </tr>
           `;
         }).join('');
@@ -1012,11 +1042,22 @@ export async function initFoldersScript() {
     itemsModal.classList.remove('flex');
   }
 
+  function closeItemsDetailModal() {
+    const detailModal = document.getElementById('itemsDetailModal');
+    if (!detailModal) return;
+    detailModal.classList.add('hidden');
+    detailModal.classList.remove('flex');
+  }
+
   /**
    * Event listeners para el modal de items
    */
   if (closeItemsModalBtn) {
     closeItemsModalBtn.addEventListener('click', closeItemsModal);
+  }
+  const closeItemsDetailModalBtn = document.getElementById('closeItemsDetailModalBtn');
+  if (closeItemsDetailModalBtn) {
+    closeItemsDetailModalBtn.addEventListener('click', closeItemsDetailModal);
   }
 
   // Cerrar modal al hacer clic fuera
@@ -1024,6 +1065,15 @@ export async function initFoldersScript() {
     itemsModal.addEventListener('click', (e) => {
       if (e.target === itemsModal) {
         closeItemsModal();
+      }
+    });
+  }
+
+  const itemsDetailModal = document.getElementById('itemsDetailModal');
+  if (itemsDetailModal) {
+    itemsDetailModal.addEventListener('click', (e) => {
+      if (e.target === itemsDetailModal) {
+        closeItemsDetailModal();
       }
     });
   }
@@ -1130,36 +1180,63 @@ export async function initFoldersScript() {
     });
   }
 
-  // Función para expandir/contraer items de una orden
-  async function toggleItemsExpansion(orderPc, orderOc, factura) {
-    // Buscar la fila específica usando el botón que se hizo clic
-    const expandBtn = document.querySelector(`[data-order-pc="${orderPc}"][data-order-oc="${orderOc}"].expand-items-btn`);
-    const row = expandBtn?.closest('tr');
-    if (!row) return;
+  function buildItemsDetailTable(items) {
+    return `
+      <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+        <thead class="bg-gray-100 dark:bg-gray-800 sticky top-0 z-10">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Código</th>
+            <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Nombre</th>
+            <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Tipo</th>
+            <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">KG Solicitados</th>
+            <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">KG Despachados</th>
+            <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">KG Facturados</th>
+            <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">ETD Date</th>
+            <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">ETA Date</th>
+            <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Precio Unitario</th>
+            <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Total</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-xs">
+          ${items.map(item => {
+            const quantity = parseFloat(item.kg_solicitados) || 0;
+            const unitPrice = parseFloat(item.unit_price) || 0;
+            const total = quantity * unitPrice;
+            return `
+              <tr class="hover:bg-gray-50 dark:hover:bg-gray-600 transition">
+                <td class="px-6 py-4 text-xs text-gray-900 dark:text-gray-100">${item.item_code || 'N/A'}</td>
+                <td class="px-6 py-4 text-xs text-gray-900 dark:text-gray-100">${item.item_name || 'N/A'}</td>
+                <td class="px-6 py-4 text-xs text-center text-gray-900 dark:text-gray-100">${item.tipo || 'N/A'}</td>
+                <td class="px-6 py-4 text-xs text-center text-gray-900 dark:text-gray-100">${formatQuantity(quantity, 'KG')}</td>
+                <td class="px-6 py-4 text-xs text-center text-gray-900 dark:text-gray-100">${formatQuantity(parseFloat(item.kg_despachados) || 0, 'KG')}</td>
+                <td class="px-6 py-4 text-xs text-center text-gray-900 dark:text-gray-100">${formatQuantity(parseFloat(item.kg_facturados) || 0, 'KG')}</td>
+                <td class="px-6 py-4 text-xs text-center text-gray-900 dark:text-gray-100 whitespace-nowrap">${item.fecha_etd ? new Date(item.fecha_etd).toLocaleDateString('es-CL') : '-'}</td>
+                <td class="px-6 py-4 text-xs text-center text-gray-900 dark:text-gray-100 whitespace-nowrap">${item.fecha_eta ? new Date(item.fecha_eta).toLocaleDateString('es-CL') : '-'}</td>
+                <td class="px-6 py-4 text-xs text-center text-gray-900 dark:text-gray-100">${formatUnitPrice(unitPrice)}</td>
+                <td class="px-6 py-4 text-xs text-center font-semibold text-gray-900 dark:text-gray-100">${formatTotal(total)}</td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+  }
 
-    // Verificar si ya está expandido
-    const existingExpandedRow = row.nextElementSibling;
-    if (existingExpandedRow && existingExpandedRow.classList.contains('expanded-items-row')) {
-      // Contraer
-      existingExpandedRow.remove();
-      // Cambiar icono a flecha hacia abajo
-      expandBtn.querySelector('svg').innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>';
-      return;
-    }
+  async function openItemsDetailModal(orderPc, orderOc, factura) {
+    const detailModal = document.getElementById('itemsDetailModal');
+    const detailTitle = document.getElementById('itemsDetailTitle');
+    const detailContainer = document.getElementById('itemsDetailTableContainer');
+    if (!detailModal || !detailContainer) return;
 
     try {
-      // Cargar items de la orden
       const token = localStorage.getItem('token');
       const apiBase = window.apiBase;
-
       const safeOrderOc = orderOc ? encodeURIComponent(orderOc) : '';
       const safeFactura = factura && factura !== 'null' ? encodeURIComponent(factura) : '';
-      
-      // Usar endpoint diferente según si tiene factura o no
-      const url = factura && factura !== 'null' 
+      const url = factura && factura !== 'null'
         ? `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/${safeFactura}/items`
         : `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/items`;
-      
+
       const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -1169,119 +1246,62 @@ export async function initFoldersScript() {
       }
 
       const items = await response.json();
-      
-      // Crear fila expandida
-      const expandedRow = document.createElement('tr');
-      expandedRow.className = 'expanded-items-row bg-gray-50 dark:bg-gray-800';
-      
-      const expandedCell = document.createElement('td');
-      expandedCell.colSpan = 13; // Ajustar según el número de columnas de la tabla de folders
-      expandedCell.className = 'px-6 py-4';
-      
-      // Crear tabla de items
-      const currency = items[0]?.currency || 'CLP';
-      const itemsTable = `
+      if (detailTitle) {
+        detailTitle.textContent = `Items de Orden ${orderOc || '-'}`;
+      }
+      detailContainer.innerHTML = `
         <div class="bg-white dark:bg-gray-700 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600">
-          <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-600 flex justify-between items-center">
-            <h4 class="text-sm font-medium text-gray-900 dark:text-gray-100">
-              Items de Orden ${orderOc}
-            </h4>
-            <button class="close-expansion-btn text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition" data-order-pc="${orderPc}">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-              </svg>
-            </button>
-          </div>
           <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-600">
-              <thead class="bg-gray-50 dark:bg-gray-600">
-                <tr>
-                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Código</th>
-                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Nombre</th>
-                  <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Tipo</th>
-                  <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Mercado</th>
-                  <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">KG Solicitados</th>
-                  <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">KG Despachados</th>
-                  <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">KG Facturados</th>
-                  <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Precio Unitario</th>
-                  <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Total</th>
-                </tr>
-              </thead>
-              <tbody class="bg-white dark:bg-gray-700 divide-y divide-gray-200 dark:divide-gray-600">
-                ${items.map(item => {
-                  const quantity = parseFloat(item.kg_solicitados) || 0;
-                  const unitPrice = parseFloat(item.unit_price) || 0;
-                  const total = quantity * unitPrice;
-                  
-                  return `
-                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-600 transition">
-                      <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">${item.item_code || 'N/A'}</td>
-                      <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">${item.item_name || 'N/A'}</td>
-                      <td class="px-4 py-3 text-sm text-center text-gray-900 dark:text-gray-100">${item.tipo || 'N/A'}</td>
-                      <td class="px-4 py-3 text-sm text-center text-gray-900 dark:text-gray-100">${item.mercado || 'N/A'}</td>
-                      <td class="px-4 py-3 text-sm text-center text-gray-900 dark:text-gray-100">${formatQuantity(quantity, 'KG')}</td>
-                      <td class="px-4 py-3 text-sm text-center text-gray-900 dark:text-gray-100">${formatQuantity(parseFloat(item.kg_despachados) || 0, 'KG')}</td>
-                      <td class="px-4 py-3 text-sm text-center text-gray-900 dark:text-gray-100">${formatQuantity(parseFloat(item.kg_facturados) || 0, 'KG')}</td>
-                      <td class="px-4 py-3 text-sm text-center text-gray-900 dark:text-gray-100">${formatUnitPrice(unitPrice)}</td>
-                      <td class="px-4 py-3 text-sm text-center font-semibold text-gray-900 dark:text-gray-100">${formatTotal(total)}</td>
-                    </tr>
-                  `;
-                }).join('')}
-              </tbody>
-            </table>
+            ${buildItemsDetailTable(items)}
           </div>
         </div>
       `;
-      
-      expandedCell.innerHTML = itemsTable;
-      expandedRow.appendChild(expandedCell);
-      
-      // Insertar después de la fila actual
-      row.parentNode.insertBefore(expandedRow, row.nextSibling);
-      
-      // Cambiar icono a flecha hacia arriba
-      expandBtn.querySelector('svg').innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/>';
-      
+      detailModal.classList.remove('hidden');
+      detailModal.classList.add('flex');
     } catch (error) {
-      console.error('Error cargando items para expansión:', error);
+      console.error('Error cargando items para modal:', error);
+      showNotification('Error al cargar items de la orden', 'error');
     }
   }
 
-  // Función para cerrar expansión desde el botón X
-  function closeItemsExpansion(orderPc) {
-    // Buscar la fila expandida
-    const expandedRow = document.querySelector('.expanded-items-row');
-    if (expandedRow) {
-      // Encontrar la fila anterior (la que tiene el botón)
-      const originalRow = expandedRow.previousElementSibling;
-      if (originalRow) {
-        const expandBtn = originalRow.querySelector('.expand-items-btn');
-        if (expandBtn) {
-          // Cambiar icono a flecha hacia abajo
-          expandBtn.querySelector('svg').innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>';
-        }
-      }
-      // Remover la fila expandida
-      expandedRow.remove();
-    }
-  }
 
   // Función helper para formatear cantidad
   function formatQuantity(quantity, unit) {
-    if (quantity === 0 || isNaN(quantity)) return '0';
-    return `${quantity.toLocaleString('es-ES')} ${unit}`;
+    const unitMap = {
+      'KG': 'kg',
+      'KILOGRAMOS': 'kg',
+      'TON': 'ton',
+      'TONELADAS': 'ton',
+      'LITROS': 'L',
+      'L': 'L',
+      'UNIDADES': 'un',
+      'UN': 'un'
+    };
+    
+    const mappedUnit = unitMap[unit] || unit?.toLowerCase?.() || unit || '';
+    const numericAmount = Number(typeof quantity === 'string' ? quantity.replace(',', '.') : quantity);
+    const safeAmount = Number.isFinite(numericAmount) ? numericAmount : 0;
+    return `${safeAmount.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${mappedUnit}`;
   }
 
   // Función helper para formatear precio unitario
   function formatUnitPrice(price) {
-    if (price === 0 || isNaN(price)) return '$0';
-    return `$${price.toLocaleString('es-ES')}`;
+    const numericAmount = Number(typeof price === 'string' ? price.replace(',', '.') : price);
+    const safeAmount = Number.isFinite(numericAmount) ? numericAmount : 0;
+    const parts = safeAmount.toFixed(4).split('.');
+    const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return `$${integerPart},${parts[1]}`;
   }
 
   // Función helper para formatear total
   function formatTotal(total) {
-    if (total === 0 || isNaN(total)) return '$0';
-    return `$${total.toLocaleString('es-ES')}`;
+    const numericAmount = Number(typeof total === 'string' ? total.replace(',', '.') : total);
+    const safeAmount = Number.isFinite(numericAmount) ? numericAmount : 0;
+    const formattedAmount = safeAmount.toLocaleString('es-CL', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+    return `$${formattedAmount}`;
   }
 
   /**
@@ -1304,17 +1324,6 @@ export async function initFoldersScript() {
   });
 
 
-  /**
-   * Event listeners para botones de cerrar expansión
-   */
-  document.addEventListener('click', (e) => {
-    const closeBtn = e.target.closest('.close-expansion-btn');
-    if (closeBtn) {
-      e.preventDefault();
-      const orderPc = closeBtn.dataset.orderPc;
-      closeItemsExpansion(orderPc);
-    }
-  });
 
   // Función para abrir el modal de detalles de orden
   async function openOrderDetailModal(orderId, orderOc) {
@@ -1432,15 +1441,14 @@ export async function initFoldersScript() {
       }
     });
 
-    // Event listeners para botones de expansión de items
     document.addEventListener('click', (e) => {
-      const expandBtn = e.target.closest('.expand-items-btn');
-      if (expandBtn) {
+      const detailBtn = e.target.closest('.items-detail-modal-btn');
+      if (detailBtn) {
         e.preventDefault();
-        const orderPc = expandBtn.dataset.orderPc;
-        const orderOc = expandBtn.dataset.orderOc;
-        const factura = expandBtn.dataset.factura;
-        toggleItemsExpansion(orderPc, orderOc, factura);
+        const orderPc = detailBtn.dataset.orderPc;
+        const orderOc = detailBtn.dataset.orderOc;
+        const factura = detailBtn.dataset.factura;
+        openItemsDetailModal(orderPc, orderOc, factura);
       }
     });
 

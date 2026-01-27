@@ -72,6 +72,18 @@ export async function initOrdersScript() {
         headerTable.appendChild(theadClone);
       }
 
+      const syncHeaderColumnWidths = () => {
+        const sourceCells = thead?.querySelectorAll('th') || [];
+        const cloneCells = headerTable.querySelectorAll('th');
+        if (!sourceCells.length || !cloneCells.length) return;
+        sourceCells.forEach((cell, index) => {
+          const cloneCell = cloneCells[index];
+          if (!cloneCell) return;
+          const width = cell.getBoundingClientRect().width;
+          cloneCell.style.width = `${width}px`;
+        });
+      };
+
       const updateSizes = () => {
         const rect = container.getBoundingClientRect();
         const scrollWidth = table ? table.scrollWidth : body.scrollWidth;
@@ -106,6 +118,7 @@ export async function initOrdersScript() {
         header.classList.toggle('hidden', !shouldShowHeader);
 
         if (shouldShowHeader) {
+          syncHeaderColumnWidths();
           header.classList.add('sticky-scroll-header-floating');
           header.style.left = `${Math.max(rect.left, 0)}px`;
           header.style.width = `${Math.max(rect.width, 0)}px`;
@@ -254,22 +267,22 @@ export async function initOrdersScript() {
             <div class="relative">
               <a href="#" class="items-list-btn text-gray-900 dark:text-white hover:text-green-500 transition"
                  data-order-pc="${order.pc}" data-order-oc="${order.oc}" data-factura="${order.factura}"
-                 data-tooltip="${window.translations?.carpetas?.tooltipViewItems || 'Ver lista de items'}"
-                 aria-label="${window.translations?.carpetas?.tooltipViewItems || 'Ver lista de items'}">
+                 data-tooltip="${window.translations?.carpetas?.tooltipViewItemsDetailed || 'Ver items detallados'}"
+                 aria-label="${window.translations?.carpetas?.tooltipViewItemsDetailed || 'Ver items detallados'}">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
                 </svg>
               </a>
             </div>
 
-            <!-- Expandir items -->
+            <!-- Ver items en modal (tabla expandida) -->
             <div class="relative">
-              <a href="#" class="expand-items-btn text-gray-900 dark:text-white hover:text-green-500 transition"
+              <a href="#" class="items-detail-modal-btn text-gray-900 dark:text-white hover:text-green-500 transition"
                  data-order-pc="${order.pc}" data-order-oc="${order.oc}" data-factura="${order.factura}"
-                 data-tooltip="${window.translations?.carpetas?.tooltipExpandItems || 'Expandir items en tabla'}"
-                 aria-label="${window.translations?.carpetas?.tooltipExpandItems || 'Expandir items en tabla'}">
+                 data-tooltip="${window.translations?.carpetas?.tooltipViewItems || 'Ver lista de items'}"
+                 aria-label="${window.translations?.carpetas?.tooltipViewItems || 'Ver lista de items'}">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>
                 </svg>
               </a>
             </div>
@@ -953,31 +966,20 @@ export async function initOrdersScript() {
       }
     });
 
-    // Event listeners para botones de expansión de items
     document.addEventListener('click', (e) => {
-      const expandBtn = e.target.closest('.expand-items-btn');
-      if (expandBtn) {
+      const detailBtn = e.target.closest('.items-detail-modal-btn');
+      if (detailBtn) {
         e.preventDefault();
-        const orderPc = expandBtn.dataset.orderPc;
-        const orderOc = expandBtn.dataset.orderOc;
-        const factura = expandBtn.dataset.factura;
-        toggleItemsExpansion(orderPc, orderOc, factura);
+        const orderPc = detailBtn.dataset.orderPc;
+        const orderOc = detailBtn.dataset.orderOc;
+        const factura = detailBtn.dataset.factura;
+        openItemsDetailModal(orderPc, orderOc, factura);
       }
     });
 
-    // Event listeners para botones de cerrar expansión
-    document.addEventListener('click', (e) => {
-      const closeBtn = e.target.closest('.close-expansion-btn');
-      if (closeBtn) {
-        e.preventDefault();
-        const orderPc = closeBtn.dataset.orderPc;
-        closeItemsExpansion(orderPc);
-      }
-    });
-
-    // Event listeners para botones de detalles de orden
-    document.addEventListener('click', (e) => {
-      const detailBtn = e.target.closest('.order-detail-btn');
+      // Event listeners para botones de detalles de orden
+      document.addEventListener('click', (e) => {
+        const detailBtn = e.target.closest('.order-detail-btn');
       if (detailBtn) {
         e.preventDefault();
         const orderId = detailBtn.dataset.orderId;
@@ -988,14 +990,23 @@ export async function initOrdersScript() {
 
     // Event listeners para cerrar modales
     const closeItemsModalBtn = document.getElementById('closeItemsModalBtn');
+    const closeItemsDetailModalBtn = document.getElementById('closeItemsDetailModalBtn');
     const closeOrderDetailModalBtn = document.getElementById('closeOrderDetailModalBtn');
     const itemsModal = document.getElementById('itemsModal');
+    const itemsDetailModal = document.getElementById('itemsDetailModal');
     const orderDetailModal = document.getElementById('orderDetailModal');
 
     if (closeItemsModalBtn) {
       closeItemsModalBtn.addEventListener('click', () => {
         itemsModal.classList.add('hidden');
         itemsModal.classList.remove('flex');
+      });
+    }
+
+    if (closeItemsDetailModalBtn) {
+      closeItemsDetailModalBtn.addEventListener('click', () => {
+        itemsDetailModal.classList.add('hidden');
+        itemsDetailModal.classList.remove('flex');
       });
     }
 
@@ -1011,6 +1022,15 @@ export async function initOrdersScript() {
         if (e.target === itemsModal) {
           itemsModal.classList.add('hidden');
           itemsModal.classList.remove('flex');
+        }
+      });
+    }
+
+    if (itemsDetailModal) {
+      itemsDetailModal.addEventListener('click', (e) => {
+        if (e.target === itemsDetailModal) {
+          itemsDetailModal.classList.add('hidden');
+          itemsDetailModal.classList.remove('flex');
         }
       });
     }
@@ -1248,6 +1268,94 @@ function formatTotal(amount, currency = 'CLP') {
   return `${currency} ${formattedAmount}`;
 }
 
+function buildItemsDetailTable(items, currency) {
+  return `
+    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+      <thead class="bg-gray-100 dark:bg-gray-800 sticky top-0 z-10">
+        <tr>
+          <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Código</th>
+          <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Nombre</th>
+          <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Tipo</th>
+          <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">KG Solicitados</th>
+          <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">KG Despachados</th>
+          <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">KG Facturados</th>
+          <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">ETD Date</th>
+          <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">ETA Date</th>
+          <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Precio Unitario</th>
+          <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Total</th>
+        </tr>
+      </thead>
+      <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-xs">
+        ${items.map(item => {
+          const quantity = parseFloat(item.kg_solicitados) || 0;
+          const unitPrice = parseFloat(item.unit_price) || 0;
+          const total = quantity * unitPrice;
+
+          return `
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-600 transition">
+              <td class="px-6 py-4 text-xs text-gray-900 dark:text-gray-100">${item.item_code || '-'}</td>
+              <td class="px-6 py-4 text-xs text-gray-900 dark:text-gray-100">${item.item_name || '-'}</td>
+              <td class="px-6 py-4 text-xs text-center text-gray-900 dark:text-gray-100">${item.tipo || '-'}</td>
+              <td class="px-6 py-4 text-xs text-center text-gray-900 dark:text-gray-100">${formatQuantity(quantity, 'KG')}</td>
+              <td class="px-6 py-4 text-xs text-center text-gray-900 dark:text-gray-100">${formatQuantity(parseFloat(item.kg_despachados) || 0, 'KG')}</td>
+              <td class="px-6 py-4 text-xs text-center text-gray-900 dark:text-gray-100">${formatQuantity(parseFloat(item.kg_facturados) || 0, 'KG')}</td>
+              <td class="px-6 py-4 text-xs text-center text-gray-900 dark:text-gray-100 whitespace-nowrap">${item.fecha_etd ? new Date(item.fecha_etd).toLocaleDateString('es-CL') : '-'}</td>
+              <td class="px-6 py-4 text-xs text-center text-gray-900 dark:text-gray-100 whitespace-nowrap">${item.fecha_eta ? new Date(item.fecha_eta).toLocaleDateString('es-CL') : '-'}</td>
+              <td class="px-6 py-4 text-xs text-center text-gray-900 dark:text-gray-100">${formatUnitPrice(unitPrice, currency)}</td>
+              <td class="px-6 py-4 text-xs text-center font-semibold text-gray-900 dark:text-gray-100">${formatTotal(total, currency)}</td>
+            </tr>
+          `;
+        }).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+async function openItemsDetailModal(orderPc, orderOc, factura) {
+  const detailModal = document.getElementById('itemsDetailModal');
+  const detailTitle = document.getElementById('itemsDetailTitle');
+  const detailContainer = document.getElementById('itemsDetailTableContainer');
+  if (!detailModal || !detailContainer) return;
+
+  try {
+    const token = localStorage.getItem('token');
+    const section = document.getElementById('OrderSection');
+    const datasetApiBase = section?.dataset?.apiBase;
+    const apiBase = window.apiBase || datasetApiBase;
+    const safeOrderOc = orderOc ? encodeURIComponent(orderOc) : '';
+    const safeFactura = factura && factura !== 'null' ? encodeURIComponent(factura) : '';
+    const url = factura && factura !== 'null'
+      ? `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/${safeFactura}/items`
+      : `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/items`;
+
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    if (!response.ok) {
+      throw new Error('Error al cargar los items de la orden');
+    }
+
+    const items = await response.json();
+    const currency = items[0]?.currency || 'CLP';
+    if (detailTitle) {
+      detailTitle.textContent = `Items de la Factura ${factura || '-'}`;
+    }
+    detailContainer.innerHTML = `
+      <div class="bg-white dark:bg-gray-700 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600">
+        <div class="overflow-x-auto">
+          ${buildItemsDetailTable(items, currency)}
+        </div>
+      </div>
+    `;
+    detailModal.classList.remove('hidden');
+    detailModal.classList.add('flex');
+  } catch (error) {
+    console.error('Error cargando items para modal:', error);
+    showNotification('Error al cargar items de la orden', 'error');
+  }
+}
+
 // Función para abrir el modal de detalles de orden
 async function openOrderDetailModal(orderId, orderOc) {
   const orderDetailModal = document.getElementById('orderDetailModal');
@@ -1322,148 +1430,6 @@ async function openOrderDetailModal(orderId, orderOc) {
     }
 
     orderDetailModal.classList.remove('hidden');
-  }
-}
-
-// Función para expandir/contraer items de una orden
-async function toggleItemsExpansion(orderPc, orderOc, factura) {
-  // Buscar la fila específica usando el botón que se hizo clic
-  const expandBtn = event.target.closest('.expand-items-btn');
-  const row = expandBtn.closest('tr');
-  if (!row) return;
-
-  // Verificar si ya está expandido
-  const existingExpandedRow = row.nextElementSibling;
-  if (existingExpandedRow && existingExpandedRow.classList.contains('expanded-items-row')) {
-    // Contraer
-    existingExpandedRow.remove();
-    // Cambiar icono a flecha hacia abajo
-    expandBtn.querySelector('svg').innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>';
-    return;
-  }
-
-  try {
-    // Cargar items de la orden
-    const token = localStorage.getItem('token');
-    const section = document.getElementById('OrderSection');
-    const datasetApiBase = section?.dataset?.apiBase;
-    const apiBase = window.apiBase || datasetApiBase;
-    
-    const safeOrderOc = orderOc ? encodeURIComponent(orderOc) : '';
-    const safeFactura = factura && factura !== 'null' ? encodeURIComponent(factura) : '';
-
-    // Usar endpoint diferente según si tiene factura o no
-    const url = factura && factura !== 'null' 
-      ? `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/${safeFactura}/items`
-      : `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/items`;
-    
-    const response = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-
-    if (!response.ok) {
-      throw new Error('Error al cargar los items de la orden');
-    }
-
-    const items = await response.json();
-    
-    // Crear fila expandida
-    const expandedRow = document.createElement('tr');
-    expandedRow.className = 'expanded-items-row bg-gray-50 dark:bg-gray-800';
-    
-    const expandedCell = document.createElement('td');
-    expandedCell.colSpan = 10; // Ajustar según el número de columnas de tu tabla
-    expandedCell.className = 'px-6 py-4';
-    
-            // Crear tabla de items
-        const currency = items[0]?.currency || 'CLP';
-        const itemsTable = `
-          <div class="bg-white dark:bg-gray-700 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600">
-            <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-600 flex justify-between items-center">
-              <h4 class="text-sm font-medium text-gray-900 dark:text-gray-100">
-                Items de la Factura ${factura || '-'}
-              </h4>
-              <button class="close-expansion-btn text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition" data-order-pc="${orderPc}">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-                </svg>
-              </button>
-            </div>
-        <div class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-600">
-            <thead class="bg-gray-50 dark:bg-gray-600">
-              <tr>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Código</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Nombre</th>
-                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Tipo</th>
-                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Mercado</th>
-                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">KG Solicitados</th>
-                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">KG Despachados</th>
-                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">KG Facturados</th>
-                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">ETD Date</th>
-                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">ETA Date</th>
-                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Precio Unitario</th>
-                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Total</th>
-              </tr>
-            </thead>
-            <tbody class="bg-white dark:bg-gray-700 divide-y divide-gray-200 dark:divide-gray-600">
-                             ${items.map(item => {
-                 const quantity = parseFloat(item.kg_solicitados) || 0;
-                 const unitPrice = parseFloat(item.unit_price) || 0;
-                 const total = quantity * unitPrice;
-                 
-                 return `
-                   <tr class="hover:bg-gray-50 dark:hover:bg-gray-600 transition">
-                     <td class="px-4 py-3 text-xs text-gray-900 dark:text-gray-100">${item.item_code || '-'}</td>
-                     <td class="px-4 py-3 text-xs text-gray-900 dark:text-gray-100">${item.item_name || '-'}</td>
-                     <td class="px-4 py-3 text-xs text-center text-gray-900 dark:text-gray-100">${item.tipo || '-'}</td>
-                     <td class="px-4 py-3 text-xs text-center text-gray-900 dark:text-gray-100">${item.mercado || '-'}</td>
-                     <td class="px-4 py-3 text-xs text-center text-gray-900 dark:text-gray-100">${formatQuantity(quantity, 'KG')}</td>
-                     <td class="px-4 py-3 text-xs text-center text-gray-900 dark:text-gray-100">${formatQuantity(parseFloat(item.kg_despachados) || 0, 'KG')}</td>
-                     <td class="px-4 py-3 text-xs text-center text-gray-900 dark:text-gray-100">${formatQuantity(parseFloat(item.kg_facturados) || 0, 'KG')}</td>
-                     <td class="px-4 py-3 text-xs text-center text-gray-900 dark:text-gray-100">${item.fecha_etd ? new Date(item.fecha_etd).toLocaleDateString('es-CL') : '-'}</td>
-                     <td class="px-4 py-3 text-xs text-center text-gray-900 dark:text-gray-100">${item.fecha_eta ? new Date(item.fecha_eta).toLocaleDateString('es-CL') : '-'}</td>
-                     <td class="px-4 py-3 text-xs text-center text-gray-900 dark:text-gray-100">${formatUnitPrice(unitPrice, currency)}</td>
-                     <td class="px-4 py-3 text-xs text-center font-semibold text-gray-900 dark:text-gray-100">${formatTotal(total, currency)}</td>
-                   </tr>
-                 `;
-               }).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
-    
-    expandedCell.innerHTML = itemsTable;
-    expandedRow.appendChild(expandedCell);
-    
-    // Insertar después de la fila actual
-    row.parentNode.insertBefore(expandedRow, row.nextSibling);
-    
-    // Cambiar icono a flecha hacia arriba
-    expandBtn.querySelector('svg').innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/>';
-    
-  } catch (error) {
-    console.error('Error cargando items para expansión:', error);
-  }
-}
-
-// Función para cerrar expansión desde el botón X
-function closeItemsExpansion(orderPc) {
-  // Buscar la fila expandida
-  const expandedRow = document.querySelector('.expanded-items-row');
-  if (expandedRow) {
-    // Encontrar la fila anterior (la que tiene el botón)
-    const originalRow = expandedRow.previousElementSibling;
-    if (originalRow) {
-      const expandBtn = originalRow.querySelector('.expand-items-btn');
-      if (expandBtn) {
-        // Cambiar icono a flecha hacia abajo
-        expandBtn.querySelector('svg').innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>';
-      }
-    }
-    // Remover la fila expandida
-    expandedRow.remove();
   }
 }
 

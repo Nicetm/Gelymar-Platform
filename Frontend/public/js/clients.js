@@ -221,6 +221,18 @@ export async function initClientsScript() {
         headerTable.appendChild(thead.cloneNode(true));
       }
 
+      const syncHeaderColumnWidths = () => {
+        const sourceCells = thead?.querySelectorAll('th') || [];
+        const cloneCells = headerTable.querySelectorAll('th');
+        if (!sourceCells.length || !cloneCells.length) return;
+        sourceCells.forEach((cell, index) => {
+          const cloneCell = cloneCells[index];
+          if (!cloneCell) return;
+          const width = cell.getBoundingClientRect().width;
+          cloneCell.style.width = `${width}px`;
+        });
+      };
+
       const updateSizes = () => {
         const rect = container.getBoundingClientRect();
         const scrollWidth = table ? table.scrollWidth : body.scrollWidth;
@@ -239,6 +251,7 @@ export async function initClientsScript() {
         header.classList.toggle('hidden', !shouldShowHeader);
 
         if (shouldShowHeader) {
+          syncHeaderColumnWidths();
           header.classList.add('sticky-scroll-header-floating');
           header.style.left = `${Math.max(rect.left, 0)}px`;
           header.style.width = `${Math.max(rect.width, 0)}px`;
@@ -1599,8 +1612,17 @@ export async function initClientsScript() {
   // Configurar cierre de modales
   setupModalClose('#profileModal', '#closeProfileModalBtn');
   setupModalClose('#contactsModal', '#closeContactsModalBtn');
+  setupModalClose('#contactsHelpModal', '#closeContactsHelpModalBtn');
+  setupModalClose('#contactsHelpModal', '#closeContactsHelpModalFooterBtn');
   setupModalClose('#changePasswordModal', '#closeChangePasswordModalBtn');
   setupModalClose('#changePasswordModal', '#cancelChangePasswordBtn');
+
+  const contactsHelpBtn = document.getElementById('contactsHelpBtn');
+  if (contactsHelpBtn) {
+    contactsHelpBtn.addEventListener('click', () => {
+      showModal('#contactsHelpModal');
+    });
+  }
 
 
   // Verificar si hay un filtro guardado desde orders.js
