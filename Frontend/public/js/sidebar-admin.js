@@ -917,6 +917,7 @@ export function initSidebarAdmin(config) {
     const addAdminUserBtn = document.getElementById('addAdminUserBtn');
     const saveAdminUsersBtn = document.getElementById('saveAdminUsersBtn');
     const adminFormContainer = document.getElementById('adminUsersFormContainer');
+    const adminUsersHelpBtn = document.getElementById('adminUsersHelpBtn');
     let adminUsers = [];
     let editingAdminId = null;
 
@@ -1307,6 +1308,8 @@ export function initSidebarAdmin(config) {
     adminUsersModal?.addEventListener('click', (e) => { if (e.target === adminUsersModal) closeAdminUsersModal(); });
     addAdminUserBtn?.addEventListener('click', (e) => { e.preventDefault(); resetAdminFormRows(); });
     saveAdminUsersBtn?.addEventListener('click', saveNewAdmins);
+    setupModalClose('#adminUsersHelpModal', '#closeAdminUsersHelpModalBtn, #closeAdminUsersHelpModalFooterBtn');
+    adminUsersHelpBtn?.addEventListener('click', () => showModal('#adminUsersHelpModal'));
 
     // Delegación de eventos para acciones de tabla
     document.addEventListener('click', async (e) => {
