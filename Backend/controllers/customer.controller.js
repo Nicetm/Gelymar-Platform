@@ -167,8 +167,15 @@ exports.changeCustomerPassword = async (req, res) => {
       return res.status(400).json({ message: 'La contraseña es requerida' });
     }
 
-    if (password.length < 6) {
-      return res.status(400).json({ message: 'La contraseña debe tener al menos 6 caracteres' });
+    const isStrongPassword =
+      password.length >= 8 &&
+      /[A-Z]/.test(password) &&
+      /[a-z]/.test(password) &&
+      /[0-9]/.test(password);
+    if (!isStrongPassword) {
+      return res.status(400).json({
+        message: 'La contraseña debe tener al menos 8 caracteres e incluir mayúscula, minúscula y número'
+      });
     }
 
     // Obtener el cliente por UUID

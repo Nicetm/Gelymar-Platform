@@ -1,5 +1,15 @@
 ---
-
+import { loadTranslations, getServerLang } from '../lib/i18n.js';
+const lang = getServerLang(Astro.cookies);
+let t: any = {};
+try {
+  t = {
+    comond: await loadTranslations(lang, 'comond')
+  };
+} catch (error) {
+  console.error('Error loading translations (LayoutAuth):', error);
+}
+const forgotPasswordLabel = t?.comond?.forgot_password ?? 'Forgot password?';
 ---
 
 <html lang="en">
@@ -7,6 +17,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Gelymar Panel</title>
+    <link rel="stylesheet" href="/styles/auth-forms.css" />
   </head>
 
   <body class="font-sans bg-gray-100 dark:bg-gray-900 antialiased">
@@ -27,7 +38,7 @@
           <!-- Forgot Password -->
           <div class="text-sm text-center text-[#002E50]/80 mt-4">
             <a href="/authentication/forgot-password" class="hover:underline hover:text-[#00538C] transition">
-              Forgot password?
+              {forgotPasswordLabel}
             </a>
           </div>
         </div>

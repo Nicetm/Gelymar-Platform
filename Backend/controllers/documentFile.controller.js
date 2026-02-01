@@ -864,8 +864,13 @@ exports.deleteFileById = async (req, res) => {
     if (typeof file.path === 'string' && file.path.trim()) {
       const fullPath = path.join(process.env.FILE_SERVER_ROOT || '/var/www/html', file.path);
       if (fs.existsSync(fullPath)) {
-        fs.unlinkSync(fullPath);
-        logger.info(`Archivo físico eliminado: ${fullPath}`);
+        const stat = fs.lstatSync(fullPath);
+        if (stat.isFile()) {
+          fs.unlinkSync(fullPath);
+          logger.info(`Archivo físico eliminado: ${fullPath}`);
+        } else {
+          logger.warn(`Ruta no es archivo, se omite eliminación física: ${fullPath}`);
+        }
       }
     }
     await fileService.deleteFileById(file.id);

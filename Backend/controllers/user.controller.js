@@ -214,7 +214,7 @@ exports.resetAdminPassword = async (req, res) => {
     const { id } = req.params;
     const { newPassword } = req.body || {};
     if (!id) return res.status(400).json({ message: 'ID requerido' });
-    const reset = await userService.resetAdminPassword(id, newPassword || '123456');
+    const reset = await userService.resetAdminPassword(id, newPassword || '12345');
     if (!reset) return res.status(404).json({ message: 'Admin no encontrado' });
     res.json({ message: 'Contraseña reseteada' });
   } catch (error) {

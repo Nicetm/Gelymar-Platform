@@ -1864,9 +1864,18 @@ export function initFilesScript() {
 
   // Event listener para el botón de crear archivos por defecto
   createDefaultFilesBtn?.addEventListener('click', async () => {
+    const confirmTitle =
+      window.translations?.documentos?.create_default_files_title ||
+      '¿Crear archivos por defecto?';
+    const confirmMessage =
+      window.translations?.documentos?.create_default_files_message ||
+      'Si la orden tiene factura se crearán: Aviso de Embarque, Aviso de Entrega y Aviso de Disponibilidad. Si no tiene factura, se creará solo el Aviso de Recepción de Orden.';
+    const creatingLabel =
+      window.translations?.documentos?.creating_files || 'Creando...';
+
     const confirmed = await confirmAction(
-      '¿Crear archivos por defecto?',
-      'Se crearán 4 archivos por defecto: Recepción de orden, Aviso de Embarque, Aviso de Recepción de orden y Aviso de Disponibilidad de Orden.',
+      confirmTitle,
+      confirmMessage,
       'info'
     );
 
@@ -1878,7 +1887,7 @@ export function initFilesScript() {
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
         </svg>
-        <span>Creando...</span>
+        <span>${creatingLabel}</span>
       `;
       createDefaultFilesBtn.disabled = true;
 

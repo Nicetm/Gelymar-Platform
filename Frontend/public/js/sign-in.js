@@ -85,6 +85,15 @@ export function initSignIn(config = {}) {
   const SELLER_ROLE_NAMES = ['seller', 'ventas', 'vendedor'];
   const CLIENT_ROLE_NAMES = ['client', 'cliente'];
 
+  const translations = config.translations || {};
+  const getText = (key, fallback, vars = {}) => {
+    let value = translations?.comond?.[key] || fallback;
+    Object.entries(vars).forEach(([k, v]) => {
+      value = value.replace(`{${k}}`, String(v));
+    });
+    return value;
+  };
+
   const parseJsonResponse = async (response) => {
     const contentType = response.headers?.get('content-type') || '';
     if (contentType.includes('application/json')) {
@@ -192,6 +201,7 @@ export function initSignIn(config = {}) {
     const username = formData.get('username')?.trim() || '';
     const password = formData.get('password') || '';
     const otp = formData.get('otp')?.trim() || '';
+    const rememberMe = formData.get('rememberMe') === 'on';
     let captchaResponse = '';
 
     const msg = document.getElementById('loginMessage');
@@ -201,7 +211,7 @@ export function initSignIn(config = {}) {
 
     if (recaptchaSiteKey) {
       if (!window.grecaptcha || typeof window.grecaptcha.getResponse !== 'function') {
-        msg.textContent = 'Captcha is not ready yet. Please wait a moment and try again.';
+        msg.textContent = getText('captcha_not_ready', 'Captcha is not ready yet. Please wait and try again.');
         msg.classList.remove('hidden');
         msg.classList.remove('text-green-600');
         msg.classList.add('text-red-500');
@@ -210,7 +220,7 @@ export function initSignIn(config = {}) {
 
       captchaResponse = window.grecaptcha.getResponse();
       if (!captchaResponse) {
-        msg.textContent = 'Please confirm you are not a robot';
+        msg.textContent = getText('captcha_required', 'Please confirm you are not a robot');
         msg.classList.remove('hidden');
         msg.classList.remove('text-green-600');
         msg.classList.add('text-red-500');
@@ -219,7 +229,16 @@ export function initSignIn(config = {}) {
     }
 
     if (!username || !password) {
-      msg.textContent = 'Please complete all required fields';
+      msg.textContent = getText('required_fields', 'Please complete all required fields');
+      msg.classList.remove('hidden');
+      msg.classList.remove('text-green-600');
+      msg.classList.add('text-red-500');
+      return;
+    }
+
+    const rutPattern = /^\d{7,8}-[0-9kK]$/;
+    if (!rutPattern.test(username)) {
+      msg.textContent = getText('invalid_rut', 'RUT must be numbers, a hyphen, and one digit or letter. e.g., 15060791-4');
       msg.classList.remove('hidden');
       msg.classList.remove('text-green-600');
       msg.classList.add('text-red-500');
@@ -228,14 +247,21 @@ export function initSignIn(config = {}) {
 
     const submitBtn = e.target.querySelector('button[type="submit"]');
     const originalBtnText = submitBtn ? submitBtn.textContent : '';
+    const originalBtnHtml = submitBtn ? submitBtn.innerHTML : '';
     if (submitBtn) {
       submitBtn.disabled = true;
-      submitBtn.textContent = 'Signing in...';
+      submitBtn.innerHTML = `
+        <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+        </svg>
+        <span>${getText('signing_in', 'Signing in...')}</span>
+      `;
       submitBtn.classList.add('opacity-70', 'cursor-not-allowed');
     }
 
     msg.classList.add('hidden');
-    msg.textContent = 'Iniciando sesión...';
+    msg.textContent = getText('signing_in', 'Signing in...');
     msg.classList.remove('hidden');
     msg.classList.remove('text-red-500');
     msg.classList.add('text-blue-600');
@@ -252,7 +278,7 @@ export function initSignIn(config = {}) {
         data = await parseJsonResponse(res);
       } catch (parseError) {
         console.error('Respuesta inesperada del servicio de login:', parseError);
-        msg.textContent = 'Authentication service unavailable. Please try again later.';
+        msg.textContent = getText('auth_unavailable', 'Authentication service unavailable. Please try again later.');
         msg.classList.remove('hidden');
         msg.classList.remove('text-blue-600', 'text-green-600');
         msg.classList.add('text-red-500');
@@ -289,14 +315,24 @@ export function initSignIn(config = {}) {
             console.error('Error obteniendo estado 2FA:', twoFaError);
           }
 
-          msg.textContent = 'Please enter your 2FA code from the authenticator app.';
+          msg.textContent = getText('enter_2fa', 'Please enter your 2FA code from the authenticator app.');
           msg.classList.remove('hidden');
           msg.classList.remove('text-red-500');
           msg.classList.add('text-green-600');
           return;
         }
 
-        msg.textContent = data.message || 'Login failed';
+        if (data?.error === 'ACCOUNT_BLOCKED') {
+          msg.textContent = getText('account_blocked', 'Your account has been blocked due to failed attempts. Please contact an administrator.');
+        } else if (typeof data?.remainingAttempts === 'number') {
+          msg.textContent = getText(
+            'login_attempts_remaining',
+            'Invalid credentials. {count} attempts remaining.',
+            { count: data.remainingAttempts }
+          );
+        } else {
+          msg.textContent = data.message || getText('login_failed', 'Invalid credentials');
+        }
         msg.classList.remove('hidden');
         msg.classList.remove('text-green-600');
         msg.classList.add('text-red-500');
@@ -305,6 +341,13 @@ export function initSignIn(config = {}) {
 
       localStorage.setItem('token', data.token);
       document.cookie = `token=${data.token}; path=/; SameSite=Strict`;
+      if (rememberMe) {
+        localStorage.setItem('rememberedRut', username);
+        localStorage.setItem('rememberMe', '1');
+      } else {
+        localStorage.removeItem('rememberedRut');
+        localStorage.removeItem('rememberMe');
+      }
 
       try {
         const meRes = await fetch(`${resolvedApiBase}/api/auth/me`, {
@@ -429,8 +472,8 @@ export function initSignIn(config = {}) {
               clearSessionAfterMismatch();
               const mismatchMessage =
                 isAdminContext || isAdminHost
-                  ? 'Acceso de vendedores disponible solo desde el portal de vendedores. Usa la URL de vendedores.'
-                  : 'Portal de clientes disponible solo para clientes. Usa la URL de vendedores.';
+                  ? getText('portal_seller_only', 'Seller access is available only from the seller portal. Use the seller URL.')
+                  : getText('portal_client_only_alt', 'Client portal is available only for clients. Use the client URL.');
               showPortalMismatchMessage(mismatchMessage);
               return;
             }
@@ -440,8 +483,8 @@ export function initSignIn(config = {}) {
               clearSessionAfterMismatch();
               const mismatchMessage =
                 isAdminContext || isAdminHost
-                  ? 'Portal de clientes disponible en el dominio publico. Usa la URL de clientes.'
-                  : 'Portal de vendedores disponible solo para vendedores. Usa la URL de clientes.';
+                  ? getText('portal_client_only', 'Client portal is available on the public domain. Use the client URL.')
+                  : getText('portal_seller_only_alt', 'Seller portal is available only for sellers. Use the seller URL.');
               showPortalMismatchMessage(mismatchMessage);
               return;
             }
@@ -454,19 +497,19 @@ export function initSignIn(config = {}) {
         }
       } catch (error) {
         console.error('Error obteniendo rol:', error);
-        msg.textContent = 'Error validando usuario';
+        msg.textContent = getText('login_failed', 'Invalid credentials');
         msg.classList.remove('hidden');
         msg.classList.add('text-red-500');
       }
     } catch (err) {
       console.error('Error en login:', err);
-      msg.textContent = 'Connection error';
+      msg.textContent = getText('connection_error', 'Connection error');
       msg.classList.remove('hidden');
       msg.classList.add('text-red-500');
     } finally {
       if (submitBtn) {
         submitBtn.disabled = false;
-        submitBtn.textContent = originalBtnText;
+        submitBtn.innerHTML = originalBtnHtml || originalBtnText;
         submitBtn.classList.remove('opacity-70', 'cursor-not-allowed');
       }
       if (recaptchaSiteKey && window.grecaptcha && typeof window.grecaptcha.reset === 'function') {
@@ -482,6 +525,33 @@ export function initSignIn(config = {}) {
     const form = document.getElementById('loginForm');
     if (!form) {
       return;
+    }
+
+    const rememberedRut = localStorage.getItem('rememberedRut') || '';
+    const rememberMe = localStorage.getItem('rememberMe') === '1';
+    const usernameInput = document.getElementById('username');
+    const rememberMeInput = document.getElementById('rememberMe');
+    if (usernameInput && rememberedRut) {
+      usernameInput.value = rememberedRut;
+    }
+    if (rememberMeInput) {
+      rememberMeInput.checked = rememberMe;
+    }
+
+    const passwordInput = document.getElementById('password');
+    const togglePasswordBtn = document.getElementById('togglePasswordBtn');
+    const togglePasswordIcon = document.getElementById('togglePasswordIcon');
+    const togglePasswordIconOff = document.getElementById('togglePasswordIconOff');
+    if (passwordInput && togglePasswordBtn) {
+      const labelShow = togglePasswordBtn.dataset.labelShow || 'Show password';
+      const labelHide = togglePasswordBtn.dataset.labelHide || 'Hide password';
+      togglePasswordBtn.addEventListener('click', () => {
+        const isVisible = passwordInput.type === 'text';
+        passwordInput.type = isVisible ? 'password' : 'text';
+        togglePasswordIcon?.classList.toggle('hidden', !isVisible);
+        togglePasswordIconOff?.classList.toggle('hidden', isVisible);
+        togglePasswordBtn.setAttribute('aria-label', isVisible ? labelShow : labelHide);
+      });
     }
 
     form.removeEventListener('submit', handleSubmit);

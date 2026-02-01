@@ -3,6 +3,7 @@ const { poolPromise } = require('../config/db');
 const { logger } = require('../utils/logger');
 const Users = require('../models/user.model');
 const bcrypt = require('bcrypt');
+const { v4: uuidv4 } = require('uuid');
 
 /**
  * Obtiene todos los clientes con un conteo de carpetas asociadas (folder_count)
@@ -30,7 +31,7 @@ async function findUserByEmailOrUsername(emailOrUsername) {
 
   const query = `
     SELECT u.id, u.rut AS rut, u.password, u.role_id,
-           u.twoFASecret, u.twoFAEnabled, u.change_pw,
+           u.twoFASecret, u.twoFAEnabled, u.change_pw, u.bloqueado,
            COALESCE(a.name, c.name, s.nombre) AS full_name,
            COALESCE(a.phone, c.phone) AS phone,
            COALESCE(a.country, c.country) AS country,
@@ -317,14 +318,14 @@ async function createAdminUser({ rut, email, full_name, phone, agent, password }
   );
 
   await pool.query(
-    `INSERT INTO admins (rut, email, name, phone, created_at, updated_at)
-     VALUES (?, ?, ?, ?, NOW(), NOW())
+    `INSERT INTO admins (uuid, rut, email, name, phone, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, NOW(), NOW())
      ON DUPLICATE KEY UPDATE
        email = VALUES(email),
        name = VALUES(name),
        phone = VALUES(phone),
        updated_at = NOW()`,
-    [rut, email, full_name || null, phone || null]
+    [uuidv4(), rut, email, full_name || null, phone || null]
   );
 
   return result.insertId;
@@ -374,7 +375,7 @@ async function deleteUserById(id) {
   return result.affectedRows > 0;
 }
 
-async function resetAdminPassword(id, newPassword = '123456') {
+async function resetAdminPassword(id, newPassword = '12345') {
   const pool = await poolPromise;
   const hashed = await bcrypt.hash(newPassword, 10);
   const [result] = await pool.query(

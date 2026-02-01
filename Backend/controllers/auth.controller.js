@@ -11,6 +11,17 @@ const { generateToken } = require('../utils/jwt.util');
 const { sendEmail } = require('../utils/email.util');
 const { logger } = require('../utils/logger');
 const { normalizeRole } = require('../utils/role.util');
+const { poolPromise } = require('../config/db');
+const MAX_LOGIN_ATTEMPTS = 5;
+
+const isStrongPassword = (value) => {
+  if (typeof value !== 'string') return false;
+  if (value.length < 8) return false;
+  if (!/[A-Z]/.test(value)) return false;
+  if (!/[a-z]/.test(value)) return false;
+  if (!/[0-9]/.test(value)) return false;
+  return true;
+};
 
 const verifyRecaptcha = async (token) => {
   const secret = process.env.RECAPTCHA_SECRET_KEY;
@@ -100,17 +111,70 @@ const extractTwoFAPayload = (req) => {
     logger.info(`Intento de login para: ${identifier}`);
 
   try {
-      const user = await userService.findUserByEmailOrUsername(identifier);
-      if (!user) {
-        logger.warn(`Usuario no encontrado: ${identifier}`);
-        return res.status(401).json({ message: 'Usuario o clave incorrecta' });
-      }
+    const user = await userService.findUserByEmailOrUsername(identifier);
+    if (!user) {
+      logger.warn(`Usuario no encontrado: ${identifier}`);
+      return res.status(401).json({ message: 'Usuario o clave incorrecta' });
+    }
+
+    if (Number(user.bloqueado) === 1) {
+      logger.warn(`Usuario bloqueado: ${identifier}`);
+      return res.status(403).json({
+        message: 'Tu cuenta ha sido bloqueada por intentos fallidos. Por favor contacta con un administrador',
+        error: 'ACCOUNT_BLOCKED'
+      });
+    }
 
     const validPassword = await bcrypt.compare(password, user.password);
-      if (!validPassword) {
-        logger.warn(`Contraseña incorrecta para usuario: ${identifier}`);
+    if (!validPassword) {
+      logger.warn(`Contraseña incorrecta para usuario: ${identifier}`);
+      try {
+        const pool = await poolPromise;
+        await pool.query(
+          `
+            UPDATE users
+            SET
+              intentos_fallidos = LEAST(COALESCE(intentos_fallidos, 0) + 1, 999),
+              bloqueado = CASE
+                WHEN COALESCE(intentos_fallidos, 0) + 1 >= ? THEN 1
+                ELSE bloqueado
+              END
+            WHERE id = ?
+          `,
+          [MAX_LOGIN_ATTEMPTS, user.id]
+        );
+          const [rows] = await pool.query(
+            'SELECT intentos_fallidos, bloqueado FROM users WHERE id = ?',
+            [user.id]
+          );
+          if (rows.length && Number(rows[0].bloqueado) === 1) {
+            return res.status(403).json({
+              message: 'Tu cuenta ha sido bloqueada por intentos fallidos. Por favor contacta con un administrador',
+              error: 'ACCOUNT_BLOCKED'
+            });
+          }
+          if (rows.length) {
+            const remainingAttempts = Math.max(
+              0,
+              MAX_LOGIN_ATTEMPTS - Number(rows[0].intentos_fallidos || 0)
+            );
+            return res.status(401).json({
+              message: 'Usuario o clave incorrecta',
+              remainingAttempts
+            });
+          }
+        } catch (updateError) {
+          logger.error(`Error actualizando intentos fallidos para ${identifier}: ${updateError.message}`);
+        }
+
         return res.status(401).json({ message: 'Usuario o clave incorrecta' });
-      }
+    }
+    try {
+      const pool = await poolPromise;
+      await pool.query('UPDATE users SET intentos_fallidos = 0 WHERE id = ?', [user.id]);
+    } catch (resetError) {
+      logger.error(`Error reseteando intentos fallidos para ${identifier}: ${resetError.message}`);
+    }
 
       if (user.twoFAEnabled) {
         if (!user.twoFASecret) {
@@ -397,6 +461,12 @@ exports.recoverPassword = async (req, res) => {
       return res.status(400).json({ message: 'Faltan datos' });
     }
   
+    if (!isStrongPassword(newPassword)) {
+      return res.status(400).json({
+        message: 'La contraseña debe tener al menos 8 caracteres e incluir mayúscula, minúscula y número'
+      });
+    }
+  
     try {
       const isHuman = await verifyRecaptcha(captchaResponse);
       if (!isHuman) {
@@ -437,6 +507,12 @@ exports.changePassword = async (req, res) => {
 
   if (!currentPassword || !newPassword) {
     return res.status(400).json({ message: 'Faltan datos requeridos' });
+  }
+
+  if (!isStrongPassword(newPassword)) {
+    return res.status(400).json({
+      message: 'La contraseña debe tener al menos 8 caracteres e incluir mayúscula, minúscula y número'
+    });
   }
 
   try {

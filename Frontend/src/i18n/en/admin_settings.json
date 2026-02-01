@@ -47,5 +47,10 @@
   "passwordMismatch": "Passwords do not match",
   "passwordRequired": "All fields are required",
   "passwordChangeSuccess": "Password updated successfully",
-  "passwordChangeError": "Error updating password"
+  "passwordChangeError": "Error updating password",
+  "password_strength_error": "Password must be at least 8 characters and include uppercase, lowercase, and a number",
+  "password_rule_min": "Minimum 8 characters",
+  "password_rule_upper": "At least 1 uppercase letter",
+  "password_rule_lower": "At least 1 lowercase letter",
+  "password_rule_number": "At least 1 number"
 }

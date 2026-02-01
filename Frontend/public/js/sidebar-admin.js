@@ -301,6 +301,7 @@ export function initSidebarAdmin(config) {
     const currentPasswordInput = document.getElementById('adminCurrentPassword');
     const newPasswordInput = document.getElementById('adminNewPassword');
     const confirmPasswordInput = document.getElementById('adminConfirmPassword');
+    const adminPasswordRules = document.getElementById('adminPasswordRules');
 
     let pdfEmails = [];
 
@@ -953,6 +954,7 @@ export function initSidebarAdmin(config) {
       if (currentPasswordInput) currentPasswordInput.value = '';
       if (newPasswordInput) newPasswordInput.value = '';
       if (confirmPasswordInput) confirmPasswordInput.value = '';
+      updateAdminPasswordRules('');
     }
 
     function openAdminChangePasswordModal() {
@@ -961,6 +963,36 @@ export function initSidebarAdmin(config) {
     }
 
     setupModalClose('#adminChangePasswordModal', '#closeAdminChangePasswordModalBtn, #cancelAdminChangePasswordBtn');
+
+    const isStrongPassword = (value) =>
+      typeof value === 'string' &&
+      value.length >= 8 &&
+      /[A-Z]/.test(value) &&
+      /[a-z]/.test(value) &&
+      /[0-9]/.test(value);
+
+    function updateAdminPasswordRules(value) {
+      if (!adminPasswordRules) return;
+      const rules = {
+        length: value.length >= 8,
+        upper: /[A-Z]/.test(value),
+        lower: /[a-z]/.test(value),
+        number: /[0-9]/.test(value)
+      };
+
+      adminPasswordRules.querySelectorAll('li[data-rule]').forEach((item) => {
+        const ruleKey = item.getAttribute('data-rule');
+        const passed = !!rules[ruleKey];
+        const icon = item.querySelector('.rule-icon');
+        if (icon) {
+          icon.textContent = passed ? '✓' : '✗';
+          icon.classList.toggle('text-green-500', passed);
+          icon.classList.toggle('text-red-500', !passed);
+        }
+        item.classList.toggle('text-green-600', passed);
+        item.classList.toggle('text-red-500', !passed);
+      });
+    }
 
     async function submitAdminPasswordChange() {
       const authToken = token || getClientToken();
@@ -980,6 +1012,11 @@ export function initSidebarAdmin(config) {
 
       if (newPassword !== confirmPassword) {
         showNotification(getAdminSetting('passwordMismatch', 'Passwords do not match'), 'error');
+        return;
+      }
+
+      if (!isStrongPassword(newPassword)) {
+        showNotification(getAdminSetting('password_strength_error', 'Password must be at least 8 characters and include uppercase, lowercase, and a number'), 'error');
         return;
       }
 
@@ -1039,6 +1076,10 @@ export function initSidebarAdmin(config) {
     if (saveAdminPasswordBtn) {
       saveAdminPasswordBtn.addEventListener('click', submitAdminPasswordChange);
     }
+
+    newPasswordInput?.addEventListener('input', (e) => {
+      updateAdminPasswordRules(e.target.value || '');
+    });
 
     function addAdminFormRow() {
       const tbody = ensureAdminFormTableBody();
