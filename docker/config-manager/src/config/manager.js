@@ -292,7 +292,7 @@ class ConfigManager {
     
     // Agrupar por categorías
     const categories = {
-      'Base de datos': ['DB_HOST', 'DB_PORT', 'DB_USER', 'DB_PASS', 'DB_NAME'],
+      'Base de datos': ['MYSQL_DB_HOST', 'MYSQL_DB_PORT', 'MYSQL_DB_USER', 'MYSQL_DB_PASS', 'MYSQL_DB_NAME'],
       'API y servidor': ['PORT', 'NODE_ENV', 'DOCKER_ENV', 'JWT_SECRET'],
       'URLs de servicios': ['HOST_IP', 'FRONTEND_BASE_URL', 'PUBLIC_API_URL', 'PUBLIC_FILE_SERVER_URL', 'PUBLIC_API_BASE_URL', 'PUBLIC_FRONTEND_BASE_URL', 'SERVER_API_URL', 'SITE', 'BACKEND_BASE_URL'],
       'File server': ['FILE_SERVER_URL', 'FILE_SERVER_ROOT'],
@@ -461,7 +461,7 @@ class ConfigManager {
    */
   generateEnvContent(config) {
     const sections = {
-      'Base de Datos': ['DB_HOST', 'DB_PORT', 'DB_USER', 'DB_PASS', 'DB_NAME'],
+      'Base de Datos': ['MYSQL_DB_HOST', 'MYSQL_DB_PORT', 'MYSQL_DB_USER', 'MYSQL_DB_PASS', 'MYSQL_DB_NAME'],
       'Servidor': ['PORT', 'NODE_ENV', 'DOCKER_ENV'],
       'Autenticación': ['JWT_SECRET'],
       'Red y URLs': ['HOST_IP', 'DOMAIN', 'FRONTEND_BASE_URL', 'PUBLIC_API_URL', 'PUBLIC_FILE_SERVER_URL', 'PUBLIC_API_BASE_URL', 'PUBLIC_FRONTEND_BASE_URL', 'SERVER_API_URL', 'SITE', 'BACKEND_BASE_URL', 'BACKEND_API_URL'],

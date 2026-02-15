@@ -8,13 +8,13 @@ services:
     restart: unless-stopped
     environment:
       - TZ=America/Santiago
-      - MYSQL_ROOT_PASSWORD=${DB_PASS}
-      - MYSQL_DATABASE=${DB_NAME}
-      - MYSQL_USER=${DB_USER}
-      - MYSQL_PASSWORD=${DB_PASS}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_DB_PASS}
+      - MYSQL_DATABASE=${MYSQL_DB_NAME}
+      - MYSQL_USER=${MYSQL_DB_USER}
+      - MYSQL_PASSWORD=${MYSQL_DB_PASS}
     command: ["--default-time-zone=America/Santiago"]
     ports:
-      - "${DB_PORT}:3306"
+      - "${MYSQL_DB_PORT}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./mysql/init:/docker-entrypoint-initdb.d
@@ -68,11 +68,16 @@ services:
       - NODE_ENV=${NODE_ENV}
       - PORT=${PORT}
       - DOCKER_ENV=${DOCKER_ENV}
-      - DB_HOST=${DB_HOST}
-      - DB_PORT=${DB_PORT}
-      - DB_USER=${DB_USER}
-      - DB_PASS=${DB_PASS}
-      - DB_NAME=${DB_NAME}
+      - MYSQL_DB_HOST=${MYSQL_DB_HOST}
+      - MYSQL_DB_PORT=${MYSQL_DB_PORT}
+      - MYSQL_DB_USER=${MYSQL_DB_USER}
+      - MYSQL_DB_PASS=${MYSQL_DB_PASS}
+      - MYSQL_DB_NAME=${MYSQL_DB_NAME}
+      - SQL_HOST=${SQL_HOST}
+      - SQL_PORT=${SQL_PORT}
+      - SQL_DB=${SQL_DB}
+      - SQL_USER=${SQL_USER}
+      - SQL_PASS=${SQL_PASS}
       - JWT_SECRET=${JWT_SECRET}
       - FRONTEND_BASE_URL=${FRONTEND_BASE_URL}
       - PUBLIC_SELLER_FRONTEND_BASE_URL=${PUBLIC_SELLER_FRONTEND_BASE_URL}
@@ -272,11 +277,16 @@ services:
     restart: unless-stopped
     environment:
       - TZ=America/Santiago
-      - DB_HOST=${DB_HOST}
-      - DB_PORT=${DB_PORT}
-      - DB_USER=${DB_USER}
-      - DB_PASS=${DB_PASS}
-      - DB_NAME=${DB_NAME}
+      - MYSQL_DB_HOST=${MYSQL_DB_HOST}
+      - MYSQL_DB_PORT=${MYSQL_DB_PORT}
+      - MYSQL_DB_USER=${MYSQL_DB_USER}
+      - MYSQL_DB_PASS=${MYSQL_DB_PASS}
+      - MYSQL_DB_NAME=${MYSQL_DB_NAME}
+      - SQL_HOST=${SQL_HOST}
+      - SQL_PORT=${SQL_PORT}
+      - SQL_DB=${SQL_DB}
+      - SQL_USER=${SQL_USER}
+      - SQL_PASS=${SQL_PASS}
       - FILE_SERVER_ROOT=${FILE_SERVER_ROOT}
       - FILE_SERVER_URL=${FILE_SERVER_URL}
       - BACKEND_API_URL=${BACKEND_API_URL}
@@ -313,8 +323,8 @@ services:
       - "8081:80"
     environment:
       - TZ=America/Santiago
-      - PMA_HOST=${DB_HOST}
-      - PMA_PORT=${DB_PORT}
+      - PMA_HOST=${MYSQL_DB_HOST}
+      - PMA_PORT=${MYSQL_DB_PORT}
       - PMA_ARBITRARY=1
       - PMA_ABSOLUTE_URI=http://172.20.10.151:8081
     networks:

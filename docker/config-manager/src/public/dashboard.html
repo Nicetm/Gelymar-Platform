@@ -2286,11 +2286,11 @@ fi`;
             if (currentDevConfig.BACKEND_API_URL) document.getElementById('devBackendApiUrl').value = currentDevConfig.BACKEND_API_URL;
             
             // Base de Datos
-            if (currentDevConfig.DB_HOST) document.getElementById('devDBHost').value = currentDevConfig.DB_HOST;
-            if (currentDevConfig.DB_PORT) document.getElementById('devDBPort').value = currentDevConfig.DB_PORT;
-            if (currentDevConfig.DB_NAME) document.getElementById('devDBName').value = currentDevConfig.DB_NAME;
-            if (currentDevConfig.DB_USER) document.getElementById('devDBUser').value = currentDevConfig.DB_USER;
-            if (currentDevConfig.DB_PASS) document.getElementById('devDBPass').value = currentDevConfig.DB_PASS;
+            if (currentDevConfig.MYSQL_DB_HOST) document.getElementById('devDBHost').value = currentDevConfig.MYSQL_DB_HOST;
+            if (currentDevConfig.MYSQL_DB_PORT) document.getElementById('devDBPort').value = currentDevConfig.MYSQL_DB_PORT;
+            if (currentDevConfig.MYSQL_DB_NAME) document.getElementById('devDBName').value = currentDevConfig.MYSQL_DB_NAME;
+            if (currentDevConfig.MYSQL_DB_USER) document.getElementById('devDBUser').value = currentDevConfig.MYSQL_DB_USER;
+            if (currentDevConfig.MYSQL_DB_PASS) document.getElementById('devDBPass').value = currentDevConfig.MYSQL_DB_PASS;
             
             // Servidor
             if (currentDevConfig.PORT) document.getElementById('devPort').value = currentDevConfig.PORT;
@@ -2359,11 +2359,11 @@ fi`;
             if (currentProdConfig.BACKEND_API_URL) document.getElementById('prodBackendApiUrl').value = currentProdConfig.BACKEND_API_URL;
             
             // Base de Datos
-            if (currentProdConfig.DB_HOST) document.getElementById('prodDBHost').value = currentProdConfig.DB_HOST;
-            if (currentProdConfig.DB_PORT) document.getElementById('prodDBPort').value = currentProdConfig.DB_PORT;
-            if (currentProdConfig.DB_NAME) document.getElementById('prodDBName').value = currentProdConfig.DB_NAME;
-            if (currentProdConfig.DB_USER) document.getElementById('prodDBUser').value = currentProdConfig.DB_USER;
-            if (currentProdConfig.DB_PASS) document.getElementById('prodDBPass').value = currentProdConfig.DB_PASS;
+            if (currentProdConfig.MYSQL_DB_HOST) document.getElementById('prodDBHost').value = currentProdConfig.MYSQL_DB_HOST;
+            if (currentProdConfig.MYSQL_DB_PORT) document.getElementById('prodDBPort').value = currentProdConfig.MYSQL_DB_PORT;
+            if (currentProdConfig.MYSQL_DB_NAME) document.getElementById('prodDBName').value = currentProdConfig.MYSQL_DB_NAME;
+            if (currentProdConfig.MYSQL_DB_USER) document.getElementById('prodDBUser').value = currentProdConfig.MYSQL_DB_USER;
+            if (currentProdConfig.MYSQL_DB_PASS) document.getElementById('prodDBPass').value = currentProdConfig.MYSQL_DB_PASS;
             
             // Servidor
             if (currentProdConfig.PORT) document.getElementById('prodPort').value = currentProdConfig.PORT;
@@ -2433,11 +2433,11 @@ fi`;
                 BACKEND_BASE_URL: document.getElementById('devBackendBaseUrl')?.value || '',
                 BACKEND_API_URL: document.getElementById('devBackendApiUrl')?.value || '',
                 // Base de Datos
-                DB_HOST: document.getElementById('devDBHost')?.value || '',
-                DB_PORT: document.getElementById('devDBPort')?.value || '',
-                DB_NAME: document.getElementById('devDBName')?.value || '',
-                DB_USER: document.getElementById('devDBUser')?.value || '',
-                DB_PASS: document.getElementById('devDBPass')?.value || '',
+                MYSQL_DB_HOST: document.getElementById('devDBHost')?.value || '',
+                MYSQL_DB_PORT: document.getElementById('devDBPort')?.value || '',
+                MYSQL_DB_NAME: document.getElementById('devDBName')?.value || '',
+                MYSQL_DB_USER: document.getElementById('devDBUser')?.value || '',
+                MYSQL_DB_PASS: document.getElementById('devDBPass')?.value || '',
                 // Servidor
                 PORT: document.getElementById('devPort')?.value || '',
                 NODE_ENV: document.getElementById('devNodeEnv')?.value || '',
@@ -2497,11 +2497,11 @@ fi`;
                 BACKEND_BASE_URL: document.getElementById('prodBackendBaseUrl')?.value || '',
                 BACKEND_API_URL: document.getElementById('prodBackendApiUrl')?.value || '',
                 // Base de Datos
-                DB_HOST: document.getElementById('prodDBHost')?.value || '',
-                DB_PORT: document.getElementById('prodDBPort')?.value || '',
-                DB_NAME: document.getElementById('prodDBName')?.value || '',
-                DB_USER: document.getElementById('prodDBUser')?.value || '',
-                DB_PASS: document.getElementById('prodDBPass')?.value || '',
+                MYSQL_DB_HOST: document.getElementById('prodDBHost')?.value || '',
+                MYSQL_DB_PORT: document.getElementById('prodDBPort')?.value || '',
+                MYSQL_DB_NAME: document.getElementById('prodDBName')?.value || '',
+                MYSQL_DB_USER: document.getElementById('prodDBUser')?.value || '',
+                MYSQL_DB_PASS: document.getElementById('prodDBPass')?.value || '',
                 // Servidor
                 PORT: document.getElementById('prodPort')?.value || '',
                 NODE_ENV: document.getElementById('prodNodeEnv')?.value || '',
@@ -2749,11 +2749,11 @@ fi`;
                 showToast('Probando conexión a base de datos de desarrollo...', 'info');
                 
                 const config = {
-                    DB_HOST: document.getElementById('devDBHost').value,
-                    DB_PORT: document.getElementById('devDBPort').value,
-                    DB_NAME: document.getElementById('devDBName').value,
-                    DB_USER: document.getElementById('devDBUser').value,
-                    DB_PASS: document.getElementById('devDBPass').value,
+                    MYSQL_DB_HOST: document.getElementById('devDBHost').value,
+                    MYSQL_DB_PORT: document.getElementById('devDBPort').value,
+                    MYSQL_DB_NAME: document.getElementById('devDBName').value,
+                    MYSQL_DB_USER: document.getElementById('devDBUser').value,
+                    MYSQL_DB_PASS: document.getElementById('devDBPass').value,
                     environment: 'desarrollo'
                 };
                 
@@ -2820,11 +2820,11 @@ fi`;
                 showToast('Probando conexión a base de datos de producción...', 'info');
                 
                 const config = {
-                    DB_HOST: document.getElementById('prodDBHost').value,
-                    DB_PORT: document.getElementById('prodDBPort').value,
-                    DB_NAME: document.getElementById('prodDBName').value,
-                    DB_USER: document.getElementById('prodDBUser').value,
-                    DB_PASS: document.getElementById('prodDBPass').value,
+                    MYSQL_DB_HOST: document.getElementById('prodDBHost').value,
+                    MYSQL_DB_PORT: document.getElementById('prodDBPort').value,
+                    MYSQL_DB_NAME: document.getElementById('prodDBName').value,
+                    MYSQL_DB_USER: document.getElementById('prodDBUser').value,
+                    MYSQL_DB_PASS: document.getElementById('prodDBPass').value,
                     environment: 'producción'
                 };
                 

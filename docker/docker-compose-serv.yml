@@ -66,11 +66,11 @@ services:
       - NODE_ENV=${NODE_ENV}
       - PORT=${PORT}
       - DOCKER_ENV=${DOCKER_ENV}
-      - DB_HOST=${DB_HOST}
-      - DB_PORT=${DB_PORT}
-      - DB_USER=${DB_USER}
-      - DB_PASS=${DB_PASS}
-      - DB_NAME=${DB_NAME}
+      - MYSQL_DB_HOST=${MYSQL_DB_HOST}
+      - MYSQL_DB_PORT=${MYSQL_DB_PORT}
+      - MYSQL_DB_USER=${MYSQL_DB_USER}
+      - MYSQL_DB_PASS=${MYSQL_DB_PASS}
+      - MYSQL_DB_NAME=${MYSQL_DB_NAME}
       - JWT_SECRET=${JWT_SECRET}
       - FRONTEND_BASE_URL=${FRONTEND_BASE_URL}
       - BACKEND_BASE_URL=${BACKEND_BASE_URL}
@@ -157,11 +157,11 @@ services:
     restart: unless-stopped
     environment:
       - TZ=America/Santiago
-      - DB_HOST=${DB_HOST}
-      - DB_PORT=${DB_PORT}
-      - DB_USER=${DB_USER}
-      - DB_PASS=${DB_PASS}
-      - DB_NAME=${DB_NAME}
+      - MYSQL_DB_HOST=${MYSQL_DB_HOST}
+      - MYSQL_DB_PORT=${MYSQL_DB_PORT}
+      - MYSQL_DB_USER=${MYSQL_DB_USER}
+      - MYSQL_DB_PASS=${MYSQL_DB_PASS}
+      - MYSQL_DB_NAME=${MYSQL_DB_NAME}
       - FILE_SERVER_ROOT=${FILE_SERVER_ROOT}
       - FILE_SERVER_URL=${FILE_SERVER_URL}
       - BACKEND_API_URL=${BACKEND_API_URL}
@@ -198,8 +198,8 @@ services:
       - "8081:80"
     environment:
       - TZ=America/Santiago
-      - PMA_HOST=${DB_HOST}
-      - PMA_PORT=${DB_PORT}
+      - PMA_HOST=${MYSQL_DB_HOST}
+      - PMA_PORT=${MYSQL_DB_PORT}
       - PMA_ARBITRARY=1
       - PMA_ABSOLUTE_URI=http://172.20.10.151:8081
     networks:

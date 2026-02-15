@@ -76,11 +76,11 @@ class TestingService {
         container_name: `gelymar-platform-backend-${environment}`,
         environment: {
           NODE_ENV: 'test',
-          DB_HOST: 'mysql',
-          DB_PORT: '3306',
-          DB_NAME: 'gelymar_test',
-          DB_USER: 'testuser',
-          DB_PASSWORD: 'test123456',
+          MYSQL_DB_HOST: 'mysql',
+          MYSQL_DB_PORT: '3306',
+          MYSQL_DB_NAME: 'gelymar_test',
+          MYSQL_DB_USER: 'testuser',
+          MYSQL_DB_PASS: 'test123456',
           PORT: '3000'
         },
         ports: ['3001:3000'],
@@ -184,11 +184,11 @@ NODE_ENV=test
 ENVIRONMENT=${environment}
 
 # Database Configuration
-DB_HOST=mysql
-DB_PORT=3306
-DB_NAME=gelymar_test
-DB_USER=testuser
-DB_PASSWORD=test123456
+MYSQL_DB_HOST=mysql
+MYSQL_DB_PORT=3306
+MYSQL_DB_NAME=gelymar_test
+MYSQL_DB_USER=testuser
+MYSQL_DB_PASS=test123456
 
 # API Configuration
 API_URL=http://localhost:3001

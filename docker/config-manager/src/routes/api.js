@@ -65,7 +65,7 @@ router.post('/config/update', async (req, res) => {
       PUBLIC_API_BASE_URL, PUBLIC_FRONTEND_BASE_URL, SERVER_API_URL, SITE,
       BACKEND_BASE_URL, BACKEND_API_URL,
       // Base de Datos
-      DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS,
+      MYSQL_DB_HOST, MYSQL_DB_PORT, MYSQL_DB_NAME, MYSQL_DB_USER, MYSQL_DB_PASS,
       // Servidor
       PORT, NODE_ENV, DOCKER_ENV,
       // Autenticación
@@ -93,7 +93,7 @@ router.post('/config/update', async (req, res) => {
       PUBLIC_API_BASE_URL, PUBLIC_FRONTEND_BASE_URL, SERVER_API_URL, SITE,
       BACKEND_BASE_URL, BACKEND_API_URL,
       // Base de Datos
-      DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS,
+      MYSQL_DB_HOST, MYSQL_DB_PORT, MYSQL_DB_NAME, MYSQL_DB_USER, MYSQL_DB_PASS,
       // Servidor
       PORT, NODE_ENV, DOCKER_ENV,
       // Autenticación
@@ -397,17 +397,17 @@ router.post('/containers/global-action', async (req, res) => {
 // Probar conexión a base de datos
 router.post('/test/database', async (req, res) => {
   try {
-    const { DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS, environment } = req.body;
+    const { MYSQL_DB_HOST, MYSQL_DB_PORT, MYSQL_DB_NAME, MYSQL_DB_USER, MYSQL_DB_PASS, environment } = req.body;
     
     
     // Crear conexión de prueba
     const mysql = require('mysql2/promise');
     const connection = await mysql.createConnection({
-      host: DB_HOST,
-      port: parseInt(DB_PORT),
-      user: DB_USER,
-      password: DB_PASS,
-      database: DB_NAME,
+      host: MYSQL_DB_HOST,
+      port: parseInt(MYSQL_DB_PORT),
+      user: MYSQL_DB_USER,
+      password: MYSQL_DB_PASS,
+      database: MYSQL_DB_NAME,
       connectTimeout: 5000
     });
     
@@ -420,10 +420,10 @@ router.post('/test/database', async (req, res) => {
       success: true,
       message: `Conexión a base de datos ${environment} exitosa`,
       details: {
-        host: DB_HOST,
-        port: DB_PORT,
-        database: DB_NAME,
-        user: DB_USER
+        host: MYSQL_DB_HOST,
+        port: MYSQL_DB_PORT,
+        database: MYSQL_DB_NAME,
+        user: MYSQL_DB_USER
       }
     });
   } catch (error) {

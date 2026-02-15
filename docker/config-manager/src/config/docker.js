@@ -664,11 +664,11 @@ sshpass -p 'Lug4R0j4.2025' ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile
           ...envVars,
           // Variables del Config Manager (para compatibilidad)
           ENV_FILE: process.env.ENV_FILE,
-          DB_HOST: process.env.DB_HOST,
-          DB_PORT: process.env.DB_PORT,
-          DB_NAME: process.env.DB_NAME,
-          DB_USER: process.env.DB_USER,
-          DB_PASSWORD: process.env.DB_PASSWORD,
+          MYSQL_DB_HOST: process.env.MYSQL_DB_HOST,
+          MYSQL_DB_PORT: process.env.MYSQL_DB_PORT,
+          MYSQL_DB_NAME: process.env.MYSQL_DB_NAME,
+          MYSQL_DB_USER: process.env.MYSQL_DB_USER,
+          MYSQL_DB_PASSWORD: process.env.MYSQL_DB_PASSWORD,
           SESSION_SECRET: process.env.SESSION_SECRET
         }
       });
@@ -708,11 +708,11 @@ sshpass -p 'Lug4R0j4.2025' ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile
         env: {
           ...process.env,
           ENV_FILE: process.env.ENV_FILE,
-          DB_HOST: process.env.DB_HOST,
-          DB_PORT: process.env.DB_PORT,
-          DB_NAME: process.env.DB_NAME,
-          DB_USER: process.env.DB_USER,
-          DB_PASSWORD: process.env.DB_PASSWORD,
+          MYSQL_DB_HOST: process.env.MYSQL_DB_HOST,
+          MYSQL_DB_PORT: process.env.MYSQL_DB_PORT,
+          MYSQL_DB_NAME: process.env.MYSQL_DB_NAME,
+          MYSQL_DB_USER: process.env.MYSQL_DB_USER,
+          MYSQL_DB_PASSWORD: process.env.MYSQL_DB_PASSWORD,
           SESSION_SECRET: process.env.SESSION_SECRET
         }
       });

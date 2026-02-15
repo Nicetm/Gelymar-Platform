@@ -3,11 +3,11 @@ const mysql = require('mysql2/promise');
 class AuditModel {
   constructor() {
     this.pool = mysql.createPool({
-      host: process.env.DB_HOST || 'mysql',
-      port: process.env.DB_PORT || 3306,
-      user: process.env.DB_USER || 'root',
-      password: process.env.DB_PASSWORD || 'gelymar2024',
-      database: process.env.DB_NAME || 'gelymar_platform',
+      host: process.env.MYSQL_DB_HOST || 'mysql',
+      port: process.env.MYSQL_DB_PORT || 3306,
+      user: process.env.MYSQL_DB_USER || 'root',
+      password: process.env.MYSQL_DB_PASS || 'gelymar2024',
+      database: process.env.MYSQL_DB_NAME || 'gelymar_platform',
       waitForConnections: true,
       connectionLimit: 10,
       queueLimit: 0
