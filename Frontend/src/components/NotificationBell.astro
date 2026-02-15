@@ -1,5 +1,5 @@
 ---
-import { loadTranslations, getServerLang } from '../lib/i18n.js';
+import { loadTranslations, getServerLang } from '@lib/i18n.js';
 
 export interface Props {
   unreadCount?: number;
@@ -26,23 +26,23 @@ const apiBase = import.meta.env.PUBLIC_API_URL || import.meta.env.SERVER_API_URL
 const apiPublic = import.meta.env.PUBLIC_API_URL;
 
 const lang = getServerLang(Astro.cookies);
-let notificationStrings: Record<string, string> = {};
+let t: any = {};
 
 try {
-  const loaded = await loadTranslations(lang, 'notifications');
-  if (loaded && typeof loaded === 'object') {
-    notificationStrings = loaded as Record<string, string>;
-  }
-} catch {
-  notificationStrings = {};
+  t = {
+    notifications: await loadTranslations(lang, 'notifications')
+  };
+} catch (error) {
+  console.warn('Error cargando traducciones (NotificationBell):', error);
+  t = {};
 }
 
 const labels = {
-  tooltip: notificationStrings.tooltip ?? 'Notificaciones',
-  title: notificationStrings.title ?? 'Notificaciones',
-  markAll: notificationStrings.mark_all ?? 'Marcar como leídos',
-  empty: notificationStrings.empty ?? 'No hay notificaciones',
-  viewAll: notificationStrings.view_all ?? 'Ver todas las notificaciones'
+  tooltip: t?.notifications?.tooltip,
+  title: t?.notifications?.title,
+  markAll: t?.notifications?.mark_all,
+  empty: t?.notifications?.empty,
+  viewAll: t?.notifications?.view_all
 };
 ---
 
@@ -50,15 +50,14 @@ const labels = {
 <div id="notification-bell-wrapper" class="relative">
   <button
     id="notification-bell"
-    class="relative p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+    class="relative p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200 focus:outline-none"
     aria-label={labels.tooltip}
   >
     <!-- Icono de campanita -->
-    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-      <!-- cuerpo -->
-      <path d="M12 4c-3.3 0-6 2.7-6 6v3c0 .9-.34 1.7-.95 2.32L4 17h16l-.95-1.68c-.61-.62-.95-1.43-.95-2.32V10c0-3.3-2.7-6-6-6z"/>
-      <!-- badajo/sonido -->
-      <path d="M10 20a2 2 0 0 0 4 0"/>
+    </svg>
+    <svg class="w-5 h-5 transition-transform duration-300 ease-in-out hover:scale-110 hover:rotate-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M18.7491 9.70957V9.00497C18.7491 5.13623 15.7274 2 12 2C8.27256 2 5.25087 5.13623 5.25087 9.00497V9.70957C5.25087 10.5552 5.00972 11.3818 4.5578 12.0854L3.45036 13.8095C2.43882 15.3843 3.21105 17.5249 4.97036 18.0229C9.57274 19.3257 14.4273 19.3257 19.0296 18.0229C20.789 17.5249 21.5612 15.3843 20.5496 13.8095L19.4422 12.0854C18.9903 11.3818 18.7491 10.5552 18.7491 9.70957Z" stroke="currentColor" stroke-width="1.5"></path>
+      <path d="M7.5 19C8.15503 20.7478 9.92246 22 12 22C14.0775 22 15.845 20.7478 16.5 19" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
     </svg>
     
     <!-- Badge de notificaciones no leídas (se actualiza dinámicamente) -->
@@ -93,11 +92,9 @@ const labels = {
     <div id="notification-list" class="max-h-96 overflow-y-auto">
       <!-- Las notificaciones se cargarán dinámicamente aquí -->
       <div class="p-4 text-center text-gray-500 dark:text-gray-400">
-        <svg class="w-8 h-8 mx-auto mb-2 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <!-- cuerpo -->
-          <path d="M12 4c-3.3 0-6 2.7-6 6v3c0 .9-.34 1.7-.95 2.32L4 17h16l-.95-1.68c-.61-.62-.95-1.43-.95-2.32V10c0-3.3-2.7-6-6-6z"/>
-          <!-- badajo/sonido -->
-          <path d="M10 20a2 2 0 0 0 4 0"/>
+        <svg class="w-8 h-8 mx-auto mb-2 text-gray-300 dark:text-gray-600 transition-transform duration-300 ease-in-out hover:scale-110 hover:rotate-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M18.7491 9.70957V9.00497C18.7491 5.13623 15.7274 2 12 2C8.27256 2 5.25087 5.13623 5.25087 9.00497V9.70957C5.25087 10.5552 5.00972 11.3818 4.5578 12.0854L3.45036 13.8095C2.43882 15.3843 3.21105 17.5249 4.97036 18.0229C9.57274 19.3257 14.4273 19.3257 19.0296 18.0229C20.789 17.5249 21.5612 15.3843 20.5496 13.8095L19.4422 12.0854C18.9903 11.3818 18.7491 10.5552 18.7491 9.70957Z" stroke="currentColor" stroke-width="1.5"></path>
+          <path d="M7.5 19C8.15503 20.7478 9.92246 22 12 22C14.0775 22 15.845 20.7478 16.5 19" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
         </svg>
         <p>{labels.empty}</p>
       </div>
@@ -119,9 +116,10 @@ const labels = {
 
 <script
   type="module"
-  define:vars={{ apiPublic, apiBase, unreadCount, roleId, notificationSettings, lang, notificationStrings }}
+  define:vars={{ apiPublic, apiBase, unreadCount, roleId, notificationSettings, lang, t }}
 >
   import { initNotificationBell } from '/js/notification-bell.js';
+  window.translations = { ...(window.translations || {}), ...t };
   initNotificationBell({
     apiBase,
     apiPublic,
@@ -129,6 +127,6 @@ const labels = {
     roleId,
     notificationSettings,
     lang,
-    translations: notificationStrings
+    translations: t
   });
 </script>

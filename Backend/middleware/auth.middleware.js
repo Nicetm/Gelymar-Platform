@@ -2,7 +2,8 @@
 const jwt = require('jsonwebtoken');
 const { logger } = require('../utils/logger');
 const { normalizeRole } = require('../utils/role.util');
-const userService = require('../services/user.service');
+const { container } = require('../config/container');
+const userService = container.resolve('userService');
 
 /**
  * Middleware unificado de autenticación que maneja tanto tokens JWT como cookies
@@ -93,7 +94,7 @@ const createAuthMiddleware = (options = {}) => {
         role: normalizedRole,
         roleName: user.role,
         roleId: user.role_id,
-        uuid: user.uuid,
+        customer_rut: user.rut,
         twoFAEnabled: user.twoFAEnabled,
         twoFASecret: user.twoFASecret
       };

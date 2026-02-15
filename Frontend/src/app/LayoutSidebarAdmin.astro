@@ -4,18 +4,67 @@ import LayoutCommon from './LayoutCommon.astro';
 import NavBarSidebar from './NavBarSidebarAdmin.astro';
 import FooterSidebar from './FooterSidebarAdmin.astro';
 import AdminChatModal from '../components/AdminChatModal.astro';
+import AdminChatBubble from '../components/AdminChatBubble.astro';
 ---
 
 <LayoutCommon>
+  <script is:inline>
+    // Enable transitions only after initial state is applied
+    window.requestAnimationFrame(() => {
+      document.documentElement.classList.add('sidebar-ready');
+    });
+  </script>
+  <style>
+    @media (min-width: 1024px) {
+      #main-content {
+        margin-left: 14rem;
+      }
+      html.sidebar-collapsed #main-content {
+        margin-left: 5rem;
+      }
+    }
+    #sidebar {
+      transition: none;
+    }
+    #main-content {
+      transition: none;
+    }
+    html.sidebar-ready #sidebar,
+    html.sidebar-ready #main-content {
+      transition: all 0.2s ease;
+    }
+    html.sidebar-collapsed #sidebar {
+      width: 5rem;
+    }
+    html.sidebar-collapsed [data-sidebar-text],
+    html.sidebar-collapsed [data-sidebar-user] {
+      display: none;
+    }
+    html.sidebar-collapsed .sidebar-link {
+      justify-content: center;
+      padding-left: 0.75rem;
+      padding-right: 0.75rem;
+      gap: 0;
+    }
+    html.sidebar-collapsed [data-sidebar-footer-row] {
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    html:not(.sidebar-ready) #sidebar,
+    html:not(.sidebar-ready) #main-content {
+      transition: none !important;
+    }
+  </style>
   <NavBarSidebar />
   <SideBar />
 
   <main class="flex w-full pt-4 bg-gray-50 dark:bg-gray-900 min-h-screen overflow-hidden">
-    <section id="main-content" class="relative flex-1 h-full w-full overflow-y-auto transition-all duration-300 lg:ml-56">
+    <section id="main-content" class="relative flex-1 h-full w-full overflow-y-auto">
       <slot />
       <FooterSidebar />
     </section>
   </main>
   
   <AdminChatModal />
+  <AdminChatBubble />
 </LayoutCommon>

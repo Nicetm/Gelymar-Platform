@@ -1,4 +1,6 @@
-const orderService = require('../services/order.service');
+const { container } = require('../config/container');
+const { logger } = require('../utils/logger');
+const orderService = container.resolve('orderService');
 
 /**
  * GET /api/orders
@@ -14,7 +16,7 @@ exports.getAllOrders = async (req, res) => {
 
     // Si es cliente, se filtra automáticamente por UUID
     if (req.user.role === 'client') {
-      filters.customerUUID = req.user.uuid; // o req.user.customer_uuid
+      filters.customerRut = req.user.rut;
     }
 
     // Si es vendedor, filtrar por su propio RUT (email)
@@ -42,7 +44,7 @@ exports.searchOrders = async (req, res) => {
 
     // Si es cliente, forzamos el filtro por su UUID
     if (req.user.role === 'client') {
-      filters.customerUUID = req.user.uuid;
+      filters.customerRut = req.user.rut;
     }
 
     if (roleId === 3) {
@@ -117,7 +119,7 @@ exports.getClientDashboardOrders = async (req, res) => {
     }
 
     // Obtener órdenes del cliente autenticado
-    const orders = await orderService.getClientDashboardOrders(req.user.uuid);
+    const orders = await orderService.getClientDashboardOrders(req.user.rut);
 
     res.json(orders);
   } catch (err) {
@@ -145,7 +147,7 @@ exports.getClientOrderDocuments = async (req, res) => {
     }
 
     // Obtener documentos de la orden del cliente
-    const documents = await orderService.getClientOrderDocuments(orderId, req.user.uuid);
+    const documents = await orderService.getClientOrderDocuments(orderId, req.user.rut);
 
     if (!documents) {
       return res.status(404).json({ message: 'Orden no encontrada o no autorizada' });
@@ -171,6 +173,7 @@ exports.getOrderItems = async (req, res) => {
     const items = await orderService.getOrderItems(orderPc, orderOc, factura, req.user);
 
     if (!items) {
+      logger.warn(`[getOrderItems] Orden no encontrada pc=${orderPc || 'N/A'} oc=${orderOc || 'N/A'} factura=${factura || 'N/A'}`);
       return res.status(404).json({ message: 'Orden no encontrada o no autorizada' });
     }
 
@@ -194,6 +197,7 @@ exports.getOrderItemsWithoutFactura = async (req, res) => {
     const items = await orderService.getOrderItemsWithoutFactura(orderPc, orderOc, req.user);
 
     if (!items) {
+      logger.warn(`[getOrderItemsWithoutFactura] Orden no encontrada pc=${orderPc || 'N/A'} oc=${orderOc || 'N/A'}`);
       return res.status(404).json({ message: 'Orden no encontrada o no autorizada' });
     }
 
@@ -228,6 +232,26 @@ exports.getOrderDetail = async (req, res) => {
   } catch (err) {
     console.error('[getOrderDetail] Error:', err.message);
     res.status(500).json({ message: 'Error al obtener detalles de la orden' });
+  }
+};
+
+/**
+ * GET /api/orders/pc/:pc
+ * Devuelve una orden por PC (admin)
+ */
+exports.getOrderByPc = async (req, res) => {
+  try {
+    const { pc } = req.params;
+    const order = await orderService.getOrderByPc(pc);
+
+    if (!order) {
+      return res.status(404).json({ message: 'Orden no encontrada' });
+    }
+
+    res.json(order);
+  } catch (err) {
+    console.error('[getOrderByPc] Error:', err.message);
+    res.status(500).json({ message: 'Error al obtener orden' });
   }
 };
 

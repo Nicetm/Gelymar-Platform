@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
-const { insertFile, getFiles, RenameFile, createDefaultFilesForOrder } = require('../services/file.service');
+const { container } = require('../config/container');
 const { 
   generateRecepcionOrden,
   generateAvisoEmbarque,
@@ -11,10 +11,14 @@ const {
   formatDateByLanguage
 } = require('../pdf-generator/generator');
 
-const fileService = require('../services/file.service');
-const emailService = require('../services/email.service');
-const orderService = require('../services/order.service');
-const documentFileService = require('../services/documentFile.service');
+const fileService = container.resolve('fileService');
+const emailService = container.resolve('emailService');
+const orderService = container.resolve('orderService');
+const documentFileService = container.resolve('documentFileService');
+const checkOrderReceptionService = container.resolve('checkOrderReceptionService');
+const checkShipmentNoticeService = container.resolve('checkShipmentNoticeService');
+const checkOrderDeliveryNoticeService = container.resolve('checkOrderDeliveryNoticeService');
+const checkAvailabilityNoticeService = container.resolve('checkAvailabilityNoticeService');
 const { logger } = require('../utils/logger');
 const { cleanDirectoryName } = require('../utils/directoryUtils');
 const { validateFilePath, setSecureFilePermissions } = require('../utils/filePermissions');
@@ -65,11 +69,15 @@ function normalizePONumber(value) {
 }
 
 function buildDocumentFileBaseName(documentName, file, pdfData, lang) {
-  const docName = sanitizeFileNamePart(getDocumentDisplayName(documentName, lang)) || 'Documento';
-  const customerName = sanitizeFileNamePart(pdfData?.customerName || file.customer_name) || 'Cliente';
+  const rawDocName = documentName || getDocumentDisplayName(documentName, lang) || 'Documento';
+  const docName = sanitizeFileNamePart(rawDocName) || 'Documento';
+  const customerName = sanitizeFileNamePart(pdfData?.customerName || file.customer_name) || '';
   const poNumber = normalizePONumber(pdfData?.orderNumber || file.oc);
-  const poLabel = sanitizeFileNamePart(`PO ${poNumber}`) || 'PO -';
-  return `${docName} - ${customerName} - ${poLabel}`;
+  const poLabel = poNumber && poNumber !== '-' ? sanitizeFileNamePart(`PO ${poNumber}`) : '';
+  const parts = [docName];
+  if (customerName) parts.push(customerName);
+  if (poLabel) parts.push(poLabel);
+  return parts.join(' - ');
 }
 
 function escapeRegExp(value) {
@@ -99,17 +107,34 @@ function getDocumentGenerator(documentName) {
  * @returns {Object} Datos formateados para el template
  */
 async function getPDFData(file, lang = 'es') {
-  const order = await documentFileService.getOrderWithCustomerForPdf(file.order_id);
-  const orderDetail = await documentFileService.getOrderDetailForPdf(file.order_id);
+  const order = await documentFileService.getOrderWithCustomerForPdf(file.pc, file.oc);
+  const orderDetail = await documentFileService.getOrderDetailForPdf(file.pc, file.oc);
   const documentName = resolveDocumentName(file);
 
-  let orderItems = [];
-  if (order?.pc && order?.oc) {
-    orderItems = await documentFileService.getOrderItemsByPcOcFactura(order.pc, order.oc, order.factura);
+  let resolvedOrder = order;
+  if ((!resolvedOrder || !resolvedOrder.pc || !resolvedOrder.oc || !resolvedOrder.customer_name) && file?.pc) {
+    try {
+      const sqlHeader = file.oc
+        ? await orderService.getOrderByPcOc(String(file.pc), String(file.oc))
+        : await orderService.getOrderByPc(String(file.pc));
+      if (sqlHeader) {
+        resolvedOrder = {
+          ...(resolvedOrder || {}),
+          pc: sqlHeader.pc || resolvedOrder?.pc,
+          oc: sqlHeader.oc || resolvedOrder?.oc,
+          customer_name: sqlHeader.customer_name || resolvedOrder?.customer_name,
+          factura: sqlHeader.factura ?? resolvedOrder?.factura,
+          fecha_factura: sqlHeader.fecha_factura ?? resolvedOrder?.fecha_factura,
+        };
+      }
+    } catch (err) {
+      logger.warn(`No se pudo resolver orden desde SQL para PDF pc=${file?.pc} oc=${file?.oc}: ${err.message}`);
+    }
   }
 
-  if (!orderItems.length && order?.id) {
-    orderItems = await documentFileService.getOrderItemsByOrderId(order.id);
+  let orderItems = [];
+  if (resolvedOrder?.pc) {
+    orderItems = await documentFileService.getOrderItemsByPcOcFactura(resolvedOrder.pc, resolvedOrder.oc, resolvedOrder.factura);
   }
 
   // Fechas actuales
@@ -145,21 +170,21 @@ async function getPDFData(file, lang = 'es') {
   const eta = resolvePdfDate(orderDetail?.fecha_eta_factura, orderDetail?.fecha_eta);
 
   const hasFactura =
-    order?.factura !== null &&
-    order?.factura !== undefined &&
-    order?.factura !== '' &&
-    order?.factura !== 0 &&
-    order?.factura !== '0';
+    resolvedOrder?.factura !== null &&
+    resolvedOrder?.factura !== undefined &&
+    resolvedOrder?.factura !== '' &&
+    resolvedOrder?.factura !== 0 &&
+    resolvedOrder?.factura !== '0';
   const shippingMethod = hasFactura
     ? (orderDetail?.medio_envio_factura || orderDetail?.medio_envio_ov)
     : (orderDetail?.medio_envio_ov || orderDetail?.medio_envio_factura);
 
   const baseData = {
     title: documentName,
-    subtitle: `Documento generado para ${order?.customer_name || file.customer_name}`,
-    customerName: order?.customer_name || file.customer_name,
-    internalOrderNumber: order?.pc || '-',
-    orderNumber: order?.oc ? order.oc.replace(/^GEL\s*/i, '') : '-',
+    subtitle: `Documento generado para ${resolvedOrder?.customer_name || file.customer_name}`,
+    customerName: resolvedOrder?.customer_name || file.customer_name,
+    internalOrderNumber: resolvedOrder?.pc || '-',
+    orderNumber: resolvedOrder?.oc ? resolvedOrder.oc.replace(/^GEL\s*/i, '') : '-',
     tipo: orderDetail?.tipo || '-',
     responsiblePerson: 'Sistema Gelymar',
     destinationPort: orderDetail?.puerto_destino || '-',
@@ -281,34 +306,57 @@ exports.uploadFile = upload.single('file');
 exports.handleUpload = async (req, res) => {
   try {
     const {
-      customer_id, folder_id, client_name, subfolder, name, is_visible_to_customer
+      customer_id,
+      folder_id,
+      client_name,
+      subfolder,
+      name,
+      is_visible_to_customer,
+      pc,
+      oc
     } = req.body;
     const file = req.file;
 
     logger.info(`DEBUG - handleUpload recibido:`, {
-      customer_id, folder_id, client_name, subfolder, name, is_visible_to_customer,
+      customer_id,
+      folder_id,
+      client_name,
+      subfolder,
+      name,
+      is_visible_to_customer,
+      pc,
+      oc,
       file: file ? { originalname: file.originalname, path: file.path, size: file.size } : null
     });
 
-    if (!file || !customer_id || !folder_id || !client_name || !subfolder) {
+    const orderPc = (pc || subfolder || '').trim();
+    const orderOc = (oc || '').trim();
+
+    if (!file || !customer_id || !client_name || !orderPc) {
       logger.warn('Faltan parámetros obligatorios en handleUpload');
       return res.status(400).json({ message: 'Faltan parámetros obligatorios' });
     }
 
-    // Obtener los datos de la orden para pc y oc
-    const order = await documentFileService.getOrderPcOcById(folder_id);
-    
+    let order = null;
+    if (folder_id && folder_id !== 'null' && folder_id !== 'undefined') {
+      order = await documentFileService.getOrderPcOcById(folder_id);
+    }
+    if (!order && orderPc && orderOc) {
+      order = await documentFileService.getOrderByPcOc(orderPc, orderOc);
+    }
+    if (!order && orderPc) {
+      order = await documentFileService.getOrderByPc(orderPc);
+    }
     if (!order) {
-      logger.warn(`Orden no encontrada ID: ${folder_id}`);
-      return res.status(404).json({ message: 'Orden no encontrada' });
+      order = { pc: orderPc, oc: orderOc || null };
     }
 
     // Obtener el file_identifier para esta orden (el mas reciente)
-    const latestFile = await documentFileService.getLatestFileIdentifierByOrderId(folder_id);
+    const latestFile = await documentFileService.getLastFileIdentifierByPc(order.pc);
 
     // Limpiar nombres de directorios para la ruta en la BD
     const cleanClientName = cleanDirectoryName(client_name);
-    const cleanSubfolder = cleanDirectoryName(subfolder);
+    const cleanSubfolder = cleanDirectoryName(orderPc);
     
     // Si no hay file_identifier, generar uno nuevo
     let fileIdentifier = latestFile?.file_identifier;
@@ -355,7 +403,6 @@ exports.handleUpload = async (req, res) => {
 
     const fileData = {
       customer_id,
-      order_id: folder_id,
       pc: order.pc,
       oc: order.oc,
       name: name,
@@ -367,7 +414,7 @@ exports.handleUpload = async (req, res) => {
       file_id: req.body.file_id || null
     };
 
-    await insertFile(fileData);
+    await fileService.insertFile(fileData);
     
     logger.info(`Archivo subido y registrado correctamente: ${file.originalname}`);
     res.status(201).json({ message: 'Archivo subido y registrado con éxito' });
@@ -545,7 +592,7 @@ exports.viewWithToken = async (req, res) => {
       }
       
       // Verificar que el archivo pertenece a una orden del customer
-      const customerCheck = await documentFileService.getFileCustomerCheck(id, userCustomer.id);
+      const customerCheck = await documentFileService.getFileCustomerCheck(id, userCustomer.rut);
       
       if (!customerCheck) {
         return res.status(403).json({ message: 'No tienes permisos para acceder a este archivo' });
@@ -610,7 +657,7 @@ exports.downloadFile = async (req, res) => {
     // Si es admin, puede acceder a todos los archivos
     if (userRole !== 'admin') {
       // Verificar que el archivo pertenece a un cliente del usuario
-      // La relación es: users.rut = customers.rut
+      // La relación es: users.rut = clientes en SQL (jor_imp_CLI_01_softkey.Rut)
       const customerCheck = await documentFileService.getCustomerCheckForDownload(id, userId);
       
       if (!customerCheck) {
@@ -655,23 +702,27 @@ exports.downloadFile = async (req, res) => {
 };
 
 /**
- * @route GET /api/files/:customerUuid?f=folderId
- * @desc Obtiene todos los archivos de una carpeta específica de un cliente dado su UUID
+ * @route GET /api/files/:customerRut?f=folderId
+ * @desc Obtiene todos los archivos de una carpeta específica de un cliente dado su RUT
  * @access Protegido (requiere JWT)
  */
 exports.getFilesByCustomerAndFolder = async (req, res) => {
-  const { customerUuid } = req.params;
-  const folderId = req.query.f;
+  const { customerRut } = req.params;
+  const pc = req.query.pc;
 
   try {
-    const customer = await documentFileService.getCustomerByUuid(customerUuid);
+    const customer = await documentFileService.getCustomerByRut(customerRut);
 
     if (!customer) {
-      logger.warn(`Cliente no encontrado UUID: ${customerUuid}`);
+      logger.warn(`Cliente no encontrado RUT: ${customerRut}`);
       return res.status(404).json({ message: 'Cliente no encontrado' });
     }
 
-    const files = await getFiles(customer.id, folderId);
+    if (!pc) {
+      return res.status(400).json({ message: 'PC requerido' });
+    }
+
+    const files = await fileService.getFilesByPc(pc);
     res.json(files);
   } catch (err) {
     logger.error(`Error al obtener archivos: ${err.message}`);
@@ -691,7 +742,7 @@ exports.RenameFile = async (req, res) => {
   if (!name || !id) return res.status(400).json({ message: 'Faltan datos' });
 
   try {
-    const result = await RenameFile(id, name, visible);
+    const result = await fileService.RenameFile(id, name, visible);
     if (result.affectedRows === 0) return res.status(404).json({ message: 'Archivo no encontrado' });
     res.json({ success: true, name });
   } catch (err) {
@@ -781,6 +832,7 @@ exports.sendFile = async (req, res) => {
       logger.warn(`Archivo no encontrado para enviar: ${id}`);
       return res.status(404).json({ message: 'Archivo no encontrado' });
     }
+    logger.info(`[sendFile] file loaded id=${id} pc=${file.pc || 'N/A'} oc=${file.oc || 'N/A'} rut=${file.customer_rut || 'N/A'}`);
 
     const { emails: emailsFromBody, lang: requestedLang, cco_emails: ccoFromBody } = req.body || {};
     const overrideEmails = Array.isArray(emailsFromBody)
@@ -1036,35 +1088,75 @@ exports.resendFile = async (req, res) => {
 };
 
 /**
- * @route POST /api/files/create-default/:orderId
+ * @route POST /api/files/create-default/:orderId?
  * @desc Crea archivos por defecto para una orden específica
  * @access Protegido (requiere JWT)
  */
 exports.createDefaultFiles = async (req, res) => {
   const { orderId } = req.params;
+  const { pc, oc } = req.body || {};
+  let logPc = pc || 'N/A';
+  let logOc = oc || 'N/A';
 
   try {
-    // Obtener información de la orden y cliente
-    const order = await documentFileService.getOrderWithCustomerForDefaultFiles(orderId);
+    logger.info(`[createDefaultFiles] params orderId=${orderId || 'N/A'} body pc=${pc || 'N/A'} oc=${oc || 'N/A'}`);
+    let result;
+    if (orderId) {
+      const order = await documentFileService.getOrderWithCustomerForDefaultFiles(orderId);
 
-    if (!order) {
-      logger.warn(`Orden no encontrada ID: ${orderId}`);
-      return res.status(404).json({ message: 'Orden no encontrada' });
+      if (!order) {
+        logger.warn(`Orden no encontrada ID: ${orderId}`);
+        return res.status(404).json({ message: 'Orden no encontrada' });
+      }
+
+      result = await fileService.createDefaultFilesForOrder(
+        orderId,
+        order.customer_name,
+        order.pc,
+        order.oc
+      );
+      logPc = order.pc || logPc;
+      logOc = order.oc || logOc;
+    } else {
+      if (!pc) {
+        return res.status(400).json({ message: 'PC requerido' });
+      }
+
+      let resolvedOc = oc;
+      let orderData = null;
+      if (!resolvedOc) {
+        orderData = await orderService.getOrderByPc(pc);
+        resolvedOc = orderData?.oc || '';
+      } else {
+        orderData = await orderService.getOrderByPcOc(pc, resolvedOc);
+      }
+
+      if (!orderData) {
+        logger.warn(`Orden no encontrada PC/OC: ${pc} / ${resolvedOc || 'N/A'}`);
+        return res.status(404).json({ message: 'Orden no encontrada' });
+      }
+
+      result = await fileService.createDefaultFilesForPcOc(
+        orderData.pc,
+        orderData.oc,
+        orderData.customer_name || 'Cliente',
+        orderData.factura
+      );
+      logPc = orderData.pc || logPc;
+      logOc = orderData.oc || logOc;
     }
 
-    // Crear archivos por defecto
-    const result = await createDefaultFilesForOrder(
-      orderId,
-      order.customer_name,
-      order.pc,
-      order.oc
-    );
-
-    logger.info(`Archivos por defecto creados para orden ${orderId}: ${result.filesCreated} archivos`);
+    logger.info(`[createDefaultFiles] Archivos por defecto creados: orderId=${orderId || 'N/A'} pc=${logPc} oc=${logOc} files=${result.filesCreated}`);
     res.status(201).json(result);
 
   } catch (error) {
     logger.error(`Error creando archivos por defecto para orden ${orderId}: ${error.message}`);
+    if (error.code === 'FILES_ALREADY_EXIST') {
+      return res.status(error.status || 409).json({
+        code: 'FILES_ALREADY_EXIST',
+        message: 'files_already_exist'
+      });
+    }
     res.status(500).json({ 
       message: 'Error al crear archivos por defecto', 
       error: error.message 
@@ -1081,13 +1173,13 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
       getReportEmailsAndLang,
       isSendOrderReceptionEnabled,
       getSendFromDate
-    } = require('../services/checkOrderReception.service');
-    const { sendFileToClient } = require('../services/email.service');
+    } = checkOrderReceptionService;
     const fs = require('fs');
     const path = require('path');
 
     const automaticReceptionEnabled = await isSendOrderReceptionEnabled();
     const sendFromDate = await getSendFromDate('sendAutomaticOrderReception');
+    logger.info(`[processNewOrdersAndSendReception] start enabled=${automaticReceptionEnabled} from=${sendFromDate || 'N/A'}`);
 
     const orders = await getOrdersReadyForOrderReceiptNotice(sendFromDate);
 
@@ -1105,32 +1197,38 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
     for (const orderRow of orders) {
       try {
         if (!orderRow.receipt_file_id) {
-          await fileService.createDefaultFilesForOrder(
-            orderRow.id,
-            orderRow.customer_name,
-            orderRow.pc,
-            orderRow.oc
-          );
+          try {
+            await fileService.createDefaultFilesForOrder(
+              orderRow.id,
+              orderRow.customer_name,
+              orderRow.pc,
+              orderRow.oc
+            );
+          } catch (fileError) {
+            if (fileError.code !== 'FILES_ALREADY_EXIST' && fileError.message !== 'FILES_ALREADY_EXIST') {
+              throw fileError;
+            }
+          }
         }
 
-        const receptionFile = await getReceptionFile(orderRow.id);
+        const receptionFile = await getReceptionFile(orderRow.pc, orderRow.oc);
         if (!receptionFile) {
-          console.error(`No se encontró archivo de recepción para orden ${orderRow.id}`);
+          logger.error(`[processNewOrdersAndSendReception] No se encontró archivo de recepción pc=${orderRow.pc} oc=${orderRow.oc || 'N/A'}`);
           errors++;
           continue;
         }
 
-        const { reportEmails, customerLang } = await getReportEmailsAndLang(orderRow.customer_id);
+        const { reportEmails, customerLang } = await getReportEmailsAndLang(orderRow.customer_rut);
 
         if (reportEmails.length === 0) {
-          console.error(`No se encontraron emails con reports=true para cliente ${orderRow.customer_id}`);
+          logger.error(`[processNewOrdersAndSendReception] No se encontraron emails reports=true para cliente ${orderRow.customer_rut}`);
           errors++;
           continue;
         }
 
         const file = await fileService.getFileById(receptionFile.id);
         if (!file) {
-          console.error(`No se encontró archivo con ID ${receptionFile.id} para orden ${orderRow.id}`);
+          logger.error(`[processNewOrdersAndSendReception] No se encontró archivo id=${receptionFile.id} pc=${orderRow.pc} oc=${orderRow.oc || 'N/A'}`);
           errors++;
           continue;
         }
@@ -1170,7 +1268,7 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
 
           await fileService.updateFile(updateData);
         } catch (pdfError) {
-          console.error(`Error generando PDF para orden ${orderRow.id}:`, pdfError.message);
+          logger.error(`[processNewOrdersAndSendReception] Error generando PDF orden=${orderRow.id}: ${pdfError.message}`);
           errors++;
           continue;
         }
@@ -1185,7 +1283,7 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
           };
 
         if (automaticReceptionEnabled) {
-          await sendFileToClient(fileData, { recipients: reportEmails });
+          await emailService.sendFileToClient(fileData, { recipients: reportEmails });
 
           await fileService.updateFile({
             id: file.id,
@@ -1198,11 +1296,12 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
           skipped++;
         }
       } catch (error) {
-        console.error(`Error procesando orden ${orderRow.id}:`, error.message);
+        logger.error(`[processNewOrdersAndSendReception] Error procesando orden ${orderRow.id}: ${error.message}`);
         errors++;
       }
     }
 
+    logger.info(`[processNewOrdersAndSendReception] done processed=${processed} errors=${errors} skipped=${skipped} total=${orders.length}`);
     res.status(200).json({
       message: 'Procesamiento de órdenes nuevas completado',
       processed,
@@ -1212,7 +1311,7 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error en processNewOrdersAndSendReception:', error);
+    logger.error(`[processNewOrdersAndSendReception] Error: ${error.message}`);
     res.status(500).json({
       message: 'Error al procesar órdenes nuevas',
       error: error.message
@@ -1225,18 +1324,18 @@ exports.processShipmentNotices = async (req, res) => {
     const {
       getOrdersReadyForShipmentNotice,
       getShipmentFile
-    } = require('../services/checkShipmentNotice.service');
-      const {
-        getReportEmailsAndLang,
-        isSendOrderShipmentEnabled,
-        getSendFromDate
-      } = require('../services/checkOrderReception.service');
-    const { sendFileToClient } = require('../services/email.service');
+    } = checkShipmentNoticeService;
+    const {
+      getReportEmailsAndLang,
+      isSendOrderShipmentEnabled,
+      getSendFromDate
+    } = checkOrderReceptionService;
     const fs = require('fs');
     const path = require('path');
 
       const automaticReceptionEnabled = await isSendOrderShipmentEnabled();
       const sendFromDate = await getSendFromDate('sendAutomaticOrderShipment');
+      logger.info(`[processShipmentNotices] start enabled=${automaticReceptionEnabled} from=${sendFromDate || 'N/A'}`);
 
       const orders = await getOrdersReadyForShipmentNotice(sendFromDate);
     if (!orders.length) {
@@ -1262,22 +1361,22 @@ exports.processShipmentNotices = async (req, res) => {
           continue;
         }
 
-          if (!orderRow.shipment_file_id) {
-            try {
-              await fileService.createDefaultFilesForOrder(
-                orderRow.id,
-                orderRow.customer_name,
-                orderRow.pc,
-                orderRow.oc
-              );
-            } catch (fileError) {
-              if (fileError.message !== 'Ya existen archivos para esta orden') {
-                throw fileError;
-              }
+        if (!orderRow.shipment_file_id) {
+          try {
+            await fileService.createDefaultFilesForOrder(
+              orderRow.id,
+              orderRow.customer_name,
+              orderRow.pc,
+              orderRow.oc
+            );
+          } catch (fileError) {
+            if (fileError.code !== 'FILES_ALREADY_EXIST' && fileError.message !== 'FILES_ALREADY_EXIST') {
+              throw fileError;
             }
           }
+        }
 
-        const shipmentFile = await getShipmentFile(orderRow.id);
+          const shipmentFile = await getShipmentFile(orderRow.pc, orderRow.oc);
         if (!shipmentFile) {
           errors++;
           continue;
@@ -1294,7 +1393,7 @@ exports.processShipmentNotices = async (req, res) => {
           continue;
         }
 
-        const { reportEmails, customerLang } = await getReportEmailsAndLang(orderRow.customer_id);
+        const { reportEmails, customerLang } = await getReportEmailsAndLang(orderRow.customer_rut);
         if (reportEmails.length === 0) {
           errors++;
           continue;
@@ -1347,7 +1446,7 @@ exports.processShipmentNotices = async (req, res) => {
         };
 
         if (automaticReceptionEnabled) {
-          await sendFileToClient(fileData, { recipients: reportEmails });
+          await emailService.sendFileToClient(fileData, { recipients: reportEmails });
           await fileService.updateFile({
             id: file.id,
             fecha_envio: new Date(),
@@ -1359,10 +1458,12 @@ exports.processShipmentNotices = async (req, res) => {
           skipped++;
         }
       } catch (error) {
+        logger.error(`[processShipmentNotices] Error procesando orden ${orderRow.id}: ${error.message}`);
         errors++;
       }
     }
 
+    logger.info(`[processShipmentNotices] done processed=${processed} skipped=${skipped} errors=${errors}`);
     res.status(200).json({
       message: 'Procesamiento de Shipment Notice completado',
       processed,
@@ -1380,18 +1481,18 @@ exports.processOrderDeliveryNotices = async (req, res) => {
     const {
       getOrdersReadyForOrderDeliveryNotice,
       getOrderDeliveryFile
-    } = require('../services/checkOrderDeliveryNotice.service');
+    } = checkOrderDeliveryNoticeService;
     const {
       getReportEmailsAndLang,
       isSendOrderDeliveryEnabled,
       getSendFromDate
-    } = require('../services/checkOrderReception.service');
-    const { sendFileToClient } = require('../services/email.service');
+    } = checkOrderReceptionService;
     const fs = require('fs');
     const path = require('path');
 
     const automaticReceptionEnabled = await isSendOrderDeliveryEnabled();
     const sendFromDate = await getSendFromDate('sendAutomaticOrderDelivery');
+    logger.info(`[processOrderDeliveryNotices] start enabled=${automaticReceptionEnabled} from=${sendFromDate || 'N/A'}`);
 
     const orders = await getOrdersReadyForOrderDeliveryNotice(sendFromDate);
     if (!orders.length) {
@@ -1412,35 +1513,33 @@ exports.processOrderDeliveryNotices = async (req, res) => {
     for (const orderRow of orders) {
       try {
         if (!orderRow.eta) {
-          logger.warn(`Order Delivery Notice omitida: orden ${orderRow.id} sin ETA`);
-          console.warn(`[Order Delivery Notice] Omitida: orden ${orderRow.id} sin ETA`);
+          logger.warn(`[processOrderDeliveryNotices] Omitida: orden ${orderRow.id} sin ETA`);
           skipReasons.missing_eta++;
           skipped++;
           continue;
         }
 
-          if (!orderRow.delivery_file_id) {
-            try {
-              await fileService.createDefaultFilesForOrder(
-                orderRow.id,
-                orderRow.customer_name,
-                orderRow.pc,
-                orderRow.oc
-              );
-            } catch (fileError) {
-              if (fileError.message !== 'Ya existen archivos para esta orden') {
-                throw fileError;
-              }
+        if (!orderRow.delivery_file_id) {
+          try {
+            await fileService.createDefaultFilesForOrder(
+              orderRow.id,
+              orderRow.customer_name,
+              orderRow.pc,
+              orderRow.oc
+            );
+          } catch (fileError) {
+            if (fileError.code !== 'FILES_ALREADY_EXIST' && fileError.message !== 'FILES_ALREADY_EXIST') {
+              throw fileError;
             }
           }
+        }
 
-          const deliveryFile = await getOrderDeliveryFile(orderRow.id);
-          if (!deliveryFile) {
-            logger.error(`Order Delivery Notice sin archivo: orden ${orderRow.id}`);
-            console.error(`[Order Delivery Notice] Sin archivo: orden ${orderRow.id}`);
-            errors++;
-            continue;
-          }
+        const deliveryFile = await getOrderDeliveryFile(orderRow.pc, orderRow.oc);
+        if (!deliveryFile) {
+          logger.error(`[processOrderDeliveryNotices] Sin archivo: orden ${orderRow.id}`);
+          errors++;
+          continue;
+        }
 
         if (deliveryFile.fecha_envio) {
             skipReasons.already_sent++;
@@ -1448,166 +1547,16 @@ exports.processOrderDeliveryNotices = async (req, res) => {
             continue;
           }
 
-          const file = await fileService.getFileById(deliveryFile.id);
-          if (!file) {
-            logger.error(`Order Delivery Notice file no encontrado: order_file ${deliveryFile.id} orden ${orderRow.id}`);
-            console.error(`[Order Delivery Notice] File no encontrado: order_file ${deliveryFile.id} orden ${orderRow.id}`);
-            errors++;
-            continue;
-          }
-
-          const { reportEmails, customerLang } = await getReportEmailsAndLang(orderRow.customer_id);
-          if (reportEmails.length === 0) {
-            logger.warn(`Order Delivery Notice sin emails report: cliente ${orderRow.customer_id} orden ${orderRow.id}`);
-            console.warn(`[Order Delivery Notice] Sin emails report: cliente ${orderRow.customer_id} orden ${orderRow.id}`);
-            errors++;
-            continue;
-          }
-
-        const FILE_SERVER_ROOT = process.env.FILE_SERVER_ROOT || '/var/www/html';
-        const cleanCustomerName = cleanDirectoryName(file.customer_name);
-        const cleanFolderName = cleanDirectoryName(file.pc);
-        const folderName = file.file_identifier ? `${cleanFolderName}_${file.file_identifier}` : cleanFolderName;
-        const customerFolder = path.join(FILE_SERVER_ROOT, 'uploads', cleanCustomerName, folderName);
-
-        if (!fs.existsSync(customerFolder)) {
-          fs.mkdirSync(customerFolder, { recursive: true });
-        }
-        const documentName = resolveDocumentName(file);
-        const generator = getDocumentGenerator(documentName);
-        const pdfData = await getPDFData(file, customerLang);
-
-        const baseName = buildDocumentFileBaseName(documentName, file, pdfData, customerLang);
-        const fileName = `${baseName}.pdf`;
-        const filePath = path.join(customerFolder, fileName);
-
-        let updateData;
-        try {
-          await generator(filePath, pdfData);
-          updateData = {
-            id: file.id,
-            name: baseName,
-            status_id: 3,
-            is_visible_to_client: 1,
-            updated_at: new Date(),
-            fecha_generacion: new Date(),
-            path: path.relative(FILE_SERVER_ROOT, filePath)
-          };
-          await fileService.updateFile(updateData);
-          } catch (pdfError) {
-            logger.error(`Error generando Order Delivery Notice: orden ${orderRow.id} - ${pdfError.message}`);
-            console.error(`[Order Delivery Notice] Error generando PDF: orden ${orderRow.id} - ${pdfError.message}`);
-            errors++;
-            continue;
-          }
-
-        const fileData = {
-          id: file.id,
-          name: baseName,
-          path: updateData.path,
-          customer_name: file.customer_name,
-          customer_id: file.customer_id,
-          lang: customerLang
-        };
-
-        if (automaticReceptionEnabled) {
-          await sendFileToClient(fileData, { recipients: reportEmails });
-          await fileService.updateFile({
-            id: file.id,
-            fecha_envio: new Date(),
-            updated_at: new Date()
-          });
-          processed++;
-        } else {
-          skipped++;
-        }
-        } catch (error) {
-          logger.error(`Error procesando Order Delivery Notice: orden ${orderRow.id} - ${error.message}`);
-          console.error(`[Order Delivery Notice] Error procesando: orden ${orderRow.id} - ${error.message}`);
-          errors++;
-        }
-      }
-
-    res.status(200).json({
-      message: 'Procesamiento de Order Delivery Notice completado',
-      processed,
-      skipped,
-      errors,
-      automatic_enabled: automaticReceptionEnabled,
-      skip_reasons: skipReasons
-    });
-  } catch (error) {
-    logger.error(`Error en processOrderDeliveryNotices: ${error.message}`);
-    res.status(500).json({ message: 'Error procesando Order Delivery Notice' });
-  }
-};
-
-exports.processAvailabilityNotices = async (req, res) => {
-  try {
-    const {
-      getOrdersReadyForAvailabilityNotice,
-      getAvailabilityFile
-    } = require('../services/checkAvailabilityNotice.service');
-    const {
-      getReportEmailsAndLang,
-      isSendOrderAvailabilityEnabled,
-      getSendFromDate
-    } = require('../services/checkOrderReception.service');
-    const { sendFileToClient } = require('../services/email.service');
-    const fs = require('fs');
-    const path = require('path');
-
-    const automaticReceptionEnabled = await isSendOrderAvailabilityEnabled();
-    const sendFromDate = await getSendFromDate('sendAutomaticOrderAvailability');
-
-    const orders = await getOrdersReadyForAvailabilityNotice(sendFromDate);
-    if (!orders.length) {
-      return res.status(200).json({
-        message: 'No hay ordenes listas para Availability Notice',
-        processed: 0
-      });
-    }
-
-    let processed = 0;
-    let errors = 0;
-    let skipped = 0;
-
-    for (const orderRow of orders) {
-      try {
-          if (!orderRow.availability_file_id) {
-            try {
-              await fileService.createDefaultFilesForOrder(
-                orderRow.id,
-                orderRow.customer_name,
-                orderRow.pc,
-                orderRow.oc
-              );
-            } catch (fileError) {
-              if (fileError.message !== 'Ya existen archivos para esta orden') {
-                throw fileError;
-              }
-            }
-          }
-
-        const availabilityFile = await getAvailabilityFile(orderRow.id);
-        if (!availabilityFile) {
-          errors++;
-          continue;
-        }
-
-        if (availabilityFile.fecha_envio) {
-          skipped++;
-          continue;
-        }
-
-        const file = await fileService.getFileById(availabilityFile.id);
+        const file = await fileService.getFileById(deliveryFile.id);
         if (!file) {
+          logger.error(`[processOrderDeliveryNotices] File no encontrado: order_file ${deliveryFile.id} orden ${orderRow.id}`);
           errors++;
           continue;
         }
 
-        const { reportEmails, customerLang } = await getReportEmailsAndLang(orderRow.customer_id);
+          const { reportEmails, customerLang } = await getReportEmailsAndLang(orderRow.customer_rut);
         if (reportEmails.length === 0) {
+          logger.warn(`[processOrderDeliveryNotices] Sin emails report: cliente ${orderRow.customer_rut} orden ${orderRow.id}`);
           errors++;
           continue;
         }
@@ -1643,6 +1592,7 @@ exports.processAvailabilityNotices = async (req, res) => {
           };
           await fileService.updateFile(updateData);
         } catch (pdfError) {
+          logger.error(`[processOrderDeliveryNotices] Error generando PDF orden ${orderRow.id}: ${pdfError.message}`);
           errors++;
           continue;
         }
@@ -1657,7 +1607,7 @@ exports.processAvailabilityNotices = async (req, res) => {
         };
 
         if (automaticReceptionEnabled) {
-          await sendFileToClient(fileData, { recipients: reportEmails });
+          await emailService.sendFileToClient(fileData, { recipients: reportEmails });
           await fileService.updateFile({
             id: file.id,
             fecha_envio: new Date(),
@@ -1668,10 +1618,162 @@ exports.processAvailabilityNotices = async (req, res) => {
           skipped++;
         }
       } catch (error) {
+        logger.error(`[processOrderDeliveryNotices] Error procesando orden ${orderRow.id}: ${error.message}`);
+        errors++;
+      }
+      }
+
+    logger.info(`[processOrderDeliveryNotices] done processed=${processed} skipped=${skipped} errors=${errors}`);
+    res.status(200).json({
+      message: 'Procesamiento de Order Delivery Notice completado',
+      processed,
+      skipped,
+      errors,
+      automatic_enabled: automaticReceptionEnabled,
+      skip_reasons: skipReasons
+    });
+  } catch (error) {
+    logger.error(`Error en processOrderDeliveryNotices: ${error.message}`);
+    res.status(500).json({ message: 'Error procesando Order Delivery Notice' });
+  }
+};
+
+exports.processAvailabilityNotices = async (req, res) => {
+  try {
+    const {
+      getOrdersReadyForAvailabilityNotice,
+      getAvailabilityFile
+    } = checkAvailabilityNoticeService;
+    const {
+      getReportEmailsAndLang,
+      isSendOrderAvailabilityEnabled,
+      getSendFromDate
+    } = checkOrderReceptionService;
+    const fs = require('fs');
+    const path = require('path');
+
+    const automaticReceptionEnabled = await isSendOrderAvailabilityEnabled();
+    const sendFromDate = await getSendFromDate('sendAutomaticOrderAvailability');
+    logger.info(`[processAvailabilityNotices] start enabled=${automaticReceptionEnabled} from=${sendFromDate || 'N/A'}`);
+
+    const orders = await getOrdersReadyForAvailabilityNotice(sendFromDate);
+    if (!orders.length) {
+      return res.status(200).json({
+        message: 'No hay ordenes listas para Availability Notice',
+        processed: 0
+      });
+    }
+
+    let processed = 0;
+    let errors = 0;
+    let skipped = 0;
+
+    for (const orderRow of orders) {
+      try {
+        if (!orderRow.availability_file_id) {
+          try {
+            await fileService.createDefaultFilesForOrder(
+              orderRow.id,
+              orderRow.customer_name,
+              orderRow.pc,
+              orderRow.oc
+            );
+          } catch (fileError) {
+            if (fileError.code !== 'FILES_ALREADY_EXIST' && fileError.message !== 'FILES_ALREADY_EXIST') {
+              throw fileError;
+            }
+          }
+        }
+
+        const availabilityFile = await getAvailabilityFile(orderRow.pc, orderRow.oc);
+        if (!availabilityFile) {
+          logger.error(`[processAvailabilityNotices] Sin archivo: orden ${orderRow.id}`);
+          errors++;
+          continue;
+        }
+
+        if (availabilityFile.fecha_envio) {
+          skipped++;
+          continue;
+        }
+
+        const file = await fileService.getFileById(availabilityFile.id);
+        if (!file) {
+          logger.error(`[processAvailabilityNotices] File no encontrado: order_file ${availabilityFile.id} orden ${orderRow.id}`);
+          errors++;
+          continue;
+        }
+
+        const { reportEmails, customerLang } = await getReportEmailsAndLang(orderRow.customer_rut);
+        if (reportEmails.length === 0) {
+          logger.warn(`[processAvailabilityNotices] Sin emails report: cliente ${orderRow.customer_rut} orden ${orderRow.id}`);
+          errors++;
+          continue;
+        }
+
+        const FILE_SERVER_ROOT = process.env.FILE_SERVER_ROOT || '/var/www/html';
+        const cleanCustomerName = cleanDirectoryName(file.customer_name);
+        const cleanFolderName = cleanDirectoryName(file.pc);
+        const folderName = file.file_identifier ? `${cleanFolderName}_${file.file_identifier}` : cleanFolderName;
+        const customerFolder = path.join(FILE_SERVER_ROOT, 'uploads', cleanCustomerName, folderName);
+
+        if (!fs.existsSync(customerFolder)) {
+          fs.mkdirSync(customerFolder, { recursive: true });
+        }
+        const documentName = resolveDocumentName(file);
+        const generator = getDocumentGenerator(documentName);
+        const pdfData = await getPDFData(file, customerLang);
+
+        const baseName = buildDocumentFileBaseName(documentName, file, pdfData, customerLang);
+        const fileName = `${baseName}.pdf`;
+        const filePath = path.join(customerFolder, fileName);
+
+        let updateData;
+        try {
+          await generator(filePath, pdfData);
+          updateData = {
+            id: file.id,
+            name: baseName,
+            status_id: 3,
+            is_visible_to_client: 1,
+            updated_at: new Date(),
+            fecha_generacion: new Date(),
+            path: path.relative(FILE_SERVER_ROOT, filePath)
+          };
+          await fileService.updateFile(updateData);
+        } catch (pdfError) {
+          logger.error(`[processAvailabilityNotices] Error generando PDF orden ${orderRow.id}: ${pdfError.message}`);
+          errors++;
+          continue;
+        }
+
+        const fileData = {
+          id: file.id,
+          name: baseName,
+          path: updateData.path,
+          customer_name: file.customer_name,
+          customer_id: file.customer_id,
+          lang: customerLang
+        };
+
+        if (automaticReceptionEnabled) {
+          await emailService.sendFileToClient(fileData, { recipients: reportEmails });
+          await fileService.updateFile({
+            id: file.id,
+            fecha_envio: new Date(),
+            updated_at: new Date()
+          });
+          processed++;
+        } else {
+          skipped++;
+        }
+      } catch (error) {
+        logger.error(`[processAvailabilityNotices] Error procesando orden ${orderRow.id}: ${error.message}`);
         errors++;
       }
     }
 
+    logger.info(`[processAvailabilityNotices] done processed=${processed} skipped=${skipped} errors=${errors}`);
     res.status(200).json({
       message: 'Procesamiento de Availability Notice completado',
       processed,

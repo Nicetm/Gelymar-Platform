@@ -97,10 +97,22 @@ router.put('/profile', authMiddleware, userValidations.updateProfile, userContro
  *       401:
  *         description: No autorizado
  */
-router.post('/avatar', authMiddleware, userController.uploadAvatar, userValidations.uploadAvatar, userController.handleAvatarUpload);
+router.post('/avatar', authMiddleware, (req, res, next) => {
+  userController.uploadAvatar(req, res, (err) => {
+    if (err) {
+      const code = err.code === 'LIMIT_FILE_SIZE' ? 'AVATAR_TOO_LARGE' : 'AVATAR_UPLOAD_ERROR';
+      return res.status(400).json({
+        message: err.message || 'Error al subir avatar',
+        code
+      });
+    }
+    return next();
+  });
+}, userController.handleAvatarUpload);
 
 // Admin users (role_id = 1)
 router.get('/admins', authMiddleware, authorizeRoles(['admin']), userController.getAdminUsers);
+router.get('/admins/presence', authMiddleware, authorizeRoles(['admin']), userController.getAdminPresenceList);
 router.post('/admins', authMiddleware, authorizeRoles(['admin']), userController.createAdminUser);
 router.patch('/admins/:id', authMiddleware, authorizeRoles(['admin']), userController.updateAdminUser);
 router.delete('/admins/:id', authMiddleware, authorizeRoles(['admin']), userController.deleteAdminUser);

@@ -103,11 +103,11 @@ const validateAvatarFile = (file) => {
   const maxSize = 5 * 1024 * 1024; // 5MB
   
   if (!allowedTypes.includes(file.mimetype)) {
-    return { valid: false, error: 'Solo se permiten archivos PNG, JPG o JPEG' };
+    return { valid: false, error: 'Solo se permiten archivos PNG, JPG o JPEG', code: 'AVATAR_INVALID_TYPE' };
   }
   
   if (file.size > maxSize) {
-    return { valid: false, error: 'El archivo no puede ser mayor a 5MB' };
+    return { valid: false, error: 'El archivo no puede ser mayor a 5MB', code: 'AVATAR_TOO_LARGE' };
   }
   
   return { valid: true };

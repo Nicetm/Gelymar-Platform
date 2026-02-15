@@ -1,6 +1,7 @@
-const ChatService = require('../services/chat.service');
+const { container } = require('../config/container');
+const ChatService = container.resolve('chatService');
 const ChatMessage = require('../models/chatMessage.model');
-const EncryptionService = require('../services/encryption.service');
+const EncryptionService = container.resolve('encryptionService');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -102,8 +103,8 @@ class ChatController {
       if (sender_role === 'client' && admin_id) {
         try {
           await ChatService.notifyAdminOfClientMessage({
-            customerId: parseInt(customer_id),
-            adminId: parseInt(admin_id),
+            customerId: String(customer_id),
+            adminId: Number(admin_id),
             message: message.trim()
           });
         } catch (emailError) {
@@ -116,7 +117,7 @@ class ChatController {
       if (io) {
         const messageWithDetails = {
           messageId: result,
-          customer_id: parseInt(customer_id),
+          customer_id: String(customer_id),
           admin_id: admin_id,
           sender_role: sender_role,
           body: messageData.message,
@@ -265,7 +266,11 @@ class ChatController {
   // Obtener chats recientes (solo admin)
   static async getRecentChats(req, res) {
     try {
-      const chats = await ChatService.getRecentChats();
+      const adminId = req.user?.id;
+      if (!adminId) {
+        return res.status(400).json({ message: 'adminId es requerido' });
+      }
+      const chats = await ChatService.getRecentChats(adminId);
       
       res.json({
         success: true,
@@ -418,7 +423,7 @@ class ChatController {
       
       if (io && customer_id) {
         // Reenviar evento de typing al admin
-        io.to('admin-room').emit('typing', { customer_id: parseInt(customer_id) });
+        io.to('admin-room').emit('typing', { customer_id: String(customer_id) });
       }
       
       res.json({ success: true });
@@ -436,7 +441,7 @@ class ChatController {
       
       if (io && customer_id) {
         // Reenviar evento de stop typing al admin
-        io.to('admin-room').emit('stop-typing', { customer_id: parseInt(customer_id) });
+        io.to('admin-room').emit('stop-typing', { customer_id: String(customer_id) });
       }
       
       res.json({ success: true });

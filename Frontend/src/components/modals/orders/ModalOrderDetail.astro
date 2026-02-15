@@ -1,9 +1,9 @@
 ---
 interface Props {
-  carpetas: Record<string, any>;
+  orders: Record<string, any>;
 }
 
-const { carpetas = {} } = Astro.props as Props;
+const { orders = {} } = Astro.props as Props;
 
 const text = (value: string | undefined, fallback: string) =>
   typeof value === 'string' && value.trim().length > 0 ? value : fallback;
@@ -24,7 +24,7 @@ const text = (value: string | undefined, fallback: string) =>
       <div>
         <h2 id="orderDetailTitle" class="text-xl font-bold text-gray-900 dark:text-gray-100"></h2>
         <p id="orderDetailSubtitle" class="text-sm text-gray-600 dark:text-gray-400">
-          {text(carpetas?.orderDetails, 'Order details')}
+          {text(orders?.orderDetails, 'Order details')}
         </p>
       </div>
     </div>
@@ -34,34 +34,34 @@ const text = (value: string | undefined, fallback: string) =>
         <thead class="bg-gray-100 dark:bg-gray-800 sticky top-0 z-10">
           <tr>
             <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">
-              {text(carpetas?.orderDetails, 'Order details')}
+              {text(orders?.orderDetails, 'Order details')}
             </th>
             <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300"></th>
           </tr>
         </thead>
         <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-xs">
           <tr>
-            <td class="px-6 py-4 text-gray-600 dark:text-gray-400 font-semibold">{text(carpetas?.pcNumber, 'PC Number')}</td>
+            <td class="px-6 py-4 text-gray-600 dark:text-gray-400 font-semibold">{text(orders?.pcNumber, 'PC Number')}</td>
             <td id="orderDetailPc" class="px-6 py-4 text-gray-900 dark:text-gray-100">-</td>
           </tr>
           <tr>
-            <td class="px-6 py-4 text-gray-600 dark:text-gray-400 font-semibold">{text(carpetas?.ocNumber, 'OC Number')}</td>
+            <td class="px-6 py-4 text-gray-600 dark:text-gray-400 font-semibold">{text(orders?.ocNumber, 'OC Number')}</td>
             <td id="orderDetailOc" class="px-6 py-4 text-gray-900 dark:text-gray-100">-</td>
           </tr>
           <tr>
-            <td class="px-6 py-4 text-gray-600 dark:text-gray-400 font-semibold">{text(carpetas?.certificados, 'Certificates')}</td>
+            <td class="px-6 py-4 text-gray-600 dark:text-gray-400 font-semibold">{text(orders?.certificados, 'Certificates')}</td>
             <td id="orderDetailCertificados" class="px-6 py-4 text-gray-900 dark:text-gray-100">-</td>
           </tr>
           <tr>
-            <td class="px-6 py-4 text-gray-600 dark:text-gray-400 font-semibold">{text(carpetas?.direccionDestino, 'Destination address')}</td>
+            <td class="px-6 py-4 text-gray-600 dark:text-gray-400 font-semibold">{text(orders?.direccionDestino, 'Destination address')}</td>
             <td id="orderDetailDireccionDestino" class="px-6 py-4 text-gray-900 dark:text-gray-100">-</td>
           </tr>
           <tr>
-            <td class="px-6 py-4 text-gray-600 dark:text-gray-400 font-semibold">{text(carpetas?.puertoDestino, 'Destination port')}</td>
+            <td class="px-6 py-4 text-gray-600 dark:text-gray-400 font-semibold">{text(orders?.puertoDestino, 'Destination port')}</td>
             <td id="orderDetailPuertoDestino" class="px-6 py-4 text-gray-900 dark:text-gray-100">-</td>
           </tr>
           <tr>
-            <td class="px-6 py-4 text-gray-600 dark:text-gray-400 font-semibold">{text(carpetas?.observaciones, 'Observations')}</td>
+            <td class="px-6 py-4 text-gray-600 dark:text-gray-400 font-semibold">{text(orders?.observaciones, 'Observations')}</td>
             <td id="orderDetailObservaciones" class="px-6 py-4 text-gray-900 dark:text-gray-100">-</td>
           </tr>
         </tbody>

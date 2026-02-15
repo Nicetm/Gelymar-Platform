@@ -1,20 +1,21 @@
 ---
-import { loadTranslations, getServerLang } from '../../lib/i18n.js';
+import { loadTranslations, getServerLang } from '@lib/i18n.js';
 import type { Folders } from '../../types/entities.js';
 
 const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
 const apiPublic = import.meta.env.PUBLIC_API_URL;
 const fileServer = import.meta.env.PUBLIC_FILE_SERVER_URL;
 const lang = getServerLang(Astro.cookies);
-const { basePath = '/admin' } = Astro.props;
+const { basePath = '/admin', routeClientId = '', routeCompany = '' } = Astro.props;
 const homeHref = basePath;
 const clientsPath = `${basePath}/clients`;
 const documentsPath = `${clientsPath}/documents/view`;
 
 const url = new URL(Astro.url.href);
-const clientName = url.searchParams.get('c') ?? '';
+const clientName = url.searchParams.get('c') ?? routeCompany ?? '';
 const decodedClientName = decodeURIComponent(clientName);
-const { id } = Astro.params;
+const { id: rawId } = Astro.params;
+const id = rawId ?? routeClientId ?? '';
 
 // Cargar traducciones de manera estática
 let t: any = {};
@@ -79,6 +80,15 @@ try {
 				</div>
 				<input id="searchInput" type="text" placeholder={t.comond.search} class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-primary-500" />
 			</div>
+
+			<div class="flex items-center gap-2">
+				<button id="exportExcelBtn" class="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800">
+					<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+					</svg>
+					{t.comond.exportToExcel}
+				</button>
+			</div>
 		</div>
 	</header>
 
@@ -102,14 +112,6 @@ try {
 							</svg>
 						</div>
 					</th>
-					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="customer_name">
-						<div class="flex items-center justify-between">
-							<span>{t.clientes.client_name}</span>
-							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
-							</svg>
-						</div>
-					</th>
 					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="oc">
 						<div class="flex items-center justify-between">
 							<span>{t.carpetas.oc}</span>
@@ -118,9 +120,17 @@ try {
 							</svg>
 						</div>
 					</th>
+					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="customer_name">
+						<div class="flex items-center justify-between">
+							<span>{t.carpetas.customerName}</span>
+							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+							</svg>
+						</div>
+					</th>
 					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="fecha">
 						<div class="flex items-center justify-between">
-							<span>{t.carpetas.fechaIngreso || 'Fecha Ingreso'}</span>
+							<span>{t.carpetas.fechaIngreso}</span>
 							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
 							</svg>
@@ -128,7 +138,7 @@ try {
 					</th>
 					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="medio_envio_factura">
 						<div class="flex items-center justify-between">
-							<span>Shipping Method</span>
+							<span>{t.carpetas.shippingMethod}</span>
 							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
 							</svg>
@@ -152,7 +162,7 @@ try {
 					</th>
 					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="fecha_etd">
 						<div class="flex items-center justify-between">
-							<span>ETD Date</span>
+							<span>{t.carpetas.etdOv}</span>
 							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
 							</svg>
@@ -160,7 +170,23 @@ try {
 					</th>
 					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="fecha_eta">
 						<div class="flex items-center justify-between">
-							<span>ETA Date</span>
+							<span>{t.carpetas.etaOv}</span>
+							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+							</svg>
+						</div>
+					</th>
+					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="fecha_etd_factura">
+						<div class="flex items-center justify-between">
+							<span>{t.carpetas.etdFactura}</span>
+							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+							</svg>
+						</div>
+					</th>
+					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="fecha_eta_factura">
+						<div class="flex items-center justify-between">
+							<span>{t.carpetas.etaFactura}</span>
 							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
 							</svg>
@@ -189,18 +215,18 @@ try {
 				</tr>
 					</thead>
 					<tbody id="foldersTableBody" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-xs min-h-[600px]">
-				<!-- Los datos se cargarán dinámicamente con JavaScript -->
-				<tr id="loadingRow" class="bg-white dark:bg-gray-900">
-					<td colspan="13" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
-						<div class="flex items-center justify-center">
-							<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-								<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-								<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-							</svg>
-							Cargando órdenes de clientes...
-						</div>
-					</td>
-				</tr>
+						<!-- Los datos se cargarán dinámicamente con JavaScript -->
+						<tr id="loadingRow" class="bg-white dark:bg-gray-900">
+							<td colspan="15" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+								<div class="flex items-center justify-center">
+								<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+									<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+									<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+								</svg>
+								{t.carpetas.loading}
+								</div>
+							</td>
+						</tr>
 					</tbody>
 				</table>
 			</div>
@@ -287,9 +313,9 @@ try {
           <tr>
             <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.carpetas.itemCode}</th>
             <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.carpetas.itemName}</th>
-            <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Cantidad</th>
-            <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Precio Unitario</th>
-            <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Total</th>
+            <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.carpetas.cantidad}</th>
+            <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.carpetas.precioUnitario}</th>
+            <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.carpetas.total}</th>
           </tr>
         </thead>
         <tbody id="itemsTableBody" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
@@ -380,6 +406,18 @@ try {
             <td id="orderDetailOc" class="px-6 py-4 text-gray-900 dark:text-gray-100">-</td>
           </tr>
           <tr>
+            <td class="px-6 py-4 text-gray-600 dark:text-gray-400 font-semibold">{t.carpetas.fechaEtd}</td>
+            <td id="orderDetailFechaEtd" class="px-6 py-4 text-gray-900 dark:text-gray-100">-</td>
+          </tr>
+          <tr>
+            <td class="px-6 py-4 text-gray-600 dark:text-gray-400 font-semibold">{t.carpetas.fechaEta}</td>
+            <td id="orderDetailFechaEta" class="px-6 py-4 text-gray-900 dark:text-gray-100">-</td>
+          </tr>
+          <tr>
+            <td class="px-6 py-4 text-gray-600 dark:text-gray-400 font-semibold">{t.carpetas.incoterm}</td>
+            <td id="orderDetailIncoterm" class="px-6 py-4 text-gray-900 dark:text-gray-100">-</td>
+          </tr>
+          <tr>
             <td class="px-6 py-4 text-gray-600 dark:text-gray-400 font-semibold">{t.carpetas.certificados}</td>
             <td id="orderDetailCertificados" class="px-6 py-4 text-gray-900 dark:text-gray-100">-</td>
           </tr>
@@ -406,7 +444,7 @@ try {
   window.apiBase = apiPublic;
   window.fileServer = fileServer;
   window.lang = lang;
-  window.translations = t;
+  window.translations = { ...(window.translations || {}), ...t };
 
   // Inicializar el script cuando el DOM esté completamente cargado
   if (document.readyState === 'loading') {

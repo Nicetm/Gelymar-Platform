@@ -6,6 +6,7 @@ import AuthGuard from '../components/AuthGuard.astro';
 import { buildConnectSrc, SCRIPT_SRC_DIRECTIVES } from './security.js';
 
 const { class: clazz, authRole = undefined } = Astro.props;
+const isSidebarCollapsed = Astro.cookies?.get('sidebarCollapsed')?.value === '1';
 
 // Construir CSP dinámica para connect-src según entornos
 const apiPublic = import.meta.env.PUBLIC_API_URL || '';
@@ -14,11 +15,11 @@ const fileServerPublic = import.meta.env.PUBLIC_FILE_SERVER_URL || '';
 const fileServerAlt = import.meta.env.PUBLIC_FILE_SERVER || '';
 const connectSrc = buildConnectSrc(apiPublic, frontendPublic);
 const scriptSrc = SCRIPT_SRC_DIRECTIVES.join(' ');
-const imgSrcExtra = [fileServerPublic, fileServerAlt].filter(Boolean).join(' ');
+const imgSrcExtra = [fileServerPublic, fileServerAlt, 'https://api.dicebear.com'].filter(Boolean).join(' ');
 ---
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class:list={[isSidebarCollapsed && 'sidebar-collapsed']}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -53,23 +54,6 @@ const imgSrcExtra = [fileServerPublic, fileServerAlt].filter(Boolean).join(' ');
       form-action 'self';
     `} />
 
-    <!-- CSS del spinner inicial -->
-    <style>
-      #globalSpinnerInit {
-        position: fixed;
-        inset: 0;
-        background-color: white;
-        opacity: 0.8;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 9999;
-      }
-      html.dark #globalSpinnerInit {
-        background-color: #111827;
-      }
-    </style>
-
     <!-- Socket.io -->
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -100,6 +84,17 @@ const imgSrcExtra = [fileServerPublic, fileServerAlt].filter(Boolean).join(' ');
       });
     </script>
 
+    <style>
+      html.sidebar-collapsed #sidebar [data-sidebar-text],
+      html.sidebar-collapsed #sidebar [data-sidebar-user] {
+        display: none !important;
+      }
+      html.sidebar-collapsed #sidebar #currentSettingsBtn span,
+      html.sidebar-collapsed #sidebar #currentLangText {
+        display: none !important;
+      }
+    </style>
+
   </head>
 
   <body
@@ -111,10 +106,6 @@ const imgSrcExtra = [fileServerPublic, fileServerAlt].filter(Boolean).join(' ');
       'dark:scrollbar-track-gray-900 dark:scrollbar-thumb-gray-700',
     ]}
   >
-    <!-- Spinner inicial -->
-    <div id="globalSpinnerInit">
-      <div class="w-16 h-16 border-4 border-blue-600 border-t-transparent border-solid rounded-full animate-spin"></div>
-    </div>
     <AuthGuard role={authRole} />
     <slot />
 

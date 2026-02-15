@@ -73,9 +73,6 @@ async function getTaskConfig() {
       clean_database: false,
       check_clients: false,
       check_client_access: false,
-      check_items: false,
-      check_orders: false,
-      check_order_lines: false,
       check_default_files: false
     };
   }
@@ -83,49 +80,6 @@ async function getTaskConfig() {
 
 // Variables globales para configuración de tareas (se cargarán desde BD)
 let taskConfig = {};
-
-async function cleanDatabase() {
-  console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Iniciando limpieza de base de datos...`);
-  
-  try {
-    const url = `${BACKEND_API_URL}/api/cron/clean-database`;
-    console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Llamando al endpoint: ${url}`);
-    console.log(`[${new Date().toISOString()}] -> Cron Master Process -> BACKEND_API_URL actual: ${BACKEND_API_URL}`);
-    
-    const response = await axios.post(url, {}, {
-      timeout: 300000, // 5 minutos
-      family: 4, // Forzar IPv4
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-    console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Limpieza de BD completada exitosamente`);
-    
-  } catch (error) {
-    console.error(`[${new Date().toISOString()}] -> Cron Master Process -> Error durante la limpieza:`, error.message);
-    console.error(`[${new Date().toISOString()}] -> Cron Master Process -> URL usada: ${BACKEND_API_URL}/api/cron/clean-database`);
-    throw error;
-  }
-}
-
-async function checkClients() {
-  console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Iniciando procesamiento de clientes...`);
-  try {
-    const url = `${BACKEND_API_URL}/api/cron/check-clients`;
-    console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Llamando al endpoint: ${url}`);
-    const response = await axios.post(url, {}, {
-      timeout: 300000, // 5 minutos
-      family: 4, // Forzar IPv4
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-    console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Procesamiento de clientes completado exitosamente`);
-  } catch (error) {
-    console.error(`[${new Date().toISOString()}] -> Cron Master Process -> Error en checkClients:`, error.message);
-    throw error;
-  }
-}
 
 async function checkClientAccess() {
   console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Iniciando verificación de acceso de clientes...`);
@@ -146,62 +100,6 @@ async function checkClientAccess() {
   }
 }
 
-async function checkItems() {
-  console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Iniciando procesamiento de items...`);
-  try {
-    const url = `${BACKEND_API_URL}/api/cron/check-items`;
-    console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Llamando al endpoint: ${url}`);
-    const response = await axios.post(url, {}, {
-      timeout: 300000, // 5 minutos
-      family: 4, // Forzar IPv4
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-    console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Procesamiento de items completado exitosamente`);
-  } catch (error) {
-    console.error(`[${new Date().toISOString()}] -> Cron Master Process -> Error en checkItems:`, error.message);
-    throw error;
-  }
-}
-
-async function checkOrders() {
-  console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Iniciando procesamiento de órdenes...`);
-  try {
-    const url = `${BACKEND_API_URL}/api/cron/check-orders`;
-    console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Llamando al endpoint: ${url}`);
-    const response = await axios.post(url, {}, {
-      timeout: 300000, // 5 minutos
-      family: 4, // Forzar IPv4
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-    console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Procesamiento de órdenes completado exitosamente`);
-  } catch (error) {
-    console.error(`[${new Date().toISOString()}] -> Cron Master Process -> Error en checkOrders:`, error.message);
-    throw error;
-  }
-}
-
-async function checkOrderLines() {
-  console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Iniciando procesamiento de líneas de orden...`);
-  try {
-    const url = `${BACKEND_API_URL}/api/cron/check-order-lines`;
-    console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Llamando al endpoint: ${url}`);
-    const response = await axios.post(url, {}, {
-      timeout: 300000, // 5 minutos
-      family: 4, // Forzar IPv4
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-    console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Procesamiento de líneas de orden completado exitosamente`);
-  } catch (error) {
-    console.error(`[${new Date().toISOString()}] -> Cron Master Process -> Error en checkOrderLines:`, error.message);
-    throw error;
-  }
-}
 
 async function checkDefaultFiles() {
   console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Iniciando verificación de archivos por defecto...`);
@@ -233,12 +131,7 @@ async function executeSequence() {
   console.log(`[${startTime.toISOString()}] -> Cron Master Process -> Iniciando tareas...`);
   
   const tasks = [
-    { name: 'Limpieza de BD', enabled: taskConfig.clean_database, func: cleanDatabase },
-    { name: 'Check Clients', enabled: taskConfig.check_clients, func: checkClients },
     { name: 'Check Client Access', enabled: taskConfig.check_client_access, func: checkClientAccess },
-    { name: 'Check Items', enabled: taskConfig.check_items, func: checkItems },
-    { name: 'Check Orders', enabled: taskConfig.check_orders, func: checkOrders },
-    { name: 'Check Order Lines', enabled: taskConfig.check_order_lines, func: checkOrderLines },
     { name: 'Check Default Files', enabled: taskConfig.check_default_files, func: checkDefaultFiles }
   ];
 

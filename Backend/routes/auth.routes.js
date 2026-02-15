@@ -4,7 +4,8 @@ const router = express.Router();
 const crypto = require('crypto');
 const authController = require('../controllers/auth.controller');
 const authMiddleware = require('../middleware/auth.middleware');
-const userService = require('../services/user.service');
+const { container } = require('../config/container');
+const userService = container.resolve('userService');
 const { authValidations } = require('../middleware/validation.middleware');
 
 /**
@@ -35,7 +36,7 @@ router.get('/2fa/setup', authController.setup2FA);
 router.get('/2fa/status', authController.check2FAStatus);
 router.get('/me', authMiddleware, async (req, res) => {
     try {
-        const user = await userService.findUserById(req.user.id);
+        const user = await userService.getUserProfile(req.user.id);
         
         // Buscar el customer_id usando el RUT (email del usuario)
         let customer_id = null;
@@ -46,7 +47,7 @@ router.get('/me', authMiddleware, async (req, res) => {
         res.json({
             id: req.user.id,
             rut: req.user.rut || req.user.email,
-            email: user.admin_email || user.customer_email || null,
+            email: user.email || null,
             full_name: user.full_name,
             phone: user.phone,
             country: user.country,
@@ -56,7 +57,8 @@ router.get('/me', authMiddleware, async (req, res) => {
             role_cfg: crypto.createHash('md5').update(String(req.user.roleId)).digest('hex'),
             role_name: req.user.roleName || req.user.role,
             change_pw: user.change_pw,
-            customer_id: customer_id
+            customer_id: customer_id,
+            avatar_path: user.avatar_path || null
         });
     } catch (error) {
         console.error('Error en me:', error);

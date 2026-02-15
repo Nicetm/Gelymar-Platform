@@ -19,6 +19,8 @@ class Folder {
     fecha_factura = null,
     fecha_etd = null,
     fecha_eta = null,
+    fecha_etd_factura = null,
+    fecha_eta_factura = null,
     incoterm = null,
     puerto_destino = null,
     certificados = null,
@@ -42,6 +44,8 @@ class Folder {
     this.fecha_factura = fecha_factura;
     this.fecha_etd = fecha_etd;
     this.fecha_eta = fecha_eta;
+    this.fecha_etd_factura = fecha_etd_factura;
+    this.fecha_eta_factura = fecha_eta_factura;
     this.incoterm = incoterm;
     this.puerto_destino = puerto_destino;
     this.certificados = certificados;

@@ -85,6 +85,7 @@
       "reports": "Reports",
       "actions": "Actions"
     },
+    "cco": "CCO",
     "delete": "Delete",
     "placeholders": {
       "name": "Contact name",
@@ -96,7 +97,11 @@
     "helpAdd": "Use \"Add new contact\" to create a record.",
     "helpFields": "Fill in name, email, and phone before saving.",
     "helpOptions": "SH Docs and Reports enable document sending. CCO adds the email to the CCO list.",
-    "helpEdit": "You can edit or delete contacts from the Actions column."
+    "helpEdit": "You can edit or delete contacts from the Actions column.",
+    "confirmTitle": "Confirm save contacts",
+    "confirmMessage": "Are you sure you want to save these contacts?",
+    "confirmYes": "Yes, save",
+    "confirmCancel": "Cancel"
   },
   "changePassword": {
     "title": "Change password",
@@ -106,7 +111,17 @@
     "newPasswordPlaceholder": "Enter the new password",
     "confirmPasswordPlaceholder": "Confirm the new password",
     "submit": "Change password",
-    "saving": "Changing..."
+    "saving": "Changing...",
+    "confirmTitle": "Confirm password change",
+    "confirmMessage": "Are you sure you want to change the customer's password?",
+    "confirmYes": "Yes, change",
+    "confirmCancel": "Cancel",
+    "rules": {
+      "minLength": "At least 8 characters",
+      "upper": "At least 1 uppercase letter",
+      "lower": "At least 1 lowercase letter",
+      "number": "At least 1 number"
+    }
   },
   "form": {
     "customerRequired": "A customer must be selected",

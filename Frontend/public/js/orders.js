@@ -1,18 +1,25 @@
 // public/js/orders.js
 import { qs, showNotification } from './utils.js';
 
+let orders = {};
+
+function slugifyPath(text) {
+  if (!text) return '';
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+}
+
 export async function initOrdersScript() {
   const section = document.getElementById('OrderSection');
   const basePath = section?.dataset?.basePath || '/admin';
   const clientsPath = section?.dataset?.clientsPath || `${basePath}/clients`;
   const documentsPath = section?.dataset?.documentsPath || `${clientsPath}/documents/view`;
-  // Obtener apiBase - usar localhost para JavaScript del cliente
-  const apiBase = window.apiBase || section?.dataset?.apiBase;
-  
   // Usar traducciones ya cargadas por Astro
   const translations = window.translations || {};
-  const messages = translations.messages || {};
-  const carpetas = translations.carpetas || {};
+  orders = translations.orders || {};
   
   // Verificar que todos los elementos necesarios existan
   const searchInput = qs('searchInput');
@@ -40,7 +47,6 @@ export async function initOrdersScript() {
   }
   
   // Verificar elementos necesarios (sin botón de refresh)
-  const cacheStatus = qs('cacheStatus');
 
   // Variables de estado
   let allOrders = [];
@@ -91,8 +97,6 @@ export async function initOrdersScript() {
         headerTable.style.width = `${scrollWidth}px`;
         const hasOverflow = scrollWidth > body.clientWidth + 1;
         const inView = rect.bottom > 0 && rect.top < window.innerHeight;
-        const theadRect = thead?.getBoundingClientRect();
-
         if (!hasOverflow || !inView) {
           scrollbar.classList.add('hidden');
           scrollbar.classList.remove('sticky-scrollbar-floating');
@@ -158,70 +162,35 @@ export async function initOrdersScript() {
   function formatDateShort(dateString) {
     if (!dateString) return '-';
     try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('es-ES', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
+      const trimmed = String(dateString).trim();
+      const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (isoMatch) {
+        const [, yyyy, mm, dd] = isoMatch;
+        return `${dd}/${mm}/${yyyy}`;
+      }
+      const dmyMatch = trimmed.match(/^(\d{2})[\/-](\d{2})[\/-](\d{4})/);
+      if (dmyMatch) {
+        const [, dd, mm, yyyy] = dmyMatch;
+        return `${dd}/${mm}/${yyyy}`;
+      }
+      const date = new Date(trimmed);
+      if (Number.isNaN(date.getTime())) return '-';
+      const day = String(date.getUTCDate()).padStart(2, '0');
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const year = date.getUTCFullYear();
+      return `${day}/${month}/${year}`;
     } catch (error) {
       return '-';
     }
   }
 
-  // Función para determinar el color del semáforo
-  function getTrafficLightColor(order) {
-    const documentCount = order.document_count || 0;
-    const estadoOv = (order.estado_ov || '').toLowerCase();
-    
-    
-    // Verde: si el estado es "cerrada"
-    if (estadoOv === 'cerrada') {
-      return 'green';
-    }
-    
-    // Naranja: si el estado es "abierta" y tiene 4 o más documentos
-    if (estadoOv === 'abierta' && documentCount >= 4) {
-      return 'orange';
-    }
-    
-    // Rojo: si el estado es "abierta" y tiene 0 documentos
-    if (estadoOv === 'abierta' && documentCount === 0) {
-      return 'red';
-    }
-    
-    // Por defecto, rojo si no cumple ninguna condición
-    return 'red';
-  }
-
-  // Función para obtener el título del semáforo
-  function getTrafficLightTitle(order) {
-    const documentCount = order.document_count || 0;
-    const estadoOv = (order.estado_ov || '').toLowerCase();
-    
-    if (estadoOv === 'cerrada') {
-      return 'Orden cerrada';
-    }
-    
-    if (estadoOv === 'abierta' && documentCount >= 4) {
-      return `Orden abierta con ${documentCount} documentos`;
-    }
-    
-    if (estadoOv === 'abierta' && documentCount === 0) {
-      return 'Orden abierta sin documentos';
-    }
-    
-    return `Orden ${estadoOv} con ${documentCount} documentos`;
-  }
-
-
-
   // Función para renderizar una fila de orden
   function renderOrderRow(order) {
-    const trafficLightColor = getTrafficLightColor(order);
-    const trafficLightTitle = getTrafficLightTitle(order);
-    const encodedCustomerName = encodeURIComponent(order.customer_name || '');
-    const documentUrl = `${documentsPath}/${order.customer_uuid}?f=${order.id}&pc=${order.pc}&c=${encodedCustomerName}`;
+    const customerRut = order.customer_rut || order.customer_uuid || '';
+    const pcValue = order.pc || '';
+    const ocValue = order.oc || order.orderNumber || '';
+    const companyValue = order.customer_name || '';
+    const documentUrl = `${documentsPath}/${encodeURIComponent(customerRut)}/${encodeURIComponent(pcValue)}/${slugifyPath(ocValue)}/${slugifyPath(companyValue)}`;
     const shippingMethod = (!order.factura || order.factura === 0 || order.factura === '0')
       ? (order.medio_envio_ov || '-')
       : (order.medio_envio_factura || '-');
@@ -243,7 +212,7 @@ export async function initOrdersScript() {
             ${order.customer_name || '-'}
           </a>
         </td>
-        <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(order.fecha)}</td>
+        <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(order.fecha_ingreso || order.fecha)}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">
           ${shippingMethod}
         </td>
@@ -258,17 +227,17 @@ export async function initOrdersScript() {
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">
           <a href="${documentUrl}" 
              class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline">
-            ${window.translations?.carpetas?.viewDocuments || 'ver documentos'}
+            ${orders.viewDocuments}
           </a>
         </td>
         <td class="sticky right-0 bg-gray-50 dark:bg-gray-700 z-10 px-6 py-4 min-w-[120px] overflow-visible">
           <div class="flex justify-center gap-3 relative">
             <!-- Ver lista de items -->
             <div class="relative">
-              <a href="#" class="items-list-btn text-gray-900 dark:text-white hover:text-green-500 transition"
+              <a href="#" class="items-list-btn text-gray-900 dark:text-white hover:text-green-500 dark:hover:text-green-400 transition"
                  data-order-pc="${order.pc}" data-order-oc="${order.oc}" data-factura="${order.factura}"
-                 data-tooltip="${window.translations?.carpetas?.tooltipViewItemsDetailed || 'Ver items detallados'}"
-                 aria-label="${window.translations?.carpetas?.tooltipViewItemsDetailed || 'Ver items detallados'}">
+                 data-tooltip="${orders.tooltipViewItemsDetailed}"
+                 aria-label="${orders.tooltipViewItemsDetailed}">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
                 </svg>
@@ -277,10 +246,10 @@ export async function initOrdersScript() {
 
             <!-- Ver items en modal (tabla expandida) -->
             <div class="relative">
-              <a href="#" class="items-detail-modal-btn text-gray-900 dark:text-white hover:text-green-500 transition"
+              <a href="#" class="items-detail-modal-btn text-gray-900 dark:text-white hover:text-green-500 dark:hover:text-green-400 transition"
                  data-order-pc="${order.pc}" data-order-oc="${order.oc}" data-factura="${order.factura}"
-                 data-tooltip="${window.translations?.carpetas?.tooltipViewItems || 'Ver lista de items'}"
-                 aria-label="${window.translations?.carpetas?.tooltipViewItems || 'Ver lista de items'}">
+                 data-tooltip="${orders.tooltipViewItems}"
+                 aria-label="${orders.tooltipViewItems}">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>
                 </svg>
@@ -289,10 +258,10 @@ export async function initOrdersScript() {
 
             <!-- Ver detalles de orden -->
             <div class="relative">
-              <a href="#" class="order-detail-btn text-gray-900 dark:text-white hover:text-green-500 transition"
+              <a href="#" class="order-detail-btn text-gray-900 dark:text-white hover:text-green-500 dark:hover:text-green-400 transition"
                  data-order-id="${order.id}" data-order-pc="${order.pc}" data-order-oc="${order.oc}"
-                 data-tooltip="${window.translations?.carpetas?.tooltipOrderDetails || 'Ver detalles de orden'}"
-                 aria-label="${window.translations?.carpetas?.tooltipOrderDetails || 'Ver detalles de orden'}">
+                 data-tooltip="${orders.tooltipOrderDetails}"
+                 aria-label="${orders.tooltipOrderDetails}">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
@@ -469,8 +438,8 @@ export async function initOrdersScript() {
       const loadingRow = document.getElementById('loadingRow');
       if (loadingRow) {
         loadingRow.innerHTML = `
-          <td colspan="15" class="px-6 py-8 text-center text-red-500">
-            Error al cargar las órdenes. <button onclick="location.reload()" class="text-blue-500 hover:underline">Reintentar</button>
+          <td colspan="11" class="px-6 py-8 text-center text-red-500">
+            ${orders.loadError} <button onclick="location.reload()" class="text-blue-500 hover:underline">${orders.retry}</button>
           </td>
         `;
       }
@@ -506,7 +475,7 @@ export async function initOrdersScript() {
     if (pageData.length === 0) {
       tableBody.innerHTML = `
         <tr class="bg-white dark:bg-gray-900">
-          <td colspan="15" class="px-6 py-8 text-center text-gray-500">
+          <td colspan="11" class="px-6 py-8 text-center text-gray-500">
             No se encontraron órdenes
           </td>
         </tr>
@@ -560,7 +529,7 @@ export async function initOrdersScript() {
         case 'customer_name':
           return order.customer_name ?? '';
         case 'fecha':
-          return order.fecha ?? '';
+          return order.fecha_ingreso ?? order.fecha ?? '';
         case 'medio_envio_factura':
           return (!order.factura || order.factura === 0 || order.factura === '0')
             ? (order.medio_envio_ov ?? '')
@@ -732,25 +701,25 @@ export async function initOrdersScript() {
     const ordersToExport = filteredOrders.length > 0 ? filteredOrders : allOrders;
     
     if (ordersToExport.length === 0) {
-      showNotification('No hay órdenes disponibles para exportar', 'warning');
+      showNotification(orders.exportEmpty, 'warning');
       return;
     }
 
     // Definir los encabezados de las columnas
-    const labelPc = carpetas.name || 'N° PC';
-    const labelOrder = carpetas.oc || 'Order';
-    const labelCustomer = translations?.clientes?.client_name || 'Customer Name';
-    const labelEntryDate = carpetas.fechaIngreso || 'Entry Date';
-    const labelShippingMethod = carpetas.shippingMethod || 'Shipping Method';
-    const labelInvoice = carpetas.factura || 'Invoice';
-    const labelInvoiceDate = carpetas.fechaFactura || 'Invoice Date';
-    const labelEtdOv = carpetas.etdOv || 'ETD OV';
-    const labelEtaOv = carpetas.etaOv || 'ETA OV';
-    const labelEtdFactura = carpetas.etdFactura || 'ETD Invoice';
-    const labelEtaFactura = carpetas.etaFactura || 'ETA Invoice';
-    const labelIncoterm = carpetas.incoterm || 'Incoterm';
-    const labelDestinationPort = carpetas.puertoDestino || 'Destination Port';
-    const labelDocuments = carpetas.documents || 'Documents';
+    const labelPc = orders.name;
+    const labelOrder = orders.oc;
+    const labelCustomer = translations?.clientes?.client_name;
+    const labelEntryDate = orders.fechaIngreso;
+    const labelShippingMethod = orders.shippingMethod;
+    const labelInvoice = orders.factura;
+    const labelInvoiceDate = orders.fechaFactura;
+    const labelEtdOv = orders.etdOv;
+    const labelEtaOv = orders.etaOv;
+    const labelEtdFactura = orders.etdFactura;
+    const labelEtaFactura = orders.etaFactura;
+    const labelIncoterm = orders.incoterm;
+    const labelDestinationPort = orders.puertoDestino;
+    const labelDocuments = orders.documents;
 
     const headers = [
       labelPc,
@@ -771,8 +740,11 @@ export async function initOrdersScript() {
 
     // Preparar los datos para exportar
     const data = ordersToExport.map(order => {
-      const encodedCustomerName = encodeURIComponent(order.customer_name || '');
-      const documentUrl = `${documentsPath}/${order.customer_uuid}?f=${order.id}&pc=${order.pc}&c=${encodedCustomerName}`;
+      const customerRut = order.customer_rut || order.customer_uuid || '';
+      const pcValue = order.pc || '';
+      const ocValue = order.oc || order.orderNumber || '';
+      const companyValue = order.customer_name || '';
+      const documentUrl = `${documentsPath}/${encodeURIComponent(customerRut)}/${encodeURIComponent(pcValue)}/${slugifyPath(ocValue)}/${slugifyPath(companyValue)}`;
       const shippingMethod = (!order.factura || order.factura === 0 || order.factura === '0')
         ? (order.medio_envio_ov || '')
         : (order.medio_envio_factura || '');
@@ -781,7 +753,7 @@ export async function initOrdersScript() {
         order.pc || '', // N° PC
         order.oc || '', // Order
         order.customer_name || '', // Customer Name
-        formatDateShort(order.fecha) || '', // Entry Date
+        formatDateShort(order.fecha_ingreso || order.fecha) || '', // Entry Date
         shippingMethod, // Shipping Method
         order.factura || '', // Invoice
         formatDateShort(order.fecha_factura) || '', // Invoice Date
@@ -875,13 +847,13 @@ export async function initOrdersScript() {
       renderTable();
       
       // Mostrar notificación de éxito
-      showNotification('Datos refrescados automáticamente', 'success');
+      showNotification(orders.refreshSuccess, 'success');
       
       // Cache actualizado automáticamente
       
     } catch (error) {
       console.error('Error refrescando datos:', error);
-      showNotification('Error al refrescar los datos', 'error');
+      showNotification(orders.refreshError, 'error');
     }
   }
 
@@ -893,8 +865,8 @@ export async function initOrdersScript() {
       }
     };
 
-    // Verificar cada minuto si el caché ha expirado
-    setInterval(checkCacheExpiry, 60 * 1000);
+    // Verificar cada 30 minutos si el caché ha expirado
+    setInterval(checkCacheExpiry, 30 * 60 * 1000);
   }
 
   // Inicializar auto-refresh
@@ -1042,6 +1014,21 @@ export async function initOrdersScript() {
         }
       });
     }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      if (itemsModal) {
+        itemsModal.classList.add('hidden');
+        itemsModal.classList.remove('flex');
+      }
+      if (itemsDetailModal) {
+        itemsDetailModal.classList.add('hidden');
+        itemsDetailModal.classList.remove('flex');
+      }
+      if (orderDetailModal) {
+        orderDetailModal.classList.add('hidden');
+      }
+    });
   }
 
 }
@@ -1059,6 +1046,24 @@ async function openItemsModal(orderPc, orderOc, factura) {
 
   if (!itemsModal || !itemsOrderTitle || !itemsTableBody) return;
 
+  itemsModal.classList.remove('hidden');
+  itemsModal.classList.add('flex');
+  itemsOrderTitle.textContent = `${orders.order}: ${orderOc || '-'}`;
+  if (itemsCustomerName) {
+    itemsCustomerName.textContent = `${orders.cliente}: -`;
+  }
+
+
+  const itemsOrderSubtitle = document.getElementById('itemsOrderSubtitle');
+  if (itemsOrderSubtitle) itemsOrderSubtitle.textContent = orders.itemsList;
+  if (itemsTableBody) {
+    itemsTableBody.innerHTML = buildLoadingRow(5);
+  }
+  if (totalItems) totalItems.textContent = '-';
+  if (totalQuantity) totalQuantity.textContent = '-';
+  if (totalValue) totalValue.textContent = '-';
+  if (totalGastoAdicional) totalGastoAdicional.textContent = '-';
+
   try {
     // Cargar items de la orden usando endpoint diferente según si tiene factura o no
     const token = localStorage.getItem('token');
@@ -1068,7 +1073,7 @@ async function openItemsModal(orderPc, orderOc, factura) {
 
     const safeOrderOc = orderOc ? encodeURIComponent(orderOc) : '';
     const facturaValue = factura === undefined || factura === null ? '' : String(factura).trim();
-    const hasFacturaRequest = facturaValue !== '' && facturaValue !== 'null'; // para endpoint (incluye '0')
+    const hasFacturaRequest = facturaValue !== '' && facturaValue !== 'null' && facturaValue !== '0'; // para endpoint
     const hasFacturaDisplay = facturaValue !== '' && facturaValue !== 'null' && facturaValue !== '0'; // para labels/cálculos
     const safeFactura = hasFacturaRequest ? encodeURIComponent(facturaValue) : '';
 
@@ -1076,13 +1081,13 @@ async function openItemsModal(orderPc, orderOc, factura) {
     const quantityHeader = itemsModal.querySelector('[data-column="quantity"]');
     if (quantityHeader) {
       const qtyHeaderText = hasFacturaDisplay
-        ? (window.translations?.carpetas?.kgFacturados || window.translations?.carpetas?.kg_facturados || 'KG FACTURADOS')
-        : (window.translations?.carpetas?.kgSolicitados || window.translations?.carpetas?.kg_solicitados || 'KG SOLICITADOS');
+        ? orders.kgFacturados
+        : orders.kgSolicitados;
       quantityHeader.textContent = qtyHeaderText;
     }
     
     // Usar endpoint diferente según si tiene factura o no
-    const url = hasFacturaRequest 
+    const url = hasFacturaRequest
       ? `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/${safeFactura}/items`
       : `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/items`;
     
@@ -1091,7 +1096,7 @@ async function openItemsModal(orderPc, orderOc, factura) {
     });
 
     if (!response.ok) {
-      throw new Error('Error al cargar los items de la orden');
+      throw new Error(orders.itemsLoadError);
     }
 
     const items = await response.json();
@@ -1099,9 +1104,9 @@ async function openItemsModal(orderPc, orderOc, factura) {
     
     // Actualizar header del modal
     document.getElementById('itemsInitials').textContent = 'IT';
-    document.getElementById('itemsOrderTitle').textContent = `${window.translations?.carpetas?.order || 'Orden'}: ${orderOc}`;
-    document.getElementById('itemsCustomerName').textContent = `${window.translations?.carpetas?.cliente || 'Cliente'}: ${normalizedItems[0]?.customer_name || '-'}`;
-    document.getElementById('itemsOrderSubtitle').textContent = window.translations?.carpetas?.itemsList || 'Lista de Items';
+    document.getElementById('itemsOrderTitle').textContent = `${orders.order}: ${orderOc}`;
+    document.getElementById('itemsCustomerName').textContent = `${orders.cliente}: ${normalizedItems[0]?.customer_name || '-'}`;
+    document.getElementById('itemsOrderSubtitle').textContent = orders.itemsList;
     
     const parseNumber = (value, fallback = 0) => {
       if (value === null || value === undefined) return fallback;
@@ -1138,7 +1143,7 @@ async function openItemsModal(orderPc, orderOc, factura) {
         itemsTableBody.innerHTML = `
           <tr>
             <td colspan="5" class="px-6 py-4 text-center text-xs text-gray-500 dark:text-gray-400">
-              ${window.translations?.carpetas?.noItemsFound || 'No se encontraron items para esta orden'}
+              ${orders.noItemsFound}
             </td>
           </tr>
         `;
@@ -1198,13 +1203,9 @@ async function openItemsModal(orderPc, orderOc, factura) {
     if (totalValue) totalValue.textContent = formatCurrency(totalValueSum, currency);
     if (totalGastoAdicional) totalGastoAdicional.textContent = formatCurrency(gastoAdicional, currency);
 
-    // Mostrar el modal
-    itemsModal.classList.remove('hidden');
-    itemsModal.classList.add('flex');
-
   } catch (error) {
     console.error('Error loading order items:', error);
-    showNotification('Error al cargar los items de la orden', 'error');
+    showNotification(orders.itemsLoadError, 'error');
   }
 }
 
@@ -1273,16 +1274,16 @@ function buildItemsDetailTable(items, currency) {
     <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
       <thead class="bg-gray-100 dark:bg-gray-800 sticky top-0 z-10">
         <tr>
-          <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Código</th>
-          <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Nombre</th>
-          <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Tipo</th>
-          <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">KG Solicitados</th>
-          <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">KG Despachados</th>
-          <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">KG Facturados</th>
-          <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">ETD Date</th>
-          <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">ETA Date</th>
-          <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Precio Unitario</th>
-          <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Total</th>
+          <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${orders.itemCode}</th>
+          <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${orders.itemName}</th>
+          <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${orders.tipo}</th>
+          <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${orders.kgSolicitados}</th>
+          <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${orders.kgDespachados}</th>
+          <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${orders.kgFacturados}</th>
+          <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${orders.fechaEtd}</th>
+          <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${orders.fechaEta}</th>
+          <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${orders.precioUnitario}</th>
+          <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${orders.total}</th>
         </tr>
       </thead>
       <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-xs">
@@ -1311,11 +1312,63 @@ function buildItemsDetailTable(items, currency) {
   `;
 }
 
+function buildLoadingRow(colspan, message) {
+  const safeMessage = message || orders.loading;
+  return `
+    <tr class="bg-white dark:bg-gray-900">
+      <td colspan="${colspan}" class="px-6 py-6 text-center text-gray-500 dark:text-gray-400">
+        <div class="flex items-center justify-center">
+          <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          ${safeMessage}
+        </div>
+      </td>
+    </tr>
+  `;
+}
+
 async function openItemsDetailModal(orderPc, orderOc, factura) {
   const detailModal = document.getElementById('itemsDetailModal');
   const detailTitle = document.getElementById('itemsDetailTitle');
+  const detailCustomerName = document.getElementById('itemsDetailCustomerName');
   const detailContainer = document.getElementById('itemsDetailTableContainer');
   if (!detailModal || !detailContainer) return;
+
+  if (detailTitle) {
+    detailTitle.textContent = `${orders.itemsDetailTitle} ${factura || '-'}`;
+  }
+  if (detailCustomerName) {
+    detailCustomerName.textContent = `${orders.cliente}: -`;
+  }
+  detailContainer.innerHTML = `
+    <div class="bg-white dark:bg-gray-700 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600">
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+          <thead class="bg-gray-100 dark:bg-gray-800 sticky top-0 z-10">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${orders.itemCode}</th>
+              <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${orders.itemName}</th>
+              <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${orders.tipo}</th>
+              <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${orders.kgSolicitados}</th>
+              <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${orders.kgDespachados}</th>
+              <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${orders.kgFacturados}</th>
+              <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${orders.fechaEtd}</th>
+              <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${orders.fechaEta}</th>
+              <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${orders.precioUnitario}</th>
+              <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${orders.total}</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-xs">
+            ${buildLoadingRow(10)}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+  detailModal.classList.remove('hidden');
+  detailModal.classList.add('flex');
 
   try {
     const token = localStorage.getItem('token');
@@ -1323,8 +1376,10 @@ async function openItemsDetailModal(orderPc, orderOc, factura) {
     const datasetApiBase = section?.dataset?.apiBase;
     const apiBase = window.apiBase || datasetApiBase;
     const safeOrderOc = orderOc ? encodeURIComponent(orderOc) : '';
-    const safeFactura = factura && factura !== 'null' ? encodeURIComponent(factura) : '';
-    const url = factura && factura !== 'null'
+    const facturaValue = factura === undefined || factura === null ? '' : String(factura).trim();
+    const hasFacturaRequest = facturaValue !== '' && facturaValue !== 'null' && facturaValue !== '0';
+    const safeFactura = hasFacturaRequest ? encodeURIComponent(facturaValue) : '';
+    const url = hasFacturaRequest
       ? `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/${safeFactura}/items`
       : `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/items`;
 
@@ -1333,13 +1388,16 @@ async function openItemsDetailModal(orderPc, orderOc, factura) {
     });
 
     if (!response.ok) {
-      throw new Error('Error al cargar los items de la orden');
+      throw new Error(orders.itemsLoadError);
     }
 
     const items = await response.json();
     const currency = items[0]?.currency || 'CLP';
+    if (detailCustomerName) {
+      detailCustomerName.textContent = `${orders.cliente}: ${items[0]?.customer_name || '-'}`;
+    }
     if (detailTitle) {
-      detailTitle.textContent = `Items de la Factura ${factura || '-'}`;
+      detailTitle.textContent = `${orders.itemsDetailTitle} ${factura || '-'}`;
     }
     detailContainer.innerHTML = `
       <div class="bg-white dark:bg-gray-700 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600">
@@ -1352,7 +1410,7 @@ async function openItemsDetailModal(orderPc, orderOc, factura) {
     detailModal.classList.add('flex');
   } catch (error) {
     console.error('Error cargando items para modal:', error);
-    showNotification('Error al cargar items de la orden', 'error');
+    showNotification(orders.itemsLoadError, 'error');
   }
 }
 
@@ -1368,12 +1426,22 @@ async function openOrderDetailModal(orderId, orderOc) {
   if (!orderDetailModal || !orderDetailTitle) return;
 
   // Actualizar título
-  orderDetailTitle.textContent = `PC ${orderOc} - Detalles`;
+  orderDetailTitle.textContent = `PC ${orderOc} - ${orders.orderDetails}`;
+  orderDetailModal.classList.remove('hidden');
+  orderDetailModal.classList.add('flex');
+  orderDetailPc.textContent = orders.loading;
+  orderDetailOc.textContent = orders.loading;
+  orderDetailDireccionDestino.textContent = orders.loading;
+  orderDetailPuertoDestino.textContent = orders.loading;
+  let orderDetailObservaciones = document.getElementById('orderDetailObservaciones');
+  if (orderDetailObservaciones) {
+    orderDetailObservaciones.textContent = orders.loading;
+  }
 
   try {
     // Cargar detalles de la orden
     const token = localStorage.getItem('token');
-    const response = await fetch(`${apiBase}/api/orders/${orderId}/detail`, {
+    const response = await fetch(`${apiBase}/api/orders/${encodeURIComponent(orderId)}/detail`, {
       headers: { Authorization: `Bearer ${token}` }
     });
 
@@ -1406,13 +1474,10 @@ async function openOrderDetailModal(orderId, orderOc) {
     orderDetailPuertoDestino.textContent = orderDetail.puerto_destino || '-';
     
     // Agregar campo de observaciones si existe
-    const orderDetailObservaciones = document.getElementById('orderDetailObservaciones');
+    orderDetailObservaciones = document.getElementById('orderDetailObservaciones');
     if (orderDetailObservaciones) {
       orderDetailObservaciones.textContent = orderDetail.u_observaciones || '-';
     }
-
-    // Mostrar modal
-    orderDetailModal.classList.remove('hidden');
 
   } catch (error) {
     console.error('Error cargando detalles de orden:', error);
@@ -1424,12 +1489,10 @@ async function openOrderDetailModal(orderId, orderOc) {
     orderDetailPuertoDestino.textContent = '-';
     
     // Agregar campo de observaciones si existe
-    const orderDetailObservaciones = document.getElementById('orderDetailObservaciones');
+    orderDetailObservaciones = document.getElementById('orderDetailObservaciones');
     if (orderDetailObservaciones) {
       orderDetailObservaciones.textContent = '-';
     }
-
-    orderDetailModal.classList.remove('hidden');
   }
 }
 

@@ -19,64 +19,52 @@ export function initNotificationBell(config = {}) {
   }
 
   const locale = (lang && lang.toLowerCase().startsWith('en')) ? 'en-US' : 'es-CL';
-  const t = {
-    tooltip: translations.tooltip || 'Notificaciones',
-    noMessages: translations.no_messages || 'No hay mensajes nuevos',
-    customersNotificationTitle: translations.customers_notification_title || 'Clientes sin cuenta registrados',
-    customersNotificationMessage: translations.customers_notification_message || '{count} cliente{plural} sin cuenta de usuario',
-    ordersTitle: translations.orders_missing_docs_title || 'Orden {pc} • OC {oc}',
-    ordersClientLabel: translations.orders_missing_docs_client || 'Cliente',
-    ordersMissingDocsText: translations.orders_missing_docs_missing_docs || 'Falta documentación mínima',
-    ordersEtdLabel: translations.orders_missing_docs_etd || 'ETD',
-    ordersIngresoLabel: translations.orders_missing_docs_ingreso || 'Ingreso',
-    statusOnline: translations.status_online || 'En línea',
-    statusOffline: translations.status_offline || 'Offline',
-    modalTitle: translations.customers_modal_title || 'Clientes sin Cuenta',
-    modalSubtitle: translations.customers_modal_subtitle || 'Lista de clientes que no tienen cuenta de usuario',
-    modalColumns: {
-      name: translations.customers_modal_columns_name || 'Nombre',
-      rut: translations.customers_modal_columns_rut || 'RUT',
-      email: translations.customers_modal_columns_email || 'Email',
-      actions: translations.customers_modal_columns_actions || 'Acciones'
-    },
-    modalCreate: translations.customers_modal_create || 'Crear cuenta',
-    confirmNoEmailTitle: translations.confirm_no_email_title || 'Cliente sin email',
-    confirmNoEmailMessage: translations.confirm_no_email_message || 'El cliente seleccionado no tiene un correo configurado. No podremos notificar la creación de la cuenta.\n¿Quieres continuar?',
-    confirmCreateAccountTitle: translations.confirm_create_account_title || 'Crear cuenta de usuario',
-    confirmCreateAccountMessage: translations.confirm_create_account_message || 'Se creará una cuenta y contraseña para el cliente. Lo notificaremos por correo electrónico a {email}.\n¿Quieres crear la cuenta?',
-    confirmYes: translations.confirm_yes || 'Sí, continuar',
-    confirmNo: translations.confirm_no || 'No',
-    accountCreated: translations.account_created || 'Cuenta creada exitosamente para {name}',
-    unknownValue: translations.unknown_value || 'Sin información'
-  };
+  const translationsRoot = (translations && Object.keys(translations).length) ? translations : (window.translations || {});
+  const notificationsTexts = translationsRoot.notifications || {};
+  const getMessage = (value) => (typeof value === 'string' ? value : '');
+  const unknownValue = getMessage(notificationsTexts.unknown_value);
 
   const formatCustomerCountMessage = (count) => {
     const plural = count === 1 ? '' : 's';
-    return (t.customersNotificationMessage || '{count} cliente{plural} sin cuenta de usuario')
+    const template = getMessage(notificationsTexts.customers_notification_message);
+    return template
       .replace('{count}', count)
       .replace('{plural}', plural);
   };
 
   const formatOrdersTitle = (pc, oc) => {
-    return (t.ordersTitle || 'Orden {pc} • OC {oc}')
-      .replace('{pc}', pc || 'N/A')
-      .replace('{oc}', oc || 'N/A');
+    const template = getMessage(notificationsTexts.orders_missing_docs_title);
+    return template
+      .replace('{pc}', pc || '')
+      .replace('{oc}', oc || '');
   };
 
   const formatAccountCreated = (name) => {
-    return (t.accountCreated || 'Cuenta creada exitosamente para {name}').replace('{name}', name || '');
+    const template = getMessage(notificationsTexts.account_created);
+    return template.replace('{name}', name || '');
   };
 
   const formatConfirmCreateAccountMessage = (email) => {
-    return (t.confirmCreateAccountMessage || '')
-      .replace('{email}', email || '-');
+    const template = getMessage(notificationsTexts.confirm_create_account_message);
+    return template.replace('{email}', email || '');
   };
 
-  let notifications = [];
+  const slugifyPath = (text) => {
+    if (!text) return '';
+    return String(text)
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
+  };
+
+  let notificationsData = [];
   let unreadCount = Number(initialUnread) || 0;
   let previousUnreadCount = unreadCount;
   let isTabBlinking = false;
   let tabBlinkInterval = null;
+  let notificationsRefreshTimer = null;
   const originalTitle = document.title;
   const userRole = localStorage.getItem('userRole') || 'client';
   const numericRoleId = Number(roleId);
@@ -184,10 +172,10 @@ export function initNotificationBell(config = {}) {
             <p class="text-sm text-gray-600 dark:text-gray-300 text-center mb-6 whitespace-pre-line">${message}</p>
             <div class="flex gap-3 justify-end">
               <button id="confirmCancel" class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500">
-                ${t.confirmNo}
+                ${getMessage(notificationsTexts.confirm_no)}
               </button>
               <button id="confirmAccept" class="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${type === 'info' ? 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500' : 'bg-amber-600 hover:bg-amber-700 focus:ring-amber-500'}">
-                ${t.confirmYes}
+                ${getMessage(notificationsTexts.confirm_yes)}
               </button>
             </div>
           </div>
@@ -371,6 +359,15 @@ export function initNotificationBell(config = {}) {
     }
   }
 
+  function scheduleNotificationsRefresh(force = true, delayMs = 300) {
+    if (notificationsRefreshTimer) {
+      clearTimeout(notificationsRefreshTimer);
+    }
+    notificationsRefreshTimer = setTimeout(() => {
+      notificationsRefreshTimer = null;
+      loadNotifications({ force });
+    }, delayMs);
+  }
 
   // Elementos del DOM
   const notificationWrapper = document.getElementById('notification-bell-wrapper');
@@ -379,15 +376,113 @@ export function initNotificationBell(config = {}) {
   const notificationList = document.getElementById('notification-list');
   const markAllReadBtn = document.getElementById('mark-all-read');
   
+  const NOTIFICATIONS_CACHE_KEY = 'adminNotificationsCache';
+  const NOTIFICATIONS_CACHE_TS_KEY = 'adminNotificationsCacheTs';
+  const NOTIFICATIONS_CACHE_TOKEN_KEY = 'adminNotificationsCacheToken';
+  const NOTIFICATIONS_CACHE_TTL_MS = 5 * 60 * 1000;
+
+  function readNotificationsCache() {
+    try {
+      const cachedRaw = sessionStorage.getItem(NOTIFICATIONS_CACHE_KEY);
+      const cachedTs = sessionStorage.getItem(NOTIFICATIONS_CACHE_TS_KEY);
+      const cachedToken = sessionStorage.getItem(NOTIFICATIONS_CACHE_TOKEN_KEY);
+      const currentToken = localStorage.getItem('token');
+      if (!cachedRaw || !cachedTs) return null;
+      if (cachedToken && currentToken && cachedToken !== currentToken) return null;
+      const age = Date.now() - Number(cachedTs);
+      if (Number.isNaN(age) || age > NOTIFICATIONS_CACHE_TTL_MS) return null;
+      return JSON.parse(cachedRaw);
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function writeNotificationsCache(payload) {
+    try {
+      sessionStorage.setItem(NOTIFICATIONS_CACHE_KEY, JSON.stringify(payload));
+      sessionStorage.setItem(NOTIFICATIONS_CACHE_TS_KEY, Date.now().toString());
+      const currentToken = localStorage.getItem('token');
+      if (currentToken) {
+        sessionStorage.setItem(NOTIFICATIONS_CACHE_TOKEN_KEY, currentToken);
+      }
+    } catch (error) {
+      // ignore cache failures
+    }
+  }
+
+  function applyNotificationsPayload(payload) {
+    if (!payload) return;
+    const {
+      unreadCount: cachedUnreadCount = 0,
+      customersCount = 0,
+      missingDocsCount = 0,
+      recentChats = [],
+      missingDocs = []
+    } = payload;
+
+    const previousCount = unreadCount;
+    unreadCount = cachedUnreadCount + customersCount + missingDocsCount;
+
+    if (unreadCount > previousCount && document.hidden) {
+      startTabBlink();
+    }
+    if (unreadCount === 0) {
+      stopTabBlink();
+    }
+
+    updateNotificationBadge();
+
+    notificationsData = Array.isArray(recentChats)
+      ? recentChats.filter((chat) => {
+          const unread = Number(chat?.unread_count ?? 0);
+          return unread > 0;
+        })
+      : [];
+
+    if (customersCount > 0) {
+      const message = formatCustomerCountMessage(customersCount);
+      notificationsData.push({
+        id: 'customers-without-account',
+        type: 'customers_without_account',
+        message,
+        timestamp: new Date().toISOString(),
+        unread: true
+      });
+    }
+
+    if (missingDocsCount > 0 && Array.isArray(missingDocs)) {
+      const missingDocsNotifications = missingDocs.map(order => ({
+        id: `orders-missing-docs-${order.id}`,
+        type: 'orders_missing_documents',
+        unread: true,
+        timestamp: order.fecha_etd || order.fecha || new Date().toISOString(),
+        order
+      }));
+      notificationsData.push(...missingDocsNotifications);
+    }
+
+    renderNotifications();
+  }
+
   // Función para cargar notificaciones
-  async function loadNotifications() {
-    
+  async function loadNotifications({ force = false } = {}) {
     const apiBase = window.apiBase;
+    if (!force) {
+      const cached = readNotificationsCache();
+      if (cached) {
+        applyNotificationsPayload(cached);
+        return;
+      }
+    }
 
     try {
       // Validar token usando función centralizada
       const token = getValidToken();
       if (!token) return;
+      const cachedToken = sessionStorage.getItem(NOTIFICATIONS_CACHE_TOKEN_KEY);
+      if (cachedToken && cachedToken !== token) {
+        force = true;
+      }
       
       const response = await fetch(`${apiBase}/api/chat/summary`, {
 headers: {
@@ -398,7 +493,7 @@ headers: {
       if (!response.ok) return;
       
       const data = await response.json();
-      const newUnreadCount = data.data.totalUnread || 0;
+      const newUnreadCount = data?.data?.totalUnread || 0;
 
       // Obtener alertas de órdenes sin suficientes documentos
       let missingDocs = [];
@@ -425,55 +520,16 @@ headers: {
         customersWithoutAccountCount = 0;
       }
 
-      const previousCount = unreadCount;
-      unreadCount = newUnreadCount;
-      if (usersFeature.enabled) {
-        unreadCount += customersWithoutAccountCount;
-      }
-      if (ordersFeature.enabled) {
-        unreadCount += missingDocsCount;
-      }
+      const payload = {
+        unreadCount: newUnreadCount,
+        customersCount: usersFeature.enabled ? customersWithoutAccountCount : 0,
+        missingDocsCount: ordersFeature.enabled ? missingDocsCount : 0,
+        recentChats: data.data.recentChats || [],
+        missingDocs: ordersFeature.enabled ? missingDocs : []
+      };
 
-      if (unreadCount > previousCount && document.hidden) {
-        startTabBlink();
-      }
-      if (unreadCount === 0) {
-        stopTabBlink();
-      }
-
-      // Actualizar badge
-      updateNotificationBadge();
-      
-      // Cargar chats recientes como notificaciones
-      notifications = (data.data.recentChats || []).filter((chat) => {
-        const unread = Number(chat?.unread_count ?? 0);
-        return unread > 0;
-      });
-      
-      if (ordersFeature.enabled && missingDocsCount > 0) {
-        const missingDocsNotifications = missingDocs.map(order => ({
-          id: `orders-missing-docs-${order.id}`,
-          type: 'orders_missing_documents',
-          unread: true,
-          timestamp: order.fecha_etd || order.fecha || new Date().toISOString(),
-          order
-        }));
-        notifications = [...missingDocsNotifications, ...notifications];
-      }
-      
-      // Agregar notificación de clientes sin cuenta si hay
-      if (usersFeature.enabled && customersWithoutAccountCount > 0) {
-        const message = formatCustomerCountMessage(customersWithoutAccountCount);
-        notifications.unshift({
-          id: 'customers-without-account',
-          type: 'customers_without_account',
-          message,
-          timestamp: new Date().toISOString(),
-          unread: true
-        });
-      }
-      
-      renderNotifications();
+      writeNotificationsCache(payload);
+      applyNotificationsPayload(payload);
       
     } catch (error) {
       console.error('Error cargando notificaciones:', error);
@@ -522,7 +578,7 @@ headers: {
   function renderNotifications() {
     if (!notificationList) return;
     
-    if (notifications.length === 0) {
+    if (notificationsData.length === 0) {
       notificationList.innerHTML = `
         <div class="p-3 text-center text-gray-500 dark:text-gray-400">
           <svg class="w-6 h-6 mx-auto mb-2 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -531,13 +587,13 @@ headers: {
             <!-- badajo/sonido -->
             <path d="M10 20a2 2 0 0 0 4 0"/>
           </svg>
-          <p class="text-sm">${t.noMessages}</p>
+          <p class="text-sm">${getMessage(notificationsTexts.no_messages)}</p>
         </div>
       `;
       return;
     }
     
-    const notificationsHTML = notifications.map(notification => {
+    const notificationsHTML = notificationsData.map(notification => {
       // Manejar notificación de clientes sin cuenta
       if (notification.type === 'customers_without_account') {
         const formattedDate = new Date(notification.timestamp).toLocaleDateString(locale, {
@@ -561,7 +617,7 @@ headers: {
               </svg>
               <div class="flex-1">
                 <p class="font-medium text-sm text-gray-900 dark:text-white">
-                  ${t.customersNotificationTitle}
+                  ${getMessage(notificationsTexts.customers_notification_title)}
                 </p>
                 <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">
                   ${notification.message || '-'}
@@ -580,8 +636,8 @@ headers: {
       
       if (notification.type === 'orders_missing_documents') {
         const order = notification.order || {};
-        const etdDate = order.fecha_etd ? new Date(order.fecha_etd).toLocaleDateString(locale) : t.unknownValue;
-        const ingresoDate = order.fecha ? new Date(order.fecha).toLocaleDateString(locale) : t.unknownValue;
+        const etdDate = order.fecha_etd ? new Date(order.fecha_etd).toLocaleDateString(locale) : unknownValue;
+        const ingresoDate = order.fecha ? new Date(order.fecha).toLocaleDateString(locale) : unknownValue;
         const orderTitle = formatOrdersTitle(order.pc, order.oc);
         return `
           <div
@@ -599,13 +655,13 @@ headers: {
                   ${orderTitle}
                 </p>
                 <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                  ${t.ordersClientLabel}: ${order.customer_name || t.unknownValue}
+                  ${getMessage(notificationsTexts.orders_missing_docs_client)}: ${order.customer_name || unknownValue}
                 </p>
                 <p class="text-xs text-gray-600 dark:text-gray-400">
-                  ${t.ordersMissingDocsText}
+                  ${getMessage(notificationsTexts.orders_missing_docs_missing_docs)}
                 </p>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  ${t.ordersEtdLabel}: ${etdDate} · ${t.ordersIngresoLabel}: ${ingresoDate}
+                  ${getMessage(notificationsTexts.orders_missing_docs_etd)}: ${etdDate} · ${getMessage(notificationsTexts.orders_missing_docs_ingreso)}: ${ingresoDate}
                 </p>
               </div>
               <span class="ml-2 bg-red-500 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center">
@@ -634,7 +690,7 @@ headers: {
               </p>
               <p class="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-1">
                 <span class="inline-block w-2 h-2 rounded-full ${notification.online === 1 ? 'bg-green-500' : 'bg-gray-400'}"></span>
-                ${notification.online === 1 ? t.statusOnline : t.statusOffline}
+                ${notification.online === 1 ? getMessage(notificationsTexts.status_online) : getMessage(notificationsTexts.status_offline)}
               </p>
               <p class="text-xs text-gray-600 dark:text-gray-400 truncate">${notification.last_message}</p>
               <p class="text-xs text-gray-500 dark:text-gray-500 mt-1">
@@ -669,18 +725,19 @@ headers: {
     });
 
     const ordersMissingDocsNotifications = notificationList.querySelectorAll('.orders-missing-docs-notification');
-    ordersMissingDocsNotifications.forEach(item => {
-      item.addEventListener('click', () => {
-        const pc = item.getAttribute('data-order-pc') || '';
-        const oc = item.getAttribute('data-order-oc') || '';
-        const params = [];
-        if (pc) params.push('pc=' + encodeURIComponent(pc));
-        if (oc) params.push('oc=' + encodeURIComponent(oc));
-        const targetUrl = params.length > 0 ? '/admin/orders?' + params.join('&') : '/admin/orders';
-        try {
-          if (oc) {
-            localStorage.setItem('ordersSearchFilter', oc);
-          } else if (pc) {
+      ordersMissingDocsNotifications.forEach(item => {
+        item.addEventListener('click', () => {
+          const pc = item.getAttribute('data-order-pc') || '';
+          const oc = item.getAttribute('data-order-oc') || '';
+          const targetUrl = pc && oc
+            ? `/admin/orders/${encodeURIComponent(pc)}/${slugifyPath(oc)}`
+            : pc
+              ? `/admin/orders/${encodeURIComponent(pc)}`
+              : '/admin/orders';
+          try {
+            if (oc) {
+              localStorage.setItem('ordersSearchFilter', oc);
+            } else if (pc) {
             localStorage.setItem('ordersSearchFilter', pc);
           }
         } catch (storageError) {
@@ -704,6 +761,10 @@ headers: {
   // Event listeners
   notificationBell?.addEventListener('click', (e) => {
     e.stopPropagation();
+    const chatDropdown = document.getElementById('chat-dropdown');
+    if (chatDropdown && !chatDropdown.classList.contains('hidden')) {
+      chatDropdown.classList.add('hidden');
+    }
     notificationDropdown?.classList.toggle('hidden');
     
     // Cargar notificaciones cuando se abre
@@ -776,7 +837,7 @@ headers: {
     
     // Escuchar actualizaciones de notificaciones
     socketService.onUpdateNotifications(() => {
-      loadNotifications();
+      scheduleNotificationsRefresh(true);
     });
     
     // Escuchar mensajes nuevos
@@ -796,14 +857,11 @@ headers: {
           }
         }
         
-        // Actualizar contador de notificaciones
-        updateNotificationCount();
-        
-        // Si es admin, actualizar todas las notificaciones
+        // Actualizar notificaciones en una sola llamada (evita tormenta de requests)
         if (userRole === 'admin') {
-          if (window.updateNotificationsImmediately) {
-            window.updateNotificationsImmediately();
-          }
+          scheduleNotificationsRefresh(true);
+        } else {
+          updateNotificationCount();
         }
       }
     });
@@ -828,7 +886,7 @@ headers: {
   
   // Función para actualizar inmediatamente (sin esperar al polling)
   window.updateNotificationsImmediately = function() {
-    loadNotifications();
+    scheduleNotificationsRefresh(true);
   };
 
   document.addEventListener('visibilitychange', () => {
@@ -864,14 +922,12 @@ headers: {
         </button>
         
         <div class="flex items-center gap-4 mb-6">
-          <div class="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"/>
-            </svg>
+          <div class="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+            <span>${getMessage(notificationsTexts.customers_modal_initials)}</span>
           </div>
           <div>
-            <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">${t.modalTitle}</h2>
-            <p class="text-sm text-gray-600 dark:text-gray-400">${t.modalSubtitle}</p>
+            <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">${getMessage(notificationsTexts.customers_modal_title)}</h2>
+            <p class="text-sm text-gray-600 dark:text-gray-400">${getMessage(notificationsTexts.customers_modal_subtitle)}</p>
           </div>
         </div>
 
@@ -879,10 +935,10 @@ headers: {
           <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead class="bg-gray-100 dark:bg-gray-800 sticky top-0 z-10">
               <tr>
-                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${t.modalColumns.name}</th>
-                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${t.modalColumns.rut}</th>
-                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${t.modalColumns.email}</th>
-                <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${t.modalColumns.actions}</th>
+                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${getMessage(notificationsTexts.customers_modal_columns_name)}</th>
+                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${getMessage(notificationsTexts.customers_modal_columns_rut)}</th>
+                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${getMessage(notificationsTexts.customers_modal_columns_email)}</th>
+                <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${getMessage(notificationsTexts.customers_modal_columns_actions)}</th>
               </tr>
             </thead>
             <tbody id="customersWithoutAccountTableBody" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
@@ -894,6 +950,23 @@ headers: {
     `;
     
     document.body.appendChild(modal);
+
+    const tableBody = modal.querySelector('#customersWithoutAccountTableBody');
+    if (tableBody) {
+      tableBody.innerHTML = `
+        <tr>
+          <td colspan="4" class="px-6 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+            <div class="flex items-center justify-center gap-3">
+              <svg class="animate-spin w-4 h-4 text-indigo-600 dark:text-indigo-400" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <span>${getMessage(notificationsTexts.customers_modal_loading)}</span>
+            </div>
+          </td>
+        </tr>
+      `;
+    }
 
     try {
       const token = getValidToken();
@@ -912,24 +985,23 @@ headers: {
       const tableBody = document.getElementById('customersWithoutAccountTableBody');
       if (tableBody) {
         tableBody.innerHTML = customers.map(customer => `
-          <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition" data-customer-id="${customer.id}">
-            <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
+          <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition" data-customer-rut="${customer.rut || ''}">
+            <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">
               <button class="customer-name-btn text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline transition-colors cursor-pointer" 
                       data-customer-name="${customer.name || ''}">
-                ${customer.name ? customer.name.charAt(0).toUpperCase() + customer.name.slice(1).toLowerCase() : t.unknownValue}
+                ${customer.name ? customer.name.charAt(0).toUpperCase() + customer.name.slice(1).toLowerCase() : unknownValue}
               </button>
             </td>
-            <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">${customer.rut || t.unknownValue}</td>
-            <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">${customer.email || t.unknownValue}</td>
-            <td class="px-6 py-4 text-center">
+            <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">${customer.rut || unknownValue}</td>
+            <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">${customer.email || unknownValue}</td>
+            <td class="px-4 py-2 text-center">
               <button 
                 class="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors create-account-btn"
-                data-customer-id="${customer.id}"
                 data-customer-name="${customer.name}"
                 data-customer-rut="${customer.rut}"
                 data-customer-email="${customer.email || ''}"
               >
-                ${t.modalCreate}
+                ${getMessage(notificationsTexts.customers_modal_create)}
               </button>
             </td>
           </tr>
@@ -940,11 +1012,10 @@ headers: {
       // Agregar event listeners a los botones de crear cuenta
       tableBody.querySelectorAll('.create-account-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-          const customerId = btn.dataset.customerId;
           const customerName = btn.dataset.customerName;
           const customerRut = btn.dataset.customerRut;
           const customerEmail = btn.dataset.customerEmail;
-          createCustomerAccount(customerId, customerName, customerRut, customerEmail);
+          createCustomerAccount(customerRut, customerName, customerRut, customerEmail);
         });
       });
 
@@ -964,15 +1035,24 @@ headers: {
 
       // Agregar event listeners para el modal
       const closeBtn = modal.querySelector('#closeCustomersModalBtn');
+      const handleEsc = (e) => {
+        if (e.key === 'Escape') {
+          modal.remove();
+          document.removeEventListener('keydown', handleEsc);
+        }
+      };
+      document.addEventListener('keydown', handleEsc);
       if (closeBtn) {
         closeBtn.addEventListener('click', () => {
           modal.remove();
+          document.removeEventListener('keydown', handleEsc);
         });
       }
 
       modal.addEventListener('click', (e) => {
         if (e.target === modal) {
           modal.remove();
+          document.removeEventListener('keydown', handleEsc);
         }
       });
 
@@ -985,6 +1065,17 @@ headers: {
   async function createCustomerAccount(customerId, customerName, customerRut, customerEmail) {
 
     const apiBase = window.apiBase;
+    const normalizeRutForAccount = (rut) => {
+      const trimmed = (rut || '').toString().trim();
+      if (!trimmed) return '';
+      return trimmed.replace(/c$/i, '');
+    };
+    const normalizedRut = normalizeRutForAccount(customerRut);
+
+    if (!customerId) {
+      console.error('No se pudo identificar el cliente para crear la cuenta');
+      return;
+    }
 
     try {
       // Verificar si el cliente tiene email
@@ -993,13 +1084,13 @@ headers: {
 
       if (!hasEmail) {
         confirmed = await confirmAction(
-          t.confirmNoEmailTitle,
-          t.confirmNoEmailMessage,
+          getMessage(notificationsTexts.confirm_no_email_title),
+          getMessage(notificationsTexts.confirm_no_email_message),
           'warning'
         );
       } else {
         confirmed = await confirmAction(
-          t.confirmCreateAccountTitle,
+          getMessage(notificationsTexts.confirm_create_account_title),
           formatConfirmCreateAccountMessage(customerEmail),
           'info'
         );
@@ -1031,7 +1122,7 @@ headers: {
         const customerData = await response.json();
         
         // Crear cuenta de usuario
-        const createResponse = await fetch(`${apiBase}/api/customers/${customerId}/create-account`, {
+        const createResponse = await fetch(`${apiBase}/api/customers/${encodeURIComponent(customerRut)}/create-account`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -1039,7 +1130,7 @@ headers: {
           },
           body: JSON.stringify({
             customerName: customerData.name,
-            customerRut: customerData.rut
+            customerRut: normalizedRut
           })
         });
 
@@ -1056,7 +1147,7 @@ headers: {
         }
         
         // Remover la fila de la tabla
-        const rowToRemove = document.querySelector(`tr[data-customer-id="${customerId}"]`);
+        const rowToRemove = document.querySelector(`tr[data-customer-rut="${customerRut}"]`);
         if (rowToRemove) {
           rowToRemove.remove();
         }
@@ -1131,7 +1222,7 @@ headers: {
 
         if (response.ok) {
           const data = await response.json();
-          newCount = data.totalUnread || 0;
+          newCount = data?.data?.totalUnread || 0;
 
           if (usersFeature.enabled) {
             const count = await fetchCustomersWithoutAccountCount(token);

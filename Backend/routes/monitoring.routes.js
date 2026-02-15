@@ -1,7 +1,8 @@
 // routes/monitoring.routes.js
 const express = require('express');
 const router = express.Router();
-const monitoringService = require('../services/monitoring.service');
+const { container } = require('../config/container');
+const monitoringService = container.resolve('monitoringService');
 const { logger } = require('../utils/logger');
 const http = require('http');
 const net = require('net');

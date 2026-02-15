@@ -60,10 +60,25 @@ class ChatService {
     }
   }
 
-  static async getRecentChats() {
+  static async getRecentChats(adminId) {
     try {
-      const chats = await ChatMessage.getRecentChats();
-      return chats;
+      const chats = await ChatMessage.getRecentChats(adminId);
+      const decryptedChats = chats.map(chat => {
+        if (chat.last_message && !chat.is_security_message && EncryptionService.isEncrypted(chat.last_message)) {
+          try {
+            chat.last_message = EncryptionService.decrypt(chat.last_message);
+          } catch (error) {
+            console.error('Error desencriptando mensaje reciente:', error);
+            chat.last_message = '[Mensaje no disponible]';
+          }
+        }
+        const parsed = parseChatPayload(chat.last_message);
+        if (parsed.type === 'image') {
+          chat.last_message = parsed.text ? `${parsed.text} [Imagen adjunta]` : '[Imagen adjunta]';
+        }
+        return chat;
+      });
+      return decryptedChats;
     } catch (error) {
       throw error;
     }
@@ -172,7 +187,12 @@ class ChatService {
       return;
     }
 
-    const customer = await CustomerService.getCustomerById(customerId);
+    const isOnline = admin.online === 1 || admin.online === true;
+    if (isOnline) {
+      return;
+    }
+
+    const customer = await CustomerService.getCustomerByRutFromSql(String(customerId));
     const portalBase = process.env.FRONTEND_BASE_URL || 'http://localhost:2121';
     const portalUrl = `${portalBase}/admin`;
 
@@ -181,13 +201,13 @@ class ChatService {
       ? (parsed.text ? `${parsed.text}\n[Imagen adjunta]` : '[Imagen adjunta]')
       : message;
 
-      await sendChatNotification({
-        adminEmail: admin.email,
-        adminName: admin.full_name || admin.email,
-        customerName: customer?.name || customer?.rut || 'Cliente',
-        message: previewMessage,
-        portalUrl
-      });
+    await sendChatNotification({
+      adminEmail: admin.email,
+      adminName: admin.full_name || admin.email,
+      customerName: customer?.name || customer?.rut || String(customerId),
+      message: previewMessage,
+      portalUrl
+    });
   }
 }
 

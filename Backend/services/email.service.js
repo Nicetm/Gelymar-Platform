@@ -4,6 +4,7 @@ const path = require('path');
 const os = require('os');
 const Handlebars = require('handlebars');
 const { poolPromise } = require('../config/db');
+const { getSqlPool, sql } = require('../config/sqlserver');
 
 // Las variables de entorno ya se cargan automÃ¡ticamente en app.js
 
@@ -107,15 +108,31 @@ async function sendFileToClient(file, options = {}) {
   const loadContacts = async () => {
     if (cachedContacts) return cachedContacts;
 
-    if (!file.customer_id) {
-      throw new Error('No se proporcionó customer_id para obtener contactos');
+    let customerRut = file.customer_rut || file.rut || null;
+    if (!customerRut && file.pc) {
+      try {
+        const { createOrderService } = require('./order.service');
+        const { getOrderByPcOc, getOrderByPc } = createOrderService();
+        const header = file.oc
+          ? await getOrderByPcOc(String(file.pc), String(file.oc))
+          : await getOrderByPc(String(file.pc));
+        customerRut = header?.rut || header?.customer_uuid || header?.customer_rut || null;
+      } catch (lookupError) {
+        console.error('Error obteniendo rut desde SQL por pc/oc:', lookupError);
+      }
+    }
+    if (!customerRut && file.customer_id) {
+      customerRut = String(file.customer_id).trim();
+    }
+    if (!customerRut) {
+      throw new Error(`No se proporcionó rut para obtener contactos (pc=${file.pc || 'N/A'} oc=${file.oc || 'N/A'})`);
     }
 
     try {
       const pool = await poolPromise;
       const [contactRows] = await pool.query(
-        'SELECT contact_email FROM customer_contacts WHERE customer_id = ?',
-        [file.customer_id]
+        'SELECT contact_email FROM customer_contacts WHERE rut = ?',
+        [customerRut]
       );
 
       const parseContacts = (raw) => {

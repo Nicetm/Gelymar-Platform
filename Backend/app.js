@@ -28,16 +28,16 @@ const isDocker = process.env.DOCKER_ENV === 'true';
 // Cargar archivo de configuración según entorno
 if (isDocker) {
   console.log('[Backend] Entorno detectado: Docker');  
-  console.log('[Backend] DB_HOST cargado:', process.env.DB_HOST);
-  console.log('[Backend] DB_USER cargado:', process.env.DB_USER);
+  console.log('[Backend] MYSQL_DB_HOST cargado:', process.env.MYSQL_DB_HOST);
+  console.log('[Backend] MYSQL_DB_USER cargado:', process.env.MYSQL_DB_USER);
 } else if (isServer) {
   dotenv.config({ path: './env.server' });
   console.log('[Backend] Entorno detectado: Servidor Ubuntu (172.20.10.151)');
 } else {
   dotenv.config({ path: './.env.local' });
   console.log('[Backend] Entorno detectado: Desarrollo local');
-  console.log('[Backend] DB_HOST cargado:', process.env.DB_HOST);
-  console.log('[Backend] DB_USER cargado:', process.env.DB_USER);
+  console.log('[Backend] MYSQL_DB_HOST cargado:', process.env.MYSQL_DB_HOST);
+  console.log('[Backend] MYSQL_DB_USER cargado:', process.env.MYSQL_DB_USER);
 }
 
 // Middlewares
@@ -305,6 +305,38 @@ const io = new Server(server, {
   }
 });
 
+const onlineConnections = new Map();
+const offlineTimers = new Map();
+
+const markUserOnline = async (userId) => {
+  if (!userId) return;
+  try {
+    await userService.updateUserOnlineStatus(userId, 1);
+  } catch (error) {
+    logger.error(`[socket.io] Error actualizando online=1 userId=${userId} error=${error?.message || error}`);
+  }
+};
+
+const scheduleUserOffline = (userId, delayMs = 5000) => {
+  if (!userId) return;
+  if (offlineTimers.has(userId)) {
+    clearTimeout(offlineTimers.get(userId));
+  }
+  const timer = setTimeout(async () => {
+    const current = onlineConnections.get(userId) || 0;
+    if (current <= 0) {
+      try {
+        await userService.updateUserOnlineStatus(userId, 0);
+        io.to('admin-room').emit('updateNotifications');
+      } catch (error) {
+        logger.error(`[socket.io] Error actualizando online=0 userId=${userId} error=${error?.message || error}`);
+      }
+    }
+    offlineTimers.delete(userId);
+  }, delayMs);
+  offlineTimers.set(userId, timer);
+};
+
 // Middleware de autenticación para Socket.io
 const jwt = require('jsonwebtoken');
 const ChatService = require('./services/chat.service');
@@ -313,11 +345,13 @@ io.use(async (socket, next) => {
   try {
     const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace('Bearer ', '');
     if (!token) {
+      logger.warn(`[socket.io] Token no proporcionado ip=${socket.handshake.address} origin=${socket.handshake.headers?.origin || 'N/A'}`);
       return next(new Error('Token no proporcionado'));
     }
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await ChatService.authenticateUser(decoded.id);
     if (!user) {
+      logger.warn(`[socket.io] Usuario no encontrado id=${decoded?.id ?? 'N/A'} ip=${socket.handshake.address}`);
       return next(new Error('Usuario no encontrado o inactivo'));
     }
 
@@ -330,11 +364,24 @@ io.use(async (socket, next) => {
     };
     next();
   } catch (error) {
+    logger.warn(`[socket.io] Token inválido ip=${socket.handshake.address} error=${error?.message || error}`);
     next(new Error('Token inválido'));
   }
 });
 // Manejar conexiones de Socket.io
 io.on('connection', (socket) => {
+  logger.info(`[socket.io] Conectado userId=${socket.user?.id ?? 'N/A'} role=${socket.user?.role ?? 'N/A'} ip=${socket.handshake.address}`);
+  if (socket?.user?.id) {
+    const current = onlineConnections.get(socket.user.id) || 0;
+    onlineConnections.set(socket.user.id, current + 1);
+    if (offlineTimers.has(socket.user.id)) {
+      clearTimeout(offlineTimers.get(socket.user.id));
+      offlineTimers.delete(socket.user.id);
+    }
+    if (current === 0) {
+      markUserOnline(socket.user.id);
+    }
+  }
   // Unir al usuario a una sala específica según su rol
   if (socket.user.role === 'admin') {
     socket.join('admin-room'); // Para notificaciones generales
@@ -347,9 +394,13 @@ io.on('connection', (socket) => {
   // Manejar desconexión
   socket.on('disconnect', async () => {
     try {
+      logger.info(`[socket.io] Desconectado userId=${socket.user?.id ?? 'N/A'} role=${socket.user?.role ?? 'N/A'} ip=${socket.handshake.address}`);
       if (socket?.user?.id) {
-        await userService.updateUserOnlineStatus(socket.user.id, 0);
-        io.to('admin-room').emit('updateNotifications');
+        const current = (onlineConnections.get(socket.user.id) || 1) - 1;
+        onlineConnections.set(socket.user.id, Math.max(current, 0));
+        if (current <= 0) {
+          scheduleUserOffline(socket.user.id);
+        }
       }
     } catch (error) {
     }

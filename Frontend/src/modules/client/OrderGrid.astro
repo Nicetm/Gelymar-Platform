@@ -1,5 +1,5 @@
 ---
-import { loadTranslations, getServerLang } from '../../lib/i18n.js';
+import { loadTranslations, getServerLang } from '@lib/i18n.js';
 
 const lang = getServerLang(Astro.cookies);
 let t: any = {};
@@ -218,11 +218,11 @@ interface Props {
         <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
           <thead class="bg-gray-100 dark:bg-gray-800 sticky top-0 z-10">
             <tr>
-              <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.documentos.itemCode ?? 'Item Code'}</th>
-              <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.documentos.itemName ?? 'Item Name'}</th>
-              <th class="px-4 py-2 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.documentos.quantity ?? 'Quantity'}</th>
-              <th class="px-4 py-2 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.documentos.unitPrice ?? 'Unit Price'}</th>
-              <th class="px-4 py-2 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.documentos.total ?? 'Total'}</th>
+              <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.documentos.itemCode}</th>
+              <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.documentos.itemName}</th>
+              <th class="px-4 py-2 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.documentos.quantity}</th>
+              <th class="px-4 py-2 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.documentos.unitPrice}</th>
+              <th class="px-4 py-2 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.documentos.total}</th>
             </tr>
           </thead>
           <tbody id="itemsTableBody" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
@@ -235,15 +235,15 @@ interface Props {
       <div class="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">{t.documentos.totalItems ?? 'Total Items'}</p>
+            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">{t.documentos.totalItems}</p>
             <p id="totalItems" class="text-lg font-bold text-gray-900 dark:text-gray-100">0</p>
           </div>
           <div>
-            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">{t.documentos.totalQuantity ?? 'Total Quantity'}</p>
+            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">{t.documentos.totalQuantity}</p>
             <p id="totalQuantity" class="text-lg font-bold text-gray-900 dark:text-gray-100">0</p>
           </div>
           <div>
-            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">{t.documentos.totalValue ?? 'Total Value'}</p>
+            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">{t.documentos.totalValue}</p>
             <p id="totalValue" class="text-lg font-bold text-green-600 dark:text-green-400">0</p>
           </div>
         </div>
@@ -257,8 +257,8 @@ interface Props {
   <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
     <div class="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
       <div>
-        <h2 id="docsOrderTitle" class="text-xl font-bold text-gray-900 dark:text-gray-100">{t.documentos.documentList || 'Document List'}</h2>
-        <p class="text-sm text-gray-600 dark:text-gray-400">{t.documentos.documentListSubtitle || 'Shared documents for this order'}</p>
+        <h2 id="docsOrderTitle" class="text-xl font-bold text-gray-900 dark:text-gray-100">{t.documentos.documentList}</h2>
+        <p class="text-sm text-gray-600 dark:text-gray-400">{t.documentos.documentListSubtitle}</p>
       </div>
       <button id="closeDocsModalBtn" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors duration-200">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -270,10 +270,10 @@ interface Props {
       <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
         <thead class="bg-gray-100 dark:bg-gray-800 sticky top-0 z-10">
           <tr>
-            <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.documentos.documentName || 'Name'}</th>
-            <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.documentos.type || 'Type'}</th>
-            <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.documentos.status || 'Status'}</th>
-            <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.documentos.created || 'Created'}</th>
+            <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.documentos.documentName}</th>
+            <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.documentos.type}</th>
+            <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.documentos.status}</th>
+            <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.documentos.created}</th>
             <th class="px-4 py-2 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.documentos.actions}</th>
           </tr>
         </thead>

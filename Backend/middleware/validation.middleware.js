@@ -88,7 +88,7 @@ const userValidations = {
  */
 const orderValidations = {
   search: [
-    body('customerUUID').optional().isUUID().withMessage('UUID de cliente inválido'),
+    body('customerRut').optional().isLength({ min: 3 }).withMessage('RUT de cliente inválido'),
     body('orderName').optional().isLength({ max: 100 }).withMessage('Nombre de orden muy largo'),
     body('status').optional().isIn(['pending', 'processing', 'completed', 'cancelled']).withMessage('Estado inválido'),
     body('startDate').optional().isISO8601().withMessage('Fecha de inicio inválida'),
@@ -156,13 +156,13 @@ const customerValidations = {
     handleValidationErrors
   ],
   
-  getByUUID: [
-    param('uuid').isUUID().withMessage('UUID de cliente inválido'),
+  getByRut: [
+    param('rut').isLength({ min: 3 }).withMessage('RUT de cliente inválido'),
     handleValidationErrors
   ],
   
   update: [
-    param('uuid').isUUID().withMessage('UUID de cliente inválido'),
+    param('rut').isLength({ min: 3 }).withMessage('RUT de cliente inválido'),
     body('name').optional().isLength({ min: 2, max: 100 }).withMessage('Nombre inválido'),
     body('email').optional().isEmail().withMessage('Email inválido'),
     body('phone').optional().isLength({ min: 8, max: 20 }).withMessage('Teléfono inválido'),

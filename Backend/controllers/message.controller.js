@@ -1,4 +1,5 @@
-const messageService = require('../services/message.service');
+const { container } = require('../config/container');
+const messageService = container.resolve('messageService');
 const { MESSAGE_TYPES } = require('../models/message.model');
 
 exports.MESSAGE_TYPES = MESSAGE_TYPES;

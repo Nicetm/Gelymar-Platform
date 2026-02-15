@@ -21,12 +21,13 @@ let stickyScrollInitialized = false;
 let allOrders = [];
 let filteredOrders = [];
 
+const translations = window.translations || {};
+const documentos = translations.documentos || {};
+const carpetas = translations.carpetas || {};
+const getMessage = (value) => (typeof value === 'string' ? value : '');
+
 // ▸ Elementos del DOM
 const ordersGrid = document.getElementById('orders-grid');
-const documentsSection = document.getElementById('documents-section');
-const documentsContainer = document.getElementById('documents-container');
-const searchInput = document.querySelector('input[placeholder="Search documents..."]');
-const typeFilter = document.querySelector('select');
 const docsModal = document.getElementById('docsModal');
 const docsListBody = document.getElementById('docsListBody');
 const docsOrderTitle = document.getElementById('docsOrderTitle');
@@ -187,7 +188,7 @@ async function init() {
     }
   } catch (error) {
     hideLoadingState();
-    showErrorState('Error cargando órdenes. Por favor, recarga la página.');
+    showErrorState(getMessage(documentos.ordersLoadError));
   }
 }
 
@@ -197,9 +198,10 @@ async function init() {
 function showLoadingState() {
   const loadingState = document.getElementById('loading-state');
   const ordersSection = document.getElementById('orders-section');
-  
-  if (loadingState) loadingState.classList.remove('hidden');
-  if (ordersSection) ordersSection.classList.add('hidden');
+
+  if (loadingState) loadingState.classList.add('hidden');
+  if (ordersSection) ordersSection.classList.remove('hidden');
+  showOrdersLoadingRow();
 }
 
 /**
@@ -211,6 +213,7 @@ function hideLoadingState() {
   
   if (loadingState) loadingState.classList.add('hidden');
   if (ordersSection) ordersSection.classList.remove('hidden');
+  hideOrdersLoadingRow();
 }
 
 /**
@@ -218,7 +221,10 @@ function hideLoadingState() {
  */
 function showErrorState(message) {
   const loadingState = document.getElementById('loading-state');
+  const ordersSection = document.getElementById('orders-section');
+  if (ordersSection) ordersSection.classList.add('hidden');
   if (loadingState) {
+    loadingState.classList.remove('hidden');
     loadingState.innerHTML = `
       <div class="inline-flex items-center justify-center w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full mb-4">
         <svg class="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -232,6 +238,28 @@ function showErrorState(message) {
       </button>
     `;
   }
+}
+
+function showOrdersLoadingRow() {
+  if (!ordersGrid) return;
+  const message = getMessage(documentos.loadingOrders);
+  ordersGrid.innerHTML = `
+    <tr id="loadingRow">
+      <td colspan="9" class="px-6 py-6 text-center text-gray-600 dark:text-gray-300">
+        <div class="inline-flex items-center gap-2">
+          <svg class="w-4 h-4 text-blue-500 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          <span class="text-sm font-medium">${message}</span>
+        </div>
+      </td>
+    </tr>
+  `;
+}
+
+function hideOrdersLoadingRow() {
+  const loadingRow = document.getElementById('loadingRow');
+  if (loadingRow) loadingRow.remove();
 }
 
 function ensureFloatingTooltipElement() {
@@ -367,7 +395,7 @@ async function loadOrdersFromAPI() {
     const token = localStorage.getItem('token');
     if (!token) {
       console.warn('loadOrdersFromAPI -> no token');
-      throw new Error('No hay token de autenticación');
+      throw new Error(getMessage(documentos.authRequired));
     }
 
     const response = await fetch(`${window.apiBase}/api/orders/client/dashboard`, {
@@ -441,7 +469,7 @@ function renderOrders() {
           <div class="ml-3">
             <button class="view-docs-btn text-xs font-medium text-blue-600 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200 underline"
                     data-order-id="${order.id}"
-                    data-tooltip="${window.translations?.documentos?.viewDocuments || 'View documents'}">
+                    data-tooltip="${getMessage(documentos.viewDocuments)}">
               ${order.orderNumber?.replace(/^GEL\s+/, '') || order.orderNumber}
             </button>
           </div>
@@ -474,14 +502,14 @@ function renderOrders() {
         <div class="flex items-center justify-center space-x-3">
           <button class="view-items-btn text-gray-900 dark:text-white hover:text-green-500 transition"
                  data-order-pc="${order.pc}" data-order-oc="${order.orderNumber}" data-factura="${order.factura}"
-                 data-tooltip="${window.translations?.carpetas?.tooltipViewItems || 'Ver lista de items'}">
+                 data-tooltip="${getMessage(carpetas.tooltipViewItems)}">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
             </svg>
           </button>
           <button class="view-docs-btn text-gray-900 dark:text-white hover:text-blue-500 transition"
                  data-order-id="${order.id}"
-                 data-tooltip="${window.translations?.documentos?.viewDocuments || 'View documents'}">
+                 data-tooltip="${getMessage(documentos.viewDocuments)}">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M8 4h11a1 1 0 011 1v14a1 1 0 01-1 1H8l-4-4V5a1 1 0 011-1h3z"/>
               <path stroke-linecap="round" stroke-linejoin="round" d="M9 9h8M9 13h6M9 17h4"/>
@@ -507,37 +535,6 @@ function renderOrders() {
 async function selectOrder(orderId) {
   currentOrderId = orderId;
   
-  // Limpiar datos anteriores
-  documents = [];
-  filteredDocuments = [];
-  
-  // Mostrar loading en la sección de documentos
-  showDocumentsLoading();
-  
-  try {
-    // Cargar documentos desde la API
-    await loadOrderDocumentsFromAPI(orderId);
-    console.log('selectOrder -> documents loaded', documents.length);
-  } catch (error) {
-    console.error('Error cargando documentos:', error);
-    // Fallback a datos estáticos si hay error
-    documents = window.docsByOrder[orderId] || [];
-  }
-  
-      // Asegurar que filteredDocuments tenga los documentos actualizados
-    filteredDocuments = [...documents];
-    currentPage = 1;
-    
-    // Ocultar loading y actualizar UI
-    hideDocumentsLoading();
-    renderDocuments(filteredDocuments, currentPage);
-    updatePagination();
-    
-    // Actualizar estadísticas después de que todo esté listo
-    setTimeout(() => {
-      updateStatistics();
-    }, 100);
-  
   // Resaltar orden seleccionada
   const orderCards = document.querySelectorAll('[data-order-id]');
   orderCards.forEach(card => {
@@ -551,31 +548,6 @@ async function selectOrder(orderId) {
 }
 
 /**
- * Muestra loading en la sección de documentos
- */
-function showDocumentsLoading() {
-  const documentsContainer = document.getElementById('documents-container');
-  if (!documentsContainer) return;
-  documentsContainer.innerHTML = `
-    <div class="text-center py-12">
-      <div class="inline-flex items-center justify-center w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-full mb-3">
-        <svg class="w-4 h-4 text-blue-600 dark:text-blue-400 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-        </svg>
-      </div>
-      <p class="text-sm text-gray-600 dark:text-gray-400">Cargando documentos...</p>
-    </div>
-  `;
-}
-
-/**
- * Oculta loading en la sección de documentos
- */
-function hideDocumentsLoading() {
-  // El loading se oculta automáticamente cuando se renderizan los documentos
-}
-
-/**
  * Carga documentos de una orden desde la API
  */
 async function loadOrderDocumentsFromAPI(orderId) {
@@ -583,7 +555,7 @@ async function loadOrderDocumentsFromAPI(orderId) {
     const token = localStorage.getItem('token');
     if (!token) {
       console.warn('loadOrderDocumentsFromAPI -> no token');
-      throw new Error('No hay token de autenticación');
+      throw new Error(getMessage(documentos.authRequired));
     }
 
     const response = await fetch(`${window.apiBase}/api/orders/client/${orderId}/documents`, {
@@ -610,7 +582,7 @@ async function loadOrderDocumentsFromAPI(orderId) {
       name: doc.filename,
       type: doc.filetype?.toLowerCase() || 'pdf',
       size: doc.filesize || 0,
-      status: doc.status || 'Unread',
+      status: doc.status || getMessage(documentos.statusUnread),
       statusColor: doc.statusColor || 'gray',
       factura: doc.factura,
       fecha_factura: doc.fecha_factura,
@@ -627,274 +599,9 @@ async function loadOrderDocumentsFromAPI(orderId) {
   }
 }
 
-/**
- * Renderiza los documentos en formato cards
- */
-function renderDocuments(docs, page) {
-  
-  if (!documentsContainer) {
-    console.error('documentsContainer not found');
-    return;
-  }
-  
-  const startIndex = (page - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const pageDocuments = docs.slice(startIndex, endIndex);
 
-  documentsContainer.innerHTML = '';
 
-  if (pageDocuments.length === 0) {
-    documentsContainer.className = 'flex items-center justify-center py-8 text-gray-500 dark:text-gray-400 w-full';
-    documentsContainer.innerHTML = `
-      <p class="text-sm whitespace-nowrap">There are no documents available for this order.</p>
-    `;
-    return;
-  }
 
-  // Restaurar clases originales del grid
-  documentsContainer.className = 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 p-4 min-h-[200px]';
-  
-  pageDocuments.forEach(doc => {
-    const typeIcons = {
-      'pdf': `<svg class="w-8 h-8 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
-              </svg>`,
-      'doc': `<svg class="w-8 h-8 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-              </svg>`,
-      'img': `<svg class="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-              </svg>`,
-      'xlsx': `<svg class="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9h8M8 12h8M8 15h8M8 18h8"/>
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 9v9M14 9v9"/>
-              </svg>`,
-      'ppt': `<svg class="w-8 h-8 text-red-500 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-              </svg>`,
-      'zip': `<svg class="w-8 h-8 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
-              </svg>`,
-      'vid': `<svg class="w-8 h-8 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
-              </svg>`
-    };
-
-    const iconBgColors = {
-      'pdf': 'bg-red-100 dark:bg-red-900/30',
-      'doc': 'bg-blue-100 dark:bg-blue-900/30',
-      'img': 'bg-green-100 dark:bg-green-900/30',
-      'xlsx': 'bg-green-100 dark:bg-green-900/30',
-      'ppt': 'bg-red-100 dark:bg-red-900/30',
-      'zip': 'bg-purple-100 dark:bg-purple-900/30',
-      'vid': 'bg-red-100 dark:bg-red-900/30'
-    };
-
-    const statusColors = {
-      'Pending': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
-      'In Progress': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
-      'Completed': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-      'Reviewed': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
-    };
-
-    const fileType = doc.type || 'doc';
-    const icon = typeIcons[fileType] || typeIcons['doc'];
-    const bgColor = iconBgColors[fileType] || iconBgColors['doc'];
-    const statusColor = statusColors[doc.status] || statusColors['Pending'];
-
-    const card = document.createElement('div');
-    card.className = 'bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-1 hover:shadow-md transition-shadow duration-200 flex flex-col justify-between';
-    card.innerHTML = `
-      <div>
-        <div class="flex items-start justify-between my-4 mx-4">
-          <div class="flex items-center space-x-3">
-            <div class="p-2 rounded-lg ${bgColor}">
-              ${icon}
-            </div>
-            <div class="flex-1 min-w-0">
-              <h3 class="text-sm font-medium text-gray-900 dark:text-white break-words overflow-hidden" title="${doc.name}" style="word-wrap: break-word; overflow-wrap: break-word; hyphens: auto;">
-                ${doc.name}
-              </h3>
-              <p class="text-xs text-gray-500 dark:text-gray-400">Updated ${formatDate(doc.updated)}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="flex items-center space-x-3 my-4 mx-4">
-        <p class="text-xs text-gray-500 dark:text-gray-400">Invoice: ${doc.factura}</p>
-        <p class="text-xs text-gray-500 dark:text-gray-400">Invoice Date: ${formatDateOnly(doc.fecha_factura)}</p>
-      </div>
-
-      <div class="flex items-center justify-end space-x-2 mt-auto dark:bg-gray-900"> <span class="text-xs text-gray-500 dark:text-gray-400">${window.translations?.documentos?.downloadDocument || 'Descargar documento'}</span>
-        <a href="#" onclick="downloadFileClient(${doc.id})" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors duration-200" data-doc-id="${doc.id}" title="Download document">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-          </svg>
-        </a>
-      </div>
-    `;
-    documentsContainer.appendChild(card);
-  });
-
-  // Agregar event listeners a los botones
-  addDocumentEventListeners();
-}
-
-/**
- * Actualiza las estadísticas
- */
-function updateStatistics() {
-  const totalDocs = filteredDocuments.length;
-  
-  // Calcular documentos recientes (últimos 7 días)
-  const recentDocs = filteredDocuments.filter(doc => {
-    const date = new Date(doc.updated);
-    const now = new Date();
-    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-    return diffInHours < 168; // 7 días
-  }).length;
-  
-  // Calcular documentos nuevos hoy
-  const todayDocs = filteredDocuments.filter(doc => {
-    const date = new Date(doc.updated);
-    const now = new Date();
-    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-    return diffInHours < 24; // Hoy
-  }).length;
-  
-  // Calcular documentos no leídos
-  const unreadDocs = filteredDocuments.filter(doc => 
-    doc.status === 'Unread'
-  ).length;
-  
-  // Calcular documentos revisados
-  const reviewedDocs = filteredDocuments.filter(doc => 
-    doc.status === 'Reviewed'
-  ).length;
-
-  // Calcular progreso de revisión
-  const reviewProgress = totalDocs > 0 ? (reviewedDocs / totalDocs) * 100 : 0;
-
-  // Actualizar elementos principales
-  const totalDocsElement = document.getElementById('total-docs');
-  const recentDocsElement = document.getElementById('recent-docs');
-  const pendingDocsElement = document.getElementById('pending-docs');
-  
-  if (totalDocsElement) totalDocsElement.textContent = totalDocs.toString();
-  if (recentDocsElement) recentDocsElement.textContent = recentDocs.toString();
-  if (pendingDocsElement) pendingDocsElement.textContent = unreadDocs.toString();
-  
-  // Actualizar información adicional
-  const pendingInfo = document.getElementById('pending-info');
-  if (pendingInfo) {
-    if (unreadDocs === 0) {
-      pendingInfo.textContent = 'All read';
-    } else if (unreadDocs === 1) {
-      pendingInfo.textContent = '1 remaining';
-    } else {
-      pendingInfo.textContent = `${unreadDocs} remaining`;
-    }
-  }
-  
-  const recentInfo = document.getElementById('recent-info');
-  if (recentInfo) {
-    if (todayDocs === 0) {
-      recentInfo.textContent = 'No new today';
-    } else if (todayDocs === 1) {
-      recentInfo.textContent = '1 new today';
-    } else {
-      recentInfo.textContent = `${todayDocs} new today`;
-    }
-  }
-  
-  // Actualizar elemento de documentos revisados
-  const reviewedDocsElement = document.getElementById('reviewed-docs');
-  if (reviewedDocsElement) {
-    reviewedDocsElement.textContent = `${reviewedDocs}/${totalDocs}`;
-  }
-  
-  // Actualizar barra de progreso
-  const progressBar = document.getElementById('reviewed-progress');
-  if (progressBar) {
-    progressBar.style.width = `${reviewProgress}%`;
-    
-    // Cambiar color de la barra según el progreso
-    if (reviewProgress >= 80) {
-      progressBar.className = 'bg-green-600 h-2 rounded-full transition-all duration-300';
-    } else if (reviewProgress >= 50) {
-      progressBar.className = 'bg-yellow-600 h-2 rounded-full transition-all duration-300';
-    } else {
-      progressBar.className = 'bg-purple-600 h-2 rounded-full transition-all duration-300';
-    }
-  }
-}
-
-/**
- * Actualiza la paginación
- */
-function updatePagination() {
-  const totalPages = Math.ceil(filteredDocuments.length / itemsPerPage);
-  const startItem = (currentPage - 1) * itemsPerPage + 1;
-  const endItem = Math.min(currentPage * itemsPerPage, filteredDocuments.length);
-
-  const paginationInfo = document.getElementById('pagination-info');
-  if (paginationInfo) {
-    paginationInfo.textContent = `Showing ${startItem}-${endItem} of ${filteredDocuments.length} documents`;
-  }
-
-  // Generar botones de página dinámicamente
-  const pageNumbersContainer = document.getElementById('page-numbers');
-  if (pageNumbersContainer) {
-    pageNumbersContainer.innerHTML = '';
-
-    for (let i = 1; i <= totalPages; i++) {
-      const pageBtn = document.createElement('button');
-      pageBtn.className = `page-btn px-3 py-2 text-sm font-medium border rounded-md transition-colors duration-200 ${
-        i === currentPage 
-          ? 'text-white bg-blue-600 border-transparent' 
-          : 'text-gray-500 bg-white border-gray-300 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
-      }`;
-      pageBtn.textContent = i.toString();
-      pageBtn.dataset.page = i.toString();
-      
-      pageBtn.addEventListener('click', () => {
-        currentPage = i;
-        renderDocuments(filteredDocuments, currentPage);
-        updatePagination();
-      });
-      
-      pageNumbersContainer.appendChild(pageBtn);
-    }
-  }
-
-  // Actualizar botones Previous/Next
-  const prevBtn = document.getElementById('prev-btn');
-  const nextBtn = document.getElementById('next-btn');
-  
-  if (prevBtn) prevBtn.disabled = currentPage === 1;
-  if (nextBtn) nextBtn.disabled = currentPage === totalPages;
-}
-
-/**
- * Filtra documentos
- */
-function filterDocuments() {
-  const searchTerm = searchInput?.value.toLowerCase() || '';
-  const selectedType = typeFilter?.value || '';
-
-  filteredDocuments = documents.filter(doc => {
-    const matchesSearch = doc.name.toLowerCase().includes(searchTerm) || 
-                        doc.category.toLowerCase().includes(searchTerm);
-    const matchesType = !selectedType || doc.type === selectedType;
-    return matchesSearch && matchesType;
-  });
-
-  currentPage = 1;
-  renderDocuments(filteredDocuments, currentPage);
-  updatePagination();
-  updateStatistics();
-}
 
 // =============================================================================
 // FUNCIONES DE ACCIONES DE DOCUMENTOS
@@ -905,7 +612,7 @@ window.downloadFileClient = async (fileId) => {
   try {
     const token = localStorage.getItem('token');
     if (!token) {
-      showNotification('Debes iniciar sesión para ver archivos', 'error');
+      showNotification(getMessage(documentos.authRequired), 'error');
       return;
     }
 
@@ -919,11 +626,11 @@ window.downloadFileClient = async (fileId) => {
 
     if (!response.ok) {
       if (response.status === 403) {
-        showNotification('No tienes permisos para acceder a este archivo', 'error');
+        showNotification(getMessage(documentos.noPermission), 'error');
       } else if (response.status === 404) {
-        showNotification('Archivo no encontrado', 'error');
+        showNotification(getMessage(documentos.fileNotFound), 'error');
       } else {
-        showNotification('Error al cargar archivo', 'error');
+        showNotification(getMessage(documentos.loadFileError), 'error');
       }
       return;
     }
@@ -950,13 +657,11 @@ window.downloadFileClient = async (fileId) => {
       if (filteredDoc) {
         filteredDoc.status = 'Viewed';
       }
-      renderDocuments(filteredDocuments, currentPage);
-      updateStatistics();
     }
 
   } catch (error) {
     console.error('Error cargando archivo:', error);
-    showNotification('Error de conexión al cargar archivo', 'error');
+    showNotification(getMessage(documentos.loadFileNetworkError), 'error');
   }
 };
 
@@ -1076,7 +781,7 @@ function downloadDocument(docId) {
   const originalDoc = documents.find(d => d.id === docId);
   if (originalDoc) {
     // Downloading document
-    showNotification(`Downloading ${originalDoc.name}`);
+    showNotification(getMessage(documentos.downloadInProgress).replace('{name}', originalDoc.name));
     
     // Marcar como visto si no lo está
     if (originalDoc.status === 'Unread') {
@@ -1087,8 +792,6 @@ function downloadDocument(docId) {
         filteredDoc.status = 'Viewed';
       }
       
-      renderDocuments(filteredDocuments, currentPage);
-      updateStatistics();
     }
   }
 }
@@ -1097,7 +800,7 @@ function viewDocument(docId) {
   const originalDoc = documents.find(d => d.id === docId);
   if (originalDoc) {
     // Viewing document
-    showNotification(`Opening ${originalDoc.name} for viewing`);
+    showNotification(getMessage(documentos.openForViewing).replace('{name}', originalDoc.name));
     
     // Marcar como visto si no lo está
     if (originalDoc.status === 'Unread') {
@@ -1108,8 +811,6 @@ function viewDocument(docId) {
         filteredDoc.status = 'Viewed';
       }
       
-      renderDocuments(filteredDocuments, currentPage);
-      updateStatistics();
     }
   }
 }
@@ -1127,12 +828,10 @@ function markAsReviewed(docId) {
       filteredDoc.status = 'Reviewed';
     }
     
-    renderDocuments(filteredDocuments, currentPage);
-    updateStatistics();
     // Showing notification for document
     
     // Test directo de notificación
-    showNotification(`${originalDoc.name} marked as reviewed`, 'success');
+    showNotification(getMessage(documentos.markedReviewed).replace('{name}', originalDoc.name), 'success');
   } else {
     // Document not found or already reviewed
   }
@@ -1149,9 +848,7 @@ function markAsNotReviewed(docId) {
       filteredDoc.status = 'Viewed';
     }
     
-    renderDocuments(filteredDocuments, currentPage);
-    updateStatistics();
-    showNotification(`${originalDoc.name} marked as not reviewed`, 'success');
+    showNotification(getMessage(documentos.markedNotReviewed).replace('{name}', originalDoc.name), 'success');
   }
 }
 
@@ -1160,7 +857,7 @@ function sendDocumentByEmail(docId) {
   if (originalDoc) {
     // Opening email modal for document
     // Aquí se abriría el modal de email
-    showNotification(`Email modal opened for ${originalDoc.name}`);
+    showNotification(getMessage(documentos.emailModalOpened).replace('{name}', originalDoc.name));
   }
 }
 
@@ -1336,40 +1033,6 @@ function showModalNotification(message, type = 'success') {
 
 
 function setupEventListeners() {
-  // Event listeners para filtros
-  if (searchInput) {
-    searchInput.addEventListener('input', filterDocuments);
-  }
-  
-  if (typeFilter) {
-    typeFilter.addEventListener('change', filterDocuments);
-  }
-
-  // Event listeners para paginación
-  const prevBtn = document.getElementById('prev-btn');
-  const nextBtn = document.getElementById('next-btn');
-  
-  if (prevBtn) {
-    prevBtn.addEventListener('click', () => {
-      if (currentPage > 1) {
-        currentPage--;
-        renderDocuments(filteredDocuments, currentPage);
-        updatePagination();
-      }
-    });
-  }
-
-  if (nextBtn) {
-    nextBtn.addEventListener('click', () => {
-      const totalPages = Math.ceil(filteredDocuments.length / itemsPerPage);
-      if (currentPage < totalPages) {
-        currentPage++;
-        renderDocuments(filteredDocuments, currentPage);
-        updatePagination();
-      }
-    });
-  }
-
   // Event listeners para botones de items
   document.addEventListener('click', (e) => {
     const viewItemsBtn = e.target.closest('.view-items-btn');
@@ -1386,7 +1049,7 @@ function setupEventListeners() {
       e.preventDefault();
       e.stopPropagation();
       const orderId = viewDocsBtn.dataset.orderId;
-      const order = window.orders?.find(o => o.id === Number(orderId));
+      const order = window.orders?.find(o => String(o.id) === String(orderId));
       openDocsModal(order);
     }
   });
@@ -1458,7 +1121,7 @@ function openEmailModal(docId) {
           </div>
         </div>
         <div class="text-xs text-gray-500 dark:text-gray-400">
-          Last Updated: ${formatDate(doc.updated)}
+          ${getMessage(documentos.lastUpdatedLabel)}: ${formatDate(doc.updated)}
         </div>
         <div class="mt-2">
           <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColors[doc.status]}">
@@ -1607,7 +1270,7 @@ function sendEmailFromModal() {
   
   // Si hay errores, mostrar notificación y detener
   if (errors.length > 0) {
-    showNotification('Please fill in all required fields correctly', 'error');
+    showNotification(getMessage(documentos.issueFormRequired), 'error');
     return;
   }
   
@@ -1637,7 +1300,7 @@ DOCUMENT INFORMATION:
 - Size: ${originalDoc.size}
 - Type: ${originalDoc.type.toUpperCase()}
 - Status: ${originalDoc.status}
-- Last Updated: ${formatDate(originalDoc.updated)}
+- ${getMessage(documentos.lastUpdatedLabel)}: ${formatDate(originalDoc.updated)}
 
 DESCRIPTION:
 ${issueDescription.value}`;
@@ -1683,7 +1346,7 @@ ${contactName.value}`;
     closeEmailModal();
     
     // Mostrar notificación
-    showNotification(`Issue report submitted for ${originalDoc.name}`);
+    showNotification(getMessage(documentos.issueReportSubmitted).replace('{name}', originalDoc.name));
     
     // Issue report sent for document
   }
@@ -2188,20 +1851,24 @@ async function openItemsModal(orderPc, orderOc, factura) {
     });
 
     if (!response.ok) {
-      throw new Error('Error al cargar los items de la orden');
+      throw new Error(getMessage(documentos.itemsLoadError));
     }
 
     const items = await response.json();
+    const facturaValue = factura === undefined || factura === null ? '' : String(factura).trim();
+    const hasFactura = facturaValue !== '' && facturaValue !== 'null' && facturaValue !== '0';
     
-    const docT = window.translations?.documentos || {};
+    const docT = documentos;
     document.getElementById('itemsInitials').textContent = 'IT';
-    document.getElementById('itemsOrderTitle').textContent = `${docT.orderItems || 'Order Items'}: ${orderOc}`;
-    document.getElementById('itemsOrderSubtitle').textContent = docT.itemsList || 'Items List';
+    document.getElementById('itemsOrderTitle').textContent = `${getMessage(docT.orderItems)}: ${orderOc}`;
+    document.getElementById('itemsOrderSubtitle').textContent = getMessage(docT.itemsList);
     
     // Renderizar tabla de items
     if (itemsTableBody) {
       itemsTableBody.innerHTML = items.map(item => {
-        const quantity = parseFloat(item.kg_facturados) || 0;
+        const quantity = hasFactura
+          ? (parseFloat(item.kg_facturados) || 0)
+          : (parseFloat(item.kg_solicitados) || 0);
         const unitPrice = parseFloat(item.unit_price) || 0;
         const total = quantity * unitPrice;
         const unit = item.unidad_medida || 'KG';
@@ -2209,11 +1876,11 @@ async function openItemsModal(orderPc, orderOc, factura) {
         
         return `
           <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition">
-            <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">${item.item_code || 'N/A'}</td>
-            <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">${item.descripcion || 'N/A'}</td>
-            <td class="px-4 py-2 text-sm text-center text-gray-900 dark:text-gray-100">${formatQuantity(quantity, unit)}</td>
-            <td class="px-4 py-2 text-sm text-center text-gray-900 dark:text-gray-100">${formatUnitPrice(unitPrice, currency)}</td>
-            <td class="px-4 py-2 text-sm text-center font-semibold text-gray-900 dark:text-gray-100">${formatTotal(total, currency)}</td>
+            <td class="px-4 py-2 text-xs text-gray-900 dark:text-gray-100">${item.item_code || getMessage(documentos.notAvailable)}</td>
+            <td class="px-4 py-2 text-xs text-gray-900 dark:text-gray-100">${item.descripcion || getMessage(documentos.notAvailable)}</td>
+            <td class="px-4 py-2 text-xs text-center text-gray-900 dark:text-gray-100">${formatQuantity(quantity, unit)}</td>
+            <td class="px-4 py-2 text-xs text-center text-gray-900 dark:text-gray-100">${formatUnitPrice(unitPrice, currency)}</td>
+            <td class="px-4 py-2 text-xs text-center font-semibold text-gray-900 dark:text-gray-100">${formatTotal(total, currency)}</td>
           </tr>
         `;
       }).join('');
@@ -2223,12 +1890,16 @@ async function openItemsModal(orderPc, orderOc, factura) {
     const totalItemsCount = items.length;
     
     const totalQuantitySum = items.reduce((sum, item) => {
-      const quantity = parseFloat(item.kg_facturados) || 0;
+      const quantity = hasFactura
+        ? (parseFloat(item.kg_facturados) || 0)
+        : (parseFloat(item.kg_solicitados) || 0);
       return sum + quantity;
     }, 0);
     
     const totalValueSum = items.reduce((sum, item) => {
-      const quantity = parseFloat(item.kg_facturados) || 0;
+      const quantity = hasFactura
+        ? (parseFloat(item.kg_facturados) || 0)
+        : (parseFloat(item.kg_solicitados) || 0);
       const price = parseFloat(item.unit_price) || 0;
       const itemTotal = quantity * price;
       return sum + itemTotal;
@@ -2246,7 +1917,7 @@ async function openItemsModal(orderPc, orderOc, factura) {
 
   } catch (error) {
     console.error('Error loading order items:', error);
-    showNotification('Error al cargar los items de la orden', 'error');
+    showNotification(getMessage(documentos.itemsLoadError), 'error');
   }
 }
 
@@ -2257,32 +1928,32 @@ async function openDocsModal(order) {
     await loadOrderDocumentsFromAPI(order.id);
   } catch (error) {
     console.error('Error loading documents for modal:', error);
-    showNotification('Error al cargar los documentos', 'error');
+    showNotification(getMessage(documentos.documentsLoadError), 'error');
     return;
   }
 
   if (docsOrderTitle) {
-    docsOrderTitle.textContent = `${window.translations?.documentos?.order || 'Order'}: ${order.orderNumber}`;
+    docsOrderTitle.textContent = `${getMessage(documentos.order)}: ${order.orderNumber}`;
   }
 
   docsListBody.innerHTML = documents.length === 0
-    ? `<tr><td colspan="5" class="px-4 py-3 text-center text-sm text-gray-500 dark:text-gray-400">${window.translations?.documentos?.noDocs || 'No documents available'}</td></tr>`
+    ? `<tr><td colspan="5" class="px-4 py-3 text-center text-sm text-gray-500 dark:text-gray-400">${getMessage(documentos.noDocs)}</td></tr>`
     : documents.map(doc => {
-        const status = doc.status || 'Unread';
+        const status = doc.status || getMessage(documentos.statusUnread);
         return `
           <tr>
-            <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">${doc.name}</td>
-            <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">${doc.type?.toUpperCase() || '-'}</td>
-            <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">${status}</td>
-            <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">${formatDateOnly(doc.created)}</td>
+            <td class="px-4 py-2 text-xs text-gray-900 dark:text-gray-100">${doc.name}</td>
+            <td class="px-4 py-2 text-xs text-gray-900 dark:text-gray-100">${doc.type?.toUpperCase() || '-'}</td>
+            <td class="px-4 py-2 text-xs text-gray-900 dark:text-gray-100">${status}</td>
+            <td class="px-4 py-2 text-xs text-gray-900 dark:text-gray-100">${formatDateOnly(doc.created)}</td>
             <td class="px-4 py-2 text-center">
               <a href="#" onclick="downloadFileClient(${doc.id})"
                  class="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm leading-none"
-                 data-doc-id="${doc.id}" title="${window.translations?.documentos?.downloadDocument || 'Download document'}">
+                 data-doc-id="${doc.id}" title="${getMessage(documentos.downloadDocument)}">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                 </svg>
-                ${window.translations?.documentos?.downloadDocument || 'Download'}
+                ${getMessage(documentos.downloadDocument)}
               </a>
             </td>
           </tr>

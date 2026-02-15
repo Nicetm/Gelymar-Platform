@@ -22,7 +22,7 @@ class MessageModel {
       related: {
         customerId: chat.customer_id,
         customerName: chat.company_name || '',
-        customerUuid: chat.customer_uuid || null,
+        customerUuid: chat.customer_rut || chat.customer_uuid || null,
         online: typeof chat.online !== 'undefined' ? Boolean(chat.online) : undefined,
       },
       timestamp: chat.last_message_time || null,
@@ -49,7 +49,7 @@ class MessageModel {
         pc: order.pc,
         oc: order.oc,
         customerName: order.customer_name,
-        customerUuid: order.customer_uuid,
+        customerUuid: order.customer_rut || order.customer_uuid,
       },
       timestamp: order.fecha_etd || order.fecha || null,
       status: Number(order.document_count || 0) >= minDocs ? 'done' : 'pending',
@@ -71,7 +71,7 @@ class MessageModel {
       description: customer.email || customer.rut || '',
       related: {
         customerId: customer.id,
-        customerUuid: customer.uuid,
+        customerUuid: customer.rut || customer.uuid,
         rut: customer.rut,
       },
       timestamp: customer.created_at || null,

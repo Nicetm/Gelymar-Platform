@@ -1,8 +1,99 @@
 import { 
   qs, 
-  showNotification, 
-  formatDateShort
+  showNotification
 } from './utils.js';
+
+async function buildErrorFromResponse(response, fallbackMessage = '') {
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch (err) {
+    // ignore parse errors
+  }
+  const message = payload?.message || fallbackMessage || `HTTP ${response.status}: ${response.statusText}`;
+  const error = new Error(message);
+  if (payload?.code) {
+    error.code = payload.code;
+  }
+  error.status = response.status;
+  error.payload = payload;
+  return error;
+}
+
+const getMessage = (value) =>
+  (typeof value === 'string' && value.length > 0 ? value : '');
+
+function formatDateShort(dateString) {
+  if (!dateString) return '-';
+  try {
+    const trimmed = String(dateString).trim();
+    const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (isoMatch) {
+      const [, yyyy, mm, dd] = isoMatch;
+      return `${dd}/${mm}/${yyyy}`;
+    }
+    const dmyMatch = trimmed.match(/^(\d{2})[\/-](\d{2})[\/-](\d{4})/);
+    if (dmyMatch) {
+      const [, dd, mm, yyyy] = dmyMatch;
+      return `${dd}/${mm}/${yyyy}`;
+    }
+    const date = new Date(trimmed);
+    if (Number.isNaN(date.getTime())) return '-';
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const year = date.getUTCFullYear();
+    return `${day}/${month}/${year}`;
+  } catch (error) {
+    return '-';
+  }
+}
+
+let carpetas = {};
+let messagesFolders = {};
+let backendMessages = {};
+
+const formatMessage = (template, params = {}) => {
+  if (!template) return '';
+  return Object.entries(params).reduce(
+    (result, [key, value]) => result.replace(new RegExp(`{${key}}`, 'g'), value),
+    template
+  );
+};
+
+function showModal(selector) {
+  const modal = document.querySelector(selector);
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+}
+
+function hideModal(selector) {
+  const modal = document.querySelector(selector);
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }
+}
+
+function setupModalClose(modalSelector, closeSelector) {
+  const modal = document.querySelector(modalSelector);
+  const closeBtn = document.querySelector(closeSelector);
+
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+      hideModal(modalSelector);
+    });
+  }
+
+  if (modal) {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        hideModal(modalSelector);
+      }
+    });
+  }
+}
 
 function getFolderSectionContext() {
   const section = document.getElementById('folderSection');
@@ -15,6 +106,86 @@ function getFolderSectionContext() {
   const folderId = section?.dataset?.folderId;
 
   return { section, basePath, clientsPath, documentsPath, apiBase, fileServer, folderUuid, folderId };
+}
+
+// ===== SISTEMA DE CACHÉ =====
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos en milisegundos
+
+function getFoldersCacheKeys(uuid) {
+  const safeId = uuid || 'all';
+  return {
+    dataKey: `folders_cache_${safeId}`,
+    timestampKey: `folders_cache_timestamp_${safeId}`
+  };
+}
+
+function isFoldersCacheValid(uuid) {
+  const { timestampKey } = getFoldersCacheKeys(uuid);
+  const timestamp = localStorage.getItem(timestampKey);
+  if (!timestamp) return false;
+  return Date.now() - parseInt(timestamp, 10) < CACHE_DURATION;
+}
+
+function saveFoldersToCache(uuid, data) {
+  const { dataKey, timestampKey } = getFoldersCacheKeys(uuid);
+  localStorage.setItem(dataKey, JSON.stringify(data));
+  localStorage.setItem(timestampKey, Date.now().toString());
+}
+
+function loadFoldersFromCache(uuid) {
+  const { dataKey } = getFoldersCacheKeys(uuid);
+  const cached = localStorage.getItem(dataKey);
+  return cached ? JSON.parse(cached) : null;
+}
+
+function clearFoldersCache(uuid) {
+  const { dataKey, timestampKey } = getFoldersCacheKeys(uuid);
+  localStorage.removeItem(dataKey);
+  localStorage.removeItem(timestampKey);
+}
+
+async function loadFoldersWithCache(uuid, apiBase) {
+  try {
+    if (isFoldersCacheValid(uuid)) {
+      const cachedData = loadFoldersFromCache(uuid);
+      if (cachedData) {
+        return cachedData;
+      }
+    }
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${apiBase}/api/directories/${uuid}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!response.ok) {
+      throw await buildErrorFromResponse(response);
+    }
+    const folders = await response.json();
+    saveFoldersToCache(uuid, folders);
+    return folders;
+  } catch (error) {
+    console.error('Error cargando carpetas:', error);
+    const cachedData = loadFoldersFromCache(uuid);
+    if (cachedData) {
+      return cachedData;
+    }
+    throw error;
+  }
+}
+
+export function getCacheInfo(uuid) {
+  const { dataKey, timestampKey } = getFoldersCacheKeys(uuid);
+  const timestamp = localStorage.getItem(timestampKey);
+  const age = timestamp ? Date.now() - parseInt(timestamp, 10) : null;
+  return {
+    exists: !!localStorage.getItem(dataKey),
+    age: age,
+    isValid: isFoldersCacheValid(uuid)
+  };
+}
+
+export async function forceReloadFolders(uuid, apiBase) {
+  clearFoldersCache(uuid);
+  return await loadFoldersWithCache(uuid, apiBase);
 }
 
 // Función para formatear moneda
@@ -109,7 +280,8 @@ async function openItemsModal(orderPc, orderOc, factura) {
   try {
     // Cargar items de la orden
     const token = localStorage.getItem('token');
-    const apiBase = window.apiBase;
+    const { apiBase: datasetApiBase } = getFolderSectionContext();
+    const apiBase = window.apiBase || datasetApiBase;
 
     const safeOrderOc = orderOc ? encodeURIComponent(orderOc) : '';
     const safeFactura = factura && factura !== 'null' ? encodeURIComponent(factura) : '';
@@ -124,7 +296,7 @@ async function openItemsModal(orderPc, orderOc, factura) {
     });
 
     if (!response.ok) {
-      throw new Error('Error al cargar los items de la orden');
+      throw await buildErrorFromResponse(response, 'Error al cargar los items de la orden');
     }
 
     const items = await response.json();
@@ -148,17 +320,18 @@ async function openItemsModal(orderPc, orderOc, factura) {
     
     // Actualizar header del modal
     document.getElementById('itemsInitials').textContent = 'IT';
-    document.getElementById('itemsOrderTitle').textContent = `Orden: ${orderOc}`;
-    document.getElementById('itemsOrderSubtitle').textContent = 'Lista de Items';
+    document.getElementById('itemsOrderTitle').textContent = `${getMessage(carpetas.order)}: ${orderOc}`;
+    document.getElementById('itemsOrderSubtitle').textContent = getMessage(carpetas.itemsList);
     
+    let currency = 'CLP';
     // Renderizar tabla de items
     if (itemsTableBody) {
-      const currency = normalizedItems[0]?.currency || 'CLP';
+      currency = normalizedItems[0]?.currency || 'CLP';
       if (normalizedItems.length === 0) {
         itemsTableBody.innerHTML = `
           <tr>
             <td colspan="5" class="px-6 py-4 text-center text-xs text-gray-500 dark:text-gray-400">
-              ${window.translations?.carpetas?.noItemsFound || 'No se encontraron items para esta orden'}
+              ${getMessage(carpetas.noItemsFound)}
             </td>
           </tr>
         `;
@@ -204,7 +377,6 @@ async function openItemsModal(orderPc, orderOc, factura) {
       return sum + (quantity * price);
     }, 0);
 
-    const currency = normalizedItems[0]?.currency || 'CLP';
     const unit = normalizedItems[0]?.unidad_medida || 'KG';
     const rawGastoAdicionalFactura = normalizedItems[0]?.gasto_adicional_flete_factura;
     const shouldUseFacturaExpense = hasFactura && rawGastoAdicionalFactura !== null && rawGastoAdicionalFactura !== undefined && rawGastoAdicionalFactura !== '';
@@ -217,61 +389,35 @@ async function openItemsModal(orderPc, orderOc, factura) {
     if (totalGastoAdicional) totalGastoAdicional.textContent = formatCurrency(gastoAdicional, currency);
 
     // Mostrar modal
-    itemsModal.classList.remove('hidden');
-    itemsModal.classList.add('flex');
+    showModal('#itemsModal');
     
   } catch (error) {
     console.error('Error cargando items para modal:', error);
     // Mostrar notificación de error si está disponible
     if (typeof showNotification === 'function') {
-      showNotification('Error al cargar items de la orden', 'error');
+      showNotification(getMessage(messagesFolders.itemsLoadError), 'error');
     }
-  }
-}
-
-// Función para cargar traducciones (usar las que vienen del servidor)
-async function loadTranslations(lang, section) {
-  try {
-    // Las traducciones ya vienen del servidor, no necesitamos cargarlas dinámicamente
-    // Si necesitamos traducciones específicas, usar las que están en window.translations
-    if (window.translations && window.translations[section]) {
-      return window.translations[section];
-    }
-    
-    // Fallback con traducciones básicas
-    const fallbackTranslations = {
-      messages: {
-        loading: 'Cargando...',
-        error: 'Error',
-        success: 'Éxito',
-        confirm: 'Confirmar',
-        cancel: 'Cancelar'
-      },
-      carpetas: {
-        title: 'Carpetas',
-        customers: 'Clientes',
-        name: 'Nombre',
-        created: 'Creado',
-        updated: 'Actualizado',
-        actions: 'Acciones'
-      }
-    };
-    
-    return fallbackTranslations[section] || {};
-  } catch (err) {
-    console.warn('Fallo carga traducción:', err);
-    return {};
   }
 }
 
 export async function initFoldersScript() {
-  // Obtener apiBase desde las variables de entorno
-  const apiBase = window.apiBase || section?.dataset.apiBase;
-  
-  // Cargar traducciones
-  const currentLang = localStorage.getItem('lang') || 'en';
-  const messages = await loadTranslations(currentLang, 'messages');
-  const t = await loadTranslations(currentLang, 'carpetas');
+  const { apiBase: datasetApiBase } = getFolderSectionContext();
+  const resolvedApiBase = window.apiBase || datasetApiBase || '';
+  const apiBase = resolvedApiBase;
+
+  // Usar traducciones ya cargadas por Astro
+  const translations = window.translations || {};
+  const messages = translations.messages || {};
+  carpetas = translations.carpetas || {};
+  messagesFolders = messages.folders || messages.carpetas || {};
+  backendMessages = messagesFolders.backend || {};
+
+  const resolveBackendMessage = (code, fallback) => {
+    if (code && backendMessages[code]) {
+      return backendMessages[code];
+    }
+    return fallback;
+  };
 
   // Configurar event listeners de modales
   setupModalEventListeners();
@@ -282,8 +428,14 @@ export async function initFoldersScript() {
   const prevPageBtn = qs('prevPageBtn');
   const nextPageBtn = qs('nextPageBtn');
   const pageIndicator = qs('pageIndicator');
+  const exportBtn = qs('exportExcelBtn');
   const section = qs('folderSection');
   const uuID = section?.dataset?.uuid;
+
+  if (!tableBody || !searchInput || !itemsPerPageSelect || !prevPageBtn || !nextPageBtn || !pageIndicator || !section) {
+    console.error('Elementos necesarios no encontrados para el paginador de carpetas');
+    return;
+  }
 
   let allFolders = [];
   let filteredFolders = [];
@@ -533,15 +685,30 @@ export async function initFoldersScript() {
     });
   }
 
+  function slugifyPath(text) {
+    if (!text) return '';
+    return text
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
+  }
+
   function renderFolderRow(folder) {
     const displayCustomerName = folder.customer_name || clientName || '-';
     const escapedCustomerNameAttr = displayCustomerName.replace(/"/g, '&quot;');
-    const encodedCustomerName = encodeURIComponent(displayCustomerName);
     const safePcAttr = (folder.pc || '').toString().replace(/"/g, '&quot;');
     const safeOcAttr = (folder.oc || '').toString().replace(/"/g, '&quot;');
     const safeFacturaAttr = (folder.factura || '').toString().replace(/"/g, '&quot;');
     const { documentsPath } = getFolderSectionContext();
-    const documentsUrl = `${documentsPath}/${folder.customer_uuid}?f=${folder.id}&pc=${folder.pc}&c=${encodedCustomerName}`;
+    const customerRut = folder.customer_rut || folder.customer_uuid || '';
+    const pcValue = folder.pc || '';
+    const ocValue = folder.oc || '';
+    const companyValue = displayCustomerName || '';
+    const documentsUrl = `${documentsPath}/${encodeURIComponent(customerRut)}/${encodeURIComponent(pcValue)}/${slugifyPath(ocValue)}/${slugifyPath(companyValue)}`;
+    const shippingMethod = (!folder.factura || folder.factura === 0 || folder.factura === '0')
+      ? (folder.medio_envio_ov || '-')
+      : (folder.medio_envio_factura || '-');
 
     return `
       <tr data-id="${folder.id}" class="hover:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition bg-white dark:bg-gray-900">
@@ -561,17 +728,19 @@ export async function initFoldersScript() {
           </button>
         </td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(folder.fecha)}</td>
-        <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${folder.medio_envio_factura || '-'}</td>
+        <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${shippingMethod}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${folder.factura || '-'}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(folder.fecha_factura)}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(folder.fecha_etd)}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(folder.fecha_eta)}</td>
+        <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(folder.fecha_etd_factura)}</td>
+        <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(folder.fecha_eta_factura)}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${folder.incoterm || '-'}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${folder.puerto_destino || '-'}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">
           <a href="${documentsUrl}"
              class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline">
-            ${window.translations?.carpetas?.viewDocuments || 'ver documentos'}
+            ${getMessage(carpetas.viewDocuments)}
           </a>
         </td>
         <td class="sticky right-0 bg-gray-50 dark:bg-gray-700 z-10 px-6 py-4 min-w-[120px] overflow-visible">
@@ -579,8 +748,8 @@ export async function initFoldersScript() {
             <div class="relative">
               <a href="#" class="items-list-btn text-gray-900 dark:text-white hover:text-green-500 transition"
                  data-order-pc="${safePcAttr}" data-order-oc="${safeOcAttr}" data-factura="${safeFacturaAttr}"
-                 data-tooltip="${window.translations?.carpetas?.tooltipViewItemsDetailed || 'Ver items detallados'}"
-                 aria-label="${window.translations?.carpetas?.tooltipViewItemsDetailed || 'Ver items detallados'}">
+                 data-tooltip="${getMessage(carpetas.tooltipViewItemsDetailed)}"
+                 aria-label="${getMessage(carpetas.tooltipViewItemsDetailed)}">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
                 </svg>
@@ -589,8 +758,8 @@ export async function initFoldersScript() {
             <div class="relative">
               <a href="#" class="items-detail-modal-btn text-gray-900 dark:text-white hover:text-green-500 transition"
                  data-order-pc="${safePcAttr}" data-order-oc="${safeOcAttr}" data-factura="${safeFacturaAttr}"
-                 data-tooltip="${window.translations?.carpetas?.tooltipViewItems || 'Ver lista de items'}"
-                 aria-label="${window.translations?.carpetas?.tooltipViewItems || 'Ver lista de items'}">
+                 data-tooltip="${getMessage(carpetas.tooltipViewItems)}"
+                 aria-label="${getMessage(carpetas.tooltipViewItems)}">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>
                 </svg>
@@ -599,8 +768,8 @@ export async function initFoldersScript() {
             <div class="relative">
               <a href="#" class="order-detail-btn text-gray-900 dark:text-white hover:text-green-500 transition"
                  data-order-id="${folder.id}" data-order-pc="${safePcAttr}" data-order-oc="${safeOcAttr}"
-                 data-tooltip="${window.translations?.carpetas?.tooltipOrderDetails || 'Ver detalles de orden'}"
-                 aria-label="${window.translations?.carpetas?.tooltipOrderDetails || 'Ver detalles de orden'}">
+                 data-tooltip="${getMessage(carpetas.tooltipOrderDetails)}"
+                 aria-label="${getMessage(carpetas.tooltipOrderDetails)}">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
@@ -631,11 +800,12 @@ export async function initFoldersScript() {
 
     tableBody.innerHTML = '';
 
+    
     if (pageData.length === 0) {
       tableBody.innerHTML = `
         <tr class="bg-white dark:bg-gray-900">
-          <td colspan="13" class="px-6 py-8 text-center text-gray-500">
-            ${window.translations?.carpetas?.emptyState || 'No se encontraron carpetas'}
+          <td colspan="15" class="px-6 py-8 text-center text-gray-500">
+            ${getMessage(carpetas.noResults)}
           </td>
         </tr>
       `;
@@ -647,10 +817,96 @@ export async function initFoldersScript() {
 
     if (pageIndicator) {
       const displayCurrent = totalPages === 0 ? 0 : currentPage;
-      pageIndicator.textContent = `Page ${displayCurrent} of ${totalPages}`;
+      const pageLabel = getMessage(carpetas.pageIndicator);
+      const ofLabel = getMessage(carpetas.pageIndicatorSeparator);
+      pageIndicator.textContent = pageLabel
+        ? `${pageLabel} ${displayCurrent} ${ofLabel} ${totalPages}`
+        : `${displayCurrent} ${ofLabel} ${totalPages}`;
     }
 
     setupFloatingTooltips(tableBody);
+  }
+
+  function exportToExcel() {
+    const foldersToExport = filteredFolders.length > 0 ? filteredFolders : allFolders;
+
+    if (foldersToExport.length === 0) {
+      showNotification(getMessage(carpetas.exportEmpty), 'warning');
+      return;
+    }
+
+    const headers = [
+      getMessage(carpetas.name),
+      getMessage(carpetas.oc),
+      getMessage(carpetas.cliente),
+      getMessage(carpetas.fechaIngreso),
+      getMessage(carpetas.shippingMethod),
+      getMessage(carpetas.factura),
+      getMessage(carpetas.fechaFactura),
+      getMessage(carpetas.etdOv),
+      getMessage(carpetas.etaOv),
+      getMessage(carpetas.etdFactura),
+      getMessage(carpetas.etaFactura),
+      getMessage(carpetas.incoterm),
+      getMessage(carpetas.puertoDestino),
+      getMessage(carpetas.documents)
+    ];
+
+    const data = foldersToExport.map(folder => {
+      const customerRut = folder.customer_rut || folder.customer_uuid || '';
+      const pcValue = folder.pc || '';
+      const ocValue = folder.oc || '';
+      const companyValue = folder.customer_name || clientName || '';
+      const documentsUrl = `${documentsPath}/${encodeURIComponent(customerRut)}/${encodeURIComponent(pcValue)}/${slugifyPath(ocValue)}/${slugifyPath(companyValue)}`;
+      const shippingMethod = (!folder.factura || folder.factura === 0 || folder.factura === '0')
+        ? (folder.medio_envio_ov || '')
+        : (folder.medio_envio_factura || '');
+
+      return [
+        folder.pc || '',
+        folder.oc || '',
+        folder.customer_name || companyValue || '',
+        formatDateShort(folder.fecha) || '',
+        shippingMethod,
+        folder.factura || '',
+        formatDateShort(folder.fecha_factura) || '',
+        formatDateShort(folder.fecha_etd) || '',
+        formatDateShort(folder.fecha_eta) || '',
+        formatDateShort(folder.fecha_etd_factura) || '',
+        formatDateShort(folder.fecha_eta_factura) || '',
+        folder.incoterm || '',
+        folder.puerto_destino || '',
+        documentsUrl
+      ];
+    });
+
+    const BOM = '\uFEFF';
+    const csvContent = BOM + [
+      headers.join(';'),
+      ...data.map(row => row.map(cell => {
+        const text = cell?.toString?.() ?? '';
+        const escapedCell = text.replace(/"/g, '""');
+        return text.includes(';') ? `"${escapedCell}"` : escapedCell;
+      }).join(';'))
+    ].join('\r\n');
+
+    const blob = new Blob([csvContent], {
+      type: 'text/csv;charset=utf-8;header=present'
+    });
+
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `ordenes_cliente_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+
+    const exportMessage = formatMessage(getMessage(carpetas.exportSuccess), {
+      count: foldersToExport.length
+    });
+    showNotification(exportMessage, 'success');
   }
 
   setupStickyTableControls();
@@ -661,7 +917,14 @@ export async function initFoldersScript() {
   function sortFolders(column, direction) {
     if (!column) return;
 
-    const dateColumns = new Set(['fecha', 'fecha_factura', 'fecha_etd', 'fecha_eta']);
+    const dateColumns = new Set([
+      'fecha',
+      'fecha_factura',
+      'fecha_etd',
+      'fecha_eta',
+      'fecha_etd_factura',
+      'fecha_eta_factura'
+    ]);
     const localeCompareOptions = { numeric: true, sensitivity: 'base' };
     const multiplier = direction === 'desc' ? -1 : 1;
 
@@ -676,7 +939,9 @@ export async function initFoldersScript() {
         case 'fecha':
           return folder.fecha ?? '';
         case 'medio_envio_factura':
-          return folder.medio_envio_factura ?? '';
+          return (!folder.factura || folder.factura === 0 || folder.factura === '0')
+            ? (folder.medio_envio_ov ?? '')
+            : (folder.medio_envio_factura ?? '');
         case 'factura':
           return folder.factura ?? '';
         case 'fecha_factura':
@@ -685,6 +950,10 @@ export async function initFoldersScript() {
           return folder.fecha_etd ?? '';
         case 'fecha_eta':
           return folder.fecha_eta ?? '';
+        case 'fecha_etd_factura':
+          return folder.fecha_etd_factura ?? '';
+        case 'fecha_eta_factura':
+          return folder.fecha_eta_factura ?? '';
         case 'incoterm':
           return folder.incoterm ?? '';
         case 'puerto_destino':
@@ -760,13 +1029,7 @@ export async function initFoldersScript() {
 
   // Inicializar la tabla
   async function refreshFolders() {
-    const res = await fetch(`${apiBase}/api/directories/${uuID}`, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('token')}`
-      }
-    });
-    const folders = await res.json();
-
+    const folders = await loadFoldersWithCache(uuID, resolvedApiBase);
     allFolders = Array.isArray(folders) ? folders : [];
     filterFolders({ resetPage: true });
   }
@@ -790,7 +1053,9 @@ export async function initFoldersScript() {
           folder.fecha,
           folder.fecha_factura,
           folder.fecha_etd,
-          folder.fecha_eta
+          folder.fecha_eta,
+          folder.fecha_etd_factura,
+          folder.fecha_eta_factura
         ]
           .map(value => (value ?? '').toString().toLowerCase())
           .join(' ');
@@ -835,6 +1100,10 @@ export async function initFoldersScript() {
     }
   });
 
+  if (exportBtn) {
+    exportBtn.addEventListener('click', exportToExcel);
+  }
+
   document.addEventListener('click', (e) => {
     const customerNameBtn = e.target.closest('.customer-name-btn');
     if (customerNameBtn) {
@@ -865,231 +1134,10 @@ export async function initFoldersScript() {
     currentPage = 1;
     renderTable();
   });
-  /**
-   * Funcionalidad del modal de items
-   */
-  const itemsModal = document.getElementById('itemsModal');
-  const closeItemsModalBtn = document.getElementById('closeItemsModalBtn');
-
-  /**
-   * Función para obtener las iniciales del nombre
-   */
-  function getInitials(name) {
-    if (!name) return 'IT';
-    return name
-      .split(' ')
-      .map(word => word.charAt(0))
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  }
-
-  /**
-   * Función para formatear moneda
-   */
-  function formatCurrency(amount, currency = 'CLP') {
-    const currencyMap = {
-      'USD': 'USD',
-      'US': 'USD',
-      'UF': 'CLF',
-      'CLP': 'CLP',
-      'PESO': 'CLP'
-    };
-    
-    const mappedCurrency = currencyMap[currency] || currency;
-    
-    const formatted = new Intl.NumberFormat('es-CL', {
-      style: 'currency',
-      currency: mappedCurrency,
-      minimumFractionDigits: 4,
-      maximumFractionDigits: 4
-    }).format(amount);
-    
-    // Agregar espacio después del código de moneda y asegurar USD
-    return formatted.replace(/([A-Z]{2,3})\$/, '$1 $').replace('US $', 'USD $');
-  }
-
-  /**
-   * Función para formatear cantidad con unidad
-   */
-  function formatQuantity(amount, unit = 'KG') {
-    const unitMap = {
-      'KG': 'kg',
-      'KILOGRAMOS': 'kg',
-      'TON': 'ton',
-      'TONELADAS': 'ton',
-      'LITROS': 'L',
-      'L': 'L',
-      'UNIDADES': 'un',
-      'UN': 'un'
-    };
-    
-    const mappedUnit = unitMap[unit] || unit.toLowerCase();
-    const numericAmount = Number(typeof amount === 'string' ? amount.replace(',', '.') : amount);
-    const safeAmount = Number.isFinite(numericAmount) ? numericAmount : 0;
-    return `${safeAmount.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${mappedUnit}`;
-  }
-
-  /**
-   * Función para formatear precio unitario
-   */
-  function formatUnitPrice(amount) {
-    const numericAmount = Number(typeof amount === 'string' ? amount.replace(',', '.') : amount);
-    const safeAmount = Number.isFinite(numericAmount) ? numericAmount : 0;
-    const parts = safeAmount.toFixed(4).split('.');
-    const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    return `$${integerPart},${parts[1]}`;
-  }
-
-  /**
-   * Función para formatear total
-   */
-  function formatTotal(amount) {
-    const numericAmount = Number(typeof amount === 'string' ? amount.replace(',', '.') : amount);
-    const safeAmount = Number.isFinite(numericAmount) ? numericAmount : 0;
-    const formattedAmount = safeAmount.toLocaleString('es-CL', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    });
-    return `$${formattedAmount}`;
-  }
-
-  /**
-   * Función para cargar items de una orden
-   */
-  async function loadOrderItems(orderId, oc, clientName) {
-    try {
-      const token = localStorage.getItem('token');
-      // Obtener el PC de la fila
-      const row = document.querySelector(`tr[data-id="${orderId}"]`);
-      const pc = row?.cells[0]?.textContent?.trim() || '';
-      
-      const response = await fetch(`${apiBase}/api/orders/${pc}/${oc}/items`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Error al cargar los items de la orden');
-      }
-
-      const items = await response.json();
-      
-      // Actualizar header del modal
-      document.getElementById('itemsInitials').textContent = getInitials(clientName);
-      document.getElementById('itemsOrderTitle').textContent = `${window.translations?.carpetas?.order || 'Orden'}: ${oc}`;
-      document.getElementById('itemsOrderSubtitle').textContent = window.translations?.carpetas?.itemsList || 'Lista de Items';
-      
-      // Renderizar tabla de items
-      const tableBody = document.getElementById('itemsTableBody');
-      if (tableBody) {
-        const currency = items[0]?.currency || 'CLP';
-        tableBody.innerHTML = items.map(item => {
-          const quantity = parseFloat(item.kg_solicitados) || 0;
-          const unitPrice = parseFloat(item.unit_price) || 0;
-          const total = quantity * unitPrice;
-          const unit = item.unidad_medida || 'KG';
-          
-          return `
-            <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition">
-              <td class="px-6 py-4 text-xs text-gray-900 dark:text-gray-100">${item.item_code || 'N/A'}</td>
-              <td class="px-6 py-4 text-xs text-gray-900 dark:text-gray-100">${item.item_name || 'N/A'}</td>
-              <td class="px-6 py-4 text-xs text-center text-gray-900 dark:text-gray-100">${formatQuantity(quantity, unit)}</td>
-              <td class="px-6 py-4 text-xs text-center text-gray-900 dark:text-gray-100">${formatUnitPrice(unitPrice)}</td>
-              <td class="px-6 py-4 text-xs text-center font-semibold text-gray-900 dark:text-gray-100">${formatTotal(total)}</td>
-            </tr>
-          `;
-        }).join('');
-      }
-
-      // Calcular y mostrar totales
-      const totalItems = items.length;
-      
-      const totalQuantity = items.reduce((sum, item) => {
-        const quantity = parseFloat(item.kg_solicitados) || 0;
-        return sum + quantity;
-      }, 0);
-      
-      const totalValue = items.reduce((sum, item) => {
-        const quantity = parseFloat(item.kg_solicitados) || 0;
-        const price = parseFloat(item.unit_price) || 0;
-        const itemTotal = quantity * price;
-        return sum + itemTotal;
-      }, 0);
-
-      const currency = items[0]?.currency || 'CLP';
-      const unit = items[0]?.unidad_medida || 'KG';
-      document.getElementById('totalItems').textContent = totalItems;
-      document.getElementById('totalQuantity').textContent = formatQuantity(totalQuantity, unit);
-      document.getElementById('totalValue').textContent = formatCurrency(totalValue.toFixed(4), currency);
-
-      // Mostrar el modal
-      itemsModal.classList.remove('hidden');
-      itemsModal.classList.add('flex');
-
-    } catch (error) {
-      console.error('Error loading order items:', error);
-      showNotification('Error al cargar los items de la orden', 'error');
-    }
-  }
-
-  /**
-   * Función para cerrar el modal de items
-   */
-  function closeItemsModal() {
-    itemsModal.classList.add('hidden');
-    itemsModal.classList.remove('flex');
-  }
-
-  function closeItemsDetailModal() {
-    const detailModal = document.getElementById('itemsDetailModal');
-    if (!detailModal) return;
-    detailModal.classList.add('hidden');
-    detailModal.classList.remove('flex');
-  }
-
-  /**
-   * Event listeners para el modal de items
-   */
-  if (closeItemsModalBtn) {
-    closeItemsModalBtn.addEventListener('click', closeItemsModal);
-  }
-  const closeItemsDetailModalBtn = document.getElementById('closeItemsDetailModalBtn');
-  if (closeItemsDetailModalBtn) {
-    closeItemsDetailModalBtn.addEventListener('click', closeItemsDetailModal);
-  }
-
-  // Cerrar modal al hacer clic fuera
-  if (itemsModal) {
-    itemsModal.addEventListener('click', (e) => {
-      if (e.target === itemsModal) {
-        closeItemsModal();
-      }
-    });
-  }
-
-  const itemsDetailModal = document.getElementById('itemsDetailModal');
-  if (itemsDetailModal) {
-    itemsDetailModal.addEventListener('click', (e) => {
-      if (e.target === itemsDetailModal) {
-        closeItemsDetailModal();
-      }
-    });
-  }
-
-  renderTable();
-
   // ===== MODAL DE DETALLES DE ORDEN =====
-  const orderDetailModal = qs('orderDetailModal');
-  const closeOrderDetailModalBtn = qs('closeOrderDetailModalBtn');
-
-  /**
-   * Función para cargar los detalles de una orden
-   */
   async function loadOrderDetail(orderId, pc, oc) {
     try {     
-      const response = await fetch(`${apiBase}/api/orders/${orderId}/detail`, {
+      const response = await fetch(`${apiBase}/api/orders/${encodeURIComponent(orderId)}/detail`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
         }
@@ -1113,7 +1161,7 @@ export async function initFoldersScript() {
           u_observaciones: null
         };
       } else {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        throw await buildErrorFromResponse(response);
       }
 
       // Actualizar el título del modal
@@ -1146,38 +1194,12 @@ export async function initFoldersScript() {
       setValue('orderDetailDireccionDestino', orderDetail.direccion_destino);
       setValue('orderDetailPuertoDestino', orderDetail.puerto_destino);
 
-      // Mostrar el modal
-      orderDetailModal.classList.remove('hidden');
-      orderDetailModal.classList.add('flex');
+      showModal('#orderDetailModal');
 
     } catch (error) {
       console.error('Error loading order detail:', error);
-      showNotification('Error al cargar los detalles de la orden', 'error');
+      showNotification(resolveBackendMessage(error.code, getMessage(messagesFolders.detailLoadError)), 'error');
     }
-  }
-
-  /**
-   * Función para cerrar el modal de detalles
-   */
-  function closeOrderDetailModal() {
-    orderDetailModal.classList.add('hidden');
-    orderDetailModal.classList.remove('flex');
-  }
-
-  /**
-   * Event listeners para el modal de detalles
-   */
-  if (closeOrderDetailModalBtn) {
-    closeOrderDetailModalBtn.addEventListener('click', closeOrderDetailModal);
-  }
-
-  // Cerrar modal al hacer clic fuera
-  if (orderDetailModal) {
-    orderDetailModal.addEventListener('click', (e) => {
-      if (e.target === orderDetailModal) {
-        closeOrderDetailModal();
-      }
-    });
   }
 
   function buildItemsDetailTable(items) {
@@ -1185,16 +1207,16 @@ export async function initFoldersScript() {
       <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
         <thead class="bg-gray-100 dark:bg-gray-800 sticky top-0 z-10">
           <tr>
-            <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Código</th>
-            <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Nombre</th>
-            <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Tipo</th>
-            <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">KG Solicitados</th>
-            <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">KG Despachados</th>
-            <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">KG Facturados</th>
-            <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">ETD Date</th>
-            <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">ETA Date</th>
-            <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Precio Unitario</th>
-            <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Total</th>
+            <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${getMessage(carpetas.itemCode)}</th>
+            <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${getMessage(carpetas.itemName)}</th>
+            <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${getMessage(carpetas.tipo)}</th>
+            <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${getMessage(carpetas.kgSolicitados)}</th>
+            <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${getMessage(carpetas.kgDespachados)}</th>
+            <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${getMessage(carpetas.kgFacturados)}</th>
+            <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${getMessage(carpetas.fechaEtd)}</th>
+            <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${getMessage(carpetas.fechaEta)}</th>
+            <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${getMessage(carpetas.precioUnitario)}</th>
+            <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${getMessage(carpetas.total)}</th>
           </tr>
         </thead>
         <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-xs">
@@ -1242,12 +1264,12 @@ export async function initFoldersScript() {
       });
 
       if (!response.ok) {
-        throw new Error('Error al cargar los items de la orden');
+        throw await buildErrorFromResponse(response, 'Error al cargar los items de la orden');
       }
 
       const items = await response.json();
       if (detailTitle) {
-        detailTitle.textContent = `Items de Orden ${orderOc || '-'}`;
+        detailTitle.textContent = `${getMessage(carpetas.itemsOfOrder)} ${orderOc || '-'}`;
       }
       detailContainer.innerHTML = `
         <div class="bg-white dark:bg-gray-700 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600">
@@ -1256,11 +1278,10 @@ export async function initFoldersScript() {
           </div>
         </div>
       `;
-      detailModal.classList.remove('hidden');
-      detailModal.classList.add('flex');
+      showModal('#itemsDetailModal');
     } catch (error) {
       console.error('Error cargando items para modal:', error);
-      showNotification('Error al cargar items de la orden', 'error');
+      showNotification(resolveBackendMessage(error.code, getMessage(messagesFolders.itemsLoadError)), 'error');
     }
   }
 
@@ -1284,146 +1305,56 @@ export async function initFoldersScript() {
     return `${safeAmount.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${mappedUnit}`;
   }
 
-  // Función helper para formatear precio unitario
-  function formatUnitPrice(price) {
-    const numericAmount = Number(typeof price === 'string' ? price.replace(',', '.') : price);
-    const safeAmount = Number.isFinite(numericAmount) ? numericAmount : 0;
-    const parts = safeAmount.toFixed(4).split('.');
-    const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    return `$${integerPart},${parts[1]}`;
-  }
-
-  // Función helper para formatear total
-  function formatTotal(total) {
-    const numericAmount = Number(typeof total === 'string' ? total.replace(',', '.') : total);
-    const safeAmount = Number.isFinite(numericAmount) ? numericAmount : 0;
-    const formattedAmount = safeAmount.toLocaleString('es-CL', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    });
-    return `$${formattedAmount}`;
-  }
-
-  /**
-   * Event listener para los botones "Detalles de la Orden"
-   */
-  document.addEventListener('click', (e) => {
-    const orderDetailBtn = e.target.closest('.order-detail-btn');
-    if (orderDetailBtn) {
-      e.preventDefault();
-      
-      const orderId = orderDetailBtn.dataset.orderId;
-      const row = orderDetailBtn.closest('tr');
-      if (row) {
-        const pc = row.cells[0]?.textContent?.trim() || ''; // PC
-        const oc = row.cells[1]?.textContent?.trim() || ''; // OC
-        
-        loadOrderDetail(orderId, pc, oc);
-      }
-    }
-  });
-
-
-
-  // Función para abrir el modal de detalles de orden
-  async function openOrderDetailModal(orderId, orderOc) {
-    const orderDetailModal = document.getElementById('orderDetailModal');
-    const orderDetailTitle = document.getElementById('orderDetailTitle');
-    const orderDetailPc = document.getElementById('orderDetailPc');
-    const orderDetailOc = document.getElementById('orderDetailOc');
-    const orderDetailFechaEtd = document.getElementById('orderDetailFechaEtd');
-    const orderDetailFechaEta = document.getElementById('orderDetailFechaEta');
-    const orderDetailIncoterm = document.getElementById('orderDetailIncoterm');
-    const orderDetailCertificados = document.getElementById('orderDetailCertificados');
-    const orderDetailDireccionDestino = document.getElementById('orderDetailDireccionDestino');
-    const orderDetailPuertoDestino = document.getElementById('orderDetailPuertoDestino');
-
-    if (!orderDetailModal || !orderDetailTitle) return;
-
-    // Actualizar título
-    orderDetailTitle.textContent = `PC ${orderOc} - Detalles`;
-
-    try {
-      // Cargar detalles de la orden
-      const token = localStorage.getItem('token');
-      const apiBase = window.apiBase;
-      const response = await fetch(`${apiBase}/api/orders/${orderId}/detail`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const orderDetail = await response.json();
-  
-      // Función para formatear fechas
-      function formatDateToDDMMYYYY(dateString) {
-        if (!dateString) return '-';
-        try {
-          const date = new Date(dateString);
-          if (isNaN(date.getTime())) return '-';
-          return date.toLocaleDateString('es-ES', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric'
-          });
-        } catch (error) {
-          return '-';
-        }
-      }
-
-      // Actualizar campos del modal
-      orderDetailPc.textContent = orderDetail.pc || '-';
-      orderDetailOc.textContent = orderDetail.oc || '-';
-      orderDetailFechaEtd.textContent = formatDateToDDMMYYYY(orderDetail.fecha_etd);
-      orderDetailFechaEta.textContent = formatDateToDDMMYYYY(orderDetail.fecha_eta);
-      orderDetailIncoterm.textContent = orderDetail.incoterm || '-';
-      orderDetailCertificados.textContent = orderDetail.certificados || '-';
-      orderDetailDireccionDestino.textContent = orderDetail.direccion_destino || '-';
-      orderDetailPuertoDestino.textContent = orderDetail.puerto_destino || '-';
-
-      // Mostrar modal
-      orderDetailModal.classList.remove('hidden');
-
-    } catch (error) {
-      console.error('Error cargando detalles de orden:', error);
-      
-      // Mostrar valores por defecto en caso de error
-      orderDetailPc.textContent = '-';
-      orderDetailOc.textContent = '-';
-      orderDetailFechaEtd.textContent = '-';
-      orderDetailFechaEta.textContent = '-';
-      orderDetailIncoterm.textContent = '-';
-      orderDetailCertificados.textContent = '-';
-      orderDetailDireccionDestino.textContent = '-';
-      orderDetailPuertoDestino.textContent = '-';
-
-      orderDetailModal.classList.remove('hidden');
-    }
-  }
-
-  /**
-   * Event listeners para botones de detalles de orden
-   */
-  document.addEventListener('click', (e) => {
-    const orderDetailBtn = e.target.closest('.order-detail-btn');
-    if (orderDetailBtn) {
-      e.preventDefault();
-      
-      const orderId = orderDetailBtn.dataset.orderId;
-      const row = orderDetailBtn.closest('tr');
-      if (row) {
-        const pc = row.cells[0]?.textContent?.trim() || ''; // PC
-        const oc = row.cells[1]?.textContent?.trim() || ''; // OC
-        
-        openOrderDetailModal(orderId, oc);
-      }
-    }
-  });
-
   // Cargar los datos iniciales
-  refreshFolders();
+  async function loadAndRenderFolders() {
+    const loadingRow = document.getElementById('loadingRow');
+    try {
+      await refreshFolders();
+
+      if (loadingRow) {
+        loadingRow.remove();
+      }
+    } catch (error) {
+      console.error('Error cargando carpetas:', error);
+      if (loadingRow) {
+        const errorMessage = resolveBackendMessage(error.code, getMessage(messagesFolders.loadError));
+        const retryLabel = getMessage(messagesFolders.retry);
+        loadingRow.innerHTML = `
+          <td colspan="15" class="px-6 py-8 text-center text-red-500">
+            ${errorMessage} <button onclick="location.reload()" class="text-blue-500 hover:underline">${retryLabel}</button>
+          </td>
+        `;
+      }
+    }
+  }
+
+  async function refreshData() {
+    try {
+      clearFoldersCache(uuID);
+      await refreshFolders();
+      renderTable();
+      showNotification(getMessage(messagesFolders.dataRefreshed), 'success');
+    } catch (error) {
+      console.error('Error refrescando carpetas:', error);
+      showNotification(resolveBackendMessage(error.code, getMessage(messagesFolders.refreshError)), 'error');
+    }
+  }
+
+  function setupAutoRefresh() {
+    const checkCacheExpiry = () => {
+      if (!isFoldersCacheValid(uuID)) {
+        refreshData();
+      }
+    };
+    setInterval(checkCacheExpiry, 30 * 60 * 1000);
+  }
+
+  setupModalClose('#itemsModal', '#closeItemsModalBtn');
+  setupModalClose('#itemsDetailModal', '#closeItemsDetailModalBtn');
+  setupModalClose('#orderDetailModal', '#closeOrderDetailModalBtn');
+
+  await loadAndRenderFolders();
+  setupAutoRefresh();
 
   /**
    * Configurar event listeners para los modales
@@ -1458,9 +1389,12 @@ export async function initFoldersScript() {
       if (detailBtn) {
         e.preventDefault();
         const orderId = detailBtn.dataset.orderId;
-        const orderOc = detailBtn.dataset.orderOc;
-        openOrderDetailModal(orderId, orderOc);
+        const row = detailBtn.closest('tr');
+        const pc = row?.cells[0]?.textContent?.trim() || '';
+        const oc = row?.cells[1]?.textContent?.trim() || '';
+        loadOrderDetail(orderId, pc, oc);
       }
     });
   }
 } 
+

@@ -1,5 +1,5 @@
 ---
-import { loadTranslations, getServerLang } from '../lib/i18n.js';
+import { loadTranslations, getServerLang } from '@lib/i18n.js';
 const lang = getServerLang(Astro.cookies);
 let t: any = {};
 try {
@@ -9,10 +9,9 @@ try {
 } catch (error) {
   console.error('Error loading translations (LayoutAuth):', error);
 }
-const forgotPasswordLabel = t?.comond?.forgot_password ?? 'Forgot password?';
 ---
 
-<html lang="en">
+<html lang={lang}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -38,24 +37,24 @@ const forgotPasswordLabel = t?.comond?.forgot_password ?? 'Forgot password?';
           <!-- Forgot Password -->
           <div class="text-sm text-center text-[#002E50]/80 mt-4">
             <a href="/authentication/forgot-password" class="hover:underline hover:text-[#00538C] transition">
-              {forgotPasswordLabel}
+              {t?.comond?.forgot_password}
             </a>
           </div>
         </div>
 
         <!-- Lema -->
         <p class="mt-8 text-xs text-center text-[#002E50]/60 italic">
-          Sustainable marine solutions since 1993.
+          {t?.comond?.tagline}
         </p>
       </div>
 
       <!-- Footer -->
       <footer class="absolute bottom-5 w-full text-center text-sm text-white dark:text-gray-300 px-4">
         <p>
-          <a href="/info/privacy-policy" class="hover:underline">Privacy Policy</a>
+          <a href="/info/privacy-policy" class="hover:underline">{t?.comond?.privacy_policy_label}</a>
         </p>
         <p class="mt-1">
-          © {new Date().getFullYear()} <strong class="text-[#F6B234]">Gelymar SA</strong>. All rights reserved.
+          © {new Date().getFullYear()} <strong class="text-[#F6B234]">Gelymar SA</strong>. {t?.comond?.rights_reserved}
         </p>
       </footer>
 

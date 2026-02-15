@@ -37,10 +37,10 @@ function getClientSectionContext() {
 }
 
 // Funciones de modal que no están en utils.js
-function showModal(selector) {
-  const modal = document.querySelector(selector);
-  if (modal) {
-    modal.classList.remove('hidden');
+  function showModal(selector) {
+    const modal = document.querySelector(selector);
+    if (modal) {
+      modal.classList.remove('hidden');
     modal.classList.add('flex');
   }
 }
@@ -70,6 +70,12 @@ function setupModalClose(modalSelector, closeSelector) {
       }
     });
   }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal && !modal.classList.contains('hidden')) {
+      hideModal(modalSelector);
+    }
+  });
 }
 
 // ===== SISTEMA DE CACHÉ =====
@@ -177,7 +183,7 @@ export async function initClientsScript() {
     return fallback;
   };
 
-  const getMessage = (value, fallback) => (typeof value === 'string' && value.length > 0 ? value : fallback);
+  const getMessage = (value) => (typeof value === 'string' && value.length > 0 ? value : '');
   
   // Verificar que todos los elementos necesarios existan
   const searchInput = qs('searchInput');
@@ -287,7 +293,8 @@ export async function initClientsScript() {
   function renderCustomerRow(customer) {
     const encodedName = encodeURIComponent(customer.name || '');
     const { foldersPath, hideActions } = getClientSectionContext();
-    const folderUrl = `${foldersPath}/${customer.uuid}?c=${encodedName}`;
+    const customerKey = customer.rut || customer.uuid || '';
+    const folderUrl = `${foldersPath}/${encodeURIComponent(customerKey)}/${slugifyPath(customer.name || '')}`;
     const showActions = !hideActions;
     return `
       <tr data-id="${customer.id}" class="hover:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition bg-white dark:bg-gray-900">
@@ -301,24 +308,24 @@ export async function initClientsScript() {
         <td class="sticky right-0 bg-gray-50 dark:bg-gray-700 z-10 px-6 py-4 min-w-[120px] overflow-visible border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">
           <div class="flex justify-center gap-3 relative">
             <div class="relative">
-              <a id="orderViewBtn" href="${folderUrl}" class="orederView text-gray-900 dark:text-white hover:text-green-500 transition"
-                 data-tooltip="${window.translations?.clientes?.view_orders || 'View orders'}"
-                 aria-label="${window.translations?.clientes?.view_orders || 'View orders'}">
+              <a id="orderViewBtn" href="${folderUrl}" class="orederView text-gray-900 dark:text-white hover:text-green-500 dark:hover:text-green-400 transition"
+                data-tooltip="${getMessage(clientes.view_orders)}"
+                aria-label="${getMessage(clientes.view_orders)}">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
               </a>
             </div>
             ${showActions ? `
               <div class="relative">
-                <a id="contactsViewBtn" href="#" data-uuid="${customer.uuid}" data-name="${customer.name}" class="contactsView text-gray-900 dark:text-white hover:text-green-500 transition manage-contacts-btn"
-                   data-tooltip="${window.translations?.clientes?.manage_contacts || 'Manage contacts'}"
-                   aria-label="${window.translations?.clientes?.manage_contacts || 'Manage contacts'}">
+                <a id="contactsViewBtn" href="#" data-uuid="${customer.rut || customer.uuid}" data-name="${customer.name}" class="contactsView text-gray-900 dark:text-white hover:text-green-500 dark:hover:text-green-400 transition manage-contacts-btn"
+                  data-tooltip="${getMessage(clientes.manage_contacts)}"
+                  aria-label="${getMessage(clientes.manage_contacts)}">
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
                 </a>
               </div>
               <div class="relative">
-                <a id="changePasswordViewBtn" href="#" data-uuid="${customer.uuid}" data-name="${customer.name}" class="changePasswordView text-gray-900 dark:text-white hover:text-green-500 transition change-password-btn"
-                   data-tooltip="${window.translations?.clientes?.change_password || 'Change password'}"
-                   aria-label="${window.translations?.clientes?.change_password || 'Change password'}">
+                <a id="changePasswordViewBtn" href="#" data-uuid="${customer.rut || customer.uuid}" data-name="${customer.name}" class="changePasswordView text-gray-900 dark:text-white hover:text-green-500 dark:hover:text-green-400 transition change-password-btn"
+                  data-tooltip="${getMessage(clientes.change_password)}"
+                  aria-label="${getMessage(clientes.change_password)}">
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
                 </a>
               </div>
@@ -488,10 +495,10 @@ export async function initClientsScript() {
       // Mostrar mensaje de error
       const loadingRow = document.getElementById('loadingRow');
       if (loadingRow) {
-        const errorMessage = resolveBackendMessage(error.code, getMessage(messagesClients.loadError, 'Error loading customers.'));
+        const errorMessage = resolveBackendMessage(error.code, getMessage(messagesClients.loadError));
         loadingRow.innerHTML = `
           <td colspan="8" class="px-6 py-8 text-center text-red-500">
-            ${errorMessage} <button onclick="location.reload()" class="text-blue-500 hover:underline">${getMessage(clientes.retry, 'Retry')}</button>
+            ${errorMessage} <button onclick="location.reload()" class="text-blue-500 hover:underline">${getMessage(clientes.retry)}</button>
           </td>
         `;
       }
@@ -512,11 +519,11 @@ export async function initClientsScript() {
       renderTable();
       
       // Mostrar notificación de éxito
-      showNotification(getMessage(messagesClients.dataRefreshed, 'Data refreshed automatically'), 'success');
+      showNotification(getMessage(messagesClients.dataRefreshed), 'success');
       
     } catch (error) {
       console.error('Error refrescando datos:', error);
-      showNotification(resolveBackendMessage(error.code, getMessage(messagesClients.refreshError, 'Error refreshing data')), 'error');
+      showNotification(resolveBackendMessage(error.code, getMessage(messagesClients.refreshError)), 'error');
     }
   }
 
@@ -528,8 +535,8 @@ export async function initClientsScript() {
       }
     };
 
-    // Verificar cada minuto si el caché ha expirado
-    setInterval(checkCacheExpiry, 60 * 1000);
+    // Verificar cada 30 minutos si el caché ha expirado
+    setInterval(checkCacheExpiry, 30 * 60 * 1000);
   }
 
   /**
@@ -555,15 +562,15 @@ export async function initClientsScript() {
       tableBody.innerHTML = `
         <tr class="bg-white dark:bg-gray-900">
           <td colspan="8" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
-            ${getMessage(clientes.noResults, 'No customers found')}
+            ${getMessage(clientes.noResults)}
           </td>
         </tr>
       `;
     }
 
     const totalPages = Math.ceil(filteredCustomers.length / itemsPerPage);
-    const pageLabel = getMessage(clientes.pageIndicator, 'Page');
-    const ofLabel = getMessage(clientes.pageIndicatorSeparator, 'of');
+    const pageLabel = getMessage(clientes.pageIndicator);
+    const ofLabel = getMessage(clientes.pageIndicatorSeparator);
     pageIndicator.textContent = `${pageLabel} ${currentPage} ${ofLabel} ${totalPages}`;
 
     setupFloatingTooltips(tableBody);
@@ -693,19 +700,19 @@ export async function initClientsScript() {
     const customersToExport = filteredCustomers.length > 0 ? filteredCustomers : allCustomers;
     
     if (customersToExport.length === 0) {
-      showNotification(getMessage(messagesClients.noCustomersToExport, 'No customers available to export'), 'warning');
+      showNotification(getMessage(messagesClients.noCustomersToExport), 'warning');
       return;
     }
 
     // Definir los encabezados de las columnas
     const headers = [
-      getMessage(clientes.name, 'Name'),
-      getMessage(clientes.rut, 'RUT'),
-      getMessage(clientes.email, 'Email'),
-      getMessage(clientes.phone, 'Phone'),
-      getMessage(clientes.country, 'Country'),
-      getMessage(clientes.city, 'City'),
-      getMessage(clientes.directory, 'Orders')
+      getMessage(clientes.name),
+      getMessage(clientes.rut),
+      getMessage(clientes.email),
+      getMessage(clientes.phone),
+      getMessage(clientes.country),
+      getMessage(clientes.city),
+      getMessage(clientes.directory)
     ];
 
     // Preparar los datos para exportar
@@ -818,7 +825,7 @@ export async function initClientsScript() {
       // Buscar el cliente en los datos cargados
       const customer = allCustomers.find(c => c.uuid === customerUuid);
       if (!customer) {
-        showError(getMessage(messagesClients.clientNotFound, 'Customer not found'));
+        showError(getMessage(messagesClients.clientNotFound));
         return;
       }
       
@@ -827,7 +834,7 @@ export async function initClientsScript() {
       
     } catch (error) {
       console.error('Error abriendo modal de perfil:', error);
-      showError(getMessage(messagesClients.loadError, 'Error loading customers.'));
+      showError(getMessage(messagesClients.loadError));
     }
   });
 
@@ -844,7 +851,7 @@ export async function initClientsScript() {
       // Buscar el cliente en los datos cargados
       const customer = allCustomers.find(c => c.uuid === customerUuid);
       if (!customer) {
-        showError(getMessage(messagesClients.clientNotFound, 'Customer not found'));
+        showError(getMessage(messagesClients.clientNotFound));
         return;
       }
       
@@ -853,7 +860,7 @@ export async function initClientsScript() {
       
     } catch (error) {
       console.error('Error abriendo modal de contactos:', error);
-      showError(getMessage(messagesClients.contactsLoadError, 'Error loading customer contacts'));
+      showError(getMessage(messagesClients.contactsLoadError));
     }
   });
 
@@ -865,7 +872,7 @@ export async function initClientsScript() {
     const initials = customer.name ? customer.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'CL';
     
     document.getElementById('contactsInitials').textContent = initials;
-    document.getElementById('contactsClientName').textContent = customer.name || getMessage(profileTexts.noName, 'No name');
+    document.getElementById('contactsClientName').textContent = customer.name || getMessage(profileTexts.noName);
     
     // Guardar UUID del cliente actual
     currentCustomerUuid = customer.uuid;
@@ -917,13 +924,13 @@ export async function initClientsScript() {
     row.className = 'border-t border-gray-200 dark:border-gray-600';
     row.innerHTML = `
       <td class="p-2">
-        <input type="text" class="text-xs contact-name w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="${getMessage(contactsPlaceholders.name, 'Contact name')}">
+        <input type="text" class="text-xs contact-name w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="${getMessage(contactsPlaceholders.name)}">
       </td>
       <td class="p-2">
-        <input type="email" class="text-xs contact-email w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="${getMessage(contactsPlaceholders.email, 'email@example.com')}">
+        <input type="email" class="text-xs contact-email w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="${getMessage(contactsPlaceholders.email)}">
       </td>
       <td class="p-2">
-        <input type="tel" class="text-xs contact-phone w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="${getMessage(contactsPlaceholders.phone, '+1 555 123 4567')}">
+        <input type="tel" class="text-xs contact-phone w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="${getMessage(contactsPlaceholders.phone)}">
       </td>
       <td class="p-2 text-center">
         <input type="checkbox" class="contact-sh-documents w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
@@ -1035,7 +1042,7 @@ export async function initClientsScript() {
           <svg class="w-6 h-6 mx-auto mb-4 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
           </svg>
-          <p>${getMessage(contactsModalTexts.noContacts, 'No contacts registered')}</p>
+          <p>${getMessage(contactsModalTexts.noContacts)}</p>
         </div>
       `;
       return;
@@ -1124,12 +1131,12 @@ export async function initClientsScript() {
 
     const actionsCell = row.querySelector('td:last-child');
     const saveBtn = document.createElement('button');
-    saveBtn.className = 'save-contact-btn text-green-600 hover:text-green-500 transition'
+    saveBtn.className = 'save-contact-btn text-green-600 hover:text-green-500 dark:text-green-400 dark:hover:text-green-300 transition'
     saveBtn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>`;
     saveBtn.dataset.contactIdx = idx;
 
     const cancelBtn = document.createElement('button');
-    cancelBtn.className = 'cancel-edit-contact-btn text-red-600 hover:text-red-500 transition'
+    cancelBtn.className = 'cancel-edit-contact-btn text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300 transition'
     cancelBtn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>`;
     cancelBtn.dataset.contactIdx = idx;
 
@@ -1165,34 +1172,47 @@ export async function initClientsScript() {
     };
 
     if (!updates.nombre) {
-      showError(getMessage(clientesForm.nameRequired, 'Name is required for all contacts'));
+      showError(getMessage(clientesForm.nameRequired));
       return;
     }
     if (!updates.email) {
-      showError(getMessage(clientesForm.emailRequired, 'Email is required for all contacts'));
+      showError(getMessage(clientesForm.emailRequired));
       return;
     }
     if (!isValidEmail(updates.email)) {
-      showError(getMessage(clientesForm.emailInvalid, 'Email must be valid'));
+      showError(getMessage(clientesForm.emailInvalid));
       return;
     }
     if (updates.cco && (updates.sh_documents || updates.reports)) {
-      showError(getMessage(clientesForm.ccoExclusive, 'CCO no puede combinarse con SH Docs ni Reports'));
+      showError(getMessage(clientesForm.ccoExclusive));
       return;
     }
     if (!updates.cco && !updates.sh_documents && !updates.reports) {
       const confirmed = await confirmAction(
-        getMessage(clientesForm.noPermissionsConfirmTitle, 'No access selected'),
-        getMessage(clientesForm.noPermissionsConfirmMessage, 'You did not select SH Docs nor Reports. Do you want to continue anyway?'),
+        getMessage(clientesForm.noPermissionsConfirmTitle),
+        getMessage(clientesForm.noPermissionsConfirmMessage),
         'warning',
         {
-          confirmButtonText: getMessage(clientesForm.noPermissionsConfirmContinue, 'Yes, continue'),
-          cancelButtonText: getMessage(clientesForm.noPermissionsConfirmCancel, 'Cancel')
+          confirmButtonText: getMessage(clientesForm.noPermissionsConfirmContinue),
+          cancelButtonText: getMessage(clientesForm.noPermissionsConfirmCancel)
         }
       );
       if (!confirmed) {
         return;
       }
+    }
+
+    const confirmedSave = await confirmAction(
+      getMessage(contactsModalTexts.confirmTitle),
+      getMessage(contactsModalTexts.confirmMessage),
+      'warning',
+      {
+        confirmButtonText: getMessage(contactsModalTexts.confirmYes),
+        cancelButtonText: getMessage(contactsModalTexts.confirmCancel)
+      }
+    );
+    if (!confirmedSave) {
+      return;
     }
 
     try {
@@ -1207,15 +1227,15 @@ export async function initClientsScript() {
       });
 
       if (response.ok) {
-        showSuccess(getMessage(messagesClients.updateSuccess, 'Contact updated successfully'));
+        showSuccess(getMessage(messagesClients.updateSuccess));
         loadExistingContacts(currentCustomerUuid);
       } else {
         const errorResponse = await buildErrorFromResponse(response);
-        showError(resolveBackendMessage(errorResponse.code, getMessage(messagesClients.updateError, 'Error updating contact')));
+        showError(resolveBackendMessage(errorResponse.code, getMessage(messagesClients.updateError)));
       }
     } catch (error) {
       console.error('Error updating contact:', error);
-      showError(resolveBackendMessage(error.code, getMessage(messagesClients.updateError, 'Error updating contact')));
+      showError(resolveBackendMessage(error.code, getMessage(messagesClients.updateError)));
     }
   });
 
@@ -1268,7 +1288,7 @@ export async function initClientsScript() {
 
   async function saveContacts() {
     if (!currentCustomerUuid) {
-      showError(getMessage(clientesForm.customerRequired, 'A customer must be selected'));
+      showError(getMessage(clientesForm.customerRequired));
       return;
     }
 
@@ -1290,29 +1310,29 @@ export async function initClientsScript() {
 
       if (hasData) {
         if (!name) {
-          showError(getMessage(clientesForm.nameRequired, 'Name is required for all contacts'));
+          showError(getMessage(clientesForm.nameRequired));
           return;
         }
         if (!email) {
-          showError(getMessage(clientesForm.emailRequired, 'Email is required for all contacts'));
+          showError(getMessage(clientesForm.emailRequired));
           return;
         }
         if (!isValidEmail(email)) {
-          showError(getMessage(clientesForm.emailInvalid, 'Email must be valid'));
+          showError(getMessage(clientesForm.emailInvalid));
           return;
         }
         if (cco && (shDocuments || reports)) {
-          showError(getMessage(clientesForm.ccoExclusive, 'CCO no puede combinarse con SH Docs ni Reports'));
+          showError(getMessage(clientesForm.ccoExclusive));
           return;
         }
         if (!cco && !shDocuments && !reports) {
           const confirmed = await confirmAction(
-            getMessage(clientesForm.noPermissionsConfirmTitle, 'No access selected'),
-            getMessage(clientesForm.noPermissionsConfirmMessage, 'You did not select SH Docs nor Reports. Do you want to continue anyway?'),
+            getMessage(clientesForm.noPermissionsConfirmTitle),
+            getMessage(clientesForm.noPermissionsConfirmMessage),
             'warning',
             {
-              confirmButtonText: getMessage(clientesForm.noPermissionsConfirmContinue, 'Yes, continue'),
-              cancelButtonText: getMessage(clientesForm.noPermissionsConfirmCancel, 'Cancel')
+              confirmButtonText: getMessage(clientesForm.noPermissionsConfirmContinue),
+              cancelButtonText: getMessage(clientesForm.noPermissionsConfirmCancel)
             }
           );
           if (!confirmed) {
@@ -1325,11 +1345,24 @@ export async function initClientsScript() {
     }
 
     if (contacts.length === 0) {
-      showError(getMessage(clientesForm.atLeastOneContact, 'Add at least one contact'));
+      showError(getMessage(clientesForm.atLeastOneContact));
       return;
     }
 
     try {
+      const confirmed = await confirmAction(
+        getMessage(contactsModalTexts.confirmTitle),
+        getMessage(contactsModalTexts.confirmMessage),
+        'warning',
+        {
+          confirmButtonText: getMessage(contactsModalTexts.confirmYes),
+          cancelButtonText: getMessage(contactsModalTexts.confirmCancel)
+        }
+      );
+      if (!confirmed) {
+        return;
+      }
+
       const token = localStorage.getItem('token');
 
       const response = await fetch(`${resolvedApiBase}/api/customers/contacts`, {
@@ -1351,18 +1384,18 @@ export async function initClientsScript() {
         loadExistingContacts(currentCustomerUuid);
       } else {
         const errorResponse = await buildErrorFromResponse(response);
-        showError(resolveBackendMessage(errorResponse.code, getMessage(messagesClients.addContactError, 'Error adding contacts')));
+        showError(resolveBackendMessage(errorResponse.code, getMessage(messagesClients.addContactError)));
       }
     } catch (error) {
       console.error('Error agregando contactos:', error);
-      showError(resolveBackendMessage(error.code, getMessage(messagesClients.addContactError, 'Error adding contacts')));
+      showError(resolveBackendMessage(error.code, getMessage(messagesClients.addContactError)));
     }
   }
 
   async function deleteContact(contactIdx) {
     const confirmed = await confirmAction(
-      getMessage(messagesClients.deleteContactConfirm, 'Delete contact?'),
-      getMessage(messagesClients.deleteContactMessage, 'This action cannot be undone.'),
+      getMessage(messagesClients.deleteContactConfirm),
+      getMessage(messagesClients.deleteContactMessage),
       'warning'
     );
 
@@ -1379,15 +1412,15 @@ export async function initClientsScript() {
       });
 
       if (response.ok) {
-        showSuccess(getMessage(messagesClients.deleteContactSuccess, 'Contact deleted successfully'));
+        showSuccess(getMessage(messagesClients.deleteContactSuccess));
         loadExistingContacts(currentCustomerUuid);
       } else {
         const error = await buildErrorFromResponse(response);
-        showError(resolveBackendMessage(error.code, getMessage(messagesClients.deleteContactError, 'Error deleting contact')));
+        showError(resolveBackendMessage(error.code, getMessage(messagesClients.deleteContactError)));
       }
     } catch (error) {
       console.error('Error eliminando contacto:', error);
-      showError(resolveBackendMessage(error.code, getMessage(messagesClients.deleteContactError, 'Error deleting contact')));
+      showError(resolveBackendMessage(error.code, getMessage(messagesClients.deleteContactError)));
     }
   }
 
@@ -1397,7 +1430,7 @@ export async function initClientsScript() {
     const initials = customer.name ? customer.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'CL';
     
     document.getElementById('contactsInitials').textContent = initials;
-    document.getElementById('contactsClientName').textContent = customer.name || getMessage(profileTexts.noName, 'No name');
+    document.getElementById('contactsClientName').textContent = customer.name || getMessage(profileTexts.noName);
     
     // Guardar UUID del cliente actual
     currentCustomerUuid = customer.uuid;
@@ -1434,7 +1467,7 @@ export async function initClientsScript() {
 
   async function updateCustomer() {
     if (!currentCustomerForUpdate) {
-      showError(getMessage(clientesForm.customerRequired, 'A customer must be selected'));
+      showError(getMessage(clientesForm.customerRequired));
       return;
     }
 
@@ -1442,18 +1475,18 @@ export async function initClientsScript() {
     const newEmail = emailInput?.value?.trim();
 
     if (!newEmail) {
-      showError(getMessage(clientes.emailEmpty, 'Email cannot be empty.'));
+      showError(getMessage(clientes.emailEmpty));
       return;
     }
 
     if (!isValidEmail(newEmail)) {
-      showError(getMessage(clientesForm.emailInvalid, 'Email must be valid'));
+      showError(getMessage(clientesForm.emailInvalid));
       return;
     }
 
     const confirmed = await confirmAction(
-      getMessage(messagesClients.updateConfirmTitle, 'Update customer?'),
-      getMessage(messagesClients.updateConfirmMessage, 'The customer information will be updated.'),
+      getMessage(messagesClients.updateConfirmTitle),
+      getMessage(messagesClients.updateConfirmMessage),
       'question'
     );
 
@@ -1474,30 +1507,31 @@ export async function initClientsScript() {
       });
 
       if (response.ok) {
-        showSuccess(getMessage(messagesClients.updateSuccess, 'Customer updated successfully'));
+        showSuccess(getMessage(messagesClients.updateSuccess));
         hideModal('#profileModal');
         // Recargar la lista de clientes para reflejar los cambios
         await forceReloadCustomers();
         await loadAndRenderCustomers();
       } else {
         const errorResponse = await buildErrorFromResponse(response);
-        showError(resolveBackendMessage(errorResponse.code, getMessage(messagesClients.updateError, 'Error updating customer')));
+        showError(resolveBackendMessage(errorResponse.code, getMessage(messagesClients.updateError)));
       }
     } catch (error) {
       console.error('Error actualizando cliente:', error);
-      showError(resolveBackendMessage(error.code, getMessage(messagesClients.updateError, 'Error updating customer')));
+      showError(resolveBackendMessage(error.code, getMessage(messagesClients.updateError)));
     }
   }
 
   function viewCustomerOrders() {
     if (!currentCustomerForUpdate) {
-      showError(getMessage(clientesForm.customerRequired, 'A customer must be selected'));
+      showError(getMessage(clientesForm.customerRequired));
       return;
     }
 
     // Redirigir a la página de órdenes del cliente
     const { foldersPath } = getClientSectionContext();
-    window.location.href = `${foldersPath}/${currentCustomerForUpdate.uuid}?c=${encodeURIComponent(currentCustomerForUpdate.name || '')}`;
+    const customerKey = currentCustomerForUpdate.rut || currentCustomerForUpdate.uuid || '';
+    window.location.href = `${foldersPath}/${encodeURIComponent(customerKey)}/${slugifyPath(currentCustomerForUpdate.name || '')}`;
   }
 
   // Actualizar la función openProfileModal para guardar el cliente actual
@@ -1506,11 +1540,11 @@ export async function initClientsScript() {
     const initials = customer.name ? customer.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'CL';
     
     document.getElementById('profileInitials').textContent = initials;
-    document.getElementById('profileClientName').textContent = customer.name || getMessage(profileTexts.noName, 'No name');
-    document.getElementById('profileClientRut').textContent = customer.rut || getMessage(profileTexts.noRut, 'No tax ID');
-    document.getElementById('profileCountry').textContent = customer.country || getMessage(profileTexts.noCountry, 'No country');
-    document.getElementById('profileCity').textContent = customer.city || getMessage(profileTexts.noCity, 'No city');
-    document.getElementById('profilePhone').textContent = customer.phone || getMessage(profileTexts.noPhone, 'No phone');
+    document.getElementById('profileClientName').textContent = customer.name || getMessage(profileTexts.noName);
+    document.getElementById('profileClientRut').textContent = customer.rut || getMessage(profileTexts.noRut);
+    document.getElementById('profileCountry').textContent = customer.country || getMessage(profileTexts.noCountry);
+    document.getElementById('profileCity').textContent = customer.city || getMessage(profileTexts.noCity);
+    document.getElementById('profilePhone').textContent = customer.phone || getMessage(profileTexts.noPhone);
     document.getElementById('profileEmail').value = customer.email || '';
     document.getElementById('profileOrderCount').textContent = customer.order_count || 0;
     
@@ -1540,13 +1574,57 @@ export async function initClientsScript() {
 
   function openChangePasswordModal(customerUuid, customerName) {
     currentPasswordCustomerUuid = customerUuid;
-    document.getElementById('changePasswordCustomerName').textContent = customerName || getMessage(profileTexts.noName, 'No name');
+    document.getElementById('changePasswordCustomerName').textContent = customerName || getMessage(profileTexts.noName);
     
     // Limpiar formulario
     document.getElementById('changePasswordForm').reset();
+    updateChangePasswordRules('');
     
     // Mostrar modal
     showModal('#changePasswordModal');
+  }
+
+  function slugifyPath(text) {
+    if (!text) return '';
+    return text
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
+  }
+
+  function updateChangePasswordRules(value) {
+    const rulesList = document.getElementById('changePasswordRules');
+    if (!rulesList) return;
+    const rules = {
+      length: value.length >= 8,
+      upper: /[A-Z]/.test(value),
+      lower: /[a-z]/.test(value),
+      number: /[0-9]/.test(value)
+    };
+    rulesList.querySelectorAll('li[data-rule]').forEach((item) => {
+      const ruleKey = item.getAttribute('data-rule');
+      const passed = !!rules[ruleKey];
+      const icon = item.querySelector('.rule-icon');
+      if (icon) {
+        icon.textContent = passed ? '✓' : '✗';
+        icon.classList.toggle('text-green-500', passed);
+        icon.classList.toggle('dark:text-green-400', passed);
+        icon.classList.toggle('text-rose-500', !passed);
+        icon.classList.toggle('dark:text-rose-400', !passed);
+      }
+      item.classList.toggle('text-green-600', passed);
+      item.classList.toggle('dark:text-green-400', passed);
+      item.classList.toggle('text-rose-500', !passed);
+      item.classList.toggle('dark:text-rose-400', !passed);
+    });
+  }
+
+  const newPasswordInput = document.getElementById('newPassword');
+  if (newPasswordInput) {
+    newPasswordInput.addEventListener('input', (e) => {
+      updateChangePasswordRules(e.target.value || '');
+    });
   }
 
   // Event listener para guardar contraseña
@@ -1556,24 +1634,45 @@ export async function initClientsScript() {
     
     // Validaciones
     if (!newPassword || !confirmPassword) {
-      showNotification(getMessage(formMessages.completeFields, 'Please complete all fields'), 'error');
+      showNotification(getMessage(formMessages.completeFields), 'error');
       return;
     }
     
-    if (newPassword.length < 6) {
-      showNotification(getMessage(formMessages.passwordMinLength, 'Password must be at least 6 characters long'), 'error');
+    const strongRules = {
+      length: newPassword.length >= 8,
+      upper: /[A-Z]/.test(newPassword),
+      lower: /[a-z]/.test(newPassword),
+      number: /[0-9]/.test(newPassword)
+    };
+    const isStrong = Object.values(strongRules).every(Boolean);
+    if (!isStrong) {
+      updateChangePasswordRules(newPassword);
+      showNotification(getMessage(formMessages.passwordMinLength), 'error');
       return;
     }
     
     if (newPassword !== confirmPassword) {
-      showNotification(getMessage(formMessages.passwordMismatch, 'Passwords do not match'), 'error');
+      showNotification(getMessage(formMessages.passwordMismatch), 'error');
+      return;
+    }
+
+    const confirmed = await confirmAction(
+      getMessage(changePasswordTexts.confirmTitle),
+      getMessage(changePasswordTexts.confirmMessage),
+      'warning',
+      {
+        confirmButtonText: getMessage(changePasswordTexts.confirmYes),
+        cancelButtonText: getMessage(changePasswordTexts.confirmCancel)
+      }
+    );
+    if (!confirmed) {
       return;
     }
     
     // Mostrar loading
     const saveBtn = document.getElementById('savePasswordBtn');
     const originalText = saveBtn.innerHTML;
-    const savingText = getMessage(changePasswordTexts.saving, 'Changing...');
+    const savingText = getMessage(changePasswordTexts.saving);
     saveBtn.innerHTML = `<svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> ${savingText}`;
     saveBtn.disabled = true;
     
@@ -1590,15 +1689,15 @@ export async function initClientsScript() {
       });
       
       if (response.ok) {
-        showNotification(getMessage(messagesClients.passwordChangeSuccess, 'Password changed successfully'), 'success');
+        showNotification(getMessage(messagesClients.passwordChangeSuccess), 'success');
         hideModal('#changePasswordModal');
       } else {
         const errorResponse = await buildErrorFromResponse(response);
-        showNotification(resolveBackendMessage(errorResponse.code, getMessage(messagesClients.passwordChangeError, 'Error changing password')), 'error');
+        showNotification(errorResponse.message || resolveBackendMessage(errorResponse.code, getMessage(messagesClients.passwordChangeError)), 'error');
       }
     } catch (error) {
       console.error('Error cambiando contraseña:', error);
-      showNotification(resolveBackendMessage(error.code, getMessage(messagesClients.passwordChangeError, 'Error changing password')), 'error');
+      showNotification(resolveBackendMessage(error.code, getMessage(messagesClients.passwordChangeError)), 'error');
     } finally {
       // Restaurar botón
       const saveBtn = document.getElementById('savePasswordBtn');
@@ -1616,6 +1715,14 @@ export async function initClientsScript() {
   setupModalClose('#contactsHelpModal', '#closeContactsHelpModalFooterBtn');
   setupModalClose('#changePasswordModal', '#closeChangePasswordModalBtn');
   setupModalClose('#changePasswordModal', '#cancelChangePasswordBtn');
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    hideModal('#profileModal');
+    hideModal('#contactsModal');
+    hideModal('#contactsHelpModal');
+    hideModal('#changePasswordModal');
+  });
 
   const contactsHelpBtn = document.getElementById('contactsHelpBtn');
   if (contactsHelpBtn) {
@@ -1646,3 +1753,4 @@ export async function initClientsScript() {
 
   updateAddContactButtonState();
 } 
+

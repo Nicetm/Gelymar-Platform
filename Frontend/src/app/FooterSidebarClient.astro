@@ -1,6 +1,6 @@
 ---
 import CopyrightNotice from '../components/CopyrightNotice.astro';
-import { loadTranslations, getServerLang } from '../lib/i18n.js';
+import { loadTranslations, getServerLang } from '@lib/i18n.js';
 
 const lang = getServerLang(Astro.cookies);
 const t: any = {

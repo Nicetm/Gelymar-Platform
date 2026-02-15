@@ -7,11 +7,11 @@ import ModalOrderDetail from '../../components/modals/orders/ModalOrderDetail.as
 // Para el código del cliente, usar PUBLIC_API_URL
 const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
 const apiPublic = import.meta.env.PUBLIC_API_URL;
-const lang = getServerLang(Astro.cookies);
 const { basePath = '/admin' } = Astro.props;
 const homeHref = basePath;
 const clientsPath = `${basePath}/clients`;
 const documentsViewPath = `${clientsPath}/documents/view`;
+const lang = getServerLang(Astro.cookies);
 
 // Cargar traducciones de manera estática
 let t: any = {};
@@ -19,6 +19,7 @@ try {
   t = {
     documentos: await loadTranslations(lang, 'documentos'),
     carpetas: await loadTranslations(lang, 'carpetas'),
+    orders: await loadTranslations(lang, 'orders'),
     clientes: await loadTranslations(lang, 'clientes'),
     comond: await loadTranslations(lang, 'comond'),
   };
@@ -49,14 +50,14 @@ try {
           </a>
         </li>
         <li class="flex items-center text-gray-400 dark:text-gray-300 font-medium" aria-current="page">
-          <span class="mx-1">/ {t.comond.search} {t.carpetas.orders}
+          <span class="mx-1">/ {t.comond.search} {t.orders.orders}
         </li>
 		</ol>
     </nav>
 
     <!-- Título -->
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <h1 id="titleFile" class="text-3xl font-bold text-gray-900 dark:text-white">{t.comond.search} {t.carpetas.orders}</h1>
+      <h1 id="titleFile" class="text-3xl font-bold text-gray-900 dark:text-white">{t.comond.search} {t.orders.orders}</h1>
 	</div>
 
 	<!-- Búsqueda y filtros -->
@@ -77,7 +78,7 @@ try {
 				<label class="relative inline-flex items-center cursor-pointer">
 					<input type="checkbox" id="filterOpenOrders" class="sr-only peer" />
 					<div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-0 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-					<span class="ml-3 text-sm font-medium text-gray-900 dark:text-gray-300 whitespace-nowrap">{t.carpetas.onlyOpen}</span>
+					<span class="ml-3 text-sm font-medium text-gray-900 dark:text-gray-300 whitespace-nowrap">{t.orders.onlyOpen}</span>
 				</label>
 			</div>
 		</div>
@@ -108,7 +109,7 @@ try {
 				<tr>
 					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="pc">
 						<div class="flex items-center justify-between">
-							<span>{t.carpetas.name}</span>
+							<span>{t.orders.name}</span>
 							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
 							</svg>
@@ -116,7 +117,7 @@ try {
 					</th>
 					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="oc">
 						<div class="flex items-center justify-between">
-							<span>{t.carpetas.oc}</span>
+							<span>{t.orders.oc}</span>
 							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
 							</svg>
@@ -132,7 +133,7 @@ try {
 					</th>
 					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="fecha">
 						<div class="flex items-center justify-between">
-							<span>{t.carpetas.fechaIngreso || 'Fecha Ingreso'}</span>
+							<span>{t.orders.fechaIngreso}</span>
 							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
 							</svg>
@@ -140,7 +141,7 @@ try {
 					</th>
 					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="medio_envio_factura">
 						<div class="flex items-center justify-between">
-							<span>{t.carpetas.shippingMethod}</span>
+							<span>{t.orders.shippingMethod}</span>
 							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
 							</svg>
@@ -148,7 +149,7 @@ try {
 					</th>
 					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="factura">
 						<div class="flex items-center justify-between">
-							<span>{t.carpetas.factura}</span>
+							<span>{t.orders.factura}</span>
 							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
 							</svg>
@@ -156,7 +157,7 @@ try {
 					</th>
 					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="fecha_factura">
 						<div class="flex items-center justify-between">
-							<span>{t.carpetas.fechaFactura}</span>
+							<span>{t.orders.fechaFactura}</span>
 							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
 							</svg>
@@ -164,7 +165,7 @@ try {
 					</th>
 					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="fecha_etd">
 						<div class="flex items-center justify-between">
-							<span>{t.carpetas.etdOv}</span>
+							<span>{t.orders.etdOv}</span>
 							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
 							</svg>
@@ -172,7 +173,7 @@ try {
 					</th>
 					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="fecha_eta">
 						<div class="flex items-center justify-between">
-							<span>{t.carpetas.etaOv}</span>
+							<span>{t.orders.etaOv}</span>
 							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
 							</svg>
@@ -180,7 +181,7 @@ try {
 					</th>
 					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="fecha_etd_factura">
 						<div class="flex items-center justify-between">
-							<span>{t.carpetas.etdFactura}</span>
+							<span>{t.orders.etdFactura}</span>
 							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
 							</svg>
@@ -188,7 +189,7 @@ try {
 					</th>
 					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="fecha_eta_factura">
 						<div class="flex items-center justify-between">
-							<span>{t.carpetas.etaFactura}</span>
+							<span>{t.orders.etaFactura}</span>
 							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
 							</svg>
@@ -196,7 +197,7 @@ try {
 					</th>
 					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="incoterm">
 						<div class="flex items-center justify-between">
-							<span>{t.carpetas.incoterm}</span>
+							<span>{t.orders.incoterm}</span>
 							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
 							</svg>
@@ -204,14 +205,14 @@ try {
 					</th>
 					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="puerto_destino">
 						<div class="flex items-center justify-between">
-							<span>{t.carpetas.puertoDestino}</span>
+							<span>{t.orders.puertoDestino}</span>
 							<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
 							</svg>
 						</div>
 					</th>
 					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800">
-						<span>{t.carpetas.documents}</span>
+						<span>{t.orders.documents}</span>
 					</th>
 					<th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 sticky right-0 z-20 min-w-[120px]">{t.comond.actions}</th>
 				</tr>
@@ -219,13 +220,13 @@ try {
 			<tbody id="ordersTableBody" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-xs min-h-[600px]">
 				<!-- Los datos se cargarán dinámicamente con JavaScript -->
 				<tr id="loadingRow" class="bg-white dark:bg-gray-900">
-					<td colspan="15" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+					<td colspan="11" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
 						<div class="flex items-center justify-center">
 							<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
 								<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
 								<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
 							</svg>
-							Cargando órdenes...
+							{t.orders.loading}
 						</div>
 					</td>
 				</tr>
@@ -259,7 +260,7 @@ try {
 	<!-- Paginación -->
 	<div class="mt-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-6 text-sm">
 		<div class="flex items-center gap-3">
-			<label for="itemsPerPageSelect" class="text-sm font-medium text-gray-700 dark:text-gray-300">{t.clientes.perPage}</label>
+			<label for="itemsPerPageSelect" class="text-sm font-medium text-gray-700 dark:text-gray-300">{t.orders.perPage}</label>
 			<div class="relative">
 				<select id="itemsPerPageSelect" class="block w-20 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-sm text-gray-900 dark:text-gray-100 rounded-md pl-3 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
 					<option value="10">10</option>
@@ -284,8 +285,8 @@ try {
 		</div>
 	</div>
 
-	<ModalItems carpetas={t.carpetas ?? {}} />
-	<ModalOrderDetail carpetas={t.carpetas ?? {}} />
+	<ModalItems orders={t.orders ?? {}} />
+	<ModalOrderDetail orders={t.orders ?? {}} />
 
 	<div id="itemsDetailModal" class="fixed inset-0 bg-black bg-opacity-50 dark:bg-black/80 hidden justify-center items-center z-50">
 		<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 w-full max-w-6xl mx-4 relative max-h-[90vh] overflow-y-auto shadow-2xl">
@@ -301,7 +302,8 @@ try {
 				</div>
 				<div>
 					<h2 id="itemsDetailTitle" class="text-xl font-bold text-gray-900 dark:text-gray-100"></h2>
-					<p id="itemsDetailSubtitle" class="text-sm text-gray-600 dark:text-gray-400">{t.carpetas.itemsList}</p>
+					<p id="itemsDetailCustomerName" class="text-sm text-gray-600 dark:text-gray-400"></p>
+					<p id="itemsDetailSubtitle" class="text-sm text-gray-600 dark:text-gray-400">{t.orders.itemsList}</p>
 				</div>
 			</div>
 
@@ -318,7 +320,7 @@ try {
   // Hacer las variables disponibles globalmente
   window.apiBase = apiPublic;
   window.lang = lang;
-  window.translations = t;
+  window.translations = { ...(window.translations || {}), ...t };
 
   // Inicializar el script cuando el DOM esté completamente cargado
   if (document.readyState === 'loading') {

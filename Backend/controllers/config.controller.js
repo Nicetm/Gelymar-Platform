@@ -1,5 +1,6 @@
-const configService = require('../services/config.service');
-const orderService = require('../services/order.service');
+const { container } = require('../config/container');
+const configService = container.resolve('configService');
+const orderService = container.resolve('orderService');
 
 async function getConfigParamsByName(name) {
   const config = await configService.getConfigByName(name);

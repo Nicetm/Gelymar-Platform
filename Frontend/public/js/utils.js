@@ -26,6 +26,16 @@ const querySelector = (selector) => document.querySelector(selector);
 // Helper para querySelectorAll
 const qsa = (selector) => document.querySelectorAll(selector);
 
+const getCommonTranslations = () => {
+  if (typeof window === 'undefined') {
+    return { comond: {}, getMessage: (value) => (typeof value === 'string' ? value : '') };
+  }
+  const translations = window.translations || {};
+  const comond = translations.comond || {};
+  const getMessage = (value) => (typeof value === 'string' ? value : '');
+  return { comond, getMessage };
+};
+
 // ===== SISTEMA DE NOTIFICACIONES =====
 let notificationQueue = [];
 let isProcessingQueue = false;
@@ -230,12 +240,14 @@ const showSpinner = (container) => {
     
     // Si el contenedor ya tiene un spinner, no agregar otro
     if (container.querySelector('.animate-spin')) return;
+
+    const { comond, getMessage } = getCommonTranslations();
     
     const spinner = document.createElement('div');
     spinner.className = 'flex justify-center items-center p-8';
     spinner.innerHTML = `
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        <span class="ml-2 text-gray-600">Cargando...</span>
+        <span class="ml-2 text-gray-600">${getMessage(comond.loading)}</span>
     `;
     container.appendChild(spinner);
 };
@@ -290,9 +302,10 @@ const checkToken = () => {
 // ===== MODAL DE CONFIRMACIÓN PERSONALIZADO =====
 const confirmAction = async (title, message, type = 'warning', options = {}) => {
     return new Promise((resolve) => {
+        const { comond, getMessage } = getCommonTranslations();
         const {
-          confirmButtonText = 'OK',
-          cancelButtonText = 'Cancel'
+          confirmButtonText = getMessage(comond.confirm),
+          cancelButtonText = getMessage(comond.cancel)
         } = options || {};
 
         const modal = document.createElement('div');

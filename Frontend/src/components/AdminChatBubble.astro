@@ -1,0 +1,297 @@
+---
+import { loadTranslations, getServerLang } from '@lib/i18n.js';
+
+const lang = getServerLang(Astro.cookies);
+let t: any = {};
+try {
+  t = {
+    messages: await loadTranslations(lang, 'messages')
+  };
+} catch (error) {
+  console.warn('Error cargando traducciones:', error);
+  t = {};
+}
+---
+
+<div id="admin-chat-bubble" class="fixed bottom-6 right-6 z-50">
+  <button 
+    id="chat-toggle-btn"
+    class="relative bg-blue-600 hover:bg-blue-700 text-white w-14 h-14 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center group"
+    aria-label={t.messages?.chat?.clients_title}
+  >
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+    </svg>
+
+    <span
+      id="admin-chat-unread-badge"
+      class="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center hidden"
+    ></span>
+
+    <span
+      id="admin-chat-alert-pulse"
+      class="absolute inset-0 bg-blue-400 rounded-full animate-ping opacity-75 hidden"
+    ></span>
+  </button>
+
+  <div class="absolute bottom-full right-0 mb-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
+    {t.messages?.chat?.chat_bubble_tooltip}
+    <div class="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+  </div>
+
+  <div
+    id="admin-chat-recent-dropdown"
+    class="hidden absolute bottom-16 right-0 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50"
+  >
+    <div class="flex items-center justify-between p-3 border-b border-gray-200 dark:border-gray-700">
+      <h3 class="text-base font-semibold text-gray-900 dark:text-white">{t.messages?.chat?.clients_title}</h3>
+    </div>
+
+    <div id="admin-chat-recent-list" class="max-h-96 overflow-y-auto">
+      <div class="p-4 text-center text-gray-500 dark:text-gray-400">
+        <div class="flex items-center justify-center gap-3">
+          <svg class="animate-spin -ml-1 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <p class="text-sm">{t.messages?.chat?.loading_clients}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  #admin-chat-bubble button:hover {
+    transform: scale(1.1);
+  }
+
+  @keyframes glowPulse {
+    0% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.7); }
+    70% { box-shadow: 0 0 0 15px rgba(249, 115, 22, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0); }
+  }
+
+  #admin-chat-bubble button.chat-toggle-alert {
+    background: #f97316;
+    animation: glowPulse 1.5s infinite;
+  }
+
+  #admin-chat-bubble button.chat-toggle-alert:hover {
+    background: #ea580c;
+  }
+</style>
+
+<script is:inline type="module" define:vars={{ lang, t }}>
+  const chatTexts = t?.messages?.chat || {};
+  const getMessage = (value) => (typeof value === 'string' ? value : '');
+
+  const chatToggleButton = document.getElementById('chat-toggle-btn');
+  const chatDropdown = document.getElementById('admin-chat-recent-dropdown');
+  const chatList = document.getElementById('admin-chat-recent-list');
+  const unreadBadge = document.getElementById('admin-chat-unread-badge');
+  const pulseOverlay = document.getElementById('admin-chat-alert-pulse');
+  const bubbleContainer = document.getElementById('admin-chat-bubble');
+  const adminChatModal = document.getElementById('admin-chat-modal');
+  const locale = lang || document.documentElement.lang || 'es-ES';
+  let activeCustomerId = window.currentAdminChatCustomerId || null;
+  let lastAlertCustomerId = null;
+
+  function setChatButtonAlert(active, count = 0) {
+    if (chatToggleButton) {
+      chatToggleButton.classList.toggle('chat-toggle-alert', active);
+    }
+    if (pulseOverlay) {
+      pulseOverlay.classList.toggle('hidden', !active);
+    }
+    if (unreadBadge) {
+      if (count > 0) {
+        unreadBadge.textContent = count > 99 ? '99+' : count.toString();
+        unreadBadge.classList.remove('hidden');
+      } else {
+        unreadBadge.textContent = '';
+        unreadBadge.classList.add('hidden');
+      }
+    }
+  }
+
+  function formatDateTime(value) {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleString(locale, {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+
+  function renderLoading() {
+    if (!chatList) return;
+    chatList.innerHTML = `
+      <div class="p-4 text-center text-gray-500 dark:text-gray-400">
+        <div class="flex items-center justify-center gap-3">
+          <svg class="animate-spin -ml-1 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <p class="text-sm">${getMessage(chatTexts.loading_clients)}</p>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderEmpty() {
+    if (!chatList) return;
+    chatList.innerHTML = `
+      <div class="p-4 text-center text-gray-500 dark:text-gray-400">
+        <svg class="w-6 h-6 mx-auto mb-2 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+        <p class="text-sm">${getMessage(chatTexts.no_clients_found)}</p>
+      </div>
+    `;
+  }
+
+  function renderRecentChats(chats) {
+    if (!chatList) return;
+    if (!Array.isArray(chats) || chats.length === 0) {
+      renderEmpty();
+      return;
+    }
+
+    chatList.innerHTML = chats.map((chat) => {
+      const customerId = (chat.customer_id || chat.rut || '').toString().trim();
+      const displayName = (chat.company_name || chat.name || customerId || '').toString().trim();
+      const formattedName = displayName.toLowerCase().replace(/\b\w/g, (l) => l.toUpperCase());
+      const isOnline = Number(chat.online || 0) === 1;
+      const statusText = isOnline ? getMessage(chatTexts.online) : getMessage(chatTexts.offline);
+      const statusColor = isOnline ? 'bg-green-500' : 'bg-gray-400';
+      const lastTime = formatDateTime(chat.last_message_time);
+      const isActive = activeCustomerId && String(activeCustomerId) === customerId;
+      const isAlert = lastAlertCustomerId && String(lastAlertCustomerId) === customerId;
+
+      return `
+        <button
+          class="w-full text-left flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-700 ${isActive ? 'bg-blue-50 dark:bg-blue-900/30' : ''}"
+          data-customer-id="${customerId}"
+          data-customer-name="${formattedName.replace(/\"/g, '&quot;')}"
+          data-customer-online="${isOnline ? '1' : '0'}"
+        >
+          <div class="flex-1">
+            <div class="flex items-center gap-2">
+              <div class="w-2 h-2 rounded-full ${statusColor}"></div>
+              <p class="text-xs font-medium text-gray-900 dark:text-white">${formattedName}</p>
+            </div>
+            <div class="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+              ${lastTime}
+            </div>
+          </div>
+          <span class="ml-3 text-xs font-medium ${isAlert ? 'text-red-500 dark:text-red-400' : 'text-blue-600 dark:text-blue-400'}">
+            ${isAlert ? getMessage(chatTexts.active_chat) : getMessage(chatTexts.start_chat)}
+          </span>
+        </button>
+      `;
+    }).join('');
+
+    chatList.querySelectorAll('button[data-customer-id]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const customerId = btn.getAttribute('data-customer-id');
+        const customerName = btn.getAttribute('data-customer-name') || '';
+        const isOnline = btn.getAttribute('data-customer-online') === '1';
+        if (typeof window.openAdminChat === 'function') {
+          window.openAdminChat(customerId, customerName, isOnline);
+        }
+        lastAlertCustomerId = null;
+        chatDropdown?.classList.add('hidden');
+        setChatButtonAlert(false, 0);
+      });
+    });
+  }
+
+  async function loadRecentChats() {
+    const token = localStorage.getItem('token');
+    const apiBase = window.apiBase || window.location.origin.replace(':4321', ':3000');
+    if (!token) {
+      renderEmpty();
+      return;
+    }
+
+    try {
+      renderLoading();
+      const response = await fetch(`${apiBase}/api/chat/recent`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!response.ok) {
+        renderEmpty();
+        return;
+      }
+      const data = await response.json();
+      const chats = Array.isArray(data?.data) ? data.data : [];
+      renderRecentChats(chats);
+    } catch (error) {
+      renderEmpty();
+    }
+  }
+
+  async function updateUnreadCount() {
+    const token = localStorage.getItem('token');
+    const apiBase = window.apiBase || window.location.origin.replace(':4321', ':3000');
+    if (!token) return;
+    try {
+      const response = await fetch(`${apiBase}/api/chat/summary`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      const totalUnread = Number(data?.data?.totalUnread || 0);
+      setChatButtonAlert(totalUnread > 0, totalUnread);
+    } catch (error) {
+      // ignore
+    }
+  }
+
+  chatToggleButton?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    chatDropdown?.classList.toggle('hidden');
+    if (chatDropdown && !chatDropdown.classList.contains('hidden')) {
+      loadRecentChats();
+    }
+  });
+
+  function syncBubbleVisibility() {
+    if (!bubbleContainer || !adminChatModal) return;
+    const isModalVisible = !adminChatModal.classList.contains('hidden');
+    bubbleContainer.classList.toggle('hidden', isModalVisible);
+  }
+
+  document.addEventListener('click', (event) => {
+    const target = event.target;
+    if (!(target instanceof Node)) return;
+    if (!chatDropdown?.contains(target) && !chatToggleButton?.contains(target)) {
+      chatDropdown?.classList.add('hidden');
+    }
+  });
+
+  document.addEventListener('DOMContentLoaded', () => {
+    updateUnreadCount();
+    syncBubbleVisibility();
+    if (adminChatModal) {
+      const observer = new MutationObserver(syncBubbleVisibility);
+      observer.observe(adminChatModal, { attributes: true, attributeFilter: ['class'] });
+    }
+  });
+
+  window.addEventListener('adminChatAlert', (event) => {
+    const customerId = event?.detail?.customerId;
+    if (!customerId) return;
+    lastAlertCustomerId = customerId;
+    setChatButtonAlert(true, Number(unreadBadge?.textContent || 0) || 1);
+  });
+
+  window.addEventListener('adminChatActive', (event) => {
+    activeCustomerId = event?.detail?.customerId || null;
+  });
+</script>

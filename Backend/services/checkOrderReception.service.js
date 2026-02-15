@@ -1,4 +1,5 @@
 const { poolPromise } = require('../config/db');
+const { getSqlPool, sql } = require('../config/sqlserver');
 const { sendFileToClient } = require('./email.service');
 const configService = require('./config.service');
 const { logger } = require('../utils/logger');
@@ -90,37 +91,66 @@ async function isSendOrderReceptionEnabled() {
 }
 
 async function getOrdersReadyForOrderReceiptNotice(sendFromDate = null) {
-  const pool = await poolPromise;
   try {
-    const params = [];
+    const sqlPool = await getSqlPool();
+    const request = sqlPool.request();
     let sendFromFilter = '';
     if (sendFromDate) {
-      sendFromFilter = ' AND DATE(o.fecha_ingreso) >= ?';
-      params.push(sendFromDate);
+      sendFromFilter = ' AND CONVERT(date, h.Fecha) >= @sendFrom';
+      request.input('sendFrom', sql.Date, sendFromDate);
     }
 
-    const [rows] = await pool.query(
-      `
-        SELECT
-          o.id,
-          o.customer_id,
-          o.pc,
-          o.oc,
-          o.fecha_ingreso,
-          c.name AS customer_name,
-          f.id AS receipt_file_id,
-          f.fecha_envio AS receipt_fecha_envio
-        FROM orders o
-        JOIN customers c ON o.customer_id = c.id
-        LEFT JOIN order_files f ON f.order_id = o.id AND f.file_id = 9
-        WHERE (o.factura IS NULL OR o.factura = '' OR o.factura = 0 OR o.factura = '0')
-          AND (f.id IS NULL OR f.fecha_envio IS NULL)
-          ${sendFromFilter}
-        ORDER BY o.id ASC
-      `,
-      params
+    const result = await request.query(`
+      SELECT
+        h.Nro AS pc,
+        h.OC AS oc,
+        h.Fecha AS fecha_ingreso,
+        c.Nombre AS customer_name,
+        c.Rut AS customer_rut
+      FROM jor_imp_HDR_90_softkey h
+      JOIN jor_imp_CLI_01_softkey c ON h.Rut = c.Rut
+      WHERE (h.Factura IS NULL OR LTRIM(RTRIM(CAST(h.Factura AS NVARCHAR(50)))) = '' OR h.Factura = 0 OR h.Factura = '0')
+        ${sendFromFilter}
+      ORDER BY h.Nro ASC
+    `);
+
+    const normalizeOc = (value) => (value == null ? '' : String(value).trim());
+    const orders = (result.recordset || []).map((row) => ({
+      ...row,
+      oc: normalizeOc(row.oc),
+    }));
+    if (!orders.length) return [];
+
+    const pool = await poolPromise;
+    const pcs = Array.from(new Set(orders.map((o) => String(o.pc)).filter(Boolean)));
+    if (!pcs.length) return orders;
+
+    const [fileRows] = await pool.query(
+      `SELECT id, pc, oc, fecha_envio
+       FROM order_files
+       WHERE file_id = 9 AND pc IN (${pcs.map(() => '?').join(',')})`,
+      pcs
     );
-    return rows;
+
+    const fileMap = new Map();
+    fileRows.forEach((row) => {
+      const key = `${row.pc}||${normalizeOc(row.oc)}`;
+      if (!fileMap.has(key)) {
+        fileMap.set(key, row);
+      }
+    });
+
+    return orders
+      .map((order) => {
+        const key = `${order.pc}||${normalizeOc(order.oc)}`;
+        const file = fileMap.get(key) || null;
+        return {
+          ...order,
+          receipt_file_id: file?.id || null,
+          receipt_fecha_envio: file?.fecha_envio || null
+        };
+      })
+      .filter((order) => !order.receipt_file_id || !order.receipt_fecha_envio);
   } catch (error) {
     logger.error(`Error obteniendo ordenes para Order Receipt Notice: ${error.message}`);
     throw error;
@@ -133,20 +163,6 @@ async function getOrdersReadyForOrderReceiptNotice(sendFromDate = null) {
  * @param {number} orderId - ID de la orden
  * @returns {Promise<Object|null>} Datos de la orden (rut, customer_id)
  */
-async function getOrderData(orderId) {
-  const pool = await poolPromise;
-  try {
-    const [rows] = await pool.query(
-      'SELECT rut, customer_id FROM orders WHERE id = ?',
-      [orderId]
-    );
-    return rows.length > 0 ? rows[0] : null;
-  } catch (error) {
-    logger.error(`Error obteniendo datos de orden ${orderId}: ${error.message}`);
-    throw error;
-  }
-}
-
 async function isSendOrderDeliveryEnabled() {
   try {
     const config = await configService.getConfigByName('sendAutomaticOrderDelivery');
@@ -232,34 +248,17 @@ async function isSendOrderAvailabilityEnabled() {
  * @param {number} orderId - ID de la orden
  * @returns {Promise<Object|null>} Datos completos de la orden
  */
-async function getOrderWithCustomer(orderId) {
-  const pool = await poolPromise;
-  try {
-    const [rows] = await pool.query(
-      `SELECT o.*, c.name as customer_name 
-       FROM orders o
-       JOIN customers c ON o.customer_id = c.id
-       WHERE o.id = ?`,
-      [orderId]
-    );
-    return rows.length > 0 ? rows[0] : null;
-  } catch (error) {
-    logger.error(`Error obteniendo datos completos de orden ${orderId}: ${error.message}`);
-    throw error;
-  }
-}
-
 /**
  * Obtiene emails con reports=true y el idioma del cliente
- * @param {number} customerId - ID del cliente
+ * @param {string} customerRut - RUT del cliente
  * @returns {Promise<{reportEmails: string[], customerLang: string}>}
  */
-async function getReportEmailsAndLang(customerId) {
+async function getReportEmailsAndLang(customerRut) {
   const pool = await poolPromise;
   try {
     const [contactRows] = await pool.query(
-      'SELECT contact_email FROM customer_contacts WHERE customer_id = ?',
-      [customerId]
+      'SELECT contact_email FROM customer_contacts WHERE rut = ?',
+      [customerRut]
     );
 
     let reportEmails = [];
@@ -283,18 +282,29 @@ async function getReportEmailsAndLang(customerId) {
     }
 
     if (reportEmails.length > 0) {
-      const [customerRows] = await pool.query(
-        'SELECT c.country, cl.lang FROM customers c INNER JOIN country_lang cl ON c.country = cl.country WHERE c.id = ?',
-        [customerId]
-      );
-      if (customerRows.length > 0) {
-        customerLang = customerRows[0].lang || 'en';
+      const sqlPool = await getSqlPool();
+      const request = sqlPool.request();
+      request.input('rut', sql.VarChar, customerRut);
+      const customerResult = await request.query(`
+        SELECT TOP 1 Pais
+        FROM jor_imp_CLI_01_softkey
+        WHERE Rut = @rut
+      `);
+      const country = customerResult.recordset?.[0]?.Pais || null;
+      if (country) {
+        const [langRows] = await pool.query(
+          'SELECT lang FROM country_lang WHERE country = ?',
+          [country]
+        );
+        if (langRows.length > 0) {
+          customerLang = langRows[0].lang || 'en';
+        }
       }
     }
 
     return { reportEmails, customerLang };
   } catch (error) {
-    logger.error(`Error obteniendo emails/lang para cliente ${customerId}: ${error.message}`);
+    logger.error(`Error obteniendo emails/lang para cliente ${customerRut}: ${error.message}`);
     throw error;
   }
 }
@@ -304,16 +314,20 @@ async function getReportEmailsAndLang(customerId) {
  * @param {number} orderId - ID de la orden
  * @returns {Promise<Object|null>} Datos del archivo de recepción
  */
-async function getReceptionFile(orderId) {
+async function getReceptionFile(pc, oc) {
   const pool = await poolPromise;
   try {
     const [rows] = await pool.query(
-      'SELECT id, path FROM order_files WHERE order_id = ? AND file_id = ?',
-      [orderId, 9]
+      `SELECT id, path 
+       FROM order_files 
+       WHERE pc = ? AND file_id = ?
+       ${oc ? 'AND oc = ?' : 'AND (oc IS NULL OR oc = \'\')'}
+       ORDER BY id DESC LIMIT 1`,
+      oc ? [pc, 9, oc] : [pc, 9]
     );
     return rows.length > 0 ? rows[0] : null;
   } catch (error) {
-    logger.error(`Error obteniendo archivo de recepción para orden ${orderId}: ${error.message}`);
+    logger.error(`Error obteniendo archivo de recepción para orden pc=${pc} oc=${oc || 'N/A'}: ${error.message}`);
     throw error;
   }
 }
@@ -323,34 +337,42 @@ async function getReceptionFile(orderId) {
  * @returns {Promise<Array>} Array de órdenes
  */
 async function getOrdersWithFacturaAndMissingFiles() {
-  const pool = await poolPromise;
   try {
-    const [rows] = await pool.query(
-      `
-        SELECT o.id, o.pc, o.oc, c.name as customer_name
-        FROM orders o
-        JOIN customers c ON o.customer_id = c.id
-        WHERE o.factura IS NOT NULL
-          AND o.factura <> ''
-          AND o.factura <> 0
-          AND o.factura <> '0'
-          AND (
-            NOT EXISTS (
-              SELECT 1 FROM order_files f
-              WHERE f.order_id = o.id AND f.file_id = 19
-            )
-            OR NOT EXISTS (
-              SELECT 1 FROM order_files f
-              WHERE f.order_id = o.id AND f.file_id = 15
-            )
-            OR NOT EXISTS (
-              SELECT 1 FROM order_files f
-              WHERE f.order_id = o.id AND f.file_id = 6
-            )
-          )
-      `
+    const sqlPool = await getSqlPool();
+    const result = await sqlPool.request().query(`
+      SELECT
+        h.Nro AS pc,
+        h.OC AS oc,
+        c.Nombre AS customer_name,
+        c.Rut AS customer_rut
+      FROM jor_imp_HDR_90_softkey h
+      JOIN jor_imp_CLI_01_softkey c ON h.Rut = c.Rut
+      WHERE h.Factura IS NOT NULL
+        AND LTRIM(RTRIM(CAST(h.Factura AS NVARCHAR(50)))) <> ''
+        AND h.Factura <> 0
+        AND h.Factura <> '0'
+    `);
+    const orders = result.recordset || [];
+    if (!orders.length) return [];
+
+    const pool = await poolPromise;
+    const pcs = Array.from(new Set(orders.map((o) => String(o.pc)).filter(Boolean)));
+    if (!pcs.length) return orders;
+
+    const [fileRows] = await pool.query(
+      `SELECT pc, oc, file_id FROM order_files WHERE file_id IN (19, 15, 6) AND pc IN (${pcs.map(() => '?').join(',')})`,
+      pcs
     );
-    return rows;
+
+    const fileKeySet = new Set(fileRows.map((row) => `${row.pc}||${row.oc || ''}||${row.file_id}`));
+
+    return orders.filter((order) => {
+      const keyBase = `${order.pc}||${order.oc || ''}`;
+      const hasShipment = fileKeySet.has(`${keyBase}||19`);
+      const hasDelivery = fileKeySet.has(`${keyBase}||15`);
+      const hasAvailability = fileKeySet.has(`${keyBase}||6`);
+      return !hasShipment || !hasDelivery || !hasAvailability;
+    });
   } catch (error) {
     logger.error(`Error obteniendo ordenes con factura y archivos faltantes: ${error.message}`);
     throw error;
@@ -363,28 +385,10 @@ async function getOrdersWithFacturaAndMissingFiles() {
  * @param {string} rut - RUT del cliente
  * @returns {Promise<Object|null>} Datos del cliente (email, country, lang)
  */
-async function getCustomerEmail(customerId, rut) {
-  const pool = await poolPromise;
-  try {
-    const [rows] = await pool.query(
-      'SELECT c.contact_secondary, c.country, cl.lang FROM customers c INNER JOIN country_lang cl ON c.country = cl.country WHERE c.id = ? AND c.rut = ?',
-      [customerId, rut]
-    );
-    return rows.length > 0 ? rows[0] : null;
-  } catch (error) {
-    logger.error(`Error obteniendo email del cliente ${customerId}: ${error.message}`);
-    throw error;
-  }
-}
-
-
 module.exports = {
-  getOrderData,
-  getOrderWithCustomer,
   getOrdersWithFacturaAndMissingFiles,
   getReportEmailsAndLang,
   getReceptionFile,
-  getCustomerEmail,
   isSendOrderReceptionEnabled,
   isSendOrderDeliveryEnabled,
   isSendOrderShipmentEnabled,

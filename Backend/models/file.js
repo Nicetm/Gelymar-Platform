@@ -3,6 +3,7 @@ class File {
     constructor(row) {
       this.id = row.id;
       this.customer_id = row.customer_id;
+      this.customer_rut = row.customer_rut;
       this.folder_id = row.folder_id;
       this.name = row.name;
       this.format = row.format;

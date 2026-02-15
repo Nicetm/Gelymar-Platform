@@ -1,5 +1,5 @@
 ---
-import { loadTranslations, getServerLang } from '../lib/i18n.js';
+import { loadTranslations, getServerLang } from '@lib/i18n.js';
 import { getApiBase, getPublicApiUrl, getFileServerUrl } from './constants.ts';
 
 const apiBase = getApiBase();
@@ -61,9 +61,9 @@ const links = [
 >
   <div class="flex-1 overflow-y-auto scrollbar scrollbar-w-2 scrollbar-thumb-rounded-md scrollbar-thumb-slate-200 scrollbar-track-gray-400 dark:scrollbar-thumb-slate-900 dark:scrollbar-track-gray-800">
     <div id="SidebarUserDescription" class="px-4 py-5 border-b border-gray-100 dark:border-gray-700">
-      <p class="text-xs uppercase text-gray-400 dark:text-gray-500">Seller</p>
+      <p class="text-xs uppercase text-gray-400 dark:text-gray-500">{t.sidebar.seller_role_label}</p>
       <p class="mt-1 text-sm font-semibold text-gray-900 dark:text-gray-100">
-        {user?.full_name || 'Vendedor'}
+        {user?.full_name || t.sidebar.default_seller_name}
       </p>
       <p class="text-xs text-gray-500 dark:text-gray-400">
         {user?.email || user?.rut || ''}

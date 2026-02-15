@@ -1,33 +1,31 @@
 // Las variables de entorno ya se cargan automáticamente en app.js
-const fs = require('fs');
-const path = require('path');
-const customerService = require('../services/customer.service');
-const folderService = require('../services/folder.service');
+const { container } = require('../config/container');
 const { logger } = require('../utils/logger');
-const { cleanDirectoryName } = require('../utils/directoryUtils');
-const FILE_SERVER_ROOT = process.env.FILE_SERVER_ROOT;
 
 /**
  * @route GET /api/directories/:customerId
- * @desc Lista las carpetas del cliente (por UUID)
+ * @desc Lista las carpetas del cliente (por RUT)
  * @access Protegido (requiere JWT)
  */
 exports.getClientDirectories = async (req, res) => {
-  const { customerUuid } = req.params;
-  if (!customerUuid) {
-    logger.warn('UUID inválido en getClientDirectories');
-    return res.status(400).json({ message: 'UUID inválido' });
+  const { customerRut } = req.params;
+  if (!customerRut) {
+    logger.warn('RUT inválido en getClientDirectories');
+    return res.status(400).json({ message: 'RUT inválido' });
   }
 
   try {
-    const customer = await customerService.getCustomerByUUID(customerUuid);
+    const customerService = container.resolve('customerService');
+    const folderService = container.resolve('folderService');
+    logger.info(`[getClientDirectories] start. rut=${customerRut}`);
+    const customer = await customerService.getCustomerByRutFromSql(customerRut);
     if (!customer) {
-      logger.warn(`Cliente no encontrado con UUID ${customerUuid}`);
+      logger.warn(`Cliente no encontrado con RUT ${customerRut}`);
       return res.status(404).json({ message: 'Cliente no encontrado' });
     }
 
-    const folders = await folderService.getFoldersByCustomer(customer.id);
-    logger.info(`Carpetas obtenidas para cliente ID ${customer.id}`);
+    const folders = await folderService.getFoldersByCustomerRut(customerRut);
+    logger.info(`[getClientDirectories] folders=${folders.length} rut=${customerRut}`);
     res.status(200).json(folders);
   } catch (err) {
     logger.error(`Error al obtener carpetas: ${err.message}`);
@@ -49,6 +47,7 @@ exports.createSubDirectory = async (req, res) => {
   }
 
   try {
+    const folderService = container.resolve('folderService');
     const subfolder = await folderService.createSubfolder({ folder_id, name, path });
     logger.info(`Subcarpeta creada: folder_id ${folder_id}, subcarpeta ${name}`);
     res.status(201).json({ message: 'Subcarpeta creada', subfolder });
@@ -71,6 +70,7 @@ exports.deleteSubDirectory = async (req, res) => {
   }
 
   try {
+    const folderService = container.resolve('folderService');
     const deleted = await folderService.deleteSubfolder(folder_id, name);
     if (!deleted) {
       logger.warn(`No se pudo eliminar subcarpeta "${name}" (folder_id: ${folder_id})`);
@@ -98,7 +98,8 @@ exports.getCountDirectoryByCustomerID = async (req, res) => {
   }
 
   try {
-    const count = await folderService.getCountDirectoryByCustomerID(customer_id);
+    const folderService = container.resolve('folderService');
+    const count = await folderService.getCountDirectoryByCustomerRut(customer_id);
     logger.info(`Total de carpetas para cliente ${customer_id}: ${count}`);
     res.json({ customer_id, total: count });
   } catch (error) {

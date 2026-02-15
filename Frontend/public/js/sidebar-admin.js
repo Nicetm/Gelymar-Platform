@@ -14,6 +14,8 @@ export function initSidebarAdmin(config) {
 
   const translations = t || {};
   const adminSettingsTexts = translations.admin_settings || {};
+  let currentAdminId = null;
+  let currentAdminRut = null;
 
   function getAdminSetting(key, fallback) {
     const value = adminSettingsTexts[key];
@@ -148,10 +150,15 @@ export function initSidebarAdmin(config) {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       const u = await res.json();
+      currentAdminId = Number(u?.id ?? u?.user_id ?? u?.userId ?? null);
+      currentAdminRut = u?.rut ?? u?.RUT ?? null;
 
       if (u.full_name)  document.getElementById("adminNameInput").value  = u.full_name;
       if (u.email)      document.getElementById("adminEmailInput").value = u.email;
       if (u.phone)      document.getElementById("adminPhoneInput").value = u.phone;
+      if (u.address)    document.getElementById("adminAddressInput").value = u.address;
+      if (u.city)       document.getElementById("adminCityInput").value = u.city;
+      if (u.country)    document.getElementById("adminCountryInput").value = u.country;
 
       if (u.avatar_path) {
         const avatarUrl = `${FILE_SERVER}/${u.avatar_path}`;
@@ -169,19 +176,74 @@ export function initSidebarAdmin(config) {
     }
   }
 
-  function validateForm() {
-    const name  = document.getElementById("adminNameInput").value.trim();
-    const phone = document.getElementById("adminPhoneInput").value.trim();
-    if (!name || !phone) {
-      alert(t.admin_settings.name_and_phone_required);
-      return false;
+    function validateForm() {
+      const name  = document.getElementById("adminNameInput").value.trim();
+      const phone = document.getElementById("adminPhoneInput").value.trim();
+      if (!name || !phone) {
+        showNotification(getAdminSetting('name_and_phone_required', 'Nombre y teléfono son obligatorios'), 'error');
+        return false;
+      }
+      return true;
     }
-    return true;
-  }
 
   // Inicialización cuando el DOM está listo
   document.addEventListener("DOMContentLoaded", async () => {
     await loadAdminData();
+
+    // Sidebar collapse
+    const sidebar = document.getElementById('sidebar');
+    const rootEl = document.documentElement;
+    const collapseBtn = document.getElementById('toggleSidebarCollapse');
+    const sidebarUser = document.querySelector('[data-sidebar-user]');
+    const footerRow = document.querySelector('[data-sidebar-footer-row]');
+    const sidebarTexts = sidebar ? sidebar.querySelectorAll('[data-sidebar-text]') : [];
+    const sidebarLinks = sidebar ? sidebar.querySelectorAll('.sidebar-link') : [];
+
+    const applySidebarCollapsed = (collapsed) => {
+      if (!sidebar) return;
+      if (rootEl) {
+        rootEl.classList.toggle('sidebar-collapsed', collapsed);
+      }
+      sidebar.classList.toggle('w-20', collapsed);
+      sidebar.classList.toggle('w-56', !collapsed);
+      sidebar.classList.toggle('sidebar-collapsed', collapsed);
+
+      if (sidebarUser) {
+        sidebarUser.classList.toggle('hidden', collapsed);
+      }
+
+      sidebarTexts.forEach((node) => {
+        node.classList.toggle('hidden', collapsed);
+      });
+
+      sidebarLinks.forEach((link) => {
+        link.classList.toggle('justify-center', collapsed);
+        link.classList.toggle('gap-3', !collapsed);
+        link.classList.toggle('px-4', !collapsed);
+        link.classList.toggle('px-3', collapsed);
+      });
+
+      if (footerRow) {
+        footerRow.classList.toggle('flex-col', collapsed);
+        footerRow.classList.toggle('gap-3', collapsed);
+        footerRow.classList.toggle('gap-2', !collapsed);
+      }
+    };
+
+    if (collapseBtn) {
+      const stored = localStorage.getItem('sidebarCollapsed');
+      const initialCollapsed = rootEl?.classList.contains('sidebar-collapsed') || stored === '1';
+      applySidebarCollapsed(initialCollapsed);
+
+      collapseBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const isCollapsed = sidebar?.classList.contains('sidebar-collapsed');
+        const next = !isCollapsed;
+        applySidebarCollapsed(next);
+        localStorage.setItem('sidebarCollapsed', next ? '1' : '0');
+        document.cookie = `sidebarCollapsed=${next ? '1' : '0'}; path=/; max-age=31536000`;
+      });
+    }
 
     // Highlight active page in sidebar
     const path = window.location.pathname;
@@ -272,6 +334,7 @@ export function initSidebarAdmin(config) {
           openNotificationEmailModal();
           break;
         case 'profile':
+          openAdminSettingsModal();
           break;
         case 'admin-users':
           openAdminUsersModal();
@@ -282,11 +345,287 @@ export function initSidebarAdmin(config) {
       }
     });
 
-    // Modal utilities eliminadas
+    const adminSettingsModal = document.getElementById('adminSettingsModal');
+    const closeAdminSettingsBtn = document.getElementById('closeAdminSettings');
+    const cancelAdminEditBtn = document.getElementById('cancelAdminEdit');
+    const adminSettingsForm = document.getElementById('adminSettingsForm');
+    const adminAvatarInput = document.getElementById('adminAvatarInput');
+    const adminAvatarLight = document.getElementById('adminAvatarLight');
+    const adminAvatarDark = document.getElementById('adminAvatarDark');
+    const adminAvatarDrop = document.getElementById('adminAvatarDrop');
+    const adminAvatarPresets = document.querySelectorAll('[data-avatar-preset]');
+    let pendingAvatarFile = null;
+    let pendingAvatarUrl = null;
 
-    // Modal events eliminados
+    setupModalClose('#adminSettingsModal', '#closeAdminSettings, #cancelAdminEdit');
 
-    // Form submission eliminado
+    async function openAdminSettingsModal() {
+      await loadAdminData();
+      showModal('#adminSettingsModal');
+    }
+
+    async function uploadAdminAvatar(file, authToken) {
+      if (!file) return { ok: true };
+      const formData = new FormData();
+      formData.append('avatar', file);
+      const response = await fetch(`${API_BASE}/api/users/avatar`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${authToken}` },
+        body: formData
+      });
+
+      if (!response.ok) {
+        let message = getAdminSetting('avatar_error_generic', 'Error al subir avatar');
+        try {
+          const errorBody = await response.json();
+          const code = errorBody?.code;
+          if (code === 'AVATAR_TOO_LARGE') {
+            message = getAdminSetting('avatar_error_too_large', 'La imagen es muy pesada. Tamaño máximo 5MB');
+          } else if (code === 'AVATAR_INVALID_TYPE') {
+            message = getAdminSetting('avatar_error_type', 'Solo se permiten archivos JPG o PNG');
+          } else if (code === 'AVATAR_MISSING') {
+            message = getAdminSetting('avatar_error_missing', 'Debe seleccionar una imagen');
+          } else if (errorBody?.message) {
+            message = errorBody.message;
+          }
+        } catch (e) {
+          // ignore parse errors
+        }
+        return { ok: false, message };
+      }
+
+      const data = await response.json().catch(() => ({}));
+      return { ok: true, avatarPath: data?.avatar_path || null };
+    }
+
+    async function fetchPresetAsFile(url) {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Failed to fetch preset avatar');
+      const blob = await res.blob();
+      return new File([blob], 'avatar.png', { type: blob.type || 'image/png' });
+    }
+
+    function setAvatarPreview(url) {
+      if (adminAvatarLight) adminAvatarLight.src = url;
+      if (adminAvatarDark) adminAvatarDark.src = url;
+    }
+
+    async function saveAdminSettings() {
+      const authToken = token || getClientToken();
+      if (!authToken) {
+        showNotification(getAdminSetting('error_saving_changes', 'Error al guardar los cambios'), 'error');
+        return;
+      }
+
+      if (!validateForm()) return;
+      clearAdminFieldErrors();
+
+      const payload = {
+        full_name: document.getElementById("adminNameInput").value.trim(),
+        phone: document.getElementById("adminPhoneInput").value.trim(),
+        address: document.getElementById("adminAddressInput")?.value?.trim() || null,
+        city: document.getElementById("adminCityInput")?.value?.trim() || null,
+        country: document.getElementById("adminCountryInput")?.value?.trim() || null
+      };
+
+      const inputFile = adminAvatarInput?.files?.[0] || null;
+      let avatarFile = pendingAvatarFile || inputFile || null;
+      let avatarPath = null;
+
+      try {
+        if (!avatarFile && pendingAvatarUrl) {
+          avatarFile = await fetchPresetAsFile(pendingAvatarUrl);
+        }
+
+        if (avatarFile) {
+          const uploadResult = await uploadAdminAvatar(avatarFile, authToken);
+          if (!uploadResult?.ok) {
+            showNotification(uploadResult?.message || getAdminSetting('error_saving_changes', 'Error al guardar los cambios'), 'error');
+            return;
+          }
+          if (uploadResult.avatarPath) {
+            avatarPath = uploadResult.avatarPath;
+          }
+        }
+
+        const response = await fetch(`${API_BASE}/api/users/profile`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${authToken}`
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          let errorMessage = getAdminSetting('error_saving_changes', 'Error al guardar los cambios');
+          try {
+            const errorBody = await response.json();
+            if (errorBody?.message) {
+              errorMessage =
+                errorBody.message === 'Datos de entrada inválidos'
+                  ? getAdminSetting('validation_error', 'Datos de entrada inválidos')
+                  : errorBody.message;
+            }
+            let firstFieldMessage = null;
+            if (errorBody?.errors && Array.isArray(errorBody.errors)) {
+              errorBody.errors.forEach((err) => {
+                if (err?.field) applyAdminFieldError(err.field, err.message);
+                if (!firstFieldMessage && err?.message) {
+                  firstFieldMessage = mapAdminValidationMessage(err.message);
+                }
+              });
+            }
+            if (firstFieldMessage) {
+              errorMessage = `${errorMessage}: ${firstFieldMessage}`;
+            }
+          } catch (e) {
+            // ignore parse errors
+          }
+          showNotification(errorMessage, 'error');
+          return;
+        }
+
+        showNotification(getAdminSetting('data_updated_successfully', 'Datos actualizados correctamente'), 'success');
+        if (avatarPath) {
+          const headerAvatar = document.getElementById('userAvatar');
+          if (headerAvatar) {
+            headerAvatar.src = `${FILE_SERVER}/${avatarPath}`;
+          }
+          try {
+            const storedProfileRaw = localStorage.getItem('userProfile');
+            const storedProfile = storedProfileRaw ? JSON.parse(storedProfileRaw) : {};
+            localStorage.setItem('userProfile', JSON.stringify({
+              ...storedProfile,
+              fullName: payload.full_name || storedProfile.fullName,
+              avatarPath
+            }));
+          } catch (e) {
+            // ignore localStorage errors
+          }
+        }
+        pendingAvatarFile = null;
+        pendingAvatarUrl = null;
+        await loadAdminData();
+        hideModal('#adminSettingsModal');
+      } catch (error) {
+        console.error('Error guardando perfil del admin:', error);
+        showNotification(getAdminSetting('error_saving_changes', 'Error al guardar los cambios'), 'error');
+      }
+    }
+
+    if (adminSettingsForm) {
+      adminSettingsForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        saveAdminSettings();
+      });
+    }
+
+    if (adminAvatarInput) {
+      adminAvatarInput.addEventListener('change', () => {
+        const file = adminAvatarInput.files?.[0];
+        if (!file) return;
+        const previewUrl = URL.createObjectURL(file);
+        pendingAvatarFile = file;
+        pendingAvatarUrl = null;
+        setAvatarPreview(previewUrl);
+      });
+    }
+
+    if (adminAvatarDrop) {
+      adminAvatarDrop.addEventListener('click', () => {
+        adminAvatarInput?.click();
+      });
+      adminAvatarDrop.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        adminAvatarDrop.classList.add('border-blue-400');
+      });
+      adminAvatarDrop.addEventListener('dragleave', () => {
+        adminAvatarDrop.classList.remove('border-blue-400');
+      });
+      adminAvatarDrop.addEventListener('drop', (e) => {
+        e.preventDefault();
+        adminAvatarDrop.classList.remove('border-blue-400');
+        const file = e.dataTransfer?.files?.[0];
+        if (!file) return;
+        pendingAvatarFile = file;
+        pendingAvatarUrl = null;
+        if (adminAvatarInput) adminAvatarInput.value = '';
+        const previewUrl = URL.createObjectURL(file);
+        setAvatarPreview(previewUrl);
+      });
+    }
+
+    adminAvatarPresets.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const url = btn.getAttribute('data-avatar-preset');
+        if (!url) return;
+        pendingAvatarUrl = url;
+        pendingAvatarFile = null;
+        if (adminAvatarInput) adminAvatarInput.value = '';
+        setAvatarPreview(url);
+      });
+    });
+
+    function clearAdminFieldErrors() {
+      const fields = [
+        { input: 'adminNameInput', error: 'adminNameError' },
+        { input: 'adminPhoneInput', error: null },
+        { input: 'adminAddressInput', error: 'adminAddressError' },
+        { input: 'adminCityInput', error: 'adminCityError' },
+        { input: 'adminCountryInput', error: 'adminCountryError' }
+      ];
+      fields.forEach(({ input, error }) => {
+        const inputEl = document.getElementById(input);
+        const errorEl = error ? document.getElementById(error) : null;
+        if (inputEl) {
+          inputEl.classList.remove('border-rose-500', 'ring-1', 'ring-rose-500');
+        }
+        if (errorEl) {
+          errorEl.textContent = '';
+          errorEl.classList.add('hidden');
+        }
+      });
+    }
+
+    function applyAdminFieldError(field, message) {
+      const map = {
+        full_name: { input: 'adminNameInput', error: 'adminNameError' },
+        phone: { input: 'adminPhoneInput', error: null },
+        address: { input: 'adminAddressInput', error: 'adminAddressError' },
+        city: { input: 'adminCityInput', error: 'adminCityError' },
+        country: { input: 'adminCountryInput', error: 'adminCountryError' }
+      };
+      const entry = map[field];
+      if (!entry) return;
+      const inputEl = document.getElementById(entry.input);
+      const errorEl = entry.error ? document.getElementById(entry.error) : null;
+      if (inputEl) {
+        inputEl.classList.add('border-rose-500', 'ring-1', 'ring-rose-500');
+      }
+      if (errorEl) {
+        errorEl.textContent = mapAdminValidationMessage(message) || getAdminSetting('validation_error', 'Datos de entrada inválidos');
+        errorEl.classList.remove('hidden');
+      }
+    }
+
+    function mapAdminValidationMessage(message) {
+      if (!message) return message;
+      if (message === 'Teléfono debe tener entre 8 y 20 caracteres') {
+        return getAdminSetting('phone_invalid', message);
+      }
+      if (message === 'Nombre debe tener entre 2 y 100 caracteres') {
+        return getAdminSetting('name_invalid', message);
+      }
+      return message;
+    }
+
+    if (cancelAdminEditBtn) {
+      cancelAdminEditBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        hideModal('#adminSettingsModal');
+      });
+    }
 
     // PDF Mail List Modal
     const pdfMailModal = document.getElementById('pdfMailListModal');
@@ -315,19 +654,19 @@ export function initSidebarAdmin(config) {
         pdfEmails = data.emails || [];
         renderPdfExistingEmailsTable();
         renderPdfEmailForm();
-        pdfMailModal.classList.remove('hidden');
+        showModal('#pdfMailListModal');
       } catch (error) {
         console.error('Error cargando emails:', error);
         pdfEmails = [];
         renderPdfExistingEmailsTable();
         renderPdfEmailForm();
-        pdfMailModal.classList.remove('hidden');
+        showModal('#pdfMailListModal');
       }
     }
 
     // Cerrar modal
     function closePdfMailModal() {
-      pdfMailModal.classList.add('hidden');
+      hideModal('#pdfMailListModal');
     }
 
     function updatePdfAddButtonState() {
@@ -374,7 +713,7 @@ export function initSidebarAdmin(config) {
           <td class="p-2 font-medium text-gray-900 dark:text-white">${email.name}</td>
           <td class="p-2 text-sm text-gray-500 dark:text-gray-400">${email.email}</td>
           <td class="p-2 text-center">
-            <button class="remove-existing-email text-red-600 hover:text-red-500 transition" data-index="${index}">
+            <button class="remove-existing-email text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300 transition" data-index="${index}">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
@@ -407,7 +746,7 @@ export function initSidebarAdmin(config) {
           <input type="email" placeholder="Email" class="text-xs new-email-email w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
         </td>
         <td class="p-2 text-center">
-          <button class="remove-new-email text-red-600 hover:text-red-500 transition">
+          <button class="remove-new-email text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300 transition">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
             </svg>
@@ -531,19 +870,22 @@ export function initSidebarAdmin(config) {
         notificationEmails = data.emails || [];
         renderNotificationExistingEmailsTable();
         renderNotificationEmailForm();
-        notificationEmailModal.classList.remove('hidden');
+        showModal('#notificationEmailListModal');
       } catch (error) {
         console.error('Error cargando emails de notificación:', error);
         notificationEmails = [];
         renderNotificationExistingEmailsTable();
         renderNotificationEmailForm();
-        notificationEmailModal.classList.remove('hidden');
+        showModal('#notificationEmailListModal');
       }
     }
 
     function closeNotificationEmailModal() {
-      notificationEmailModal.classList.add('hidden');
+      hideModal('#notificationEmailListModal');
     }
+
+    setupModalClose('#pdfMailListModal', '#closePdfMailModal, #cancelPdfMailBtn');
+    setupModalClose('#notificationEmailListModal', '#closeNotificationEmailModal, #cancelNotificationEmailBtn');
 
     function renderNotificationExistingEmailsTable() {
       const template = document.getElementById('notificationEmailExistingTableTemplate');
@@ -564,7 +906,7 @@ export function initSidebarAdmin(config) {
           <td class="p-2 font-medium text-gray-900 dark:text-white">${email.email}</td>
           <td class="p-2 text-sm text-gray-500 dark:text-gray-400">${email.name}</td>
           <td class="p-2 text-center">
-            <button class="remove-existing-notification-email text-red-600 hover:text-red-500 transition" data-index="${index}">
+            <button class="remove-existing-notification-email text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300 transition" data-index="${index}">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
@@ -621,7 +963,7 @@ export function initSidebarAdmin(config) {
           <input type="text" placeholder="Nombre" class="text-xs new-email-name w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
         </td>
         <td class="p-2 text-center">
-          <button class="remove-new-email text-red-600 hover:text-red-500 transition">
+          <button class="remove-new-email text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300 transition">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
             </svg>
@@ -987,10 +1329,14 @@ export function initSidebarAdmin(config) {
         if (icon) {
           icon.textContent = passed ? '✓' : '✗';
           icon.classList.toggle('text-green-500', passed);
-          icon.classList.toggle('text-red-500', !passed);
+          icon.classList.toggle('dark:text-green-400', passed);
+          icon.classList.toggle('text-rose-500', !passed);
+          icon.classList.toggle('dark:text-rose-400', !passed);
         }
         item.classList.toggle('text-green-600', passed);
-        item.classList.toggle('text-red-500', !passed);
+        item.classList.toggle('dark:text-green-400', passed);
+        item.classList.toggle('text-rose-500', !passed);
+        item.classList.toggle('dark:text-rose-400', !passed);
       });
     }
 
@@ -1097,7 +1443,7 @@ export function initSidebarAdmin(config) {
           <input class="admin-agent h-4 w-4 text-indigo-600 rounded border-gray-300 dark:border-gray-600" type="checkbox">
         </td>
         <td class="p-2 text-center">
-          <button class="remove-admin-form-row text-red-600 hover:text-red-500 transition" title="Eliminar fila">
+          <button class="remove-admin-form-row text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300 transition" title="Eliminar fila">
             <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -1152,6 +1498,9 @@ export function initSidebarAdmin(config) {
         tbody.appendChild(row);
       } else {
         adminUsers.forEach((a) => {
+          const isSelf =
+            (currentAdminId !== null && Number(a.id) === Number(currentAdminId)) ||
+            (currentAdminRut && a.rut && String(a.rut) === String(currentAdminRut));
           const isEditing = editingAdminId === a.id;
           const row = document.createElement('tr');
           row.className = 'border-t border-gray-200 dark:border-gray-600';
@@ -1169,7 +1518,7 @@ export function initSidebarAdmin(config) {
                 <button class="save-admin-edit text-green-600 hover:text-green-500 transition" data-id="${a.id}" title="Guardar">
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
                 </button>
-                <button class="cancel-admin-edit text-red-600 hover:text-red-500 transition" title="Cancelar">
+                <button class="cancel-admin-edit text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300 transition" title="Cancelar">
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
               </td>
@@ -1184,13 +1533,13 @@ export function initSidebarAdmin(config) {
                 <input type="checkbox" disabled ${a.agent ? 'checked' : ''} class="h-4 w-4 text-indigo-600 rounded border-gray-300 dark:border-gray-600">
               </td>
               <td class="p-2 text-center flex gap-3 justify-center">
-                <button class="edit-admin-user text-indigo-600 hover:text-indigo-500 transition" data-id="${a.id}" title="Editar">
+                <button class="edit-admin-user text-green-600 hover:text-green-500 dark:text-green-400 dark:hover:text-green-300 transition" data-id="${a.id}" title="Editar">
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L7.5 21H3v-4.5l13.732-13.732z" /></svg>
                 </button>
                 <button class="reset-admin-user text-amber-600 hover:text-amber-500 transition" data-id="${a.id}" title="Reset password">
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-6.219-8.56M21 4v5h-5"/></svg>
                 </button>
-                <button class="delete-admin-user text-red-600 hover:text-red-500 transition" data-id="${a.id}" title="Eliminar">
+                <button class="delete-admin-user transition ${isSelf ? 'text-gray-300 dark:text-gray-600 opacity-50 cursor-not-allowed pointer-events-none' : 'text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300'}" data-id="${a.id}" title="Eliminar" ${isSelf ? 'disabled aria-disabled="true"' : ''}>
                   <svg class="w-5 h-5 inline-block" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                 </button>
               </td>
@@ -1209,20 +1558,14 @@ export function initSidebarAdmin(config) {
       editingAdminId = null;
       await loadAdminUsers();
       updateAdminFormActions();
-      if (adminUsersModal) {
-        adminUsersModal.classList.remove('hidden');
-        adminUsersModal.classList.add('flex');
-        adminUsersModal.style.display = 'flex';
-      }
+      showModal('#adminUsersModal');
     }
     window.openAdminUsersModal = openAdminUsersModal;
 
+    setupModalClose('#adminUsersModal', '#closeAdminUsersModal, #cancelAdminUsersBtn');
+
     function closeAdminUsersModal() {
-      if (adminUsersModal) {
-        adminUsersModal.classList.add('hidden');
-        adminUsersModal.classList.remove('flex');
-        adminUsersModal.style.display = 'none';
-      }
+      hideModal('#adminUsersModal');
       hideAdminForm();
       editingAdminId = null;
     }
@@ -1327,6 +1670,10 @@ export function initSidebarAdmin(config) {
     }
 
     async function deleteAdmin(id) {
+      if (currentAdminId !== null && Number(id) === Number(currentAdminId)) {
+        showNotification(getAdminSetting('admin_self_delete_error', 'No puedes eliminar tu propio usuario.'), 'error');
+        return;
+      }
       const confirmed = await confirmAction('Eliminar administrador', 'Esta acción no se puede deshacer.', 'warning');
       if (!confirmed) return;
 

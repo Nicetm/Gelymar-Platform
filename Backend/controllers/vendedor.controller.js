@@ -1,4 +1,5 @@
-const vendedorService = require('../services/vendedor.service');
+const { container } = require('../config/container');
+const vendedorService = container.resolve('vendedorService');
 const { logger } = require('../utils/logger');
 
 /**
@@ -18,4 +19,3 @@ exports.getVendedores = async (req, res) => {
     res.status(500).json({ message: 'Error al obtener la lista de vendedores' });
   }
 };
-

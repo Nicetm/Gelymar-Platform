@@ -21,11 +21,11 @@ RUN mkdir -p uploads /mnt/red /mnt/archivos
 # Variables de entorno por defecto (se pueden sobrescribir en runtime)
 ENV NODE_ENV=production
 ENV PORT=3000
-ENV DB_HOST=mysql
-ENV DB_PORT=3306
-ENV DB_USER=root
-ENV DB_PASS=root123456
-ENV DB_NAME=gelymar
+ENV MYSQL_DB_HOST=mysql
+ENV MYSQL_DB_PORT=3306
+ENV MYSQL_DB_USER=root
+ENV MYSQL_DB_PASS=root123456
+ENV MYSQL_DB_NAME=gelymar
 ENV JWT_SECRET=gelymar_jwt_secret_key_2024
 ENV FRONTEND_BASE_URL=http://localhost:2121
 ENV BACKEND_BASE_URL=http://localhost:3000

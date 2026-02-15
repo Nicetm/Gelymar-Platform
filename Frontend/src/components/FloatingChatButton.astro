@@ -188,10 +188,11 @@ const { unreadCount = 0 } = Astro.props;
     
     // Escuchar mensajes nuevos
     socketService.onNewMessage((messageData) => {
-      
       // Verificar que el mensaje sea para este cliente
       getCustomerId().then(customerId => {
-        if (messageData.customer_id === parseInt(customerId)) {
+        const currentId = String(customerId || '').trim();
+        const incomingId = String(messageData.customer_id || '').trim();
+        if (currentId && incomingId && incomingId === currentId) {
           if (isChatOpen) return;
           localAlertCount += 1;
           setChatButtonAlert(true, localAlertCount);

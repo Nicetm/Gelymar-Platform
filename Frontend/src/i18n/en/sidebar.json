@@ -12,4 +12,12 @@
   "admin_settings": "Admin Settings",
   "english": "English (US)",
   "spanish": "Spanish (CL)"
+  ,
+  "admin_role_label": "Admin",
+  "client_role_label": "Client",
+  "seller_role_label": "Seller",
+  "default_admin_name": "Admin",
+  "default_client_name": "Client",
+  "default_seller_name": "Seller",
+  "collapse": "Collapse"
 }

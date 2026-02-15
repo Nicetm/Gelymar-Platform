@@ -1,9 +1,9 @@
 ---
 interface Props {
-  carpetas: Record<string, any>;
+  orders: Record<string, any>;
 }
 
-const { carpetas = {} } = Astro.props as Props;
+const { orders = {} } = Astro.props as Props;
 
 const getText = (value: string | undefined, fallback: string) =>
   typeof value === 'string' && value.trim().length > 0 ? value : fallback;
@@ -25,7 +25,7 @@ const getText = (value: string | undefined, fallback: string) =>
         <h2 id="itemsOrderTitle" class="text-xl font-bold text-gray-900 dark:text-gray-100"></h2>
         <p id="itemsCustomerName" class="text-sm text-gray-600 dark:text-gray-400"></p>
         <p id="itemsOrderSubtitle" class="text-sm text-gray-600 dark:text-gray-400">
-          {getText(carpetas?.itemsList, 'Items list')}
+          {getText(orders?.itemsList, 'Items list')}
         </p>
       </div>
     </div>
@@ -35,19 +35,19 @@ const getText = (value: string | undefined, fallback: string) =>
         <thead class="bg-gray-100 dark:bg-gray-800 sticky top-0 z-10">
           <tr>
             <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">
-              {getText(carpetas?.itemCode, 'Item Code')}
+              {getText(orders?.itemCode, 'Item Code')}
             </th>
             <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">
-              {getText(carpetas?.itemName, 'Item Name')}
+              {getText(orders?.itemName, 'Item Name')}
             </th>
             <th data-column="quantity" class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">
-              {getText(carpetas?.cantidad, 'Quantity')}
+              {getText(orders?.cantidad, 'Quantity')}
             </th>
             <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">
-              {getText(carpetas?.precioUnitario, 'Unit Price')}
+              {getText(orders?.precioUnitario, 'Unit Price')}
             </th>
             <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">
-              {getText(carpetas?.total, 'Total')}
+              {getText(orders?.total, 'Total')}
             </th>
           </tr>
         </thead>
@@ -59,25 +59,25 @@ const getText = (value: string | undefined, fallback: string) =>
       <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div>
           <p class="text-sm font-medium text-gray-600 dark:text-gray-400">
-            {getText(carpetas?.totalItems, 'Total items')}
+            {getText(orders?.totalItems, 'Total items')}
           </p>
           <p id="totalItems" class="text-lg font-bold text-gray-900 dark:text-gray-100">0</p>
         </div>
         <div>
           <p class="text-sm font-medium text-gray-600 dark:text-gray-400">
-            {getText(carpetas?.totalQuantity, 'Total quantity')}
+            {getText(orders?.totalQuantity, 'Total quantity')}
           </p>
           <p id="totalQuantity" class="text-lg font-bold text-gray-900 dark:text-gray-100">0</p>
         </div>
         <div>
           <p class="text-sm font-medium text-gray-600 dark:text-gray-400">
-            {getText(carpetas?.totalValue, 'Total value')}
+            {getText(orders?.totalValue, 'Total value')}
           </p>
           <p id="totalValue" class="text-lg font-bold text-green-600 dark:text-green-400">$0</p>
         </div>
         <div>
           <p class="text-sm font-medium text-gray-600 dark:text-gray-400">
-            {getText(carpetas?.gastoAdicional, 'Additional cost')}
+            {getText(orders?.gastoAdicional, 'Additional cost')}
           </p>
           <p id="totalGastoAdicional" class="text-lg font-bold text-orange-600 dark:text-orange-400">$0</p>
         </div>

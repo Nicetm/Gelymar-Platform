@@ -76,6 +76,9 @@ router.get('/', authMiddleware, authorizeRoles(['admin', 'client']), orderContro
  */
 router.get('/alerts/missing-documents', authMiddleware, authorizeRoles(['admin']), configController.getOrdersMissingDocumentsAlert);
 
+// Obtener orden por PC (admin)
+router.get('/pc/:pc', authMiddleware, authorizeRoles(['admin']), orderController.getOrderByPc);
+
 /**
  * @swagger
  * /api/orders/admin/dashboard/sales:

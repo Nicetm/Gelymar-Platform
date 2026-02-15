@@ -18,7 +18,7 @@ const { adminSettings } = Astro.props as Props;
 
 <div id="notificationEmailListModal" class="fixed inset-0 bg-black bg-opacity-50 dark:bg-black/80 hidden flex justify-center items-center z-50">
   <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 w-full max-w-2xl mx-4 relative max-h-[90vh] overflow-y-auto shadow-2xl">
-    <button id="closeNotificationEmailModal" class="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition dark:text-gray-300 dark:hover:text-red-400">
+    <button id="closeNotificationEmailModal" class="absolute top-3 right-3 text-gray-500 hover:text-rose-500 transition dark:text-gray-400 dark:hover:text-rose-400">
       <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
       </svg>
@@ -64,9 +64,9 @@ const { adminSettings } = Astro.props as Props;
   <table class="w-full text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800">
     <thead>
       <tr class="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
-        <th class="p-2 text-left">{adminSettings.email}</th>
-        <th class="p-2 text-left">{adminSettings.name}</th>
-        <th class="p-2 text-center">{adminSettings.actions}</th>
+        <th class="p-2 text-left uppercase tracking-wider">{adminSettings.email}</th>
+        <th class="p-2 text-left uppercase tracking-wider">{adminSettings.name}</th>
+        <th class="p-2 text-center uppercase tracking-wider">{adminSettings.actions}</th>
       </tr>
     </thead>
     <tbody id="notificationEmailFormTableBody"></tbody>
@@ -77,9 +77,9 @@ const { adminSettings } = Astro.props as Props;
   <table class="w-full text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800">
     <thead>
       <tr class="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
-        <th class="p-2 text-left">{adminSettings.email}</th>
-        <th class="p-2 text-left">{adminSettings.name}</th>
-        <th class="p-2 text-center">{adminSettings.actions}</th>
+        <th class="p-2 text-left uppercase tracking-wider">{adminSettings.email}</th>
+        <th class="p-2 text-left uppercase tracking-wider">{adminSettings.name}</th>
+        <th class="p-2 text-center uppercase tracking-wider">{adminSettings.actions}</th>
       </tr>
     </thead>
     <tbody id="notificationEmailExistingTableBody"></tbody>

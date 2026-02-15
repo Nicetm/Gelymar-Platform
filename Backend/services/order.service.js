@@ -1,6 +1,8 @@
 const { poolPromise } = require('../config/db');
+const { sql, getSqlPool } = require('../config/sqlserver');
+const { mapHdrRowToOrder } = require('../mappers/sqlsoftkey/hdr.mapper');
+const { mapItemRowToOrderItem } = require('../mappers/sqlsoftkey/item.mapper');
 const Order = require('../models/order.model');
-const mysql = require('mysql2');
 
 const formatDateOnly = (date) => {
   const year = date.getFullYear();
@@ -37,416 +39,286 @@ const clampDateRange = (startInput, endInput) => {
   return { startDate, endDate };
 };
 
+  const normalizeOcForCompare = (value) => {
+    if (value === null || value === undefined) return '';
+    return String(value).toUpperCase().replace(/[\s()-]+/g, '');
+  };
+
 const subtractDays = (endDate, days) => {
   const base = new Date(`${endDate}T00:00:00`);
   base.setDate(base.getDate() - days);
   return formatDateOnly(base);
 };
 
-/**
- * Busca órdenes por filtros opcionales
- * @param {object} filters
- * @returns {Promise<Order[]>}
- */
-const getOrdersByFilters = async (filters = {}) => {
-  const pool = await poolPromise;
+const createOrderService = ({
+  mysqlPoolPromise = poolPromise,
+  getSqlPoolFn = getSqlPool,
+  sqlModule = sql,
+  hdrMapper = mapHdrRowToOrder,
+  itemMapper = mapItemRowToOrderItem,
+  logger = console
+} = {}) => {
+  const resolveOrderKey = async (orderId) => {
+    if (typeof orderId === 'string' && orderId.includes('|')) {
+      const [pc, oc] = orderId.split('|');
+      return { pc: pc?.trim(), oc: oc?.trim() };
+    }
+    return null;
+  };
+  /**
+   * Busca órdenes por filtros opcionales
+   * @param {object} filters
+   * @returns {Promise<Order[]>}
+   */
+  const getOrdersByFilters = async (filters = {}) => {
+    const pool = await mysqlPoolPromise;
+    const sqlPool = await getSqlPoolFn();
 
-  let query = `
+  let baseQuery = `
     SELECT 
-      o.id,
-      o.rut,
-      o.oc,
-      o.pc,
-      o.created_at,
-      o.updated_at,
-      c.name AS customer_name,
-      c.uuid AS customer_uuid,
-      o.factura,
-      o.fecha_factura,
-      od.order_id,
-      od.fecha,
-      od.fecha_etd,
-      od.fecha_eta,
-      od.fecha_etd_factura,
-      od.fecha_eta_factura,
-      od.currency,
-      od.medio_envio_factura,
-      od.medio_envio_ov,
-      od.incoterm,
-      od.puerto_destino,
-      od.certificados,
-      od.estado_ov,
-      COALESCE(doc_counts.document_count, 0) AS document_count
-    FROM orders o
-    JOIN customers c ON o.customer_id = c.id
-    LEFT JOIN order_detail od ON o.id = od.order_id
-    LEFT JOIN sellers s ON s.codigo = od.vendedor
-    LEFT JOIN (
-      SELECT order_id, COUNT(*) AS document_count
-      FROM order_files
-      GROUP BY order_id
-    ) doc_counts ON o.id = doc_counts.order_id`;
+      h.Nro,
+      h.OC,
+      h.Rut,
+      h.Fecha,
+      h.Factura,
+      h.Fecha_factura,
+      h.ETD_OV,
+      h.ETA_OV,
+      h.ETD_ENC_FA,
+      h.ETA_ENC_FA,
+      h.Job,
+      h.MedioDeEnvioFact,
+      h.MedioDeEnvioOV,
+      h.Clausula,
+      h.Puerto_Destino,
+      h.Certificados,
+      h.EstadoOV,
+      h.Vendedor,
+      c.Nombre AS customer_name
+    FROM jor_imp_HDR_90_softkey h
+    LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
+  `;
 
-  const params = [];
   const conditions = [];
+  const request = sqlPool.request();
 
-  if (filters.customerUUID) {
-    conditions.push('c.uuid = ?');
-    params.push(filters.customerUUID);
+  if (filters.customerRut) {
+    conditions.push('h.Rut = @customerRut');
+    request.input('customerRut', sqlModule.VarChar, filters.customerRut);
   }
 
+  let sellerCodes = [];
   if (filters.salesRut) {
-    conditions.push('s.rut = ?');
-    params.push(filters.salesRut);
+    const [sellerRows] = await pool.query('SELECT codigo FROM sellers WHERE rut = ?', [filters.salesRut]);
+    sellerCodes = sellerRows.map((row) => row.codigo).filter(Boolean);
+    if (sellerCodes.length === 0) {
+      return [];
+    }
+    const placeholders = sellerCodes.map((_, idx) => `@sellerCode${idx}`);
+    conditions.push(`h.Vendedor IN (${placeholders.join(', ')})`);
+    sellerCodes.forEach((code, idx) => {
+      request.input(`sellerCode${idx}`, sqlModule.VarChar, code);
+    });
   }
 
-  if (conditions.length > 0) {
-    query += ` WHERE ${conditions.join(' AND ')}`;
+  if (conditions.length) {
+    baseQuery += ` WHERE ${conditions.join(' AND ')}`;
   }
 
-  query += ' ORDER BY COALESCE(od.fecha, o.fecha_factura, o.created_at) DESC';
+  baseQuery += ' ORDER BY CAST(h.Fecha AS date) DESC';
 
-  const [rows] = await pool.query(query, params);
+  const result = await request.query(baseQuery);
+  const rows = result.recordset || [];
 
-  return rows.map(r => {
+  if (rows.length === 0) {
+    return [];
+  }
+
+  const mappedRows = rows.map((row) => ({
+    raw: row,
+    mapped: hdrMapper(row)
+  }));
+
+  const orderPairs = mappedRows
+    .map((row) => ({ pc: row.mapped.pc, oc: row.mapped.oc }))
+    .filter((pair) => pair.pc && pair.oc);
+
+  const documentCountMap = new Map();
+  if (orderPairs.length) {
+    const pairConditions = orderPairs.map(() => '(pc = ? AND oc = ?)').join(' OR ');
+    const pairParams = [];
+    orderPairs.forEach((pair) => {
+      pairParams.push(pair.pc, pair.oc);
+    });
+    const [docRows] = await pool.query(
+      `SELECT pc, oc, COUNT(*) AS document_count
+       FROM order_files
+       WHERE ${pairConditions}
+       GROUP BY pc, oc`,
+      pairParams
+    );
+    docRows.forEach((row) => {
+      documentCountMap.set(`${row.pc}|${row.oc}`, row.document_count);
+    });
+  }
+
+  return mappedRows.map(({ raw, mapped }) => {
+    const docCountKey = `${mapped.pc}|${mapped.oc}`;
     const order = new Order({
-      id: r.id,
-      rut: r.rut,
-      pc: r.pc,
-      oc: r.oc,
-      path: r.path,
-      created_at: r.created_at,
-      updated_at: r.updated_at,
-      customer_name: r.customer_name,
-      customer_uuid: r.customer_uuid,
-      order_id: r.order_id,
-      factura: r.factura,
-      fecha_factura: r.fecha_factura,
-      fecha: r.fecha,
-      fecha_etd: r.fecha_etd,
-      fecha_eta: r.fecha_eta,
-      fecha_etd_factura: r.fecha_etd_factura,
-      fecha_eta_factura: r.fecha_eta_factura,
-      currency: r.currency,
-      medio_envio_factura: r.medio_envio_factura,
-      medio_envio_ov: r.medio_envio_ov,
-      incoterm: r.incoterm,
-      puerto_destino: r.puerto_destino,
-      certificados: r.certificados,
-      estado_ov: r.estado_ov,
-      document_count: r.document_count
+      id: `${mapped.pc}|${mapped.oc}`,
+      rut: mapped.rut,
+      pc: mapped.pc,
+      oc: mapped.oc,
+      created_at: mapped.fecha || mapped.fecha_factura || null,
+      updated_at: mapped.fecha || mapped.fecha_factura || null,
+      customer_name: raw.customer_name,
+      customer_uuid: mapped.rut,
+      order_id: null,
+      factura: mapped.factura,
+      fecha_factura: mapped.fecha_factura,
+      fecha: mapped.fecha,
+      fecha_ingreso: mapped.fecha || mapped.fecha_factura || null,
+      fecha_etd: mapped.fecha_etd,
+      fecha_eta: mapped.fecha_eta,
+      fecha_etd_factura: mapped.fecha_etd_factura,
+      fecha_eta_factura: mapped.fecha_eta_factura,
+      currency: mapped.currency,
+      medio_envio_factura: mapped.medio_envio_factura,
+      medio_envio_ov: mapped.medio_envio_ov,
+      incoterm: mapped.incoterm,
+      puerto_destino: mapped.puerto_destino,
+      certificados: mapped.certificados,
+      estado_ov: mapped.estado_ov,
+      document_count: documentCountMap.get(docCountKey) || 0
     });
 
     return order;
   });
-};
+  };
 
 /**
  * Obtiene órdenes formateadas para el dashboard del cliente
- * @param {string} customerUUID - UUID del cliente
+ * @param {string} customerRut - RUT del cliente
  * @returns {Promise<Array>} Array de órdenes formateadas
  */
-const getClientDashboardOrders = async (customerUUID) => {
-  const pool = await poolPromise;
-  
-  const query = `
-    SELECT 
-    o.id,
-    o.pc,
-    o.oc AS orderNumber,
-    c.name AS clientName,
-    o.factura,
-    o.fecha_factura,
-    od.fecha_incoterm,
-    od.fecha_eta_factura,
-    od.fecha_etd_factura,
-    od.incoterm,
-    od.medio_envio_ov,
-    od.medio_envio_factura,
-    od.puerto_destino,
-    COUNT(DISTINCT CASE WHEN f.is_visible_to_client = 1 THEN f.id END) AS documents,
-    COALESCE(oi_counts.items_count, 0) AS items_count
-    FROM orders o
-    JOIN customers c ON o.customer_id = c.id
-    LEFT JOIN order_detail od ON od.order_id = o.id
-    LEFT JOIN order_files f ON f.order_id = o.id
-    LEFT JOIN (
-        SELECT factura, COUNT(*) AS items_count
-        FROM order_items
-        GROUP BY factura
-    ) oi_counts ON oi_counts.factura = o.factura
-    WHERE c.uuid = ?
-    GROUP BY o.id, o.pc, o.oc, c.name, o.factura, o.fecha_factura, od.fecha_incoterm, od.fecha_eta_factura, od.fecha_etd_factura, od.incoterm, od.medio_envio_ov, od.medio_envio_factura, od.puerto_destino, oi_counts.items_count
-    ORDER BY o.fecha_factura DESC;
-  `;
-  
-  const [rows] = await pool.query(query, [customerUUID]);
+  const normalizeRutForCompare = (rut) => {
+    if (!rut) return '';
+    return String(rut).trim().replace(/C$/i, '');
+  };
 
-  return rows.map(row => ({
-    id: row.id,
-    pc: row.pc,
-    orderNumber: row.orderNumber,
-    clientName: row.clientName,
-    factura: row.factura,
-    fecha_factura: row.fecha_factura,
-    documents: row.documents,
-    items_count: row.items_count,
-    fecha_incoterm: row.fecha_incoterm,
-    fecha_eta_factura: row.fecha_eta_factura,
-    fecha_etd_factura: row.fecha_etd_factura,
-    incoterm: row.incoterm,
-    medio_envio_ov: row.medio_envio_ov,
-    medio_envio_factura: row.medio_envio_factura,
-    puerto_destino: row.puerto_destino
-  }));
-};
+  const getClientDashboardOrders = async (customerRut) => {
+    const sqlPool = await getSqlPoolFn();
+    const headerRequest = sqlPool.request();
+    const normalizedRut = normalizeRutForCompare(customerRut);
+    const rutWithC = normalizedRut ? `${normalizedRut}C` : '';
+    headerRequest.input('rut', sqlModule.VarChar, normalizedRut || customerRut);
+    headerRequest.input('rutWithC', sqlModule.VarChar, rutWithC);
+
+    const headerResult = await headerRequest.query(`
+      SELECT
+        h.Nro,
+        h.OC,
+        h.Rut,
+        h.Fecha,
+        h.Factura,
+        h.Fecha_factura,
+        h.ETD_OV,
+        h.ETA_OV,
+        h.ETD_ENC_FA,
+        h.ETA_ENC_FA,
+        h.MedioDeEnvioFact,
+        h.MedioDeEnvioOV,
+        h.Clausula,
+        h.Puerto_Destino,
+        h.Certificados,
+        h.EstadoOV,
+        h.Vendedor,
+        c.Nombre AS customer_name
+      FROM jor_imp_HDR_90_softkey h
+      LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
+      WHERE h.Rut = @rut OR h.Rut = @rutWithC
+      ORDER BY CAST(h.Fecha AS date) DESC
+    `);
+
+    const rows = headerResult.recordset || [];
+    if (rows.length === 0) {
+      return [];
+    }
+
+    const mappedRows = rows.map((row) => ({ raw: row, mapped: hdrMapper(row) }));
+    const pairs = mappedRows
+      .map((r) => ({ pc: r.mapped.pc, oc: r.mapped.oc, factura: r.mapped.factura }))
+      .filter((r) => r.pc && r.oc);
+
+    const pool = await mysqlPoolPromise;
+    const docCountMap = new Map();
+    if (pairs.length) {
+      const pairConditions = pairs.map(() => '(pc = ? AND oc = ?)').join(' OR ');
+      const pairParams = [];
+      pairs.forEach((pair) => {
+        pairParams.push(pair.pc, pair.oc);
+      });
+      const [docRows] = await pool.query(
+        `SELECT pc, oc, COUNT(*) AS document_count
+         FROM order_files
+         WHERE is_visible_to_client = 1 AND (${pairConditions})
+         GROUP BY pc, oc`,
+        pairParams
+      );
+      docRows.forEach((row) => {
+        docCountMap.set(`${row.pc}|${row.oc}`, row.document_count);
+      });
+    }
+
+    const itemsCountMap = new Map();
+    if (pairs.length) {
+      const itemsRequest = sqlPool.request();
+      const pcParams = pairs.map((pair, idx) => {
+        itemsRequest.input(`pc${idx}`, sqlModule.VarChar, pair.pc);
+        return `@pc${idx}`;
+      });
+
+      const itemsResult = await itemsRequest.query(`
+        SELECT Nro, Factura, COUNT(*) AS items_count
+        FROM jor_imp_item_90_softkey
+        WHERE Nro IN (${pcParams.join(', ')})
+        GROUP BY Nro, Factura
+      `);
+      (itemsResult.recordset || []).forEach((row) => {
+        itemsCountMap.set(`${row.Nro}|${row.Factura ?? ''}`, row.items_count);
+      });
+    }
+
+    return mappedRows.map(({ raw, mapped }) => {
+      const docCountKey = `${mapped.pc}|${mapped.oc}`;
+      const itemCountKey = `${mapped.pc}|${mapped.factura ?? ''}`;
+      return {
+        id: `${mapped.pc}|${mapped.oc}`,
+        pc: mapped.pc,
+        orderNumber: mapped.oc,
+        clientName: raw.customer_name,
+        factura: mapped.factura,
+        fecha_factura: mapped.fecha_factura,
+        documents: docCountMap.get(docCountKey) || 0,
+        items_count: itemsCountMap.get(itemCountKey) || 0,
+        fecha_incoterm: mapped.fecha || mapped.fecha_factura || null,
+        fecha_eta_factura: mapped.fecha_eta_factura,
+        fecha_etd_factura: mapped.fecha_etd_factura,
+        incoterm: mapped.incoterm,
+        medio_envio_ov: mapped.medio_envio_ov,
+        medio_envio_factura: mapped.medio_envio_factura,
+        puerto_destino: mapped.puerto_destino
+      };
+    });
+  };
 
 /**
  * Obtiene documentos de una orden específica del cliente
  * @param {number} orderId - ID de la orden
- * @param {string} customerUUID - UUID del cliente
+ * @param {string} customerRut - RUT del cliente
  * @returns {Promise<Array|null>} Array de documentos o null si no autorizado
  */
-const getClientOrderDocuments = async (orderId, customerUUID) => {
-  try {
-    const pool = await poolPromise;
 
-    // Primero verificar que la orden pertenece al cliente
-    const orderQuery = `
-      SELECT o.id, o.oc AS orderNumber, c.name AS clientName
-      FROM orders o
-      JOIN customers c ON o.customer_id = c.id
-      WHERE o.id = ? AND c.uuid = ?
-    `;
-
-    const [orderRows] = await pool.query(orderQuery, [orderId, customerUUID]);
-
-    if (orderRows.length === 0) {
-      return null; // Orden no encontrada o no autorizada
-    }
-
-  const order = orderRows[0];
-
-  // Obtener documentos de la orden (solo los visibles para el cliente)
-  const documentsQuery = `
-    SELECT 
-      ofi.id,
-      ofi.name AS filename,
-      ofi.path AS filepath,
-      ofi.file_type AS filetype,
-      ofi.created_at,
-      ofi.updated_at,
-      o.factura,
-      o.fecha_factura,
-      os.name AS status
-    FROM order_files ofi
-    JOIN order_status os ON ofi.status_id = os.id
-    JOIN orders o ON ofi.order_id = o.id
-    WHERE ofi.order_id = ? AND ofi.is_visible_to_client = 1
-    ORDER BY ofi.created_at DESC;
-  `;
-
-  const [documentRows] = await pool.query(documentsQuery, [order.id]);
-
-  const result = {
-    order: {
-      id: order.id,
-      orderNumber: order.orderNumber,
-      clientName: order.clientName
-    },
-    documents: documentRows.map(doc => ({
-      id: doc.id,
-      filename: doc.filename,
-      filepath: doc.filepath,
-      filetype: doc.filetype,
-      filesize: 0, // No hay campo filesize en la tabla
-      factura: doc.factura,
-      fecha_factura: doc.fecha_factura,
-      status: doc.status || 'Unread',
-      statusColor: 'gray', // Color por defecto ya que no hay campo color en order_status
-      created: doc.created_at,
-      updated: doc.updated_at
-    }))
-  };
-
-  return result;
-  } catch (error) {
-    throw error; // Re-lanzar el error para que el controlador lo maneje
-  }
-};
-
-/**
- * Inserta una nueva orden en la base de datos
- * @param {object} data - Datos de la orden
- * @returns {Promise<void>}
- */
-const insertOrder = async (data) => {
-  try {
-    const pool = await poolPromise;
-    
-    const query = `
-      INSERT INTO orders (
-        customer_id, rut, pc, oc, factura, fecha_factura, fecha_ingreso, linea, unique_key, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
-    `;
-
-    const params = [
-      data.customer_id,
-      data.rut,
-      data.pc,
-      data.oc,
-      data.factura,
-      data.fecha_factura,
-      data.fecha_ingreso,
-      data.linea,
-      data.unique_key
-    ];
-
-    const [result] = await pool.query(query, params);
-    
-    // Retornar el ID de la orden insertada
-    return result.insertId;
-    
-  } catch (error) {
-    throw error; // Re-lanzar el error para que se maneje en el nivel superior
-  }
-};
-
-/**
- * Obtiene el order_id por la clave compuesta pc + oc
- * @param {string} pc - Número de PC
- * @param {string} oc - Número de OC
- * @returns {Promise<number|null>}
- */
-const getOrderIdByPc = async (pc, oc) => {
-  const pool = await poolPromise;
-  const [rows] = await pool.query('SELECT id FROM orders WHERE pc = ? AND oc = ?', [pc, oc]);
-  return rows.length > 0 ? rows[0].id : null;
-};
-
-/**
- * Obtiene el ID de una orden solo por PC (para OrderLines)
- * @param {string} pc - Número de PC
- * @returns {Promise<number|null>} ID de la orden o null si no existe
- */
-const getOrderIdByPcOnly = async (pc) => {
-  const pool = await poolPromise;
-  const [rows] = await pool.query('SELECT id FROM orders WHERE pc = ?', [pc]);
-  const result = rows.length > 0 ? rows[0].id : null;
-  return result;
-};
-
-
-/**
- * Obtiene los items de una orden específica
- * @param {number} orderPc - PC de la orden
- * @param {object} user - Usuario autenticado
- * @returns {Promise<Array|null>} Array de items o null si no autorizado
- */
-const getOrderItems = async (orderPc, orderOc, factura, user) => {
-  try {
-    const pool = await poolPromise;
-    
-        // Verificar que la orden existe y el usuario tiene acceso
-    const roleId = Number(user.roleId || user.role_id);
-
-    let orderQuery = `
-      SELECT o.id, o.pc, o.oc, o.factura, c.uuid as customer_uuid
-      FROM orders o
-      JOIN customers c ON o.customer_id = c.id
-      LEFT JOIN order_detail od ON o.id = od.order_id
-      LEFT JOIN sellers s ON s.codigo = od.vendedor
-      WHERE o.pc = ? AND o.oc = ? AND (o.factura = ? OR (o.factura IS NULL AND ? = 'null'))
-    `;
-
-    const orderParams = [orderPc, orderOc, factura, factura];
-
-    if (roleId === 3) {
-      orderQuery += ' AND s.rut = ?';
-      orderParams.push(user.rut || user.email);
-    }
-
-    const [orderRows] = await pool.query(orderQuery, orderParams);
-
-    if (orderRows.length === 0) {
-      return null; // Orden no encontrada
-    }
-    
-    const order = orderRows[0];
-    
-    // Si es cliente, verificar que la orden pertenece a él
-    if (user.role === 'client' && user.uuid !== order.customer_uuid) {
-      return null; // No autorizado
-    }
-    
-    // Obtener los items de la orden sin duplicados
-    const itemsQuery = `
-      SELECT DISTINCT
-        oi.id,
-        oi.order_id,
-        oi.item_id,
-        oi.descripcion,
-        oi.kg_solicitados,
-        oi.unit_price,
-        oi.volumen,
-        oi.tipo,
-        oi.mercado,
-        oi.kg_despachados,
-        oi.kg_facturados,
-        oi.fecha_etd,
-        oi.fecha_eta,
-        i.item_code,
-        i.item_name,
-        i.unidad_medida
-      FROM order_items oi
-      JOIN items i ON oi.item_id = i.id
-      JOIN orders o ON oi.order_id = o.id
-      WHERE oi.pc = ? AND o.oc = ? AND (oi.factura = ? OR (oi.factura IS NULL AND ? is null))
-      ORDER BY oi.id
-    `;
-    
-    // Obtener currency, gasto adicional y customer_name por separado para evitar duplicados
-    const currencyQuery = `
-      SELECT od.currency, od.gasto_adicional_flete, c.name as customer_name 
-      FROM order_detail od
-      JOIN orders o ON od.order_id = o.id
-      JOIN customers c ON o.customer_id = c.id
-      WHERE od.order_id = ? LIMIT 1
-    `;
-    
-    const [itemRows] = await pool.query(itemsQuery, [orderPc, orderOc, factura, factura]);
-    const [currencyRows] = await pool.query(currencyQuery, [order.id]);
-    const currency = currencyRows[0]?.currency || 'CLP';
-    const gastoAdicional = currencyRows[0]?.gasto_adicional_flete || 0;
-    const customerName = currencyRows[0]?.customer_name || 'N/A';
-    
-    return itemRows.map(item => ({
-      id: item.id,
-      order_id: item.order_id,
-      item_id: item.item_id,
-      descripcion: item.descripcion,
-      item_code: item.item_code,
-      item_name: item.item_name,
-      unidad_medida: item.unidad_medida,
-      kg_solicitados: item.kg_solicitados,
-      unit_price: item.unit_price,
-      volumen: item.volumen,
-      tipo: item.tipo,
-      mercado: item.mercado,
-      kg_despachados: item.kg_despachados,
-      kg_facturados: item.kg_facturados,
-      fecha_etd: item.fecha_etd,
-      fecha_eta: item.fecha_eta,
-      currency: currency,
-      gasto_adicional_flete: gastoAdicional,
-      customer_name: customerName
-    }));
-    
-  } catch (error) {
-    console.error('Error getting order items:', error);
-    throw error;
-  }
-};
 
 /**
  * Obtiene una orden por RUT y OC
@@ -454,61 +326,269 @@ const getOrderItems = async (orderPc, orderOc, factura, user) => {
  * @param {string} oc - OC de la orden
  * @returns {Promise<object|null>} Orden encontrada o null
  */
-const getOrderByRutAndOc = async (rut, oc) => {
-  try {
-    const pool = await poolPromise;
-    
-    const query = `
-      SELECT o.id, o.rut, o.oc, o.factura, o.fec_factura, o.updated_at
-      FROM orders o
-      WHERE o.rut = ? AND o.oc = ?
-    `;
-    
-    const [rows] = await pool.query(query, [rut, oc]);
-    
-    return rows.length > 0 ? rows[0] : null;
-    
-  } catch (error) {
-    console.error('Error getting order by RUT and OC:', error);
-    throw error;
-  }
-};
+  const getOrderByRutAndOc = async (rut, oc) => {
+    try {
+      const sqlPool = await getSqlPoolFn();
+      const request = sqlPool.request();
+      request.input('rut', sqlModule.VarChar, rut);
+      request.input('oc', sqlModule.VarChar, normalizeOcForCompare(oc));
+
+      const result = await request.query(`
+        SELECT TOP 1
+          h.Nro AS pc,
+          h.Rut AS rut,
+          h.OC AS oc,
+          h.Factura AS factura,
+          h.Fecha_factura AS fec_factura
+        FROM jor_imp_HDR_90_softkey h
+        WHERE h.Rut = @rut AND UPPER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = UPPER(@oc)
+        ORDER BY CAST(h.Fecha AS date) DESC
+      `);
+
+      const row = result.recordset?.[0];
+      return row || null;
+    } catch (error) {
+      logger.error('Error getting order by RUT and OC:', error.message);
+      throw error;
+    }
+  };
 
 /**
  * Obtiene una orden por ID simple (sin validación de permisos)
  * @param {number} orderId - ID de la orden
  * @returns {Promise<object|null>} Orden encontrada o null
  */
-const getOrderByIdSimple = async (orderId) => {
-  try {
-    const pool = await poolPromise;
-    const [[order]] = await pool.query(
-      `
-        SELECT 
-          o.*,
-          c.name AS customer_name,
-          od.fecha_etd AS fecha_etd,
-          od.fecha AS fecha_detalle
-        FROM orders o
-        JOIN customers c ON o.customer_id = c.id
-        LEFT JOIN (
-          SELECT 
-            order_id,
-            MAX(fecha_etd) AS fecha_etd,
-            MAX(fecha) AS fecha
-          FROM order_detail
-          GROUP BY order_id
-        ) od ON od.order_id = o.id
-        WHERE o.id = ?
-      `,
-      [orderId]
-    );
-    return order || null;
-  } catch (error) {
-    console.error('Error en getOrderByIdSimple:', error.message);
-    throw error;
-  }
-};
+  const getOrderByIdSimple = async (orderId) => {
+    try {
+      const key = await resolveOrderKey(orderId);
+      if (!key) return null;
+
+      const sqlPool = await getSqlPoolFn();
+      const request = sqlPool.request();
+      request.input('pc', sqlModule.VarChar, key.pc);
+      request.input('oc', sqlModule.VarChar, normalizeOcForCompare(key.oc));
+
+      const result = await request.query(`
+        SELECT TOP 1
+          h.Nro,
+          h.OC,
+          h.Rut,
+          h.Fecha,
+          h.Factura,
+          h.Fecha_factura,
+          h.ETD_OV,
+          h.ETA_OV,
+          h.ETD_ENC_FA,
+          h.ETA_ENC_FA,
+          h.Job,
+          h.MedioDeEnvioFact,
+          h.MedioDeEnvioOV,
+          h.Clausula,
+          h.Puerto_Destino,
+          h.Certificados,
+          h.EstadoOV,
+          h.Vendedor,
+          c.Nombre AS customer_name
+        FROM jor_imp_HDR_90_softkey h
+        LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
+        WHERE h.Nro = @pc AND UPPER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = UPPER(@oc)
+        ORDER BY CAST(h.Fecha AS date) DESC
+      `);
+
+      const row = result.recordset?.[0];
+      if (!row) return null;
+
+      const mapped = hdrMapper(row);
+      return new Order({
+        id: `${mapped.pc}|${mapped.oc}`,
+        rut: mapped.rut,
+        pc: mapped.pc,
+        oc: mapped.oc,
+        created_at: mapped.fecha || mapped.fecha_factura || null,
+        updated_at: mapped.fecha || mapped.fecha_factura || null,
+        customer_name: row.customer_name,
+        customer_uuid: mapped.rut,
+        order_id: null,
+        factura: mapped.factura,
+        fecha_factura: mapped.fecha_factura,
+        fecha: mapped.fecha,
+        fecha_ingreso: mapped.fecha || mapped.fecha_factura || null,
+        fecha_etd: mapped.fecha_etd,
+        fecha_eta: mapped.fecha_eta,
+        fecha_etd_factura: mapped.fecha_etd_factura,
+        fecha_eta_factura: mapped.fecha_eta_factura,
+        currency: mapped.currency,
+        medio_envio_factura: mapped.medio_envio_factura,
+        medio_envio_ov: mapped.medio_envio_ov,
+        incoterm: mapped.incoterm,
+        puerto_destino: mapped.puerto_destino,
+        certificados: mapped.certificados,
+        estado_ov: mapped.estado_ov
+      });
+    } catch (error) {
+      logger.error('Error en getOrderByIdSimple:', error.message);
+      throw error;
+    }
+  };
+
+  /**
+   * Obtiene una orden por PC y OC (sin validación de permisos)
+   * @param {string} pc - Número PC
+   * @param {string} oc - Número OC
+   * @returns {Promise<object|null>} Orden encontrada o null
+   */
+    const getOrderByPcOc = async (pc, oc) => {
+      try {
+        if (!pc || !oc) return null;
+
+        const normalizedPc = typeof pc === 'string' ? pc.trim() : String(pc);
+        const normalizedOc = typeof oc === 'string'
+          ? oc.trim().replace(/[()\s-]+/g, '')
+          : String(oc).replace(/[()\s-]+/g, '');
+        const sqlPool = await getSqlPoolFn();
+        const request = sqlPool.request();
+        request.input('pc', sqlModule.VarChar, normalizedPc);
+        request.input('oc', sqlModule.VarChar, normalizeOcForCompare(normalizedOc));
+
+        const result = await request.query(`
+          SELECT TOP 1
+            h.Nro,
+            h.OC,
+          h.Rut,
+          h.Fecha,
+          h.Factura,
+          h.Fecha_factura,
+          h.ETD_OV,
+          h.ETA_OV,
+          h.ETD_ENC_FA,
+          h.ETA_ENC_FA,
+          h.Job,
+          h.MedioDeEnvioFact,
+          h.MedioDeEnvioOV,
+          h.Clausula,
+          h.Puerto_Destino,
+          h.Certificados,
+          h.EstadoOV,
+          h.Vendedor,
+          c.Nombre AS customer_name
+          FROM jor_imp_HDR_90_softkey h
+          LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
+          WHERE h.Nro = @pc
+            AND UPPER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = UPPER(@oc)
+          ORDER BY CAST(h.Fecha AS date) DESC
+        `);
+
+      const row = result.recordset?.[0];
+      if (!row) return null;
+
+      const mapped = hdrMapper(row);
+      return new Order({
+        id: `${mapped.pc}|${mapped.oc}`,
+        rut: mapped.rut,
+        pc: mapped.pc,
+        oc: mapped.oc,
+        created_at: mapped.fecha || mapped.fecha_factura || null,
+        updated_at: mapped.fecha || mapped.fecha_factura || null,
+        customer_name: row.customer_name,
+        customer_uuid: mapped.rut,
+        order_id: null,
+        factura: mapped.factura,
+        fecha_factura: mapped.fecha_factura,
+        fecha: mapped.fecha,
+        fecha_ingreso: mapped.fecha || mapped.fecha_factura || null,
+        fecha_etd: mapped.fecha_etd,
+        fecha_eta: mapped.fecha_eta,
+        fecha_etd_factura: mapped.fecha_etd_factura,
+        fecha_eta_factura: mapped.fecha_eta_factura,
+        currency: mapped.currency,
+        medio_envio_factura: mapped.medio_envio_factura,
+        medio_envio_ov: mapped.medio_envio_ov,
+        incoterm: mapped.incoterm,
+        puerto_destino: mapped.puerto_destino,
+        certificados: mapped.certificados,
+        estado_ov: mapped.estado_ov
+      });
+    } catch (error) {
+      logger.error('Error en getOrderByPcOc:', error.message);
+      throw error;
+    }
+  };
+
+  /**
+   * Obtiene una orden por PC (sin validación de permisos)
+   * @param {string} pc - Número PC
+   * @returns {Promise<object|null>} Orden encontrada o null
+   */
+  const getOrderByPc = async (pc) => {
+    try {
+      if (!pc) return null;
+
+      const sqlPool = await getSqlPoolFn();
+      const request = sqlPool.request();
+      request.input('pc', sqlModule.VarChar, pc);
+
+      const result = await request.query(`
+        SELECT TOP 1
+          h.Nro,
+          h.OC,
+          h.Rut,
+          h.Fecha,
+          h.Factura,
+          h.Fecha_factura,
+          h.ETD_OV,
+          h.ETA_OV,
+          h.ETD_ENC_FA,
+          h.ETA_ENC_FA,
+          h.Job,
+          h.MedioDeEnvioFact,
+          h.MedioDeEnvioOV,
+          h.Clausula,
+          h.Puerto_Destino,
+          h.Certificados,
+          h.EstadoOV,
+          h.Vendedor,
+          c.Nombre AS customer_name
+        FROM jor_imp_HDR_90_softkey h
+        LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
+        WHERE h.Nro = @pc
+        ORDER BY CAST(h.Fecha AS date) DESC
+      `);
+
+      const row = result.recordset?.[0];
+      if (!row) return null;
+
+      const mapped = hdrMapper(row);
+      return new Order({
+        id: `${mapped.pc}|${mapped.oc}`,
+        rut: mapped.rut,
+        pc: mapped.pc,
+        oc: mapped.oc,
+        created_at: mapped.fecha || mapped.fecha_factura || null,
+        updated_at: mapped.fecha || mapped.fecha_factura || null,
+        customer_name: row.customer_name,
+        customer_uuid: mapped.rut,
+        order_id: null,
+        factura: mapped.factura,
+        fecha_factura: mapped.fecha_factura,
+        fecha: mapped.fecha,
+        fecha_ingreso: mapped.fecha || mapped.fecha_factura || null,
+        fecha_etd: mapped.fecha_etd,
+        fecha_eta: mapped.fecha_eta,
+        fecha_etd_factura: mapped.fecha_etd_factura,
+        fecha_eta_factura: mapped.fecha_eta_factura,
+        currency: mapped.currency,
+        medio_envio_factura: mapped.medio_envio_factura,
+        medio_envio_ov: mapped.medio_envio_ov,
+        incoterm: mapped.incoterm,
+        puerto_destino: mapped.puerto_destino,
+        certificados: mapped.certificados,
+        estado_ov: mapped.estado_ov
+      });
+    } catch (error) {
+      logger.error('Error en getOrderByPc:', error.message);
+      throw error;
+    }
+  };
 
 /**
  * Obtiene una orden por ID con validación de permisos
@@ -516,53 +596,95 @@ const getOrderByIdSimple = async (orderId) => {
  * @param {object} user - Usuario autenticado
  * @returns {Promise<object|null>} Orden encontrada o null
  */
-const getOrderById = async (orderId, user) => {
-  try {
-    const pool = await poolPromise;
-    let query = `
-      SELECT 
-        o.*,
-        c.name AS customer_name,
-        c.uuid AS customer_uuid,
-        od.fecha_etd AS fecha_etd,
-        od.fecha AS fecha_detalle
-      FROM orders o
-      JOIN customers c ON o.customer_id = c.id
-      LEFT JOIN (
-        SELECT 
-          order_id,
-          MAX(fecha_etd) AS fecha_etd,
-          MAX(fecha) AS fecha
-        FROM order_detail
-        GROUP BY order_id
-      ) od ON od.order_id = o.id
-      WHERE o.id = ?
-    `;
-    let params = [orderId];
+  const getOrderById = async (orderId, user) => {
+    try {
+      const key = await resolveOrderKey(orderId);
+      if (!key) return null;
 
-    // Si es cliente, verificar que la orden pertenezca al cliente
-    if (user.role === 'client') {
-      query += ' AND c.uuid = ?';
-      params.push(user.uuid);
+      const roleId = Number(user.roleId || user.role_id);
+      const sqlPool = await getSqlPoolFn();
+      const request = sqlPool.request();
+      request.input('pc', sqlModule.VarChar, key.pc);
+      request.input('oc', sqlModule.VarChar, normalizeOcForCompare(key.oc));
+
+      const result = await request.query(`
+        SELECT TOP 1
+          h.Nro,
+          h.OC,
+          h.Rut,
+          h.Fecha,
+          h.Factura,
+          h.Fecha_factura,
+          h.ETD_OV,
+          h.ETA_OV,
+          h.ETD_ENC_FA,
+          h.ETA_ENC_FA,
+          h.Job,
+          h.MedioDeEnvioFact,
+          h.MedioDeEnvioOV,
+          h.Clausula,
+          h.Puerto_Destino,
+          h.Certificados,
+          h.EstadoOV,
+          h.Vendedor,
+          c.Nombre AS customer_name
+        FROM jor_imp_HDR_90_softkey h
+        LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
+        WHERE h.Nro = @pc AND UPPER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = UPPER(@oc)
+        ORDER BY CAST(h.Fecha AS date) DESC
+      `);
+
+      const row = result.recordset?.[0];
+      if (!row) return null;
+
+      const mapped = hdrMapper(row);
+
+      if (user.role === 'client' &&
+          normalizeRutForCompare(mapped.rut) !== normalizeRutForCompare(user.rut || user.email)) {
+        return null;
+      }
+
+      if (roleId === 3) {
+        const pool = await mysqlPoolPromise;
+        const [sellerRows] = await pool.query('SELECT codigo FROM sellers WHERE rut = ?', [user.rut || user.email]);
+        const sellerCodes = sellerRows.map((r) => r.codigo).filter(Boolean);
+        if (!sellerCodes.includes(mapped.vendedor)) {
+          return null;
+        }
+      }
+
+      return new Order({
+        id: `${mapped.pc}|${mapped.oc}`,
+        rut: mapped.rut,
+        pc: mapped.pc,
+        oc: mapped.oc,
+        created_at: mapped.fecha || mapped.fecha_factura || null,
+        updated_at: mapped.fecha || mapped.fecha_factura || null,
+        customer_name: row.customer_name,
+        customer_rut: mapped.rut,
+        customer_uuid: mapped.rut,
+        order_id: null,
+        factura: mapped.factura,
+        fecha_factura: mapped.fecha_factura,
+        fecha: mapped.fecha,
+        fecha_ingreso: mapped.fecha || mapped.fecha_factura || null,
+        fecha_etd: mapped.fecha_etd,
+        fecha_eta: mapped.fecha_eta,
+        fecha_etd_factura: mapped.fecha_etd_factura,
+        fecha_eta_factura: mapped.fecha_eta_factura,
+        currency: mapped.currency,
+        medio_envio_factura: mapped.medio_envio_factura,
+        medio_envio_ov: mapped.medio_envio_ov,
+        incoterm: mapped.incoterm,
+        puerto_destino: mapped.puerto_destino,
+        certificados: mapped.certificados,
+        estado_ov: mapped.estado_ov
+      });
+    } catch (error) {
+      logger.error('Error en getOrderById:', error.message);
+      throw error;
     }
-
-    const roleId = Number(user.roleId || user.role_id);
-    if (roleId === 3) {
-      query += ` AND EXISTS (
-        SELECT 1 FROM order_detail od
-        JOIN sellers s ON s.codigo = od.vendedor
-        WHERE od.order_id = o.id AND s.rut = ?
-      )`;
-      params.push(user.rut || user.email);
-    }
-
-    const [rows] = await pool.query(query, params);
-    return rows[0] || null;
-  } catch (error) {
-    console.error('Error en getOrderById:', error.message);
-    throw error;
-  }
-};
+  };
 
 /**
  * Obtener detalles de una orden específica
@@ -570,50 +692,85 @@ const getOrderById = async (orderId, user) => {
  * @param {object} user - Usuario autenticado
  * @returns {Promise<array|null>} Detalles de la orden o null
  */
-const getOrderDetails = async (orderId, user) => {
-  try {
-    const pool = await poolPromise;
-    let query = `
-      SELECT 
-        o.id,
-        o.pc,
-        o.oc,
-        od.fecha_etd,
-        od.fecha_eta,
-        od.incoterm,
-        od.certificados,
-        od.direccion_destino,
-        od.puerto_destino
-      FROM orders o
-      LEFT JOIN order_detail od ON o.id = od.order_id
-      JOIN customers c ON o.customer_id = c.id
-      WHERE o.id = ?
-    `;
-    let params = [orderId];
+  const getOrderDetails = async (orderId, user) => {
+    try {
+      const key = await resolveOrderKey(orderId);
+      if (!key) return null;
 
-    // Si es cliente, verificar que la orden pertenezca al cliente
-    if (user.role === 'client') {
-      query += ' AND c.uuid = ?';
-      params.push(user.uuid);
+      const roleId = Number(user.roleId || user.role_id);
+      const sqlPool = await getSqlPoolFn();
+      const request = sqlPool.request();
+      request.input('pc', sqlModule.VarChar, key.pc);
+      request.input('oc', sqlModule.VarChar, normalizeOcForCompare(key.oc));
+
+      const result = await request.query(`
+        SELECT TOP 1
+          h.Nro,
+          h.OC,
+          h.Rut,
+          h.Fecha,
+          h.Factura,
+          h.Fecha_factura,
+          h.ETD_OV,
+          h.ETA_OV,
+          h.ETD_ENC_FA,
+          h.ETA_ENC_FA,
+          h.MedioDeEnvioFact,
+          h.MedioDeEnvioOV,
+          h.Clausula,
+          h.Puerto_Destino,
+          h.Certificados,
+          h.EstadoOV,
+          h.Vendedor
+        FROM jor_imp_HDR_90_softkey h
+        WHERE h.Nro = @pc AND UPPER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = UPPER(@oc)
+        ORDER BY CAST(h.Fecha AS date) DESC
+      `);
+
+      const row = result.recordset?.[0];
+      if (!row) return null;
+
+      const mapped = hdrMapper(row);
+
+      if (user.role === 'client' &&
+          normalizeRutForCompare(mapped.rut) !== normalizeRutForCompare(user.rut || user.email)) {
+        return null;
+      }
+
+      if (roleId === 3) {
+        const pool = await mysqlPoolPromise;
+        const [sellerRows] = await pool.query('SELECT codigo FROM sellers WHERE rut = ?', [user.rut || user.email]);
+        const sellerCodes = sellerRows.map((r) => r.codigo).filter(Boolean);
+        if (!sellerCodes.includes(mapped.vendedor)) {
+          return null;
+        }
+      }
+
+      return {
+        pc: mapped.pc,
+        oc: mapped.oc,
+        factura: mapped.factura,
+        fecha_factura: mapped.fecha_factura,
+        fecha: mapped.fecha,
+        fecha_ingreso: mapped.fecha || mapped.fecha_factura || null,
+        fecha_etd: mapped.fecha_etd,
+        fecha_eta: mapped.fecha_eta,
+        fecha_etd_factura: mapped.fecha_etd_factura,
+        fecha_eta_factura: mapped.fecha_eta_factura,
+        medio_envio_factura: mapped.medio_envio_factura,
+        medio_envio_ov: mapped.medio_envio_ov,
+        incoterm: mapped.incoterm,
+        puerto_destino: mapped.puerto_destino,
+        certificados: mapped.certificados,
+        estado_ov: mapped.estado_ov,
+        vendedor: mapped.vendedor,
+        customer_rut: mapped.rut
+      };
+    } catch (error) {
+      logger.error('Error en getOrderDetails:', error.message);
+      throw error;
     }
-
-    const roleId = Number(user.roleId || user.role_id);
-    if (roleId === 3) {
-      query += ` AND EXISTS (
-        SELECT 1 FROM order_detail od2
-        JOIN sellers s ON s.codigo = od2.vendedor
-        WHERE od2.order_id = o.id AND s.rut = ?
-      )`;
-      params.push(user.rut || user.email);
-    }
-
-    const [rows] = await pool.query(query, params);
-    return rows.length > 0 ? rows[0] : null;
-  } catch (error) {
-    console.error('Error en getOrderDetails:', error.message);
-    throw error;
-  }
-};
+  };
 
 
 /**
@@ -622,161 +779,15 @@ const getOrderDetails = async (orderId, user) => {
  * @param {object} user - Usuario autenticado
  * @returns {Promise<object|null>} Detalles de la orden o null
  */
-const getOrderDetail = async (orderId, user) => {
-  try {
-    const pool = await poolPromise;
-    let query = `
-      SELECT 
-        o.id,
-        o.pc,
-        o.oc,
-        od.fecha_etd,
-        od.fecha_eta,
-        od.incoterm,
-        od.certificados,
-        od.direccion_destino,
-        od.puerto_destino
-      FROM orders o
-      LEFT JOIN order_detail od ON o.id = od.order_id
-      JOIN customers c ON o.customer_id = c.id
-      WHERE o.id = ?
-    `;
-    let params = [orderId];
-
-    // Si es cliente, verificar que la orden pertenezca al cliente
-    if (user.role === 'client') {
-      query += ' AND c.uuid = ?';
-      params.push(user.uuid);
+  const getOrderDetail = async (orderId, user) => {
+    try {
+      return await getOrderDetails(orderId, user);
+    } catch (error) {
+      logger.error('Error en getOrderDetail:', error.message);
+      throw error;
     }
+  };
 
-    const roleId = Number(user.roleId || user.role_id);
-    if (roleId === 3) {
-      query += ` AND EXISTS (
-        SELECT 1 FROM order_detail od2
-        JOIN sellers s ON s.codigo = od2.vendedor
-        WHERE od2.order_id = o.id AND s.rut = ?
-      )`;
-      params.push(user.rut || user.email);
-    }
-
-    const [rows] = await pool.query(query, params);
-    return rows[0] || null;
-  } catch (error) {
-    console.error('Error en getOrderDetail:', error.message);
-    throw error;
-  }
-};
-
-/**
- * Obtiene los items de una orden sin factura
- * @param {string} orderPc - PC de la orden
- * @param {object} user - Usuario autenticado
- * @returns {Promise<Array|null>} Items de la orden o null si no se encuentra
- */
-const getOrderItemsWithoutFactura = async (orderPc, orderOc, user) => {
-  try {
-    const pool = await poolPromise;
-    
-    // Verificar que la orden existe y el usuario tiene acceso
-    const roleId = Number(user.roleId || user.role_id);
-
-    let orderQuery = `
-      SELECT o.id, o.pc, o.oc, o.factura, c.uuid as customer_uuid
-      FROM orders o
-      JOIN customers c ON o.customer_id = c.id
-      LEFT JOIN order_detail od ON o.id = od.order_id
-      LEFT JOIN sellers s ON s.codigo = od.vendedor
-      WHERE o.pc = ? AND o.oc = ? AND o.factura IS NULL
-    `;
-
-    const orderParams = [orderPc, orderOc];
-
-    if (roleId === 3) {
-      orderQuery += ' AND s.rut = ?';
-      orderParams.push(user.rut || user.email);
-    }
-
-    const [orderRows] = await pool.query(orderQuery, orderParams);
-    
-    if (orderRows.length === 0) {
-      return null; // Orden no encontrada
-    }
-    
-    const order = orderRows[0];
-    
-    // Si es cliente, verificar que la orden pertenece a él
-    if (user.role === 'client' && user.uuid !== order.customer_uuid) {
-      return null; // No autorizado
-    }
-    
-    // Obtener los items de la orden sin duplicados
-    const itemsQuery = `
-      SELECT DISTINCT
-        oi.id,
-        oi.order_id,
-        oi.item_id,
-        oi.descripcion,
-        oi.kg_solicitados,
-        oi.unit_price,
-        oi.volumen,
-        oi.tipo,
-        oi.mercado,
-        oi.kg_despachados,
-        oi.kg_facturados,
-        oi.fecha_etd,
-        oi.fecha_eta,
-        i.item_code,
-        i.item_name,
-        i.unidad_medida
-      FROM order_items oi
-      JOIN items i ON oi.item_id = i.id
-      JOIN orders o ON oi.order_id = o.id
-      WHERE oi.pc = ? AND o.oc = ? AND oi.factura = ''
-      ORDER BY oi.id
-    `;
-    
-    // Obtener currency, gasto adicional y customer_name por separado para evitar duplicados
-    const currencyQuery = `
-      SELECT od.currency, od.gasto_adicional_flete, c.name as customer_name 
-      FROM order_detail od
-      JOIN orders o ON od.order_id = o.id
-      JOIN customers c ON o.customer_id = c.id
-      WHERE od.order_id = ? LIMIT 1
-    `;
-    
-    const [itemRows] = await pool.query(itemsQuery, [orderPc, orderOc]);
-    const [currencyRows] = await pool.query(currencyQuery, [order.id]);
-    const currency = currencyRows[0]?.currency || 'CLP';
-    const gastoAdicional = currencyRows[0]?.gasto_adicional_flete || 0;
-    const customerName = currencyRows[0]?.customer_name || 'N/A';
-    
-    return itemRows.map(item => ({
-      id: item.id,
-      order_id: item.order_id,
-      item_id: item.item_id,
-      descripcion: item.descripcion,
-      kg_solicitados: item.kg_solicitados,
-      unit_price: item.unit_price,
-      volumen: item.volumen,
-      tipo: item.tipo,
-      mercado: item.mercado,
-      kg_despachados: item.kg_despachados,
-      kg_facturados: item.kg_facturados,
-      fecha_etd: item.fecha_etd,
-      fecha_eta: item.fecha_eta,
-      item_code: item.item_code,
-      item_name: item.item_name,
-      unidad_medida: item.unidad_medida,
-      currency: currency,
-      gasto_adicional_flete: gastoAdicional,
-      customer_name: customerName
-    }));
-    
-  } catch (error) {
-    console.error('Error getting order items without factura:', error);
-    throw error;
-  }
-};
 
 /**
  * Obtiene las órdenes que cumplen con la condición de alerta por falta de documentos.
@@ -785,487 +796,680 @@ const getOrderItemsWithoutFactura = async (orderPc, orderOc, user) => {
  * @param {number} [options.minDocuments=5] - Cantidad mínima de documentos requeridos.
  * @returns {Promise<Array>}
  */
-const getOrdersMissingDocumentsAlert = async ({ fechaAlerta, minDocuments = 5 }) => {
-  try {
-    const pool = await poolPromise;
-    const sanitizedFecha = fechaAlerta || '1970-01-01';
+  const getOrdersMissingDocumentsAlert = async ({ fechaAlerta, minDocuments = 5 }) => {
+    try {
+      const sanitizedFecha = normalizeDateInput(fechaAlerta) || '1970-01-01';
+      const sqlPool = await getSqlPoolFn();
 
-    const query = `
-        SELECT 
-          o.id,
-          o.pc,
-          o.oc,
-          c.name AS customer_name,
-          c.uuid AS customer_uuid,
-          od.fecha,
-          od.fecha_etd,
-          COALESCE(doc_counts.document_count, 0) AS document_count
-        FROM orders o
-        JOIN customers c ON o.customer_id = c.id
-        LEFT JOIN order_detail od ON o.id = od.order_id
-        LEFT JOIN (
-          SELECT order_id, COUNT(*) AS document_count
+      const request = sqlPool.request();
+      request.input('fecha', sqlModule.Date, sanitizedFecha);
+
+      const sqlResult = await request.query(`
+        SELECT
+          h.Nro AS pc,
+          h.OC AS oc,
+          h.Rut AS customer_rut,
+          c.Nombre AS customer_name,
+          h.Fecha AS fecha,
+          h.ETD_OV AS fecha_etd
+        FROM jor_imp_HDR_90_softkey h
+        LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
+        WHERE CASE
+            WHEN ISDATE(ISNULL(h.Fecha, h.Fecha_factura)) = 1
+            THEN CAST(ISNULL(h.Fecha, h.Fecha_factura) AS date)
+          END >= @fecha
+          AND ISDATE(h.ETD_OV) = 1
+          AND DATEADD(day, 5, CAST(h.ETD_OV AS date)) <= CAST(GETDATE() AS date)
+        ORDER BY CAST(h.ETD_OV AS date) ASC, h.Nro ASC
+      `);
+
+      const rows = sqlResult.recordset || [];
+      if (!rows.length) return [];
+
+      const pool = await mysqlPoolPromise;
+      const conditions = rows.map(() => '(pc = ? AND oc = ?)').join(' OR ');
+      const params = rows.flatMap((row) => [row.pc, row.oc]);
+      const [docCounts] = await pool.query(
+        `
+          SELECT pc, oc, COUNT(*) AS document_count
           FROM order_files
-          GROUP BY order_id
-        ) doc_counts ON o.id = doc_counts.order_id
-        WHERE DATE(COALESCE(od.fecha, o.fecha_factura, o.created_at)) >= ?
-          AND od.fecha_etd IS NOT NULL
-          AND DATE_ADD(DATE(od.fecha_etd), INTERVAL 5 DAY) <= CURDATE()
-          AND COALESCE(doc_counts.document_count, 0) < ?
-        ORDER BY od.fecha_etd ASC, o.pc ASC
-      `;
+          WHERE ${conditions}
+          GROUP BY pc, oc
+        `,
+        params
+      );
 
-    const [rows] = await pool.query(query, [sanitizedFecha, minDocuments]);
+      const countMap = new Map(
+        docCounts.map((row) => [`${row.pc}|${row.oc}`, Number(row.document_count || 0)])
+      );
 
-    return rows.map(row => ({
-      id: row.id,
-      pc: row.pc,
-      oc: row.oc,
-      customer_name: row.customer_name,
-      customer_uuid: row.customer_uuid,
-      fecha: row.fecha,
-      fecha_etd: row.fecha_etd,
-      document_count: row.document_count
-    }));
-  } catch (error) {
-    console.error('Error en getOrdersMissingDocumentsAlert:', error.message);
-    throw error;
-  }
-};
+      return rows
+        .map((row) => {
+          const key = `${row.pc}|${row.oc}`;
+          const documentCount = countMap.get(key) || 0;
+          return {
+            id: key,
+            pc: row.pc,
+            oc: row.oc,
+            customer_name: row.customer_name,
+            customer_uuid: row.customer_rut,
+            fecha: row.fecha,
+            fecha_etd: row.fecha_etd,
+            document_count: documentCount
+          };
+        })
+        .filter((row) => row.document_count < minDocuments);
+    } catch (error) {
+      logger.error('Error en getOrdersMissingDocumentsAlert:', error.message);
+      throw error;
+    }
+  };
 
-const getSalesDashboardData = async ({ startDate, endDate, metricType }) => {
-  const pool = await poolPromise;
-  const range = clampDateRange(startDate, endDate);
-  const today = formatDateOnly(new Date());
-  const metric = metricType === 'solicitados' ? 'solicitados' : 'facturados';
-  const kgExpr = metric === 'solicitados' ? 'COALESCE(oi.kg_solicitados, 0)' : 'COALESCE(oi.kg_facturados, 0)';
-  const amountExpr = `${kgExpr} * oi.unit_price`;
-  const orderDetailJoin = `
-    LEFT JOIN (
+  const getSalesDashboardData = async ({ startDate, endDate, metricType }) => {
+    const sqlPool = await getSqlPoolFn();
+    const range = clampDateRange(startDate, endDate);
+    const today = formatDateOnly(new Date());
+    const metric = metricType === 'solicitados' ? 'solicitados' : 'facturados';
+    const kgExpr = metric === 'solicitados'
+      ? 'ISNULL(i.Cant_ordenada, 0)'
+      : 'ISNULL(i.KilosFacturados, 0)';
+    const amountExpr = `${kgExpr} * ISNULL(i.Precio_Unit, 0)`;
+
+    const baseWhere = `
+      h.Fecha_factura IS NOT NULL
+      AND CAST(h.Fecha_factura AS date) BETWEEN @start AND @end
+      AND h.Factura IS NOT NULL
+      AND LTRIM(RTRIM(CONVERT(varchar(50), h.Factura))) <> ''
+      AND h.Factura <> 0
+      AND ${kgExpr} > 0
+    `;
+
+    const withCurrency = `${baseWhere} AND h.Job = @currency`;
+
+    const totalsQuery = `
       SELECT
-        order_id,
-        MAX(UPPER(TRIM(currency))) AS currency,
-        MAX(fecha) AS fecha_detalle
-      FROM order_detail
-      GROUP BY order_id
-    ) od ON od.order_id = o.id
-  `;
-  const dateExpr = 'DATE(o.fecha_factura)';
+        COALESCE(SUM(${amountExpr}), 0) AS total_sales,
+        COALESCE(SUM(${kgExpr}), 0) AS total_kg,
+        COUNT(DISTINCT CONCAT(h.Nro, '|', h.OC)) AS total_orders
+      FROM jor_imp_HDR_90_softkey h
+      JOIN jor_imp_item_90_softkey i
+        ON i.Nro = h.Nro AND i.Factura = h.Factura
+      WHERE ${withCurrency}
+    `;
 
-  const baseWhere = `
-    o.fecha_factura IS NOT NULL
-    AND ${dateExpr} BETWEEN ? AND ?
-    AND o.factura IS NOT NULL
-    AND o.factura <> ''
-    AND o.factura <> '0'
-    AND o.factura <> 0
-    AND ${kgExpr} > 0
-  `;
-
-  const withCurrency = `${baseWhere} AND od.currency = ?`;
-
-  const totalsQuery = `
-    SELECT
-      COALESCE(SUM(${amountExpr}), 0) AS total_sales,
-      COALESCE(SUM(${kgExpr}), 0) AS total_kg,
-      COUNT(DISTINCT o.id) AS total_orders
-    FROM orders o
-    JOIN order_items oi ON oi.order_id = o.id
-    ${orderDetailJoin}
-    WHERE ${withCurrency}
-  `;
-
-  const startOfWeek = (dateStr) => {
-    const date = new Date(`${dateStr}T00:00:00`);
-    const day = date.getDay();
-    const diff = day === 0 ? 6 : day - 1;
-    date.setDate(date.getDate() - diff);
-    return formatDateOnly(date);
-  };
-
-  const startOfMonth = (dateStr) => {
-    const date = new Date(`${dateStr}T00:00:00`);
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`;
-  };
-
-  const startOfYear = (dateStr) => {
-    const date = new Date(`${dateStr}T00:00:00`);
-    return `${date.getFullYear()}-01-01`;
-  };
-
-
-  const computeCalendarTotal = async (periodStart, currency) => {
-    const [[row]] = await pool.query(totalsQuery, [periodStart, today, currency]);
-    return Number(row?.total_sales || 0);
-  };
-
-  const buildSeries = (seriesRows, groupByMonth) => {
-    const buildSeriesKey = (value) => {
-      if (value instanceof Date) {
-        if (groupByMonth) {
-          const year = value.getFullYear();
-          const month = String(value.getMonth() + 1).padStart(2, '0');
-          return `${year}-${month}`;
-        }
-        return formatDateOnly(value);
-      }
-      return String(value);
+    const startOfWeek = (dateStr) => {
+      const date = new Date(`${dateStr}T00:00:00`);
+      const day = date.getDay();
+      const diff = day === 0 ? 6 : day - 1;
+      date.setDate(date.getDate() - diff);
+      return formatDateOnly(date);
     };
 
-    const seriesMap = new Map(
-      seriesRows.map((row) => [
-        buildSeriesKey(row.period),
-        { sales: Number(row.total_sales || 0), kg: Number(row.total_kg || 0) }
-      ])
-    );
+    const startOfMonth = (dateStr) => {
+      const date = new Date(`${dateStr}T00:00:00`);
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`;
+    };
 
-    const labels = [];
-    const sales = [];
-    const kg = [];
+    const startOfYear = (dateStr) => {
+      const date = new Date(`${dateStr}T00:00:00`);
+      return `${date.getFullYear()}-01-01`;
+    };
 
-    if (groupByMonth) {
+    const computeCalendarTotal = async (periodStart, currency) => {
+      const request = sqlPool.request();
+      request.input('start', sqlModule.Date, periodStart);
+      request.input('end', sqlModule.Date, today);
+      request.input('currency', sqlModule.VarChar, currency);
+      const result = await request.query(totalsQuery);
+      const row = result.recordset?.[0];
+      return Number(row?.total_sales || 0);
+    };
+
+    const buildSeries = (seriesRows, groupByMonth) => {
+      const seriesMap = new Map(
+        seriesRows.map((row) => [
+          String(row.period),
+          { sales: Number(row.total_sales || 0), kg: Number(row.total_kg || 0) }
+        ])
+      );
+
+      const labels = [];
+      const sales = [];
+      const kg = [];
+
+      if (groupByMonth) {
+        const start = new Date(`${range.startDate}T00:00:00`);
+        const end = new Date(`${range.endDate}T00:00:00`);
+        const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+        const endCursor = new Date(end.getFullYear(), end.getMonth(), 1);
+
+        while (cursor <= endCursor) {
+          const label = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`;
+          const entry = seriesMap.get(label) || { sales: 0, kg: 0 };
+          labels.push(label);
+          sales.push(entry.sales);
+          kg.push(entry.kg);
+          cursor.setMonth(cursor.getMonth() + 1);
+        }
+      } else {
+        const start = new Date(`${range.startDate}T00:00:00`);
+        const end = new Date(`${range.endDate}T00:00:00`);
+        const cursor = new Date(start);
+        while (cursor <= end) {
+          const label = formatDateOnly(cursor);
+          const entry = seriesMap.get(label) || { sales: 0, kg: 0 };
+          labels.push(label);
+          sales.push(entry.sales);
+          kg.push(entry.kg);
+          cursor.setDate(cursor.getDate() + 1);
+        }
+      }
+
+      return { labels, sales, kg };
+    };
+
+    const fetchCurrencyData = async (currency) => {
+      const normalizedCurrency = String(currency || '').toUpperCase();
       const start = new Date(`${range.startDate}T00:00:00`);
       const end = new Date(`${range.endDate}T00:00:00`);
-      const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
-      const endCursor = new Date(end.getFullYear(), end.getMonth(), 1);
+      const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24));
+      const groupByMonth = diffDays > 90;
+      const periodExpr = groupByMonth
+        ? "CONVERT(char(7), h.Fecha_factura, 120)"
+        : 'CAST(h.Fecha_factura AS date)';
 
-      while (cursor <= endCursor) {
-        const label = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`;
-        const entry = seriesMap.get(label) || { sales: 0, kg: 0 };
-        labels.push(label);
-        sales.push(entry.sales);
-        kg.push(entry.kg);
-        cursor.setMonth(cursor.getMonth() + 1);
-      }
-    } else {
-      const start = new Date(`${range.startDate}T00:00:00`);
-      const end = new Date(`${range.endDate}T00:00:00`);
-      const cursor = new Date(start);
-      while (cursor <= end) {
-        const label = formatDateOnly(cursor);
-        const entry = seriesMap.get(label) || { sales: 0, kg: 0 };
-        labels.push(label);
-        sales.push(entry.sales);
-        kg.push(entry.kg);
-        cursor.setDate(cursor.getDate() + 1);
-      }
-    }
+      const seriesQuery = `
+        SELECT
+          ${periodExpr} AS period,
+          COALESCE(SUM(${amountExpr}), 0) AS total_sales,
+          COALESCE(SUM(${kgExpr}), 0) AS total_kg
+        FROM jor_imp_HDR_90_softkey h
+        JOIN jor_imp_item_90_softkey i
+          ON i.Nro = h.Nro AND i.Factura = h.Factura
+        WHERE ${withCurrency}
+        GROUP BY ${periodExpr}
+        ORDER BY ${periodExpr} ASC
+      `;
 
-    return { labels, sales, kg };
-  };
+      const topProductsQuery = `
+        SELECT TOP 10
+          COALESCE(NULLIF(i.Descripcion, ''), i.Item, 'Producto') AS product_name,
+          COALESCE(SUM(${kgExpr}), 0) AS total_kg,
+          COALESCE(SUM(${amountExpr}), 0) AS total_sales
+        FROM jor_imp_HDR_90_softkey h
+        JOIN jor_imp_item_90_softkey i
+          ON i.Nro = h.Nro AND i.Factura = h.Factura
+        WHERE ${withCurrency}
+        GROUP BY COALESCE(NULLIF(i.Descripcion, ''), i.Item, 'Producto')
+        ORDER BY total_sales DESC
+      `;
 
-  const fetchCurrencyData = async (currency) => {
-    const normalizedCurrency = String(currency || '').toUpperCase();
-    const start = new Date(`${range.startDate}T00:00:00`);
-    const end = new Date(`${range.endDate}T00:00:00`);
-    const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24));
-    const groupByMonth = diffDays > 90;
-    const periodExpr = groupByMonth
-      ? "DATE_FORMAT(o.fecha_factura, '%Y-%m')"
-      : 'DATE(o.fecha_factura)';
+      const topCustomersQuery = `
+        SELECT TOP 10
+          c.Nombre AS customer_name,
+          COALESCE(SUM(${kgExpr}), 0) AS total_kg,
+          COALESCE(SUM(${amountExpr}), 0) AS total_sales
+        FROM jor_imp_HDR_90_softkey h
+        JOIN jor_imp_item_90_softkey i
+          ON i.Nro = h.Nro AND i.Factura = h.Factura
+        LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
+        WHERE ${withCurrency}
+        GROUP BY c.Nombre
+        ORDER BY total_sales DESC
+      `;
 
-    const seriesQuery = `
-      SELECT
-        ${periodExpr} AS period,
-        COALESCE(SUM(${amountExpr}), 0) AS total_sales,
-        COALESCE(SUM(${kgExpr}), 0) AS total_kg
-      FROM orders o
-      JOIN order_items oi ON oi.order_id = o.id
-      ${orderDetailJoin}
-      WHERE ${withCurrency}
-      GROUP BY period
-      ORDER BY period ASC
-    `;
+      const totalsRequest = sqlPool.request();
+      totalsRequest.input('start', sqlModule.Date, range.startDate);
+      totalsRequest.input('end', sqlModule.Date, range.endDate);
+      totalsRequest.input('currency', sqlModule.VarChar, normalizedCurrency);
+      const totalsResult = await totalsRequest.query(totalsQuery);
 
-    const topProductsQuery = `
-      SELECT
-        COALESCE(NULLIF(oi.descripcion, ''), i.item_name, i.item_code, 'Producto') AS product_name,
-        COALESCE(SUM(${kgExpr}), 0) AS total_kg,
-        COALESCE(SUM(${amountExpr}), 0) AS total_sales
-      FROM orders o
-      JOIN order_items oi ON oi.order_id = o.id
-      LEFT JOIN items i ON i.id = oi.item_id
-      ${orderDetailJoin}
-      WHERE ${withCurrency}
-      GROUP BY product_name
-      ORDER BY total_sales DESC
-      LIMIT 10
-    `;
+      const seriesRequest = sqlPool.request();
+      seriesRequest.input('start', sqlModule.Date, range.startDate);
+      seriesRequest.input('end', sqlModule.Date, range.endDate);
+      seriesRequest.input('currency', sqlModule.VarChar, normalizedCurrency);
+      const seriesResult = await seriesRequest.query(seriesQuery);
 
-    const topCustomersQuery = `
-      SELECT
-        c.name AS customer_name,
-        COALESCE(SUM(${kgExpr}), 0) AS total_kg,
-        COALESCE(SUM(${amountExpr}), 0) AS total_sales
-      FROM orders o
-      JOIN customers c ON c.id = o.customer_id
-      JOIN order_items oi ON oi.order_id = o.id
-      ${orderDetailJoin}
-      WHERE ${withCurrency}
-      GROUP BY c.id, c.name
-      ORDER BY total_sales DESC
-      LIMIT 10
-    `;
+      const productsRequest = sqlPool.request();
+      productsRequest.input('start', sqlModule.Date, range.startDate);
+      productsRequest.input('end', sqlModule.Date, range.endDate);
+      productsRequest.input('currency', sqlModule.VarChar, normalizedCurrency);
+      const productsResult = await productsRequest.query(topProductsQuery);
 
-    const [[rangeTotals], [seriesRows], [topProductsRows], [topCustomersRows]] = await Promise.all([
-      pool.query(totalsQuery, [range.startDate, range.endDate, normalizedCurrency]),
-      pool.query(seriesQuery, [range.startDate, range.endDate, normalizedCurrency]),
-      pool.query(topProductsQuery, [range.startDate, range.endDate, normalizedCurrency]),
-      pool.query(topCustomersQuery, [range.startDate, range.endDate, normalizedCurrency])
+      const customersRequest = sqlPool.request();
+      customersRequest.input('start', sqlModule.Date, range.startDate);
+      customersRequest.input('end', sqlModule.Date, range.endDate);
+      customersRequest.input('currency', sqlModule.VarChar, normalizedCurrency);
+      const customersResult = await customersRequest.query(topCustomersQuery);
+
+      const rangeTotals = totalsResult.recordset?.[0] || {};
+      const seriesRows = seriesResult.recordset || [];
+      const topProductsRows = productsResult.recordset || [];
+      const topCustomersRows = customersResult.recordset || [];
+
+      const [weeklySales, monthlySales, annualSales] = await Promise.all([
+        computeCalendarTotal(startOfWeek(today), normalizedCurrency),
+        computeCalendarTotal(startOfMonth(today), normalizedCurrency),
+        computeCalendarTotal(startOfYear(today), normalizedCurrency)
+      ]);
+
+      const series = buildSeries(seriesRows, groupByMonth);
+
+      const avgTicket = rangeTotals.total_orders ? rangeTotals.total_sales / rangeTotals.total_orders : 0;
+      const avgKg = rangeTotals.total_orders ? rangeTotals.total_kg / rangeTotals.total_orders : 0;
+
+      return {
+        currency: normalizedCurrency,
+        rangeTotals: {
+          sales: Number(rangeTotals.total_sales || 0),
+          kg: Number(rangeTotals.total_kg || 0),
+          orders: Number(rangeTotals.total_orders || 0)
+        },
+        period: {
+          weeklySales,
+          monthlySales,
+          annualSales
+        },
+        series: {
+          groupBy: groupByMonth ? 'month' : 'day',
+          labels: series.labels,
+          sales: series.sales,
+          kg: series.kg
+        },
+        summary: {
+          avgTicket,
+          avgKg
+        },
+        topProducts: topProductsRows.map((row) => ({
+          name: row.product_name || 'Producto',
+          kg: Number(row.total_kg || 0),
+          sales: Number(row.total_sales || 0)
+        })),
+        topCustomers: topCustomersRows.map((row) => ({
+          name: row.customer_name || 'Cliente',
+          kg: Number(row.total_kg || 0),
+          sales: Number(row.total_sales || 0)
+        }))
+      };
+    };
+
+    const [usdData, eurData] = await Promise.all([
+      fetchCurrencyData('USD'),
+      fetchCurrencyData('EUR')
     ]);
-
-    const seriesTotals = seriesRows.reduce(
-      (acc, row) => {
-        acc.sales += Number(row.total_sales || 0);
-        acc.kg += Number(row.total_kg || 0);
-        return acc;
-      },
-      { sales: 0, kg: 0 }
-    );
-
-    const [weeklySales, monthlySales, annualSales] = await Promise.all([
-      computeCalendarTotal(startOfWeek(today), normalizedCurrency),
-      computeCalendarTotal(startOfMonth(today), normalizedCurrency),
-      computeCalendarTotal(startOfYear(today), normalizedCurrency)
-    ]);
-
-    const series = buildSeries(seriesRows, groupByMonth);
-
-    const avgTicket = rangeTotals.total_orders ? rangeTotals.total_sales / rangeTotals.total_orders : 0;
-    const avgKg = rangeTotals.total_orders ? rangeTotals.total_kg / rangeTotals.total_orders : 0;
 
     return {
-      currency: normalizedCurrency,
-      rangeTotals: {
-        sales: Number(seriesTotals.sales || 0),
-        kg: Number(seriesTotals.kg || 0),
-        orders: Number(rangeTotals.total_orders || 0)
-      },
-      period: {
-        weeklySales,
-        monthlySales,
-        annualSales
-      },
-      series: {
-        groupBy: groupByMonth ? 'month' : 'day',
-        labels: series.labels,
-        sales: series.sales,
-        kg: series.kg
+      range,
+      today,
+      metric,
+      currencies: {
+        USD: usdData,
+        EUR: eurData
+      }
+    };
+  };
+
+  const getOrderItems = async (orderPc, orderOc, factura, user) => {
+    try {
+      const roleId = Number(user.roleId || user.role_id);
+      const sqlPool = await getSqlPoolFn();
+
+      const headerRequest = sqlPool.request();
+      headerRequest.input('pc', sqlModule.VarChar, orderPc);
+      headerRequest.input('oc', sqlModule.VarChar, normalizeOcForCompare(orderOc));
+      if (factura && factura !== 'null') {
+        headerRequest.input('factura', sqlModule.VarChar, factura);
+      }
+
+      const headerResult = await headerRequest.query(`
+        SELECT TOP 1
+          h.Nro,
+          h.OC,
+          h.Job,
+          h.Rut,
+          h.Factura,
+          h.Vendedor,
+          c.Nombre AS customer_name
+        FROM jor_imp_HDR_90_softkey h
+        LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
+        WHERE h.Nro = @pc AND UPPER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = UPPER(@oc)
+        ${factura && factura !== 'null' ? 'AND h.Factura = @factura' : ''}
+        ORDER BY CAST(h.Fecha AS date) DESC
+      `);
+
+      const headerRow = headerResult.recordset?.[0];
+      if (!headerRow) return null;
+
+      const mappedHeader = hdrMapper(headerRow);
+
+      if (user.role === 'client' &&
+          normalizeRutForCompare(mappedHeader.rut) !== normalizeRutForCompare(user.rut || user.email)) {
+        return null;
+      }
+
+      if (roleId === 3) {
+        const pool = await mysqlPoolPromise;
+        const [sellerRows] = await pool.query('SELECT codigo FROM sellers WHERE rut = ?', [user.rut || user.email]);
+        const sellerCodes = sellerRows.map((r) => r.codigo).filter(Boolean);
+        if (!sellerCodes.includes(mappedHeader.vendedor)) {
+          return null;
+        }
+      }
+
+      const itemsRequest = sqlPool.request();
+      itemsRequest.input('pc', sqlModule.VarChar, orderPc);
+      if (factura && factura !== 'null') {
+        itemsRequest.input('factura', sqlModule.VarChar, factura);
+      }
+
+      const itemsResult = await itemsRequest.query(`
+        SELECT *
+        FROM jor_imp_item_90_softkey
+        WHERE Nro = @pc
+        ${factura && factura !== 'null'
+          ? 'AND Factura = @factura'
+          : "AND (Factura IS NULL OR Factura = '' OR Factura = 0 OR Factura = '0')"}
+        ORDER BY Linea ASC
+      `);
+
+      const items = (itemsResult.recordset || []).map((row) => itemMapper(row));
+      const currency = mappedHeader.currency || '';
+      const customerName = headerRow.customer_name?.trim() || '';
+      return items.map((item) => ({
+        ...item,
+        currency,
+        customer_name: customerName
+      }));
+    } catch (error) {
+      logger.error('Error en getOrderItems:', error.message);
+      throw error;
+    }
+  };
+
+  const getOrderItemsWithoutFactura = async (orderPc, orderOc, user) => {
+    try {
+      return await getOrderItems(orderPc, orderOc, null, user);
+    } catch (error) {
+      logger.error('Error en getOrderItemsWithoutFactura:', error.message);
+      throw error;
+    }
+  };
+
+  const getClientOrderDocuments = async (orderId, customerRut) => {
+    try {
+      const key = await resolveOrderKey(orderId);
+      if (!key) return null;
+
+      const sqlPool = await getSqlPoolFn();
+      const request = sqlPool.request();
+      request.input('pc', sqlModule.VarChar, key.pc);
+      request.input('oc', sqlModule.VarChar, normalizeOcForCompare(key.oc));
+
+      const headerResult = await request.query(`
+        SELECT TOP 1
+          h.Nro,
+          h.OC,
+          h.Rut,
+          h.Factura,
+          h.Fecha_factura,
+          c.Nombre AS customer_name
+        FROM jor_imp_HDR_90_softkey h
+        LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
+        WHERE h.Nro = @pc AND UPPER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = UPPER(@oc)
+        ORDER BY CAST(h.Fecha AS date) DESC
+      `);
+
+      const headerRow = headerResult.recordset?.[0];
+      if (!headerRow) return null;
+
+      const mappedHeader = hdrMapper(headerRow);
+      if (normalizeRutForCompare(mappedHeader.rut) !== normalizeRutForCompare(customerRut)) {
+        return null;
+      }
+
+      const pool = await mysqlPoolPromise;
+      const documentsQuery = `
+        SELECT 
+          ofi.id,
+          ofi.name AS filename,
+          ofi.path AS filepath,
+          ofi.file_type AS filetype,
+          ofi.created_at,
+          ofi.updated_at,
+          CASE 
+            WHEN ofi.status_id = 1 THEN 'Por Generar'
+            WHEN ofi.status_id = 2 THEN 'Generado'
+            WHEN ofi.status_id = 3 THEN 'Enviado'
+            ELSE 'Desconocido'
+          END AS status,
+          CASE
+            WHEN ofi.status_id = 1 THEN 'red'
+            WHEN ofi.status_id = 2 THEN 'blue'
+            WHEN ofi.status_id = 3 THEN 'gray'
+            ELSE 'gray'
+          END AS statusColor
+        FROM order_files ofi
+        WHERE ofi.pc = ? AND ofi.oc = ?
+        AND ofi.is_visible_to_client = 1
+        ORDER BY ofi.created_at DESC
+      `;
+
+      const [documents] = await pool.query(documentsQuery, [mappedHeader.pc, mappedHeader.oc]);
+
+      return {
+        order: {
+          id: `${mappedHeader.pc}|${mappedHeader.oc}`,
+          orderNumber: mappedHeader.oc,
+          clientName: headerRow.customer_name
+        },
+        documents: documents.map(doc => ({
+          id: doc.id,
+          filename: doc.filename,
+          filepath: doc.filepath,
+          filetype: doc.filetype,
+          filesize: 0,
+          created: doc.created_at,
+          updated: doc.updated_at,
+          factura: mappedHeader.factura,
+          fecha_factura: mappedHeader.fecha_factura,
+          status: doc.status,
+          statusColor: doc.statusColor
+        }))
+      };
+    } catch (error) {
+      logger.error('Error en getClientOrderDocuments:', error.message);
+      throw error;
+    }
+  };
+
+  const getPriceAnalysisData = async ({ startDate, endDate, productId, customerId, market, currency }) => {
+    const sqlPool = await getSqlPoolFn();
+    const range = clampDateRange(startDate, endDate);
+    const normalizedCurrency = currency ? String(currency).trim().toUpperCase() : null;
+    const normalizedMarket = market ? String(market).trim() : null;
+    const normalizedProduct = productId ? String(productId).trim() : null;
+    const normalizedCustomer = customerId ? String(customerId).trim() : null;
+
+    const where = [
+      'h.Fecha_factura IS NOT NULL',
+      'CAST(h.Fecha_factura AS date) BETWEEN @start AND @end',
+      'h.Factura IS NOT NULL',
+      "LTRIM(RTRIM(CONVERT(varchar(50), h.Factura))) <> ''",
+      'h.Factura <> 0'
+    ];
+
+    if (normalizedProduct) {
+      where.push('i.Item = @productId');
+    }
+
+    if (normalizedCustomer) {
+      where.push('h.Rut = @customerRut');
+    }
+
+    if (normalizedMarket) {
+      where.push('i.Mercado = @market');
+    }
+
+    if (normalizedCurrency) {
+      where.push('h.Job = @currency');
+    }
+
+    const baseFrom = `
+      FROM jor_imp_HDR_90_softkey h
+      JOIN jor_imp_item_90_softkey i
+        ON i.Nro = h.Nro AND i.Factura = h.Factura
+      LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
+      WHERE ${where.join(' AND ')}
+    `;
+
+    const summaryQuery = `
+      SELECT
+        MIN(i.Precio_Unit) AS min_price,
+        MAX(i.Precio_Unit) AS max_price,
+        AVG(i.Precio_Unit) AS avg_price,
+        COALESCE(SUM(i.KilosFacturados), 0) AS total_kg,
+        COALESCE(SUM(i.KilosFacturados * i.Precio_Unit), 0) AS total_sales,
+        COUNT(*) AS total_rows,
+        COUNT(DISTINCT CONCAT(h.Nro, '|', h.OC)) AS total_orders
+      ${baseFrom}
+    `;
+
+    const rowsQuery = `
+      SELECT TOP 500
+        CONCAT(h.Nro, '|', h.OC) AS order_id,
+        h.Nro AS pc,
+        h.OC AS oc,
+        h.Factura AS factura,
+        CAST(h.Fecha_factura AS date) AS fecha,
+        c.Nombre AS customer_name,
+        i.Item AS item_id,
+        COALESCE(NULLIF(i.Descripcion, ''), i.Item, 'Producto') AS product_name,
+        i.Item AS item_code,
+        i.Mercado AS mercado,
+        i.Precio_Unit AS unit_price,
+        COALESCE(i.KilosFacturados, 0) AS kg_facturados,
+        h.Job AS currency
+      ${baseFrom}
+      ORDER BY fecha DESC, product_name ASC, customer_name ASC
+    `;
+
+    const productsQuery = `
+      SELECT DISTINCT
+        i.Item AS id,
+        COALESCE(NULLIF(i.Descripcion, ''), i.Item, 'Producto') AS name
+      ${baseFrom}
+        AND i.Item IS NOT NULL
+      ORDER BY name ASC
+    `;
+
+    const customersQuery = `
+      SELECT DISTINCT
+        h.Rut AS id,
+        c.Nombre AS name
+      ${baseFrom}
+      ORDER BY name ASC
+    `;
+
+    const marketsQuery = `
+      SELECT DISTINCT
+        i.Mercado AS name
+      ${baseFrom}
+        AND i.Mercado IS NOT NULL
+        AND i.Mercado <> ''
+      ORDER BY name ASC
+    `;
+
+    const currenciesQuery = `
+      SELECT DISTINCT
+        h.Job AS name
+      ${baseFrom}
+        AND h.Job IS NOT NULL
+        AND h.Job <> ''
+      ORDER BY name ASC
+    `;
+
+    const buildRequest = () => {
+      const request = sqlPool.request();
+      request.input('start', sqlModule.Date, range.startDate);
+      request.input('end', sqlModule.Date, range.endDate);
+      if (normalizedProduct) request.input('productId', sqlModule.VarChar, normalizedProduct);
+      if (normalizedCustomer) request.input('customerRut', sqlModule.VarChar, normalizedCustomer);
+      if (normalizedMarket) request.input('market', sqlModule.VarChar, normalizedMarket);
+      if (normalizedCurrency) request.input('currency', sqlModule.VarChar, normalizedCurrency);
+      return request;
+    };
+
+    const summaryResult = await buildRequest().query(summaryQuery);
+    const rowsResult = await buildRequest().query(rowsQuery);
+    const productsResult = await buildRequest().query(productsQuery);
+    const customersResult = await buildRequest().query(customersQuery);
+    const marketsResult = await buildRequest().query(marketsQuery);
+    const currenciesResult = await buildRequest().query(currenciesQuery);
+
+    const summary = summaryResult.recordset?.[0] || {};
+    const rows = rowsResult.recordset || [];
+    const products = productsResult.recordset || [];
+    const customers = customersResult.recordset || [];
+    const markets = marketsResult.recordset || [];
+    const currencies = currenciesResult.recordset || [];
+
+    return {
+      range,
+      filters: {
+        products: products.map((row) => ({ id: row.id, name: row.name })),
+        customers: customers.map((row) => ({ id: row.id, name: row.name })),
+        markets: markets.map((row) => row.name),
+        currencies: currencies.map((row) => row.name)
       },
       summary: {
-        avgTicket,
-        avgKg
+        minPrice: Number(summary?.min_price || 0),
+        maxPrice: Number(summary?.max_price || 0),
+        avgPrice: Number(summary?.avg_price || 0),
+        totalKg: Number(summary?.total_kg || 0),
+        totalSales: Number(summary?.total_sales || 0),
+        totalRows: Number(summary?.total_rows || 0),
+        totalOrders: Number(summary?.total_orders || 0)
       },
-      topProducts: topProductsRows.map((row) => ({
-        name: row.product_name || 'Producto',
-        kg: Number(row.total_kg || 0),
-        sales: Number(row.total_sales || 0)
-      })),
-      topCustomers: topCustomersRows.map((row) => ({
-        name: row.customer_name || 'Cliente',
-        kg: Number(row.total_kg || 0),
-        sales: Number(row.total_sales || 0)
+      rows: rows.map((row) => ({
+        orderId: row.order_id,
+        pc: row.pc,
+        oc: row.oc,
+        factura: row.factura,
+        fecha: row.fecha,
+        customer: row.customer_name,
+        itemId: row.item_id,
+        product: row.product_name,
+        itemCode: row.item_code,
+        market: row.mercado,
+        unitPrice: Number(row.unit_price || 0),
+        kgFacturados: Number(row.kg_facturados || 0),
+        currency: row.currency || ''
       }))
     };
   };
 
-  const [usdData, eurData] = await Promise.all([
-    fetchCurrencyData('USD'),
-    fetchCurrencyData('EUR')
-  ]);
-
   return {
-    range,
-    today,
-    metric,
-    currencies: {
-      USD: usdData,
-      EUR: eurData
-    }
+    getOrdersByFilters,
+    getClientDashboardOrders,
+    getClientOrderDocuments,
+    getOrderItems,
+    getOrderItemsWithoutFactura,
+    getOrderByRutAndOc,
+    getOrderById,
+    getOrderByIdSimple,
+    getOrderByPcOc,
+    getOrderByPc,
+    getOrderDetails,
+    getOrderDetail,
+    getOrdersMissingDocumentsAlert,
+    getSalesDashboardData,
+    getPriceAnalysisData
   };
 };
 
-const getPriceAnalysisData = async ({ startDate, endDate, productId, customerId, market, currency }) => {
-  const pool = await poolPromise;
-  const range = clampDateRange(startDate, endDate);
-  const normalizedCurrency = currency ? String(currency).trim().toUpperCase() : null;
-  const normalizedMarket = market ? String(market).trim() : null;
-
-  const orderDetailJoin = `
-    LEFT JOIN (
-      SELECT
-        order_id,
-        MAX(UPPER(TRIM(currency))) AS currency
-      FROM order_detail
-      GROUP BY order_id
-    ) od ON od.order_id = o.id
-  `;
-
-  const where = [
-    'o.fecha_factura IS NOT NULL',
-    "o.factura IS NOT NULL",
-    "o.factura <> ''",
-    "o.factura <> '0'",
-    'o.factura <> 0',
-    'DATE(o.fecha_factura) BETWEEN ? AND ?'
-  ];
-  const params = [range.startDate, range.endDate];
-
-  if (Number.isFinite(Number(productId))) {
-    where.push('oi.item_id = ?');
-    params.push(Number(productId));
-  }
-
-  if (Number.isFinite(Number(customerId))) {
-    where.push('c.id = ?');
-    params.push(Number(customerId));
-  }
-
-  if (normalizedMarket) {
-    where.push('oi.mercado = ?');
-    params.push(normalizedMarket);
-  }
-
-  if (normalizedCurrency) {
-    where.push('od.currency = ?');
-    params.push(normalizedCurrency);
-  }
-
-  const baseFrom = `
-    FROM orders o
-    JOIN order_items oi ON oi.order_id = o.id
-    LEFT JOIN items i ON i.id = oi.item_id
-    JOIN customers c ON c.id = o.customer_id
-    ${orderDetailJoin}
-    WHERE ${where.join(' AND ')}
-  `;
-
-  const summaryQuery = `
-    SELECT
-      MIN(oi.unit_price) AS min_price,
-      MAX(oi.unit_price) AS max_price,
-      AVG(oi.unit_price) AS avg_price,
-      COALESCE(SUM(oi.kg_facturados), 0) AS total_kg,
-      COALESCE(SUM(oi.kg_facturados * oi.unit_price), 0) AS total_sales,
-      COUNT(*) AS total_rows,
-      COUNT(DISTINCT o.id) AS total_orders
-    ${baseFrom}
-  `;
-
-  const rowsQuery = `
-    SELECT
-      o.id AS order_id,
-      o.pc,
-      o.oc,
-      o.factura,
-      DATE(o.fecha_factura) AS fecha,
-      c.name AS customer_name,
-      oi.item_id,
-      COALESCE(NULLIF(oi.descripcion, ''), i.item_name, i.item_code, 'Producto') AS product_name,
-      i.item_code,
-      oi.mercado,
-      oi.unit_price,
-      COALESCE(oi.kg_facturados, 0) AS kg_facturados,
-      od.currency AS currency
-    ${baseFrom}
-    ORDER BY fecha DESC, product_name ASC, customer_name ASC
-    LIMIT 500
-  `;
-
-  const productsQuery = `
-    SELECT DISTINCT
-      oi.item_id AS id,
-      COALESCE(NULLIF(oi.descripcion, ''), i.item_name, i.item_code, 'Producto') AS name
-    ${baseFrom}
-      AND oi.item_id IS NOT NULL
-    ORDER BY name ASC
-  `;
-
-  const customersQuery = `
-    SELECT DISTINCT
-      c.id AS id,
-      c.name AS name
-    ${baseFrom}
-    ORDER BY name ASC
-  `;
-
-  const marketsQuery = `
-    SELECT DISTINCT
-      oi.mercado AS name
-    ${baseFrom}
-      AND oi.mercado IS NOT NULL
-      AND oi.mercado <> ''
-    ORDER BY name ASC
-  `;
-
-  const currenciesQuery = `
-    SELECT DISTINCT
-      od.currency AS name
-    ${baseFrom}
-      AND od.currency IS NOT NULL
-      AND od.currency <> ''
-    ORDER BY name ASC
-  `;
-
-  const [[summary], [rows], [products], [customers], [markets], [currencies]] = await Promise.all([
-    pool.query(summaryQuery, params),
-    pool.query(rowsQuery, params),
-    pool.query(productsQuery, params),
-    pool.query(customersQuery, params),
-    pool.query(marketsQuery, params),
-    pool.query(currenciesQuery, params)
-  ]);
-
-  return {
-    range,
-    filters: {
-      products: products.map((row) => ({ id: row.id, name: row.name })),
-      customers: customers.map((row) => ({ id: row.id, name: row.name })),
-      markets: markets.map((row) => row.name),
-      currencies: currencies.map((row) => row.name)
-    },
-    summary: {
-      minPrice: Number(summary?.min_price || 0),
-      maxPrice: Number(summary?.max_price || 0),
-      avgPrice: Number(summary?.avg_price || 0),
-      totalKg: Number(summary?.total_kg || 0),
-      totalSales: Number(summary?.total_sales || 0),
-      totalRows: Number(summary?.total_rows || 0),
-      totalOrders: Number(summary?.total_orders || 0)
-    },
-    rows: rows.map((row) => ({
-      orderId: row.order_id,
-      pc: row.pc,
-      oc: row.oc,
-      factura: row.factura,
-      fecha: row.fecha,
-      customer: row.customer_name,
-      itemId: row.item_id,
-      product: row.product_name,
-      itemCode: row.item_code,
-      market: row.mercado,
-      unitPrice: Number(row.unit_price || 0),
-      kgFacturados: Number(row.kg_facturados || 0),
-      currency: row.currency || ''
-    }))
-  };
-};
+const defaultOrderService = createOrderService();
 
 module.exports = {
-  getOrdersByFilters,
-  getClientDashboardOrders,
-  getClientOrderDocuments,
-  insertOrder,
-  getOrderIdByPc,
-  getOrderIdByPcOnly,
-  getOrderItems,
-  getOrderItemsWithoutFactura,
-  getOrderByRutAndOc,
-  getOrderById,
-  getOrderByIdSimple,
-  getOrderDetails,
-  getOrderDetail,
-  getOrdersMissingDocumentsAlert,
-  getSalesDashboardData,
-  getPriceAnalysisData
+  ...defaultOrderService,
+  createOrderService
 };

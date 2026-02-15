@@ -6,7 +6,7 @@ const { authorizeRoles } = require('../middleware/role.middleware');
 
 /**
  * @swagger
- * /api/directories/{customerUuid}:
+ * /api/directories/{customerRut}:
  *   get:
  *     summary: Lista los directorios de un cliente
  *     tags: [Directorios]
@@ -14,11 +14,11 @@ const { authorizeRoles } = require('../middleware/role.middleware');
  *       - bearerAuth: []
  *     parameters:
  *       - in: path
- *         name: customerId
+ *         name: customerRut
  *         required: true
  *         schema:
  *           type: string
- *         description: UUID del cliente
+ *         description: RUT del cliente
  *     responses:
  *       200:
  *         description: Directorios listados correctamente
@@ -27,7 +27,7 @@ const { authorizeRoles } = require('../middleware/role.middleware');
  *       404:
  *         description: Cliente no encontrado
  */
-router.get('/:customerUuid', authMiddleware, authorizeRoles(['admin']), controller.getClientDirectories);
+router.get('/:customerRut', authMiddleware, authorizeRoles(['admin']), controller.getClientDirectories);
 
 /**
  * @swagger

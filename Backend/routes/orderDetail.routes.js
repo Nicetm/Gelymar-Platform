@@ -10,6 +10,5 @@ router.use(authMiddleware);
 router.get('/:orderId', orderDetailController.getOrderDetail);
 
 // POST /api/order-detail/:orderId - Crear detalles de una orden
-router.post('/:orderId', orderDetailController.createOrderDetail);
 
 module.exports = router; 

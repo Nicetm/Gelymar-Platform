@@ -3,7 +3,7 @@ import LayoutSidebarClient from '../../../app/LayoutSidebarClient.astro';
 import AuthGuard from '../../../components/AuthGuard.astro';
 import OrdersGrid from '../../../modules/client/OrderGrid.astro';
 import EmailModal from '../../../modules/client/EmailModal.astro';
-import { loadTranslations, getServerLang } from '../../../lib/i18n.js';
+import { loadTranslations, getServerLang } from '@lib/i18n.js';
 
 // Validación de rol en el servidor
 import { validateRole } from '../../../lib/auth.js';
@@ -13,36 +13,22 @@ if (redirect) return redirect;
 // Configuración de API
 const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
 const fileServer = import.meta.env.PUBLIC_FILE_SERVER;
-const token = Astro.cookies.get('token')?.value;
 
 let orders = [];
 const lang = getServerLang(Astro.cookies) || 'es';
 let translations = {};
-
-try {
-  const response = await fetch(`${apiBase}/api/orders/client/dashboard`, {
-    headers: { 
-      'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` })
-    }
-  });
-
-  if (response.ok) {
-    orders = await response.json();
-  }
-} catch (error) {
-  console.error('API Error:', error instanceof Error ? error.message : String(error));
-  orders = [];
-}
+let t = {};
 
 try {
   translations = {
     documentos: await loadTranslations(lang, 'documentos'),
     carpetas: await loadTranslations(lang, 'carpetas'),
   };
+  t = translations.documentos || {};
 } catch (error) {
   console.warn('Error cargando traducciones de documentos:', error);
   translations = {};
+  t = {};
 }
 ---
 
@@ -59,14 +45,15 @@ try {
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
         </div>
-        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Cargando órdenes...</h3>
-        <p class="text-sm text-gray-600 dark:text-gray-400">Obteniendo información de la base de datos</p>
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">{t.loadingOrders}</h3>
+        <p class="text-sm text-gray-600 dark:text-gray-400">{t.loadingOrdersSubtitle}</p>
       </div>
       
       <!-- Selector de órdenes -->
       <div id="orders-section" class="hidden">
         <OrdersGrid {orders} />
       </div>
+
     </div>
   </div>
 
@@ -78,7 +65,7 @@ try {
     window.apiBase = apiBase || 'http://localhost:3000';
     window.fileServer = fileServer || 'http://localhost:8080';
     window.orders = orders || [];
-    window.translations = translations || {};
+    window.translations = { ...(window.translations || {}), ...(translations || {}) };
     window.lang = lang || 'es';
   </script>
 

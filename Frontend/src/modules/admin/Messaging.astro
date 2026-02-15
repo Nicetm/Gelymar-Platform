@@ -1,5 +1,5 @@
 ---
-import { loadTranslations, getServerLang } from '../../lib/i18n.js';
+import { loadTranslations, getServerLang } from '@lib/i18n.js';
 
 const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
 const apiPublic = import.meta.env.PUBLIC_API_URL;
@@ -161,7 +161,7 @@ const listLabels = {
   <div class="mt-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-6 text-sm">
     <div class="flex items-center gap-3">
       <label for="messagingItemsPerPage" class="text-sm font-medium text-gray-700 dark:text-gray-300">
-        {listLabels.perPage || 'Por página'}
+        {listLabels.perPage}
       </label>
       <div class="relative">
         <select

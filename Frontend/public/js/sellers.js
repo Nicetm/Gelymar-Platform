@@ -104,10 +104,11 @@ export async function initSellersScript() {
     });
   }
 
+  const getMessage = (value) => (typeof value === 'string' ? value : '');
   const t = {
-    noResults: vendedores.noResults || 'No se encontraron resultados',
-    loading: vendedores.loading || 'Cargando...',
-    error: vendedores.error || 'Error al cargar vendedores',
+    noResults: getMessage(vendedores.noResults),
+    loading: getMessage(vendedores.loading),
+    error: getMessage(vendedores.error),
   };
 
   function renderSellerRow(seller) {
@@ -126,7 +127,7 @@ export async function initSellersScript() {
           : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
       }">
         <span class="w-2 h-2 rounded-full ${online ? 'bg-green-500' : 'bg-gray-400'}"></span>
-        ${online ? vendedores.status_online || 'En línea' : vendedores.status_offline || 'Desconectado'}
+        ${online ? getMessage(vendedores.status_online) : getMessage(vendedores.status_offline)}
       </span>
     `;
 

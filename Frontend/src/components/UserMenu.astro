@@ -1,12 +1,18 @@
 ---
-import { loadTranslations } from '../lib/i18n.js';
+import { loadTranslations, getServerLang } from '@lib/i18n.js';
 
-import { PUBLIC_LANG, PUBLIC_API_URL, FILE_SERVER_URL } from '../app/constants.ts';
+import { PUBLIC_API_URL, FILE_SERVER_URL } from '../app/constants.ts';
 
-const lang = PUBLIC_LANG;
-const t: any = {
-  usermenu: await loadTranslations(lang, 'usermenu'),
-};
+const lang = getServerLang(Astro.cookies);
+let t: any = {};
+try {
+  t = {
+    usermenu: await loadTranslations(lang, 'usermenu'),
+  };
+} catch (error) {
+  console.warn('Error cargando traducciones (UserMenu):', error);
+  t = {};
+}
 
 const apiBase = PUBLIC_API_URL;       
 const fileServer = FILE_SERVER_URL; 
@@ -18,7 +24,12 @@ let user = null;
 
 
 if (!user) {
-  user = { full_name: 'User', rut: '00.000.000-0', role: 'guest', avatar: '' };
+  user = {
+    full_name: t?.usermenu?.default_user_name,
+    rut: t?.usermenu?.default_user_rut,
+    role: t?.usermenu?.default_user_role,
+    avatar: ''
+  };
 }
 
 const avatarUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.full_name)}&backgroundColor=4b5563&fontColor=ffffff`;
@@ -35,9 +46,9 @@ const avatarUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURICom
     <span class="sr-only">{t.usermenu.open_menu}</span>
     <img
       id="userAvatar"
-      class="w-8 h-8 rounded-full border border-gray-300 dark:border-gray-600"
+      class="w-8 h-8 rounded-full"
       src={avatarUrl}
-      alt="user photo"
+      alt={t?.usermenu?.avatar_alt}
     />
     <svg class="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
@@ -80,8 +91,9 @@ const avatarUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURICom
 
 <script
   type="module"
-  define:vars={{ apiBase, fileServer, lang }}
+  define:vars={{ apiBase, fileServer, lang, t }}
 >
   import { initUserMenu } from '/js/user-menu.js';
+  window.translations = { ...(window.translations || {}), ...t };
   initUserMenu({ apiBase, fileServer, lang });
 </script>

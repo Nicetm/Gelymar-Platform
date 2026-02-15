@@ -39,13 +39,13 @@ function removeOldBackups(backupDir, keepFile) {
 }
 
 async function runBackup() {
-  const dbHost = process.env.DB_HOST;
-  const dbUser = process.env.DB_USER;
-  const dbPass = process.env.DB_PASS;
-  const dbName = process.env.DB_NAME;
+  const dbHost = process.env.MYSQL_DB_HOST;
+  const dbUser = process.env.MYSQL_DB_USER;
+  const dbPass = process.env.MYSQL_DB_PASS;
+  const dbName = process.env.MYSQL_DB_NAME;
 
   if (!dbHost || !dbUser || !dbPass || !dbName) {
-    throw new Error('Missing DB_HOST/DB_USER/DB_PASS/DB_NAME env vars');
+    throw new Error('Missing MYSQL_DB_HOST/MYSQL_DB_USER/MYSQL_DB_PASS/MYSQL_DB_NAME env vars');
   }
 
   const backupDir = getBackupDir();

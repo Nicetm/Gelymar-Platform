@@ -1,14 +1,14 @@
 class CustomerContact {
     constructor({
       id,
-      customer_id,
+      rut,
       name,
       email,
       phone,
       role
     }) {
       this.id = id;
-      this.customer_id = customer_id;
+      this.rut = rut;
       this.name = name;
       this.email = email;
       this.phone = phone;

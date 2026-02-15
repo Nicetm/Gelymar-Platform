@@ -5,6 +5,7 @@ const MESSAGE_TYPES = {
 };
 
 const DEFAULT_LIMIT = 10;
+const getLabel = (value) => (typeof value === 'string' ? value : '');
 
 function escapeHtml(value) {
   if (value === null || value === undefined) return '';
@@ -51,9 +52,10 @@ function getOrderPc(item) {
   return null;
 }
 
-function buildPcLink(orderPc) {
+function buildPcLink(orderPc, label) {
   const safePc = escapeHtml(orderPc);
-  return `<a href="/admin/orders" class="orders-link text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline font-semibold" data-search="${safePc}">PC ${safePc}</a>`;
+  const labelText = escapeHtml(label);
+  return `<a href="/admin/orders" class="orders-link text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline font-semibold" data-search="${safePc}">${labelText} ${safePc}</a>`;
 }
 
 function getOrderOc(item) {
@@ -86,9 +88,10 @@ function getOrderOc(item) {
   return null;
 }
 
-function buildOcLink(orderOc) {
+function buildOcLink(orderOc, label) {
   const safeOc = escapeHtml(orderOc);
-  return `<a href="/admin/orders" class="orders-link text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline" data-search="${safeOc}">OC ${safeOc}</a>`;
+  const labelText = escapeHtml(label);
+  return `<a href="/admin/orders" class="orders-link text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline" data-search="${safeOc}">${labelText} ${safeOc}</a>`;
 }
 
 function buildClientLink(value, label = null, extraClasses = 'font-semibold') {
@@ -211,13 +214,13 @@ function formatStatus(item, labels) {
   if (status === 'done') {
     return `<span class="${baseClasses} bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
       <i data-lucide="check" class="w-3 h-3"></i>
-      ${escapeHtml(labels.done || 'Completado')}
+      ${escapeHtml(getLabel(labels.done))}
     </span>`;
   }
 
   return `<span class="${baseClasses} bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200">
     <i data-lucide="clock" class="w-3 h-3"></i>
-    ${escapeHtml(labels.pending || 'Pendiente')}
+    ${escapeHtml(getLabel(labels.pending))}
   </span>`;
 }
 
@@ -245,14 +248,14 @@ function renderPagination(container, pagination, state, labels) {
   };
 
   const prevButton = buildButton(
-    labels.pagination?.prev || 'Anterior',
+    getLabel(labels.pagination?.prev),
     Math.max(page - 1, 1),
     page === 1,
     'M15 19l-7-7 7-7'
   );
 
   const nextButton = buildButton(
-    labels.pagination?.next || 'Siguiente',
+    getLabel(labels.pagination?.next),
     Math.min(page + 1, totalPages),
     page === totalPages,
     'M9 5l7 7-7 7'
@@ -284,9 +287,9 @@ function buildMessagesRow(item, labels, lang) {
   const subtitle =
     unread > 0
       ? `<span class="text-xs font-semibold text-orange-600 dark:text-orange-300">${unread} ${
-          labels.unreadSuffix || 'sin leer'
+          getLabel(labels.unreadSuffix)
         }</span>`
-      : `<span class="text-xs text-gray-400 dark:text-gray-500">${labels.read || 'Sin pendientes'}</span>`;
+      : `<span class="text-xs text-gray-400 dark:text-gray-500">${getLabel(labels.read)}</span>`;
 
   return `
     <tr class="transition-colors hover:bg-gray-50 dark:hover:bg-gray-800">
@@ -310,8 +313,8 @@ function buildMessagesRow(item, labels, lang) {
           class="message-view-button inline-flex items-center justify-center text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-300 transition"
           data-id="${escapeHtml(item.id)}"
           data-type="${escapeHtml(item.type)}"
-          title="${escapeHtml(labels.viewAction || 'Ver detalle')}"
-          aria-label="${escapeHtml(labels.viewAction || 'Ver detalle')}"
+          title="${escapeHtml(getLabel(labels.viewAction))}"
+          aria-label="${escapeHtml(getLabel(labels.viewAction))}"
         >
           <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -327,17 +330,18 @@ function buildOrdersRow(item, labels, lang) {
   const docCount = `${item.documentCount ?? 0}/${item.minDocuments ?? 5}`;
   const orderPc = getOrderPc(item);
   const orderOc = getOrderOc(item);
+  const orderPcLabel = getLabel(labels.orderPc);
+  const orderOcLabel = getLabel(labels.orderOc);
 
   const replacements = [];
-  if (orderPc) replacements.push({ label: 'PC', value: orderPc, link: buildPcLink(orderPc) });
-  if (orderOc) replacements.push({ label: 'OC', value: orderOc, link: buildOcLink(orderOc) });
+  if (orderPc) replacements.push({ label: orderPcLabel, value: orderPc, link: buildPcLink(orderPc, orderPcLabel) });
+  if (orderOc) replacements.push({ label: orderOcLabel, value: orderOc, link: buildOcLink(orderOc, orderOcLabel) });
 
   const { html: linkedTitle, matchedLabels } = replaceLabelsWithLinks(item.title || '', replacements);
   const titleContent = linkedTitle || escapeHtml(item.title || '-');
 
-  const docsLabel = labels.docsLabel
-    ? labels.docsLabel.replace('{count}', docCount)
-    : `Documentos cargados: ${docCount}`;
+  const docsLabelTemplate = getLabel(labels.docsLabel);
+  const docsLabel = docsLabelTemplate.replace('{count}', docCount);
 
   const relatedNameContent =
     relatedName && relatedName !== '-'
@@ -348,7 +352,7 @@ function buildOrdersRow(item, labels, lang) {
     orderOc && matchedLabels.has('OC')
       ? ''
       : orderOc
-      ? buildOcLink(orderOc)
+      ? buildOcLink(orderOc, orderOcLabel)
       : escapeHtml(item.related?.oc || '');
 
   return `
@@ -374,8 +378,8 @@ function buildOrdersRow(item, labels, lang) {
           class="message-view-button inline-flex items-center justify-center text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-300 transition"
           data-id="${escapeHtml(item.id)}"
           data-type="${escapeHtml(item.type)}"
-          title="${escapeHtml(labels.viewAction || 'Ver detalle')}"
-          aria-label="${escapeHtml(labels.viewAction || 'Ver detalle')}"
+          title="${escapeHtml(getLabel(labels.viewAction))}"
+          aria-label="${escapeHtml(getLabel(labels.viewAction))}"
         >
           <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -413,8 +417,8 @@ function buildCustomersRow(item, labels, lang) {
           class="message-view-button inline-flex items-center justify-center text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-300 transition"
           data-id="${escapeHtml(item.id)}"
           data-type="${escapeHtml(item.type)}"
-          title="${escapeHtml(labels.viewAction || 'Ver detalle')}"
-          aria-label="${escapeHtml(labels.viewAction || 'Ver detalle')}"
+          title="${escapeHtml(getLabel(labels.viewAction))}"
+          aria-label="${escapeHtml(getLabel(labels.viewAction))}"
         >
           <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -547,7 +551,7 @@ async function loadMessages(state, { apiBase, labels, lang }) {
       tbody.innerHTML = `
         <tr>
           <td colspan="5" class="px-6 py-8 text-center text-red-500 dark:text-red-300">
-            ${escapeHtml(labels.error || 'No fue posible cargar la información')}
+            ${escapeHtml(getLabel(labels.error))}
           </td>
         </tr>
       `;
@@ -704,7 +708,7 @@ function renderDetailHeader(detail, labels, lang) {
   const subtitleEl = document.getElementById('messageDetailSubtitle');
 
   if (!detail?.item) {
-    if (titleEl) titleEl.textContent = labels.missingData || 'Sin datos disponibles';
+    if (titleEl) titleEl.textContent = getLabel(labels.missingData);
     return;
   }
 
@@ -737,7 +741,7 @@ function renderDetailMeta(detail, labels, lang) {
 
   if (!detail?.item) {
     container.innerHTML = `<p class="text-gray-400 dark:text-gray-500">${escapeHtml(
-      labels.missingData || 'Sin información'
+      getLabel(labels.missingData)
     )}</p>`;
     return;
   }
@@ -746,17 +750,17 @@ function renderDetailMeta(detail, labels, lang) {
 
   if (detail.item.type === MESSAGE_TYPES.MESSAGES && detail.customer) {
     rows.push(
-      `<p><span class="font-semibold">${escapeHtml(labels.customerName || 'Cliente')}:</span> ${escapeHtml(
+      `<p><span class="font-semibold">${escapeHtml(getLabel(labels.customerName))}:</span> ${escapeHtml(
         detail.customer.name || '-'
       )}</p>`
     );
     rows.push(
-      `<p><span class="font-semibold">${escapeHtml(labels.customerRut || 'RUT')}:</span> ${escapeHtml(
+      `<p><span class="font-semibold">${escapeHtml(getLabel(labels.customerRut))}:</span> ${escapeHtml(
         detail.customer.rut || '-'
       )}</p>`
     );
     rows.push(
-      `<p><span class="font-semibold">${escapeHtml(labels.unreadCount || 'Pendientes')}:</span> ${
+      `<p><span class="font-semibold">${escapeHtml(getLabel(labels.unreadCount))}:</span> ${
         detail.item.unreadCount ?? 0
       }</p>`
     );
@@ -771,33 +775,33 @@ function renderDetailMeta(detail, labels, lang) {
       null;
 
     rows.push(
-      `<p><span class="font-semibold">${escapeHtml(labels.orderPc || 'PC')}:</span> ${escapeHtml(
+      `<p><span class="font-semibold">${escapeHtml(getLabel(labels.orderPc))}:</span> ${escapeHtml(
         detail.order.pc || '-'
       )}</p>`
     );
     rows.push(
-      `<p><span class="font-semibold">${escapeHtml(labels.orderOc || 'OC')}:</span> ${escapeHtml(
+      `<p><span class="font-semibold">${escapeHtml(getLabel(labels.orderOc))}:</span> ${escapeHtml(
         detail.order.oc || '-'
       )}</p>`
     );
     rows.push(
-      `<p><span class="font-semibold">${escapeHtml(labels.etd || 'ETD')}:</span> ${formatDate(etdValue, lang)}</p>`
+      `<p><span class="font-semibold">${escapeHtml(getLabel(labels.etd))}:</span> ${formatDate(etdValue, lang)}</p>`
     );
   }
 
   if (detail.item.type === MESSAGE_TYPES.CUSTOMERS && detail.customer) {
     rows.push(
-      `<p><span class="font-semibold">${escapeHtml(labels.customerName || 'Cliente')}:</span> ${escapeHtml(
+      `<p><span class="font-semibold">${escapeHtml(getLabel(labels.customerName))}:</span> ${escapeHtml(
         detail.customer.name || '-'
       )}</p>`
     );
     rows.push(
-      `<p><span class="font-semibold">${escapeHtml(labels.customerRut || 'RUT')}:</span> ${escapeHtml(
+      `<p><span class="font-semibold">${escapeHtml(getLabel(labels.customerRut))}:</span> ${escapeHtml(
         detail.customer.rut || '-'
       )}</p>`
     );
     rows.push(
-      `<p><span class="font-semibold">${escapeHtml(labels.createdAt || 'Creado')}:</span> ${formatDate(
+      `<p><span class="font-semibold">${escapeHtml(getLabel(labels.createdAt))}:</span> ${formatDate(
         detail.customer.created_at,
         lang
       )}</p>`
@@ -822,18 +826,18 @@ function renderDetailSidebar(detail, labels, lang) {
 
       docsContainer.innerHTML = `
         <ul class="list-disc list-inside space-y-2">
-          <li><strong>${escapeHtml(labels.docsCurrent || 'Documentos cargados')}:</strong> ${
+          <li><strong>${escapeHtml(getLabel(labels.docsCurrent))}:</strong> ${
             detail.item.documentCount ?? 0
           }</li>
-          <li><strong>${escapeHtml(labels.docsRequired || 'Documentos requeridos')}:</strong> ${
+          <li><strong>${escapeHtml(getLabel(labels.docsRequired))}:</strong> ${
             detail.item.minDocuments ?? 5
           }</li>
-          <li><strong>${escapeHtml(labels.etd || 'ETD')}:</strong> ${formatDate(etdValue, lang)}</li>
+          <li><strong>${escapeHtml(getLabel(labels.etd))}:</strong> ${formatDate(etdValue, lang)}</li>
         </ul>
       `;
     } else {
       docsContainer.innerHTML = `<p class="text-gray-400 dark:text-gray-500">${escapeHtml(
-        labels.missingData || 'No disponible'
+        getLabel(labels.missingData)
       )}</p>`;
     }
   }
@@ -843,16 +847,16 @@ function renderDetailSidebar(detail, labels, lang) {
     if (customer) {
       customerContainer.innerHTML = `
         <div class="space-y-2">
-          <p><strong>${escapeHtml(labels.customerName || 'Cliente')}:</strong> ${escapeHtml(
+          <p><strong>${escapeHtml(getLabel(labels.customerName))}:</strong> ${escapeHtml(
             customer.name || '-'
           )}</p>
-          <p><strong>${escapeHtml(labels.customerRut || 'RUT')}:</strong> ${escapeHtml(
+          <p><strong>${escapeHtml(getLabel(labels.customerRut))}:</strong> ${escapeHtml(
             customer.rut || '-'
           )}</p>
-          <p><strong>${escapeHtml(labels.customerEmail || 'Email')}:</strong> ${escapeHtml(
+          <p><strong>${escapeHtml(getLabel(labels.customerEmail))}:</strong> ${escapeHtml(
             customer.email || '-'
           )}</p>
-          <p><strong>${escapeHtml(labels.createdAt || 'Creado')}:</strong> ${formatDate(
+          <p><strong>${escapeHtml(getLabel(labels.createdAt))}:</strong> ${formatDate(
             customer.created_at,
             lang
           )}</p>
@@ -860,7 +864,7 @@ function renderDetailSidebar(detail, labels, lang) {
       `;
     } else {
       customerContainer.innerHTML = `<p class="text-gray-400 dark:text-gray-500">${escapeHtml(
-        labels.missingData || 'No disponible'
+        getLabel(labels.missingData)
       )}</p>`;
     }
   }
@@ -892,3 +896,4 @@ export async function initMessagingDetail(config = {}) {
     console.error('Error cargando detalle de mensaje:', error.message);
   }
 }
+

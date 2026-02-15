@@ -250,6 +250,7 @@ export function initSignIn(config = {}) {
     const originalBtnHtml = submitBtn ? submitBtn.innerHTML : '';
     if (submitBtn) {
       submitBtn.disabled = true;
+      submitBtn.classList.add('inline-flex', 'items-center', 'justify-center', 'gap-2');
       submitBtn.innerHTML = `
         <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -507,11 +508,12 @@ export function initSignIn(config = {}) {
       msg.classList.remove('hidden');
       msg.classList.add('text-red-500');
     } finally {
-      if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = originalBtnHtml || originalBtnText;
-        submitBtn.classList.remove('opacity-70', 'cursor-not-allowed');
-      }
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = originalBtnHtml || originalBtnText;
+      submitBtn.classList.remove('inline-flex', 'items-center', 'justify-center', 'gap-2');
+      submitBtn.classList.remove('opacity-70', 'cursor-not-allowed');
+    }
       if (recaptchaSiteKey && window.grecaptcha && typeof window.grecaptcha.reset === 'function') {
         window.grecaptcha.reset();
       }

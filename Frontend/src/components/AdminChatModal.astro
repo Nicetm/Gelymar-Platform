@@ -1,6 +1,6 @@
 ---
 // Modal de chat para el admin
-import { loadTranslations, getServerLang } from '../lib/i18n.js';
+import { loadTranslations, getServerLang } from '@lib/i18n.js';
 
 const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
 const apiPublic = import.meta.env.PUBLIC_API_URL;
@@ -20,9 +20,9 @@ try {
 ---
 
 <div id="admin-chat-modal" class="fixed bottom-6 right-6 z-50 hidden">
-  <div class="w-96 h-[500px] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col">
+  <div id="admin-chat-panel" class="w-96 h-[500px] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden">
       <!-- Header -->
-      <div class="bg-gray-50 dark:bg-gray-700 rounded-t-2xl px-4 py-3 flex items-center justify-between border-b border-gray-200 dark:border-gray-600">
+      <div id="admin-chat-header" class="bg-gray-50 dark:bg-gray-700 rounded-t-2xl px-4 py-3 flex items-center justify-between border-b border-gray-200 dark:border-gray-600">
         <div class="flex items-center space-x-3">
           <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
             <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -33,21 +33,28 @@ try {
             <div id="admin-chat-customer-name" class="font-semibold text-sm text-gray-900 dark:text-white"></div>
             <div id="admin-chat-customer-company" class="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
               <span class="inline-block w-2 h-2 rounded-full bg-gray-400"></span>
-              <span>{t.messages?.chat?.offline || "Off line"}</span>
+              <span>{t.messages?.chat?.offline}</span>
             </div>
           </div>
         </div>
-        <button id="admin-chat-close" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-          </svg>
-        </button>
+        <div class="flex items-center gap-2">
+          <button id="admin-chat-minimize" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" aria-label={t.messages?.chat?.minimize_chat}>
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 12h12"></path>
+            </svg>
+          </button>
+          <button id="admin-chat-close" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" aria-label={t.messages?.chat?.close_chat}>
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
       </div>
       
       <!-- Messages area -->
       <div id="admin-chat-messages" class="flex-1 p-4 overflow-y-auto space-y-3">
         <div class="text-center text-gray-500 dark:text-gray-400">
-          <p>{t.messages?.chat?.select_client || "Selecciona un cliente para comenzar el chat"}</p>
+          <p>{t.messages?.chat?.select_client}</p>
         </div>
       </div>
       
@@ -57,7 +64,7 @@ try {
           <input 
             id="admin-chat-input" 
             type="text" 
-            placeholder={t.messages?.chat?.write_message || "Escribe tu mensaje..."} 
+            placeholder={t.messages?.chat?.write_message} 
             class="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
           <input id="admin-chat-image-input" type="file" accept="image/png,image/jpeg" class="hidden">
@@ -65,7 +72,7 @@ try {
             id="admin-chat-image-btn"
             type="button"
             class="px-2 py-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors hidden"
-            title="Adjuntar imagen"
+            title={t.messages?.chat?.attach_image}
           >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21.44 11.05l-8.49 8.49a5.5 5.5 0 01-7.78-7.78l9.19-9.19a3.5 3.5 0 014.95 4.95l-9.19 9.19a1.5 1.5 0 01-2.12-2.12l8.49-8.49"/>
@@ -75,7 +82,7 @@ try {
             id="admin-emoji-btn"
             type="button"
             class="px-2 py-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
-            title="Add emoji"
+            title={t.messages?.chat?.add_emoji}
           >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -104,13 +111,17 @@ try {
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
       </svg>
     </button>
-    <img id="admin-chat-image-modal-img" alt="Imagen adjunta" class="w-full h-auto rounded-lg shadow-lg bg-white" />
+    <img id="admin-chat-image-modal-img" alt={t.messages?.chat?.image_alt} class="w-full h-auto rounded-lg shadow-lg bg-white" />
   </div>
 </div>
 
 <script is:inline define:vars={{ apiPublic, apiBase, fileServerUrl, lang, t }}>
   window.apiBase = apiPublic;
   window.fileServerUrl = fileServerUrl;
+  window.translations = { ...(window.translations || {}), ...t };
+
+  const chatTexts = t?.messages?.chat || {};
+  const getMessage = (value) => (typeof value === 'string' ? value : '');
   
   // Socket.io service (inline)
   class SocketService {
@@ -126,7 +137,7 @@ try {
         return this.socket;
       }
 
-      const apiBase = window.apiBase || 'http://localhost:3000';
+      const apiBase = window.apiBase || apiPublic || '';
       
       this.socket = io(apiBase, {
         auth: { token },
@@ -191,6 +202,9 @@ try {
   const chatImageBtn = document.getElementById('admin-chat-image-btn');
   const sendButton = document.getElementById('admin-chat-send');
   const closeButton = document.getElementById('admin-chat-close');
+  const minimizeButton = document.getElementById('admin-chat-minimize');
+  const chatPanel = document.getElementById('admin-chat-panel');
+  const chatHeader = document.getElementById('admin-chat-header');
   const imageModal = document.getElementById('admin-chat-image-modal');
   const imageModalImg = document.getElementById('admin-chat-image-modal-img');
   const imageModalClose = document.getElementById('admin-chat-image-modal-close');
@@ -233,6 +247,21 @@ try {
   }
 
   let currentCustomerOnline = null;
+  let isMinimized = false;
+
+  function setAdminChatMinimized(shouldMinimize) {
+    if (!chatPanel) return;
+    isMinimized = shouldMinimize;
+    chatPanel.classList.toggle('chat-minimized', shouldMinimize);
+    if (minimizeButton) {
+      const minimizeIcon = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 12h12"></path></svg>`;
+      const restoreIcon = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 8h12M6 16h12"></path></svg>`;
+      minimizeButton.setAttribute('aria-pressed', shouldMinimize ? 'true' : 'false');
+      minimizeButton.innerHTML = shouldMinimize ? restoreIcon : minimizeIcon;
+    }
+  }
+
+
 
   function updateCustomerPresence(isOnline) {
     if (!customerCompany) return;
@@ -338,6 +367,7 @@ try {
     chatInput.value = '';
     stopCustomerStatusPolling();
     updateCustomerPresence(false);
+    setAdminChatMinimized(false);
   }
 
   // Agregar mensaje al chat
@@ -569,7 +599,7 @@ try {
       }
       
       // Mostrar mensajes del cliente actual si el chat está abierto
-      if (currentCustomerId && parseInt(messageData.customer_id) === parseInt(currentCustomerId)) {
+      if (currentCustomerId && String(messageData.customer_id) === String(currentCustomerId)) {
         // Solo mostrar mensajes del cliente, no del admin (evitar duplicados)
         if (messageData.sender_role === 'client') {
           addMessageToChat(messageData.body, 'client', new Date(), false);
@@ -585,12 +615,13 @@ try {
       // 1. No es del cliente con quien estoy hablando actualmente, O
       // 2. El chat no está abierto
       if (messageData.sender_role === 'client') {
-        const isFromCurrentChat = currentCustomerId && parseInt(messageData.customer_id) === parseInt(currentCustomerId);
+        const isFromCurrentChat = currentCustomerId && String(messageData.customer_id) === String(currentCustomerId);
         
         if (!isFromCurrentChat) {
           if (window.updateNotificationsImmediately) {
             window.updateNotificationsImmediately();
           }
+          window.dispatchEvent(new CustomEvent('adminChatAlert', { detail: { customerId: messageData.customer_id } }));
         }
       }
     });
@@ -702,7 +733,7 @@ try {
 
     } catch (error) {
       console.error('Error cargando mensajes:', error);
-      chatMessages.innerHTML = '<div class="text-center text-red-500">Error cargando mensajes</div>';
+      chatMessages.innerHTML = `<div class="text-center text-red-500">${getMessage(chatTexts.load_messages_error)}</div>`;
     }
   }
 
@@ -829,6 +860,8 @@ try {
   window.openAdminChat = function(customerId, customerNameText, isOnline = null) {
     currentCustomerId = customerId;
     window.currentAdminChatCustomerId = customerId;
+    setAdminChatMinimized(false);
+    window.dispatchEvent(new CustomEvent('adminChatActive', { detail: { customerId } }));
 
     const formattedName = customerNameText.toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
     if (customerName) {
@@ -899,13 +932,19 @@ try {
       currentCustomerId = null;
       // Limpiar variable global
       window.currentAdminChatCustomerId = null;
+      window.dispatchEvent(new CustomEvent('adminChatActive', { detail: { customerId: null } }));
       stopCustomerStatusPolling();
       updateCustomerPresence(false);
+      setAdminChatMinimized(false);
     }
   }
 
   // Event listeners
   closeButton?.addEventListener('click', closeAdminChatModal);
+  minimizeButton?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    setAdminChatMinimized(!isMinimized);
+  });
   sendButton?.addEventListener('click', sendAdminMessage);
   chatImageBtn?.addEventListener('click', () => {
     chatImageInput?.click();
@@ -950,6 +989,14 @@ try {
     initializeSocket();
   });
 
+  if (chatHeader) {
+    chatHeader.addEventListener('click', () => {
+      if (isMinimized) {
+        setAdminChatMinimized(false);
+      }
+    });
+  }
+
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && imageModal && !imageModal.classList.contains('hidden')) {
       closeAdminImageModal();
@@ -965,6 +1012,31 @@ try {
 </script>
 
 <style>
+  #admin-chat-panel {
+    transition: transform 0.2s ease, width 0.2s ease, bottom 0.2s ease, right 0.2s ease;
+  }
+
+  #admin-chat-panel.chat-minimized {
+    width: 320px;
+    height: auto;
+    right: 1.5rem;
+    left: auto;
+    bottom: 1rem;
+    transform: none;
+    cursor: pointer;
+    border-radius: 1rem;
+  }
+
+  #admin-chat-panel.chat-minimized #admin-chat-messages,
+  #admin-chat-panel.chat-minimized .p-4.border-t {
+    display: none;
+  }
+
+  #admin-chat-panel.chat-minimized #admin-chat-header {
+    border-bottom: none;
+    border-radius: 1rem;
+  }
+
   /* Scrollbar personalizado para el área de mensajes */
   #admin-chat-messages::-webkit-scrollbar {
     width: 4px;
@@ -983,6 +1055,3 @@ try {
     background: #9ca3af;
   }
 </style>
-
-
-

@@ -1,4 +1,5 @@
-const itemService = require('../services/item.service');
+const { container } = require('../config/container');
+const itemService = container.resolve('itemService');
 
 /**
  * GET /api/items/by-order/:orderId

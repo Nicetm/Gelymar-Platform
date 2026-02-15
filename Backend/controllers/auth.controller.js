@@ -2,16 +2,17 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const speakeasy = require('speakeasy');
 const qrcode = require('qrcode');
-const userService = require('../services/user.service');
+const { container } = require('../config/container');
+const userService = container.resolve('userService');
 const fs = require('fs');
 const path = require('path');
 const Handlebars = require('handlebars');
-const customerService = require('../services/customer.service');
+const customerService = container.resolve('customerService');
 const { generateToken } = require('../utils/jwt.util');
 const { sendEmail } = require('../utils/email.util');
 const { logger } = require('../utils/logger');
 const { normalizeRole } = require('../utils/role.util');
-const { poolPromise } = require('../config/db');
+const mysqlPoolPromise = container.resolve('mysqlPoolPromise');
 const MAX_LOGIN_ATTEMPTS = 5;
 
 const isStrongPassword = (value) => {
@@ -129,7 +130,7 @@ const extractTwoFAPayload = (req) => {
     if (!validPassword) {
       logger.warn(`Contraseña incorrecta para usuario: ${identifier}`);
       try {
-        const pool = await poolPromise;
+        const pool = await mysqlPoolPromise;
         await pool.query(
           `
             UPDATE users
@@ -170,7 +171,7 @@ const extractTwoFAPayload = (req) => {
         return res.status(401).json({ message: 'Usuario o clave incorrecta' });
     }
     try {
-      const pool = await poolPromise;
+    const pool = await mysqlPoolPromise;
       await pool.query('UPDATE users SET intentos_fallidos = 0 WHERE id = ?', [user.id]);
     } catch (resetError) {
       logger.error(`Error reseteando intentos fallidos para ${identifier}: ${resetError.message}`);
@@ -226,7 +227,11 @@ const extractTwoFAPayload = (req) => {
     });
 
     // Actualizar campo online a 1
-    await userService.updateUserOnlineStatus(user.id, 1);
+    try {
+      await userService.updateUserOnlineStatus(user.id, 1);
+    } catch (error) {
+      logger.error(`Error actualizando online=1 para usuario ${user.id}: ${error.message}`);
+    }
 
     // Obtener clientes sin cuenta para notificaciones
     let customersWithoutAccount = 0;
@@ -484,7 +489,7 @@ exports.recoverPassword = async (req, res) => {
       }
 
     const hashed = await bcrypt.hash(newPassword, 10);
-    const pool = await require('../config/db').poolPromise;
+    const pool = await mysqlPoolPromise;
     await pool.query('UPDATE users SET password = ? WHERE id = ?', [hashed, user.id]);
 
     logger.info(`Contraseña actualizada para ${email}`);
@@ -527,7 +532,7 @@ exports.changePassword = async (req, res) => {
     }
 
     const hashed = await bcrypt.hash(newPassword, 10);
-    const pool = await require('../config/db').poolPromise;
+    const pool = await mysqlPoolPromise;
     await pool.query('UPDATE users SET password = ?, change_pw = 1 WHERE id = ?', [hashed, userId]);
 
       logger.info(`Contraseña cambiada para usuario ${user.rut}`);

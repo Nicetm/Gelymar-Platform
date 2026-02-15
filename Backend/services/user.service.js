@@ -1,9 +1,52 @@
 // services/user.service.js
 const { poolPromise } = require('../config/db');
+const { getSqlPool, sql } = require('../config/sqlserver');
 const { logger } = require('../utils/logger');
 const Users = require('../models/user.model');
 const bcrypt = require('bcrypt');
 const { v4: uuidv4 } = require('uuid');
+
+async function getSqlCustomerByRut(rut) {
+  if (!rut) return null;
+  const pool = await getSqlPool();
+  const request = pool.request();
+  const rawRut = String(rut).trim();
+  const hasTrailingC = rawRut.toLowerCase().endsWith('c');
+  const altRut = hasTrailingC ? rawRut.slice(0, -1) : `${rawRut}C`;
+  request.input('rut', sql.VarChar, rawRut);
+  request.input('rutAlt', sql.VarChar, altRut);
+  const result = await request.query(`
+    SELECT TOP 1
+      Rut,
+      Nombre,
+      Ciudad,
+      Pais,
+      Telefono,
+      Correo
+    FROM jor_imp_CLI_01_softkey
+    WHERE Rut = @rut OR Rut = @rutAlt
+  `);
+  return result.recordset?.[0] || null;
+}
+
+async function getSqlCustomerByEmail(email) {
+  if (!email) return null;
+  const pool = await getSqlPool();
+  const request = pool.request();
+  request.input('email', sql.VarChar, String(email).trim().toLowerCase());
+  const result = await request.query(`
+    SELECT TOP 1
+      Rut,
+      Nombre,
+      Ciudad,
+      Pais,
+      Telefono,
+      Correo
+    FROM jor_imp_CLI_01_softkey
+    WHERE LOWER(Correo) = @email
+  `);
+  return result.recordset?.[0] || null;
+}
 
 /**
  * Obtiene todos los clientes con un conteo de carpetas asociadas (folder_count)
@@ -32,14 +75,15 @@ async function findUserByEmailOrUsername(emailOrUsername) {
   const query = `
     SELECT u.id, u.rut AS rut, u.password, u.role_id,
            u.twoFASecret, u.twoFAEnabled, u.change_pw, u.bloqueado,
-           COALESCE(a.name, c.name, s.nombre) AS full_name,
-           COALESCE(a.phone, c.phone) AS phone,
-           COALESCE(a.country, c.country) AS country,
-           COALESCE(a.city, c.city) AS city,
+           a.name AS admin_name,
+           a.phone AS admin_phone,
+           a.country AS admin_country,
+           a.city AS admin_city,
+           a.address AS admin_address,
+           s.nombre AS seller_name,
            r.name AS role
     FROM users u
     LEFT JOIN roles r ON u.role_id = r.id
-    LEFT JOIN customers c ON u.rut COLLATE utf8mb4_general_ci = c.rut COLLATE utf8mb4_general_ci
     LEFT JOIN admins a ON u.rut COLLATE utf8mb4_general_ci = a.rut COLLATE utf8mb4_general_ci
     LEFT JOIN sellers s ON u.rut COLLATE utf8mb4_general_ci = s.rut COLLATE utf8mb4_general_ci
     WHERE REPLACE(LOWER(TRIM(u.rut)), '.', '') COLLATE utf8mb4_general_ci
@@ -50,38 +94,92 @@ async function findUserByEmailOrUsername(emailOrUsername) {
   logger.info(`[findUserByEmailOrUsername] params=${JSON.stringify([normalized])}`);
 
   const [rows] = await pool.query(query, [normalized]);
-  
-  return rows[0];
+  const user = rows[0];
+  if (!user) return null;
+
+  let sqlCustomer = null;
+  if (user.role_id === 2 || (!user.admin_name && !user.seller_name)) {
+    sqlCustomer = await getSqlCustomerByRut(user.rut);
+  }
+
+  return {
+    ...user,
+    full_name: user.admin_name || user.seller_name || sqlCustomer?.Nombre || null,
+    phone: user.admin_phone || sqlCustomer?.Telefono || null,
+    country: user.admin_country || sqlCustomer?.Pais || null,
+    city: user.admin_city || sqlCustomer?.Ciudad || null,
+    address: user.admin_address || sqlCustomer?.Direccion || null,
+    customer_email: sqlCustomer?.Correo || null,
+  };
 }
 
-// Buscar usuario para recuperacion de contrasena usando correo real (admins.email o customers.email)
+// Buscar usuario para recuperacion de contrasena usando correo real (admins.email o clientes en SQL: jor_imp_CLI_01_softkey.Correo)
 async function findUserForPasswordRecovery(email) {
   const pool = await poolPromise;
+  const normalizedEmail = (email || '').trim().toLowerCase();
 
-  const [rows] = await pool.query(
+  // 1) Admin email
+  const [adminRows] = await pool.query(
     `
     SELECT u.id, u.rut AS rut, u.password, u.role_id,
            u.twoFASecret, u.twoFAEnabled, u.change_pw,
-           COALESCE(a.name, c.name, s.nombre) AS full_name,
-           COALESCE(a.phone, c.phone) AS phone,
-           COALESCE(a.country, c.country) AS country,
-           COALESCE(a.city, c.city) AS city,
-           a.email AS admin_email, c.email AS customer_email,
+           a.name AS admin_name,
+           a.phone AS admin_phone,
+           a.country AS admin_country,
+           a.city AS admin_city,
+           a.address AS admin_address,
+           a.email AS admin_email,
            r.name AS role
     FROM users u
     LEFT JOIN roles r ON u.role_id = r.id
-    LEFT JOIN customers c ON u.rut COLLATE utf8mb4_general_ci = c.rut COLLATE utf8mb4_general_ci
     LEFT JOIN admins a ON u.rut COLLATE utf8mb4_general_ci = a.rut COLLATE utf8mb4_general_ci
-    LEFT JOIN sellers s ON u.rut COLLATE utf8mb4_general_ci = s.rut COLLATE utf8mb4_general_ci
-    WHERE LOWER(a.email) = LOWER(?)
-       OR LOWER(c.email) = LOWER(?)
-       OR LOWER(u.rut) = LOWER(?)
+    WHERE LOWER(a.email) = ?
     LIMIT 1
     `,
-    [email, email, email]
+    [normalizedEmail]
+  );
+  if (adminRows[0]) {
+    return {
+      ...adminRows[0],
+      full_name: adminRows[0].admin_name || null,
+      phone: adminRows[0].admin_phone || null,
+      country: adminRows[0].admin_country || null,
+      city: adminRows[0].admin_city || null,
+      address: adminRows[0].admin_address || null,
+    };
+  }
+
+  // 2) RUT login
+  const byRut = await findUserByEmailOrUsername(email);
+  if (byRut) return byRut;
+
+  // 3) Customer email (SQL view)
+  const sqlCustomer = await getSqlCustomerByEmail(normalizedEmail);
+  if (!sqlCustomer?.Rut) return null;
+
+  const [userRows] = await pool.query(
+    `
+    SELECT u.id, u.rut AS rut, u.password, u.role_id,
+           u.twoFASecret, u.twoFAEnabled, u.change_pw,
+           r.name AS role
+    FROM users u
+    LEFT JOIN roles r ON u.role_id = r.id
+    WHERE u.rut = ?
+    LIMIT 1
+    `,
+    [sqlCustomer.Rut]
   );
 
-  return rows[0];
+  if (!userRows[0]) return null;
+
+  return {
+    ...userRows[0],
+    full_name: sqlCustomer.Nombre || null,
+    phone: sqlCustomer.Telefono || null,
+    country: sqlCustomer.Pais || null,
+    city: sqlCustomer.Ciudad || null,
+    customer_email: sqlCustomer.Correo || null,
+  };
 }
 
 async function findUserById(id) {
@@ -90,15 +188,16 @@ async function findUserById(id) {
     `
     SELECT u.id, u.rut AS rut, u.password, u.role_id,
            u.twoFASecret, u.twoFAEnabled, u.change_pw,
-           COALESCE(a.name, c.name, s.nombre) AS full_name,
-           COALESCE(a.phone, c.phone) AS phone,
-           COALESCE(a.country, c.country) AS country,
-           COALESCE(a.city, c.city) AS city,
-           a.email AS admin_email, c.email AS customer_email,
+           a.name AS admin_name,
+           a.phone AS admin_phone,
+           a.country AS admin_country,
+           a.city AS admin_city,
+           a.address AS admin_address,
+           a.email AS admin_email,
+           s.nombre AS seller_name,
            r.name AS role
     FROM users u
     LEFT JOIN roles r ON u.role_id = r.id
-    LEFT JOIN customers c ON u.rut COLLATE utf8mb4_general_ci = c.rut COLLATE utf8mb4_general_ci
     LEFT JOIN admins a ON u.rut COLLATE utf8mb4_general_ci = a.rut COLLATE utf8mb4_general_ci
     LEFT JOIN sellers s ON u.rut COLLATE utf8mb4_general_ci = s.rut COLLATE utf8mb4_general_ci
     WHERE u.id = ?
@@ -107,20 +206,35 @@ async function findUserById(id) {
     [id]
   );
 
-  return rows[0];
+  const user = rows[0];
+  if (!user) return null;
+  let sqlCustomer = null;
+  if (user.role_id === 2 || (!user.admin_name && !user.seller_name)) {
+    sqlCustomer = await getSqlCustomerByRut(user.rut);
+  }
+
+  return {
+    ...user,
+    full_name: user.admin_name || user.seller_name || sqlCustomer?.Nombre || null,
+    phone: user.admin_phone || sqlCustomer?.Telefono || null,
+    country: user.admin_country || sqlCustomer?.Pais || null,
+    city: user.admin_city || sqlCustomer?.Ciudad || null,
+    address: user.admin_address || sqlCustomer?.Direccion || null,
+    customer_email: sqlCustomer?.Correo || null,
+  };
 }
 
 // Buscar customer_id por RUT
 async function findCustomerIdByRut(rut) {
-  const pool = await poolPromise;
-  const [rows] = await pool.query('SELECT id FROM customers WHERE rut = ?', [rut]);
-  return rows.length > 0 ? rows[0].id : null;
+  const sqlCustomer = await getSqlCustomerByRut(rut);
+  return sqlCustomer?.Rut || null;
 }
 
 // Actualizar estado online del usuario
 async function updateUserOnlineStatus(userId, onlineStatus) {
   const pool = await poolPromise;
-  await pool.query('UPDATE users SET online = ? WHERE id = ?', [onlineStatus, userId]);
+  const [result] = await pool.query('UPDATE users SET online = ? WHERE id = ?', [onlineStatus, userId]);
+  logger.info(`[updateUserOnlineStatus] userId=${userId} online=${onlineStatus} affectedRows=${result?.affectedRows ?? 'N/A'}`);
 }
 
 // Obtener informaci�n del administrador principal (online/offline y nombre)
@@ -140,8 +254,8 @@ async function getPrimaryAdminPresence() {
     return { online: false, name: 'Administrador' };
   }
 
-  const { full_name, email, online } = rows[0];
-  const displayName = (full_name && full_name.trim()) || email || 'Administrador';
+  const { name, email, online } = rows[0];
+  const displayName = (name && name.trim()) || email || 'Administrador';
   return { online: online === 1 || online === true, name: displayName };
 }
 
@@ -159,8 +273,8 @@ async function getSpecificAdminPresence(adminId) {
     return { online: false, name: 'Administrador' };
   }
 
-  const { full_name, email, online } = rows[0];
-  const displayName = (full_name && full_name.trim()) || email || 'Administrador';
+  const { name, email, online } = rows[0];
+  const displayName = (name && name.trim()) || email || 'Administrador';
   return { online: online === 1 || online === true, name: displayName };
 }
 
@@ -168,14 +282,23 @@ async function getSpecificAdminPresence(adminId) {
 async function findUserForAuth(userId) {
   const pool = await poolPromise;
   const [rows] = await pool.query(
-    `SELECT u.id, u.rut AS rut, u.role_id, r.name AS role, u.twoFAEnabled, u.twoFASecret, c.id AS customer_id, c.uuid
+    `SELECT u.id, u.rut AS rut, u.role_id, r.name AS role, u.twoFAEnabled, u.twoFASecret
      FROM users u
      LEFT JOIN roles r ON u.role_id = r.id
-     LEFT JOIN customers c ON u.rut = c.rut
      WHERE u.id = ?`,
     [userId]
   );
-  return rows[0];
+  const user = rows[0];
+  if (!user) return null;
+  if (user.role_id === 2) {
+    const sqlCustomer = await getSqlCustomerByRut(user.rut);
+    return {
+      ...user,
+      customer_id: sqlCustomer?.Rut || null,
+      customer_rut: sqlCustomer?.Rut || null,
+    };
+  }
+  return user;
 }
 
 // Obtener perfil completo del usuario con avatar
@@ -185,17 +308,18 @@ async function getUserProfile(userId) {
   const [rows] = await pool.query(
     `
     SELECT u.id, u.rut AS rut,
-           COALESCE(a.name, c.name, s.nombre) AS full_name,
-           COALESCE(a.phone, c.phone) AS phone,
-           COALESCE(a.country, c.country) AS country,
-           COALESCE(a.city, c.city) AS city,
+           a.name AS admin_name,
+           a.phone AS admin_phone,
+           a.country AS admin_country,
+           a.city AS admin_city,
+           a.address AS admin_address,
+           s.nombre AS seller_name,
            u.created_at, u.updated_at, u.change_pw,
-           COALESCE(a.email, c.email) AS email,
+           a.email AS admin_email,
            r.name AS role,
            ua.file_path AS avatar_path, ua.mime_type AS avatar_mime_type
     FROM users u
     LEFT JOIN roles r ON u.role_id = r.id
-    LEFT JOIN customers c ON u.rut COLLATE utf8mb4_general_ci = c.rut COLLATE utf8mb4_general_ci
     LEFT JOIN admins a ON u.rut COLLATE utf8mb4_general_ci = a.rut COLLATE utf8mb4_general_ci
     LEFT JOIN sellers s ON u.rut COLLATE utf8mb4_general_ci = s.rut COLLATE utf8mb4_general_ci
     LEFT JOIN user_avatar ua ON u.id = ua.user_id AND ua.is_active = 1
@@ -205,7 +329,22 @@ async function getUserProfile(userId) {
     [userId]
   );
   
-  return rows[0];
+  const user = rows[0];
+  if (!user) return null;
+  let sqlCustomer = null;
+  if (user.role_id === 2 || (!user.admin_name && !user.seller_name)) {
+    sqlCustomer = await getSqlCustomerByRut(user.rut);
+  }
+
+  return {
+    ...user,
+    full_name: user.admin_name || user.seller_name || sqlCustomer?.Nombre || null,
+    phone: user.admin_phone || sqlCustomer?.Telefono || null,
+    country: user.admin_country || sqlCustomer?.Pais || null,
+    city: user.admin_city || sqlCustomer?.Ciudad || null,
+    address: user.admin_address || sqlCustomer?.Direccion || null,
+    email: user.admin_email || sqlCustomer?.Correo || null,
+  };
 }
 
 // Actualizar perfil del usuario
@@ -222,21 +361,16 @@ async function updateUserProfile(userId, profileData) {
   if (role_id === 1) {
     const [result] = await pool.query(
       `UPDATE admins
-       SET name = ?, phone = ?, country = ?, city = ?, updated_at = NOW()
+       SET name = ?, phone = ?, country = ?, city = ?, address = ?, updated_at = NOW()
        WHERE rut = ?`,
-      [profileData.full_name, profileData.phone, profileData.country, profileData.city, rut]
+      [profileData.full_name, profileData.phone, profileData.country, profileData.city, profileData.address, rut]
     );
     return result.affectedRows > 0;
   }
 
   if (role_id === 2) {
-    const [result] = await pool.query(
-      `UPDATE customers
-       SET name = ?, phone = ?, country = ?, city = ?, updated_at = NOW()
-       WHERE rut = ?`,
-      [profileData.full_name, profileData.phone, profileData.country, profileData.city, rut]
-    );
-    return result.affectedRows > 0;
+    logger.warn(`[updateUserProfile] customer profile update blocked (read-only SQL view). rut=${rut}`);
+    return false;
   }
 
   return false;
@@ -291,10 +425,31 @@ async function getAdminUsers() {
   return rows;
 }
 
+async function getAdminPresenceList() {
+  const pool = await poolPromise;
+  const [rows] = await pool.query(
+    `SELECT u.id, u.rut, u.online, a.name AS full_name, a.email,
+            ua.file_path AS avatar_path
+     FROM users u
+     JOIN admins a ON u.rut = a.rut
+     LEFT JOIN user_avatar ua ON u.id = ua.user_id AND ua.is_active = 1
+     WHERE u.role_id = 1
+     ORDER BY u.online DESC, a.name ASC`
+  );
+  return rows.map((row) => ({
+    id: row.id,
+    rut: row.rut,
+    online: row.online === 1 || row.online === true,
+    full_name: row.full_name,
+    email: row.email,
+    avatar_path: row.avatar_path
+  }));
+}
+
 async function getAdminUserById(adminId) {
   const pool = await poolPromise;
   const [rows] = await pool.query(
-    'SELECT u.id, a.email, a.name FROM users u JOIN admins a ON u.rut = a.rut WHERE u.id = ? AND u.role_id = 1',
+    'SELECT u.id, u.online, a.email, a.name FROM users u JOIN admins a ON u.rut = a.rut WHERE u.id = ? AND u.role_id = 1',
     [adminId]
   );
   return rows[0] || null;
@@ -402,6 +557,7 @@ module.exports = {
   createUser,
   updateUser2FASecret,
   getAdminUsers,
+  getAdminPresenceList,
   getAdminUserById,
   getAdminNotificationRecipients,
   createAdminUser,

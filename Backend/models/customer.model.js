@@ -22,7 +22,7 @@ class Customer {
     online = 0
   }) {
     this.id = id;
-    this.uuid = uuid;
+    this.uuid = uuid || rut || null;
     this.rut = rut;
     this.name = name;
     this.email = email;

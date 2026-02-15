@@ -85,6 +85,7 @@
       "reports": "Reports",
       "actions": "Acciones"
     },
+    "cco": "CCO",
     "delete": "Eliminar",
     "placeholders": {
       "name": "Nombre del contacto",
@@ -96,7 +97,11 @@
     "helpAdd": "Usa \"Agregar nuevo contacto\" para crear un registro.",
     "helpFields": "Completa nombre, correo y teléfono antes de guardar.",
     "helpOptions": "SH Docs y Reports habilitan el envío de documentos. CCO agrega el correo a la lista CCO.",
-    "helpEdit": "Puedes editar o eliminar contactos desde la columna Acciones."
+    "helpEdit": "Puedes editar o eliminar contactos desde la columna Acciones.",
+    "confirmTitle": "Confirmar guardado de contactos",
+    "confirmMessage": "¿Estás seguro de que deseas guardar estos contactos?",
+    "confirmYes": "Sí, guardar",
+    "confirmCancel": "Cancelar"
   },
   "changePassword": {
     "title": "Cambiar contraseña",
@@ -106,7 +111,17 @@
     "newPasswordPlaceholder": "Ingrese la nueva contraseña",
     "confirmPasswordPlaceholder": "Confirme la nueva contraseña",
     "submit": "Cambiar contraseña",
-    "saving": "Cambiando..."
+    "saving": "Cambiando...",
+    "confirmTitle": "Confirmar cambio de contraseña",
+    "confirmMessage": "¿Estás seguro de que deseas cambiar la contraseña del cliente?",
+    "confirmYes": "Sí, cambiar",
+    "confirmCancel": "Cancelar",
+    "rules": {
+      "minLength": "Mínimo 8 caracteres",
+      "upper": "Al menos 1 mayúscula",
+      "lower": "Al menos 1 minúscula",
+      "number": "Al menos 1 número"
+    }
   },
   "form": {
     "customerRequired": "Debe seleccionar un cliente",

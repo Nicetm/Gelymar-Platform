@@ -1,5 +1,6 @@
 const ChatService = require('./chat.service');
-const OrderService = require('./order.service');
+const { createOrderService } = require('./order.service');
+const OrderService = createOrderService();
 const CustomerService = require('./customer.service');
 const configService = require('./config.service');
 const { MESSAGE_TYPES, MessageModel } = require('../models/message.model');
@@ -187,7 +188,7 @@ class MessageService {
   async getMessageDetail({ type, id, adminId }) {
     switch (type) {
       case MESSAGE_TYPES.MESSAGES:
-        return this.getChatDetail({ customerId: Number(id), adminId });
+        return this.getChatDetail({ customerId: String(id), adminId });
       case MESSAGE_TYPES.ORDERS_MISSING_DOCUMENTS:
         return this.getOrderDetail({ orderId: Number(id) });
       case MESSAGE_TYPES.CUSTOMERS_WITHOUT_ACCOUNT:
@@ -204,12 +205,12 @@ class MessageService {
 
     const [conversation, customer, summary] = await Promise.all([
       ChatService.getCustomerMessages(customerId, 200),
-      CustomerService.getCustomerById(customerId),
+      CustomerService.getCustomerByRutFromSql(String(customerId)),
       ChatService.getChatSummary(adminId),
     ]);
 
     const summaryItem = summary?.recentChats?.find(
-      (chat) => Number(chat.customer_id) === Number(customerId)
+      (chat) => String(chat.customer_id || '').toLowerCase() === String(customerId || '').toLowerCase()
     );
 
     return {

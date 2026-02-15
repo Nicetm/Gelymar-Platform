@@ -8,7 +8,8 @@ const STATIC_CONNECT_SRCS = [
   'https://cdn.socket.io',
   'https://unpkg.com',
   'https://static.cloudflareinsights.com',
-  'https://cloudflareinsights.com'
+  'https://cloudflareinsights.com',
+  'https://api.dicebear.com'
 ];
 
 export const SCRIPT_SRC_DIRECTIVES = [

@@ -5,10 +5,18 @@
 import ColorModeSwitcher from '../components/ColorModeSwitcher.astro';
 import UserMenu from '../components/UserMenu.astro';
 import NotificationBell from '../components/NotificationBell.astro';
+import { loadTranslations, getServerLang } from '@lib/i18n.js';
+import { PUBLIC_API_URL, FILE_SERVER_URL } from './constants.ts';
 
 // Obtener configuración del parámetro headerBusquedaClienteChat y datos del usuario
 const apiBaseUrl = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
+const apiPublic = PUBLIC_API_URL;
+const fileServer = FILE_SERVER_URL;
 const authToken = Astro.cookies.get('token')?.value || '';
+const lang = getServerLang(Astro.cookies);
+const t: any = {
+  messages: await loadTranslations(lang, 'messages'),
+};
 let chatEnabled = false;
 let notificationsEnabled = false;
 let roleId = null;
@@ -144,20 +152,31 @@ notificationSettings = {
         </a>
       </div>
 
+      <div class="flex-1 flex items-center justify-center px-4">
+        <div id="admin-presence" class="flex items-center gap-2"></div>
+      </div>
+
       <!-- Iconos -->
       <div class="flex items-center space-x-5 ml-3 pr-4 lg:pr-8">
         <!-- <NotificationDropdown /> -->
         <!-- <AppsDropdown /> -->
         <!-- Chat icon -->
+        {notificationsEnabled && (
+          <NotificationBell
+            unreadCount={0}
+            roleId={roleId}
+            notificationSettings={notificationSettings}
+          />
+        )}
         {chatEnabled && (
           <div class="relative">
             <button
               id="chat-icon"
-              class="relative p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="relative p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200 focus:outline-none"
               aria-label="Chat"
             >
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              <svg class="w-5 h-5 transition-transform duration-300 ease-in-out hover:scale-110 hover:rotate-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M17 3.33782C15.5291 2.48697 13.8214 2 12 2C6.47715 2 2 6.47715 2 12C2 13.5997 2.37562 15.1116 3.04346 16.4525C3.22094 16.8088 3.28001 17.2161 3.17712 17.6006L2.58151 19.8267C2.32295 20.793 3.20701 21.677 4.17335 21.4185L6.39939 20.8229C6.78393 20.72 7.19121 20.7791 7.54753 20.9565C8.88837 21.6244 10.4003 22 12 22C17.5228 22 22 17.5228 22 12C22 10.1786 21.513 8.47087 20.6622 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
               </svg>
             </button>
 
@@ -168,7 +187,7 @@ notificationSettings = {
           >
             <!-- Header del dropdown -->
             <div class="flex items-center justify-between p-3 border-b border-gray-200 dark:border-gray-700">
-              <h3 class="text-base font-semibold text-gray-900 dark:text-white">Clientes</h3>
+              <h3 class="text-base font-semibold text-gray-900 dark:text-white">{t.messages?.chat?.clients_title}</h3>
             </div>
             
             <!-- Search -->
@@ -176,19 +195,26 @@ notificationSettings = {
                 <input
                   type="text"
                   id="chat-search"
-                  placeholder="Buscar cliente..."
+                  placeholder={t.messages?.chat?.search_client}
                   class="w-full px-3 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
+                <label class="flex items-center justify-between text-xs text-gray-600 dark:text-gray-300">
+                  <span>{t.messages?.chat?.online_only}</span>
+                  <input id="chat-online-only" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                </label>
               </div>
 
             <!-- Lista de clientes -->
             <div id="chat-client-list" class="max-h-96 overflow-y-auto">
               <!-- Los clientes se cargarán dinámicamente aquí -->
               <div id="chat-empty-state" class="p-4 text-center text-gray-500 dark:text-gray-400">
-                <svg class="w-6 h-6 mx-auto mb-2 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                </svg>
-                <p class="text-sm">No hay clientes</p>
+                <div class="flex items-center justify-center gap-3">
+                  <svg class="animate-spin -ml-1 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <p class="text-sm">{t.messages?.chat?.loading_clients}</p>
+                </div>
               </div>
             </div>
             
@@ -198,18 +224,11 @@ notificationSettings = {
                 href="/admin/clients"
                 class="block text-center text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
               >
-                Ver todos los clientes
+                {t.messages?.chat?.view_all_clients}
               </a>
             </div>
           </div>
         </div>
-        )}
-        {notificationsEnabled && (
-          <NotificationBell
-            unreadCount={0}
-            roleId={roleId}
-            notificationSettings={notificationSettings}
-          />
         )}
         <ColorModeSwitcher />
         <UserMenu />
@@ -218,8 +237,28 @@ notificationSettings = {
   </div>
 </nav>
 
+<script type="module" define:vars={{ apiPublic, fileServer, t }}>
+  import { initAdminPresence } from '/js/admin-presence.js';
+  window.translations = { ...(window.translations || {}), ...t };
+  initAdminPresence({
+    apiBase: apiPublic,
+    fileServer,
+    labels: {
+      online: t.messages?.chat?.online,
+      offline: t.messages?.chat?.offline
+    }
+  });
+</script>
+
 <!-- Script que maneja los dropdowns -->
-<script is:inline define:vars={{ chatFeatureEnabled: chatEnabled }}>
+<script is:inline define:vars={{ 
+  chatFeatureEnabled: chatEnabled,
+  chatLabels: {
+    loadingClients: t.messages?.chat?.loading_clients,
+    noClientsFound: t.messages?.chat?.no_clients_found,
+    startChat: t.messages?.chat?.start_chat
+  }
+}}>
   // @ts-nocheck
   const CHAT_FEATURE_ENABLED = chatFeatureEnabled;
   window.addEventListener("DOMContentLoaded", () => {
@@ -246,19 +285,84 @@ notificationSettings = {
     });
 
     if (CHAT_FEATURE_ENABLED) {
+      const CHAT_LABELS = chatLabels || {};
+      const CHAT_CACHE_KEY = 'adminChatClientsCache';
+      const CHAT_CACHE_TS_KEY = 'adminChatClientsCacheTs';
+      const CHAT_CACHE_TTL_MS = 5 * 60 * 1000;
       // Manejo del dropdown de chat
       const chatIcon = document.getElementById('chat-icon');
       const chatDropdown = document.getElementById('chat-dropdown');
       const chatSearch = document.getElementById('chat-search');
+      const chatOnlineOnly = document.getElementById('chat-online-only');
       const chatClientList = document.getElementById('chat-client-list');
       const chatEmptyState = document.getElementById('chat-empty-state');
       
       let allClients = [];
       let filteredClients = [];
+      let onlineOnly = false;
 
       // Cargar clientes
-      async function loadClients() {
+      function renderLoadingClients() {
+        if (!chatClientList) return;
+        chatClientList.innerHTML = `
+          <div class="p-4 text-center text-gray-500 dark:text-gray-400">
+            <div class="flex items-center justify-center gap-3">
+              <svg class="animate-spin -ml-1 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <p class="text-sm">${CHAT_LABELS.loadingClients}</p>
+            </div>
+          </div>
+        `;
+      }
+
+      function renderEmptyClients() {
+        if (!chatClientList) return;
+        chatClientList.innerHTML = `
+          <div id="chat-empty-state" class="p-4 text-center text-gray-500 dark:text-gray-400">
+            <svg class="w-6 h-6 mx-auto mb-2 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            <p class="text-sm">${CHAT_LABELS.noClientsFound}</p>
+          </div>
+        `;
+      }
+
+      function readCachedClients() {
         try {
+          const cachedRaw = sessionStorage.getItem(CHAT_CACHE_KEY);
+          const cachedTs = sessionStorage.getItem(CHAT_CACHE_TS_KEY);
+          if (!cachedRaw || !cachedTs) return null;
+          const age = Date.now() - Number(cachedTs);
+          if (Number.isNaN(age) || age > CHAT_CACHE_TTL_MS) return null;
+          return JSON.parse(cachedRaw);
+        } catch (error) {
+          return null;
+        }
+      }
+
+      function writeCachedClients(clients) {
+        try {
+          sessionStorage.setItem(CHAT_CACHE_KEY, JSON.stringify(clients || []));
+          sessionStorage.setItem(CHAT_CACHE_TS_KEY, Date.now().toString());
+        } catch (error) {
+          // ignore cache failures
+        }
+      }
+
+      async function loadClients({ force = false } = {}) {
+        if (!force) {
+          const cached = readCachedClients();
+          if (cached) {
+            allClients = cached;
+            filteredClients = [...allClients];
+            renderClients();
+            return;
+          }
+        }
+        try {
+          renderLoadingClients();
           const token = localStorage.getItem('token');
           const apiBase = window.apiBase || window.location.origin.replace(':4321', ':3000');
           
@@ -284,24 +388,19 @@ notificationSettings = {
           
           const data = await response.json();
           allClients = data || [];
+          writeCachedClients(allClients);
           filteredClients = [...allClients];
           renderClients();
         } catch (error) {
           console.error('Error cargando clientes:', error);
+          renderEmptyClients();
         }
       }
 
       // Renderizar clientes
       function renderClients() {
         if (filteredClients.length === 0) {
-          chatClientList.innerHTML = `
-            <div id="chat-empty-state" class="p-4 text-center text-gray-500 dark:text-gray-400">
-              <svg class="w-6 h-6 mx-auto mb-2 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-              </svg>
-              <p class="text-sm">No se encontraron clientes</p>
-            </div>
-          `;
+          renderEmptyClients();
           return;
         }
         
@@ -313,9 +412,9 @@ notificationSettings = {
             </div>
             <button 
               class="ml-3 px-3 py-1 text-xs font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 rounded-md transition-colors"
-              onclick="openChat('${client.id}', '${client.name}', ${client.online === 1})"
+              onclick="openChat('${client.rut}', '${client.name}', ${client.online === 1})"
             >
-              Chatear
+              ${CHAT_LABELS.startChat}
             </button>
           </div>
         `).join('');
@@ -325,9 +424,12 @@ notificationSettings = {
 
       // Filtrar clientes
       function filterClients(searchTerm) {
-        filteredClients = allClients.filter(client => 
-          client.name.toLowerCase().includes(searchTerm.toLowerCase())
-        );
+        const term = (searchTerm || '').toLowerCase();
+        filteredClients = allClients.filter(client => {
+          const matchesSearch = client.name.toLowerCase().includes(term);
+          const matchesOnline = !onlineOnly || client.online === 1;
+          return matchesSearch && matchesOnline;
+        });
         renderClients();
       }
 
@@ -345,6 +447,10 @@ notificationSettings = {
       if (chatIcon && chatDropdown) {
         chatIcon.addEventListener('click', function(e) {
           e.stopPropagation();
+          const notificationDropdown = document.getElementById('notification-dropdown');
+          if (notificationDropdown && !notificationDropdown.classList.contains('hidden')) {
+            notificationDropdown.classList.add('hidden');
+          }
           chatDropdown.classList.toggle('hidden');
           
           // Cargar clientes cada vez que se abre el dropdown para obtener datos actualizados
@@ -353,8 +459,11 @@ notificationSettings = {
             // Limpiar el buscador
             if (chatSearch) {
               chatSearch.value = '';
-              filteredClients = [...allClients];
-              renderClients();
+              filteredClients = [];
+            }
+            if (chatOnlineOnly) {
+              chatOnlineOnly.checked = false;
+              onlineOnly = false;
             }
           }
         });
@@ -364,6 +473,13 @@ notificationSettings = {
       if (chatSearch) {
         chatSearch.addEventListener('input', function(e) {
           filterClients(e.target.value);
+        });
+      }
+
+      if (chatOnlineOnly) {
+        chatOnlineOnly.addEventListener('change', function() {
+          onlineOnly = chatOnlineOnly.checked;
+          filterClients(chatSearch?.value || '');
         });
       }
     }

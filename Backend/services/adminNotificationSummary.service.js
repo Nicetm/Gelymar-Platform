@@ -1,8 +1,8 @@
 const configService = require('./config.service');
-const orderService = require('./order.service');
 const customerService = require('./customer.service');
 const userService = require('./user.service');
 const { sendAdminNotificationSummary } = require('./email.service');
+const { createOrderService } = require('./order.service');
 
 const parseConfigParams = (config) => {
   if (!config || config.params == null) {
@@ -63,7 +63,10 @@ const buildSummary = ({ ordersCount, customersCount }) => {
   return lines.join('\n');
 };
 
-async function sendDailyAdminNotificationSummary() {
+const createAdminNotificationSummaryService = ({
+  orderService = createOrderService(),
+} = {}) => {
+  const sendDailyAdminNotificationSummary = async () => {
   const [ordersConfig, usersConfig] = await Promise.all([
     configService.getConfigByName('headerOrdenesSinDocumentos'),
     configService.getConfigByName('headerUsersSinCuenta')
@@ -117,8 +120,14 @@ async function sendDailyAdminNotificationSummary() {
   }
 
   return { processed };
-}
+  };
+
+  return {
+    sendDailyAdminNotificationSummary
+  };
+};
 
 module.exports = {
-  sendDailyAdminNotificationSummary
+  ...createAdminNotificationSummaryService(),
+  createAdminNotificationSummaryService
 };

@@ -1,5 +1,6 @@
-const userService = require('../services/user.service');
-const userAvatarService = require('../services/user_avatar.service');
+const { container } = require('../config/container');
+const userService = container.resolve('userService');
+const userAvatarService = container.resolve('userAvatarService');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -8,7 +9,14 @@ const { logger } = require('../utils/logger');
 // Configuración de almacenamiento para Multer - Avatares
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const uploadDir = path.join(process.env.FILE_SERVER_ROOT || '/var/www/html', 'uploads');
+    const userId = req.user?.id || 'unknown';
+    const uploadDir = path.join(
+      process.env.FILE_SERVER_ROOT || '/var/www/html',
+      'uploads',
+      'admins',
+      String(userId),
+      'avatar'
+    );
     logger.info(`DEBUG - Multer avatar destination: ${uploadDir}`);
     
     try {
@@ -22,7 +30,7 @@ const storage = multer.diskStorage({
   },
   filename: function (req, file, cb) {
     const ext = path.extname(file.originalname).toLowerCase();
-    const fileName = `avatar${ext}`;
+    const fileName = `avatar_${require('uuid').v4()}${ext}`;
     logger.info(`DEBUG - Multer avatar filename: ${fileName}`);
     cb(null, fileName);
   }
@@ -82,7 +90,7 @@ exports.getProfile = async (req, res) => {
 exports.updateProfile = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { full_name, phone, country, city } = req.body;
+    const { full_name, phone, country, city, address } = req.body;
     
     if (!full_name || !phone) {
       return res.status(400).json({ message: 'Nombre y teléfono son obligatorios' });
@@ -92,7 +100,8 @@ exports.updateProfile = async (req, res) => {
       full_name,
       phone,
       country: country || null,
-      city: city || null
+      city: city || null,
+      address: address || null
     });
     
     if (!updated) {
@@ -118,18 +127,18 @@ exports.handleAvatarUpload = async (req, res) => {
     const file = req.file;
     
     if (!file) {
-      return res.status(400).json({ message: 'No se proporcionó ningún archivo' });
+      return res.status(400).json({ message: 'No se proporcionó ningún archivo', code: 'AVATAR_MISSING' });
     }
     
     // Validar archivo
     const validation = userAvatarService.validateAvatarFile(file);
     if (!validation.valid) {
-      return res.status(400).json({ message: validation.error });
+      return res.status(400).json({ message: validation.error, code: validation.code || 'AVATAR_INVALID' });
     }
     
     // El archivo ya está guardado en el directorio correcto por multer
-    const fileName = `avatar${path.extname(file.originalname).toLowerCase()}`;
-    const filePath = `uploads/${fileName}`;
+    const fileName = file.filename;
+    const filePath = `uploads/admins/${userId}/avatar/${fileName}`;
     
     // Guardar en base de datos
     const avatarData = {
@@ -165,6 +174,16 @@ exports.getAdminUsers = async (req, res) => {
   }
 };
 
+exports.getAdminPresenceList = async (req, res) => {
+  try {
+    const admins = await userService.getAdminPresenceList();
+    res.json(admins);
+  } catch (error) {
+    logger.error(`Error al obtener presencia de admins: ${error.message}`);
+    res.status(500).json({ message: 'Error al obtener presencia de admins' });
+  }
+};
+
 exports.createAdminUser = async (req, res) => {
   try {
     const { rut, email, full_name, phone, agent, password } = req.body;
@@ -174,6 +193,17 @@ exports.createAdminUser = async (req, res) => {
     const id = await userService.createAdminUser({ rut, email, full_name, phone, agent, password });
     res.status(201).json({ id, message: 'Admin creado' });
   } catch (error) {
+    if (error?.code === 'ER_DUP_ENTRY') {
+      logger.error(`Error al crear admin (duplicado): ${error.message}`);
+      const dupMessage = error.message || '';
+      if (dupMessage.includes('users.rut')) {
+        return res.status(409).json({ message: 'El RUT ya existe. No se pudo crear el administrador.' });
+      }
+      if (dupMessage.includes('admins.email')) {
+        return res.status(409).json({ message: 'El email ya existe. No se pudo crear el administrador.' });
+      }
+      return res.status(409).json({ message: 'Ya existe un administrador con esos datos.' });
+    }
     logger.error(`Error al crear admin: ${error.message}`);
     res.status(500).json({ message: 'Error al crear admin' });
   }

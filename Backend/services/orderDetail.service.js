@@ -1,97 +1,95 @@
 // services/orderDetail.service.js
-const { poolPromise } = require('../config/db');
+const { getSqlPool, sql } = require('../config/sqlserver');
+const { mapHdrRowToOrder } = require('../mappers/sqlsoftkey/hdr.mapper');
+const { logger } = require('../utils/logger');
 
-// Insertar un nuevo order detail
-async function insertOrderDetail(orderDetailData) {
-  const pool = await poolPromise;
-  
-  const [result] = await pool.query(
-    `INSERT INTO order_detail (
-      order_id, fecha, tipo, incoterm, currency, direccion_destino, 
-      direccion_alterna, puerto_embarque, puerto_destino, fecha_eta, 
-      fecha_etd, fecha_eta_factura, fecha_etd_factura, certificados, estado_ov, medio_envio_factura, 
-      medio_envio_ov, gasto_adicional_flete, gasto_adicional_flete_factura, fecha_incoterm, localizacion, codigo_impuesto, 
-      vendedor, nave, condicion_venta, linea, unique_key, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      orderDetailData.order_id,
-      orderDetailData.fecha,
-      orderDetailData.tipo,
-      orderDetailData.incoterm,
-      orderDetailData.currency,
-      orderDetailData.direccion_destino,
-      orderDetailData.direccion_alterna,
-      orderDetailData.puerto_embarque,
-      orderDetailData.puerto_destino,
-      orderDetailData.fecha_eta,
-      orderDetailData.fecha_etd,
-      orderDetailData.fecha_eta_factura,
-      orderDetailData.fecha_etd_factura,
-      orderDetailData.certificados,
-      orderDetailData.estado_ov,
-      orderDetailData.medio_envio_factura,
-      orderDetailData.medio_envio_ov,
-      orderDetailData.gasto_adicional_flete,
-      orderDetailData.gasto_adicional_flete_factura,
-      orderDetailData.fecha_incoterm,
-      orderDetailData.localizacion,
-      orderDetailData.codigo_impuesto,
-      orderDetailData.vendedor,
-      orderDetailData.nave,
-      orderDetailData.condicion_venta,
-      orderDetailData.linea,
-      orderDetailData.unique_key,
-      orderDetailData.created_at,
-      orderDetailData.updated_at
-    ]
-  );
-  
-  return result.insertId;
-}
+const normalizeOcForCompare = (value) => {
+  if (value === null || value === undefined) return '';
+  return String(value).toUpperCase().replace(/[\s()-]+/g, '');
+};
+
+const parseOrderKey = (orderId) => {
+  if (!orderId) return null;
+  if (typeof orderId !== 'string') return null;
+  const trimmed = orderId.trim();
+  if (!trimmed) return null;
+  if (trimmed.includes('|')) {
+    const [pc, ...ocParts] = trimmed.split('|');
+    return { pc: pc.trim(), oc: ocParts.join('|').trim() };
+  }
+  return { pc: trimmed, oc: null };
+};
+
 
 // Obtener order detail por order_id
 async function getOrderDetailByOrderId(orderId) {
-  const pool = await poolPromise;
-  
-  const [rows] = await pool.query(
-    `SELECT 
-      id, order_id, incoterm, direccion_destino, puerto_destino, 
-      u_observaciones, fecha_eta, fecha_etd, certificados, 
-      pymnt_group, fec_deseada_dep_planta, fec_deseada_cliente, 
-      fec_real_dep_planta, fec_original_cliente, u_reserva, 
-      folio_gd, motivo_retraso, created_at, updated_at
-    FROM order_detail WHERE order_id = ?`,
-    [orderId]
-  );
-  
-  return rows[0];
+  const key = parseOrderKey(orderId);
+  if (!key) return null;
+
+  const sqlPool = await getSqlPool();
+  const request = sqlPool.request();
+  request.input('pc', sql.VarChar, key.pc);
+  if (key.oc) {
+    request.input('oc', sql.VarChar, normalizeOcForCompare(key.oc));
+  }
+
+  const query = `
+    SELECT TOP 1 *
+    FROM jor_imp_HDR_90_softkey
+    WHERE Nro = @pc
+    ${key.oc ? "AND REPLACE(REPLACE(UPPER(OC), ' ', ''), '-', '') = @oc" : ''}
+    ORDER BY Fecha DESC
+  `;
+
+  const result = await request.query(query);
+  const row = result.recordset?.[0];
+  if (!row) return null;
+
+  const mapped = mapHdrRowToOrder(row);
+
+  return {
+    id: `${mapped.pc}|${mapped.oc}`,
+    order_id: `${mapped.pc}|${mapped.oc}`,
+    pc: mapped.pc,
+    oc: mapped.oc,
+    fecha: mapped.fecha,
+    tipo: row.Tipo ?? null,
+    incoterm: mapped.incoterm,
+    currency: mapped.currency,
+    direccion_destino: row.Direccion ?? null,
+    direccion_alterna: row.Direccion_Alterna ?? null,
+    puerto_embarque: row.Puerto_Embarque ?? null,
+    puerto_destino: mapped.puerto_destino,
+    fecha_eta: mapped.fecha_eta,
+    fecha_etd: mapped.fecha_etd,
+    fecha_eta_factura: mapped.fecha_eta_factura,
+    fecha_etd_factura: mapped.fecha_etd_factura,
+    certificados: mapped.certificados,
+    estado_ov: mapped.estado_ov,
+    medio_envio_factura: mapped.medio_envio_factura,
+    medio_envio_ov: mapped.medio_envio_ov,
+    gasto_adicional_flete: row.GtoAdicFlete ?? null,
+    gasto_adicional_flete_factura: row.GtoAdicFleteFactura ?? null,
+    fecha_incoterm: row.FechaOriginalCompromisoCliente ?? null,
+    localizacion: row.Localizacion ?? null,
+    codigo_impuesto: row.Cod_Impto ?? null,
+    vendedor: mapped.vendedor,
+    nave: row.Nave ?? null,
+    condicion_venta: row.Condicion_venta ?? null,
+    linea: row.Linea ?? null
+  };
 }
 
 // Obtener todos los order details
 async function getAllOrderDetails() {
-  const pool = await poolPromise;
-  
-  const [rows] = await pool.query(
-    'SELECT * FROM order_detail ORDER BY id DESC'
+  const sqlPool = await getSqlPool();
+  const result = await sqlPool.request().query(
+    'SELECT * FROM jor_imp_HDR_90_softkey ORDER BY Nro DESC'
   );
-  
-  return rows;
-}
-
-// Crear order detail (solo insertar)
-async function createOrderDetail(orderId, data) {
-  // Crear uno nuevo
-  const insertId = await insertOrderDetail({
-    order_id: orderId,
-    ...data
-  });
-  
-  return { created: true, id: insertId };
+  return result.recordset || [];
 }
 
 module.exports = {
-  insertOrderDetail,
   getOrderDetailByOrderId,
-  getAllOrderDetails,
-  createOrderDetail
+  getAllOrderDetails
 }; 

@@ -1,4 +1,5 @@
 const { poolPromise } = require('../config/db');
+const { getSqlPool } = require('../config/sqlserver');
 const bcrypt = require('bcrypt');
 
 /**
@@ -12,12 +13,25 @@ async function checkClientAccess() {
   const normalizeRut = (value = '') => value.toString().trim().toLowerCase();
 
   try {
-    // 1. Obtener clientes con RUT válido
-    const [customers] = await pool.query(`
-      SELECT rut, name, phone, country, city 
-      FROM customers 
-      WHERE rut IS NOT NULL AND rut != ''
+    // 1. Obtener clientes con RUT válido (SQL Server)
+    const sqlPool = await getSqlPool();
+    const sqlResult = await sqlPool.request().query(`
+      SELECT
+        Rut,
+        Nombre,
+        Telefono,
+        Pais,
+        Ciudad
+      FROM jor_imp_CLI_01_softkey
+      WHERE Rut IS NOT NULL AND LTRIM(RTRIM(Rut)) <> ''
     `);
+    const customers = (sqlResult.recordset || []).map((row) => ({
+      rut: row.Rut,
+      name: row.Nombre,
+      phone: row.Telefono,
+      country: row.Pais,
+      city: row.Ciudad
+    }));
 
     // 1b. Obtener sellers activos y no bloqueados con RUT válido
     const [sellers] = await pool.query(`

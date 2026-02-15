@@ -1,6 +1,23 @@
 // Importar funciones de utilidad
 import { showNotification } from './utils.js';
 
+async function buildErrorFromResponse(response, fallbackMessage = '') {
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch (err) {
+    // ignore parse errors
+  }
+  const message = payload?.message || fallbackMessage || `HTTP ${response.status}: ${response.statusText}`;
+  const error = new Error(message);
+  if (payload?.code) {
+    error.code = payload.code;
+  }
+  error.status = response.status;
+  error.payload = payload;
+  return error;
+}
+
 // Función local para compatibilidad
 function qs(selector) {
   return document.querySelector(selector);
@@ -12,22 +29,6 @@ function showSuccess(message) {
 
 function showError(message) {
   showNotification(message, 'error');
-}
-
-function showSpinner() {
-  const spinner = qs('#globalSpinner');
-  if (spinner) {
-    spinner.classList.remove('invisible');
-    spinner.classList.add('visible');
-  }
-}
-
-function hideSpinner() {
-  const spinner = qs('#globalSpinner');
-  if (spinner) {
-    spinner.classList.add('invisible');
-    spinner.classList.remove('visible');
-  }
 }
 
 const normalizeEmailValue = (email) =>
@@ -131,6 +132,7 @@ function getFilesContext() {
     fileServer: dataset.fileServer || window.fileServer || '',
     uuid: dataset.uuid || null,
     folderId: dataset.folderId || null,
+    pc: dataset.pc || null,
   };
 }
 
@@ -157,6 +159,10 @@ function getValidToken() {
 
 function confirmAction(title, message, type = 'warning') {
   return new Promise((resolve) => {
+    const comond = window.translations?.comond || {};
+    const cancelLabel = comond.cancel;
+    const confirmLabel = comond.confirm;
+    const understoodLabel = comond.understood;
     // Crear el modal
     const modal = document.createElement('div');
     modal.id = 'customConfirmModal';
@@ -200,10 +206,10 @@ function confirmAction(title, message, type = 'warning') {
           <p class="text-sm text-gray-600 dark:text-gray-300 text-center mb-6">${message}</p>
           <div class="flex gap-3 justify-end">
             <button id="confirmCancel" class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500">
-              Cancelar
+              ${cancelLabel}
             </button>
             <button id="confirmAccept" class="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${buttonColors[type] || buttonColors.warning}">
-              ${type === 'error' ? 'Entiendo' : 'Sí, continuar'}
+              ${type === 'error' ? understoodLabel : confirmLabel}
             </button>
           </div>
         </div>
@@ -328,22 +334,6 @@ function setupScrollShadow(window, head) {
   });
 }
 
-function showGlobalSpinner() {
-  const spinner = qs('#globalSpinner');
-  if (spinner) {
-    spinner.classList.remove('invisible');
-    spinner.classList.add('visible');
-  }
-}
-
-function hideGlobalSpinner() {
-  const spinner = qs('#globalSpinner');
-  if (spinner) {
-    spinner.classList.add('invisible');
-    spinner.classList.remove('visible');
-  }
-}
-
 export function initFilesScript() {
   const section = qs('#filesSection');
   const tableBody = qs('#filesTableBody');
@@ -358,6 +348,14 @@ export function initFilesScript() {
   const spinnerIcon = qs('#spinnerIcon');
   const uploadModal = qs('#uploadModal');
   const uploadCard = uploadModal?.querySelector('.modal-card');
+
+  const translations = window.translations || {};
+  const documentos = translations.documentos || {};
+  const comond = translations.comond || {};
+  const messages = translations.messages || {};
+  const messagesDocs = messages.documentos || messages.files || {};
+
+  const getMessage = (value) => (typeof value === 'string' && value.length > 0 ? value : '');
 
   function showUploadModal() {
     uploadModal.classList.remove('hidden', 'opacity-0');
@@ -393,6 +391,7 @@ export function initFilesScript() {
     fileServer,
     uuid,
     folderId,
+    pc: pcFromDataset,
   } = getFilesContext();
 
   const lang = window.lang;
@@ -402,15 +401,16 @@ export function initFilesScript() {
   let itemsPerPage = parseInt(itemsPerPageSelect?.value || '10', 10);
   const hideActions = tableBody?.dataset?.hideActions === '1';
   const colSpan = hideActions ? 7 : 8;
-  const allRows = Array.from(tableBody?.querySelectorAll('tr') || []);
-  let filteredRows = [...allRows];
+  let allFiles = [];
+  let filteredFiles = [];
+  let currentSort = { column: null, direction: 'asc' };
 
   const params = new URLSearchParams(window.location.search);
-  const pc = params.get('pc');
+  const pc = params.get('pc') || pcFromDataset || window.orderPc || '';
 
   // Validaciones iniciales
-  if (!uuid || !folderId) {
-    console.error('Faltan parámetros');
+  if (!uuid) {
+    console.error('Falta UUID');
     return;
   }
 
@@ -420,34 +420,267 @@ export function initFilesScript() {
     return;
   }
 
-  setupEmailRecipientsEditor(window.emailRecipients || []);
+  const titleElement = qs('#titleFile');
+  const titleSuffix = ` - ${getMessage(documentos.title)}`;
+  let resolvedClientName = '';
+
+  const readClientNameFromTitle = () => {
+    if (!titleElement) return '';
+    const text = (titleElement.textContent || '').trim();
+    if (!text) return '';
+    if (text.includes(' - ')) {
+      const [namePart] = text.split(' - ');
+      return (namePart || '').trim();
+    }
+    return text;
+  };
+
+  const syncClientNameToTitle = (name) => {
+    if (!name || !titleElement) return;
+    resolvedClientName = name.trim();
+    titleElement.textContent = `${resolvedClientName}${titleSuffix}`;
+  };
+
+  resolvedClientName = readClientNameFromTitle();
+
+  if (!resolvedClientName && uuid) {
+    (async () => {
+      try {
+        const res = await fetch(`${apiBase}/api/customers/rut/${encodeURIComponent(uuid)}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!res.ok) return;
+        const customerInfo = await res.json();
+        const name = typeof customerInfo?.name === 'string'
+          ? customerInfo.name.trim()
+          : typeof customerInfo?.Nombre === 'string'
+            ? customerInfo.Nombre.trim()
+            : '';
+        if (name) {
+          syncClientNameToTitle(name);
+        }
+      } catch (error) {
+        console.error('Error obteniendo nombre del cliente:', error);
+      }
+    })();
+  }
+
+  setupEmailRecipientsEditor([]);
+
+  async function loadDocumentTypes() {
+    const select = qs('#uploadFileName');
+    if (!select) return;
+
+    try {
+      const res = await fetch(`${apiBase}/api/document-types`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (!res.ok) {
+        throw await buildErrorFromResponse(res);
+      }
+
+      const types = await res.json();
+      select.innerHTML = '';
+      const placeholderOption = document.createElement('option');
+      placeholderOption.value = '';
+      placeholderOption.disabled = true;
+      placeholderOption.selected = true;
+      placeholderOption.textContent = `- ${getMessage(documentos.selectDocumentName)} -`;
+      select.appendChild(placeholderOption);
+
+      if (Array.isArray(types)) {
+        types.forEach((docType) => {
+          const option = document.createElement('option');
+          option.value = docType.id;
+          option.dataset.fileName = docType.name;
+          option.textContent = docType.name;
+          select.appendChild(option);
+        });
+      }
+    } catch (error) {
+      console.error('Error cargando tipos de documentos:', error);
+    }
+  }
+
+  async function loadRecipients() {
+    try {
+      let customerEmail = '';
+      let contactData = null;
+
+      const customerResponse = await fetch(`${apiBase}/api/customers/rut/${encodeURIComponent(uuid)}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (customerResponse.ok) {
+        const customerInfo = await customerResponse.json();
+        const normalizedEmail = typeof customerInfo?.email === 'string'
+          ? customerInfo.email.trim()
+          : typeof customerInfo?.primary_email === 'string'
+            ? customerInfo.primary_email.trim()
+            : '';
+        if (normalizedEmail) {
+          customerEmail = normalizedEmail;
+        }
+      }
+
+      const contactsResponse = await fetch(`${apiBase}/api/customers/${uuid}/contacts`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (contactsResponse.ok) {
+        contactData = await contactsResponse.json();
+      }
+
+      const normalizeEmail = (value) =>
+        typeof value === 'string' ? value.trim() : '';
+
+      const toBoolean = (value) => {
+        if (typeof value === 'boolean') return value;
+        if (typeof value === 'number') return value === 1;
+        if (typeof value === 'string') {
+          const normalized = value.trim().toLowerCase();
+          return normalized === 'true' || normalized === '1' || normalized === 'yes';
+        }
+        return false;
+      };
+
+      const contactEmailMap = new Map();
+
+      const registerContact = (contact) => {
+        const rawEmail =
+          contact?.email ??
+          contact?.primary_email ??
+          contact?.contact_email ??
+          contact?.correo;
+        const email = normalizeEmail(rawEmail);
+        if (!email) return;
+
+        const name =
+          typeof contact?.name === 'string'
+            ? contact.name.trim()
+            : typeof contact?.nombre === 'string'
+              ? contact.nombre.trim()
+              : '';
+
+        const metadata = {
+          email,
+          name,
+          sh_documents: toBoolean(contact?.sh_documents),
+          reports: toBoolean(contact?.reports),
+          cco: toBoolean(contact?.cco),
+        };
+
+        contactEmailMap.set(email.toLowerCase(), metadata);
+      };
+
+      if (customerEmail) {
+        registerContact({ email: customerEmail, sh_documents: true, reports: true, cco: false });
+      }
+
+      if (Array.isArray(contactData?.additional_contacts)) {
+        contactData.additional_contacts.forEach(registerContact);
+      } else if (typeof contactData?.contact_email === 'string') {
+        try {
+          const parsed = JSON.parse(contactData.contact_email);
+          if (Array.isArray(parsed)) {
+            parsed.forEach(registerContact);
+          }
+        } catch {
+          // ignore invalid JSON
+        }
+      }
+
+      const contactEmailMetadata = Array.from(contactEmailMap.values());
+      const emailRecipients = contactEmailMetadata
+        .filter((contact) => (contact.sh_documents || contact.reports) && !contact.cco)
+        .map((contact) => contact.email);
+
+      window.emailRecipients = emailRecipients;
+      window.emailRecipientMetadata = contactEmailMetadata;
+
+      if (window.emailRecipientController?.setBase) {
+        window.emailRecipientController.setBase(emailRecipients);
+      }
+      if (window.emailRecipientController?.addToKnown) {
+        window.emailRecipientController.addToKnown(contactEmailMetadata.map((c) => c.email));
+      }
+    } catch (error) {
+      console.error('Error cargando correos de contactos:', error);
+    }
+  }
 
   function renderTable() {
-    const start = (currentPage - 1) * itemsPerPage;
-    const pageData = filteredRows.slice(start, start + itemsPerPage);
+    if (!tableBody) return;
 
-    // Limpiar tabla
+    const totalItems = filteredFiles.length;
+    const totalPages = Math.ceil(totalItems / itemsPerPage) || 0;
+
+    if (totalPages > 0 && currentPage > totalPages) {
+      currentPage = totalPages;
+    } else if (totalPages === 0) {
+      currentPage = 1;
+    }
+
+    const start = (currentPage - 1) * itemsPerPage;
+    const pageData = filteredFiles.slice(start, start + itemsPerPage);
+
     tableBody.innerHTML = '';
-    
-    // Renderizar filas de la página actual
-    pageData.forEach(row => {
-      tableBody.appendChild(row);
-    });
-    
-    // Si no hay datos, mostrar mensaje
+
     if (pageData.length === 0) {
       tableBody.innerHTML = `
         <tr class="bg-white dark:bg-gray-900">
-          <td colspan="9" class="px-6 py-8 text-center text-gray-500">
-            No se encontraron archivos
+          <td colspan="${colSpan}" class="px-6 py-8 text-center text-gray-500">
+            ${getMessage(documentos.noFilesFound)}
           </td>
         </tr>
       `;
+    } else {
+      pageData.forEach(file => {
+        const rowHtml = renderFileRow(file);
+        tableBody.insertAdjacentHTML('beforeend', rowHtml);
+      });
     }
 
-    const totalPages = Math.ceil(filteredRows.length / itemsPerPage);
     if (pageIndicator) {
-      pageIndicator.textContent = `Página ${currentPage} de ${totalPages}`;
+      const pageLabel = getMessage(documentos.pageIndicator);
+      const ofLabel = getMessage(documentos.pageIndicatorSeparator);
+      pageIndicator.textContent = `${pageLabel} ${totalPages === 0 ? 0 : currentPage} ${ofLabel} ${totalPages}`;
+    }
+
+    setupFloatingTooltips(tableBody);
+    attachVisibilityEvents();
+  }
+
+  function filterFiles({ resetPage = true } = {}) {
+    const query = (searchInput?.value || '').toLowerCase().trim();
+
+    if (!query) {
+      filteredFiles = [...allFiles];
+    } else {
+      filteredFiles = allFiles.filter(file => {
+        const searchableText = [
+          file.name,
+          file.status_name,
+          file.fecha_generacion,
+          file.fecha_envio,
+          file.fecha_reenvio,
+          file.oc,
+          file.pc
+        ]
+          .map(value => (value ?? '').toString().toLowerCase())
+          .join(' ');
+
+        return searchableText.includes(query);
+      });
+    }
+
+    if (resetPage) {
+      currentPage = 1;
+    }
+
+    if (currentSort.column) {
+      sortFiles(currentSort.column, currentSort.direction);
+    } else {
+      renderTable();
     }
   }
 
@@ -465,38 +698,16 @@ export function initFilesScript() {
   });
 
   nextPageBtn?.addEventListener('click', () => {
-    const totalPages = Math.ceil(filteredRows.length / itemsPerPage);
-    if (currentPage < totalPages) {
+    const totalPages = Math.ceil(filteredFiles.length / itemsPerPage) || 0;
+    if (totalPages > 0 && currentPage < totalPages) {
       currentPage++;
       renderTable();
     }
   });
 
   searchInput?.addEventListener('input', () => {
-    const query = searchInput.value.toLowerCase();
-    filteredRows = allRows.filter(row => {
-      const textContent = row.textContent.toLowerCase();
-      return textContent.includes(query);
-    });
-    currentPage = 1;
-    renderTable();
+    filterFiles();
   });
-
-  function showGlobalSpinner() {
-    const spinner = document.getElementById('globalSpinner');
-    if (spinner) {
-      spinner.classList.remove('invisible');
-      spinner.classList.add('visible');
-    }
-  }
-
-  function hideGlobalSpinner() {
-    const spinner = document.getElementById('globalSpinner');
-    if (spinner) {
-      spinner.classList.remove('visible');
-      spinner.classList.add('invisible');
-    }
-  }
 
   function renderFileRow(file) {
     const statusColors = {
@@ -519,8 +730,8 @@ export function initFilesScript() {
           <a href="#"
              class="generate-btn text-gray-900 dark:text-white hover:text-blue-500 transition"
              data-file-id="${file.id}"
-             data-tooltip="${window.translations?.documentos?.generate_document || 'Generar documento'}"
-             aria-label="${window.translations?.documentos?.generate_document || 'Generar documento'}">
+             data-tooltip="${getMessage(documentos.generate_document)}"
+             aria-label="${getMessage(documentos.generate_document)}">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7zm7.5-.5a7.49 7.49 0 0 1-1.035 3.743l1.432 1.432a1 1 0 1 1-1.414 1.414l-1.432-1.432A7.49 7.49 0 0 1 12.5 20.5v2a1 1 0 1 1-2 0v-2a7.49 7.49 0 0 1-3.743-1.035l-1.432 1.432a1 1 0 1 1-1.414-1.414l1.432-1.432A7.49 7.49 0 0 1 3.5 15.5h-2a1 1 0 1 1 0-2h2a7.49 7.49 0 0 1 1.035-3.743L3.103 8.325a1 1 0 1 1 1.414-1.414l1.432 1.432A7.49 7.49 0 0 1 11.5 3.5v-2a1 1 0 1 1 2 0v2a7.49 7.49 0 0 1 3.743 1.035l1.432-1.432a1 1 0 1 1 1.414 1.414l-1.432 1.432A7.49 7.49 0 0 1 20.5 11.5h2a1 1 0 1 1 0 2h-2z" />
             </svg>
@@ -535,10 +746,10 @@ export function initFilesScript() {
              class="send-btn text-gray-900 dark:text-white hover:text-blue-500 transition"
              data-file-id="${file.id}"
              data-is-generated="${isGeneratedFlag}"
-             data-file-name="${file.name}"
+             data-file-name="${file.document_type || file.name}"
              data-order="${file.oc}"
-             data-tooltip="${window.translations?.documentos?.send_document || 'Enviar documento'}"
-             aria-label="${window.translations?.documentos?.send_document || 'Enviar documento'}">
+             data-tooltip="${getMessage(documentos.send_document)}"
+             aria-label="${getMessage(documentos.send_document)}">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8" />
               <path stroke-linecap="round" stroke-linejoin="round" d="M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -554,10 +765,10 @@ export function initFilesScript() {
              class="resend-btn text-gray-900 dark:text-white hover:text-amber-500 transition"
              data-file-id="${file.id}"
              data-is-generated="${isGeneratedFlag}"
-             data-file-name="${file.name}"
+             data-file-name="${file.document_type || file.name}"
              data-order="${file.oc}"
-             data-tooltip="${window.translations?.documentos?.resend_document || 'Reenviar documento'}"
-             aria-label="${window.translations?.documentos?.resend_document || 'Reenviar documento'}">
+             data-tooltip="${getMessage(documentos.resend_document)}"
+             aria-label="${getMessage(documentos.resend_document)}">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H7a4 4 0 010-8h1" />
             </svg>
@@ -571,8 +782,8 @@ export function initFilesScript() {
           <a href="#"
              onclick="downloadFile(${file.id}); return false;"
              class="text-gray-900 dark:text-white hover:text-blue-500 transition"
-             data-tooltip="${window.translations?.documentos?.view_document || 'Ver documento'}"
-             aria-label="${window.translations?.documentos?.view_document || 'Ver documento'}">
+             data-tooltip="${getMessage(documentos.view_document)}"
+             aria-label="${getMessage(documentos.view_document)}">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
               <polyline points="14 2 14 8 20 8"/>
@@ -587,8 +798,8 @@ export function initFilesScript() {
           <a href="#"
              class="edit-btn text-gray-900 dark:text-white hover:text-blue-500 transition"
              data-file-id="${file.id}"
-             data-tooltip="${window.translations?.documentos?.edit_document || 'Editar documento'}"
-             aria-label="${window.translations?.documentos?.edit_document || 'Editar documento'}">
+             data-tooltip="${getMessage(documentos.edit_document)}"
+             aria-label="${getMessage(documentos.edit_document)}">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" />
             </svg>
@@ -599,8 +810,8 @@ export function initFilesScript() {
           <a href="#"
              class="delete-btn text-gray-900 dark:text-white hover:text-red-500 transition"
              data-file-id="${file.id}"
-             data-tooltip="${window.translations?.documentos?.delete_document || 'Eliminar documento'}"
-             aria-label="${window.translations?.documentos?.delete_document || 'Eliminar documento'}">
+             data-tooltip="${getMessage(documentos.delete_document)}"
+             aria-label="${getMessage(documentos.delete_document)}">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12M10 11v6M14 11v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
             </svg>
@@ -627,7 +838,7 @@ export function initFilesScript() {
                         bg-blue-600 text-white text-xs rounded px-2 py-1 shadow-lg
                         opacity-0 group-hover:opacity-100 transition
                         pointer-events-none whitespace-nowrap z-50">
-              ${window.translations?.documentos?.double_click_to_edit || 'Doble clic para editar'}
+              ${getMessage(documentos.double_click_to_edit)}
             </div>
           </div>
         </td>
@@ -645,7 +856,7 @@ export function initFilesScript() {
         <td class="px-6 py-4 items-center gap-3">${file.fecha_reenvio ? new Date(file.fecha_reenvio).toLocaleString("es-CL") : '-'}</td>
         <td data-v="${file.is_visible_to_client}" class="px-6 py-4 text-center">
           <div class="relative group flex items-center justify-center">
-            <label class="inline-flex items-center cursor-pointer gap-2" data-tooltip="${window.translations?.documentos?.enable_client_visibility || 'Habilitar documento al cliente'}">
+            <label class="inline-flex items-center cursor-pointer gap-2" data-tooltip="${getMessage(documentos.enable_client_visibility)}">
               <input
                 type="checkbox"
                 class="visibility-toggle h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring focus:ring-blue-500 focus:ring-offset-0 dark:border-gray-600 dark:bg-gray-700"
@@ -793,54 +1004,41 @@ export function initFilesScript() {
   }
 
   async function refreshFiles() {
+    const loadingRow = document.getElementById('loadingRow');
     try {
-      const res = await fetch(`${apiBase}/api/files/${uuid}?f=${folderId}`, {
+      const pcQuery = pc ? `?pc=${encodeURIComponent(pc)}` : '';
+      const res = await fetch(`${apiBase}/api/files/${uuid}${pcQuery}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
       if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
+        throw await buildErrorFromResponse(res);
       }
 
       const files = await res.json();
 
-      if (tableBody) {
-        // Limpiar tabla
-        tableBody.innerHTML = '';
-        
-        // Renderizar filas
-        files.forEach(file => {
-          const rowHtml = renderFileRow(file);
-          tableBody.insertAdjacentHTML('beforeend', rowHtml);
-        });
-        
-        setupFloatingTooltips(tableBody);
-        
-        // Si no hay datos, mostrar mensaje
-        if (files.length === 0) {
-          tableBody.innerHTML = `
-            <tr class="bg-white dark:bg-gray-900">
-              <td colspan="${colSpan}" class="px-6 py-8 text-center text-gray-500">
-                No se encontraron archivos
-              </td>
-            </tr>
-          `;
-        }
+      allFiles = Array.isArray(files) ? files : [];
+      filterFiles({ resetPage: true });
 
-        allRows.length = 0;
-        allRows.push(...Array.from(tableBody.querySelectorAll('tr')));
-        filteredRows = [...allRows];
-        currentPage = 1;
-        
-        // Actualizar estado del botón de crear archivos por defecto
-        updateCreateDefaultFilesButtonState(files);
-        
-        // Adjuntar event listeners a los checkboxes de visibilidad
-        attachVisibilityEvents();
+      if (loadingRow) {
+        loadingRow.remove();
       }
+
+      // Actualizar estado del botón de crear archivos por defecto
+      updateCreateDefaultFilesButtonState(allFiles);
     } catch (error) {
       console.error('DEBUG - refreshFiles - Error:', error);
-      showNotification('Error al cargar archivos', 'error');
+      if (loadingRow) {
+        const errorMessage = getMessage(messagesDocs.loadError);
+        const retryLabel = getMessage(documentos.retry);
+        loadingRow.innerHTML = `
+          <td colspan="${colSpan}" class="px-6 py-8 text-center text-red-500">
+            ${errorMessage} <button onclick="location.reload()" class="text-blue-500 hover:underline">${retryLabel}</button>
+          </td>
+        `;
+      } else {
+        showNotification(getMessage(documentos.error), 'error');
+      }
     }
   }
 
@@ -877,7 +1075,7 @@ export function initFilesScript() {
     const noRecipientsMessage =
       controller?.getNoRecipientsMessage?.() ||
       editor?.dataset?.noRecipients ||
-      'Debe seleccionar al menos un correo';
+      getMessage(documentos.noRecipientsSelected);
 
     return {
       recipients,
@@ -894,7 +1092,7 @@ export function initFilesScript() {
         reset: () => {},
         setBase: () => {},
         addToKnown: () => {},
-        getNoRecipientsMessage: () => 'Debe seleccionar al menos un correo'
+        getNoRecipientsMessage: () => getMessage(documentos.noRecipientsSelected)
       };
       return;
     }
@@ -909,13 +1107,13 @@ export function initFilesScript() {
     const addEmailBtn = editor.querySelector('#addEmailBtn');
     const hiddenInput = editor.querySelector('#selectedEmailRecipients');
 
-    const addPlaceholder = dataset.addPlaceholder || newEmailInput?.placeholder || 'Agregar correo...';
-    const addButtonLabel = dataset.addButtonLabel || 'Agregar correo';
-    const removeLabel = dataset.removeLabel || 'Eliminar correo';
-    const noActiveLabel = dataset.noActive || 'No hay correos seleccionados';
-    const invalidEmailMessage = dataset.invalidEmail || 'Correo electrónico inválido';
-    const emailExistsMessage = dataset.emailExists || 'El correo ya está en la lista';
-    const noRecipientsMessage = dataset.noRecipients || 'Debe seleccionar al menos un correo';
+    const addPlaceholder = dataset.addPlaceholder || getMessage(documentos.addEmailPlaceholder);
+    const addButtonLabel = dataset.addButtonLabel || getMessage(documentos.addEmailButton);
+    const removeLabel = dataset.removeLabel || getMessage(documentos.removeEmail);
+    const noActiveLabel = dataset.noActive || getMessage(documentos.noActiveEmails);
+    const invalidEmailMessage = dataset.invalidEmail || getMessage(documentos.invalidEmail);
+    const emailExistsMessage = dataset.emailExists || getMessage(documentos.emailExists);
+    const noRecipientsMessage = dataset.noRecipients || getMessage(documentos.noRecipientsSelected);
 
     if (newEmailInput) {
       newEmailInput.placeholder = addPlaceholder;
@@ -1226,19 +1424,25 @@ export function initFilesScript() {
         if (data.error === 'EMAIL_PERMISSION_DENIED' || data.error === 'SH_DOCUMENTS_DISABLED') {
           const blockedEmails = Array.isArray(data.emails) && data.emails.length ? data.emails : [];
           const blockedSuffix = blockedEmails.length ? ` (${blockedEmails.join(', ')})` : '';
-          const message =
+          const messageTemplate =
             data.message ||
-            `No se puede enviar el documento porque la configuración actual no permite enviar este tipo de documento${blockedSuffix}.`;
-          await confirmAction('Envío bloqueado', message, 'error');
+            getMessage(
+              documentos.sendBlockedConfigMessage,
+              `No se puede enviar el documento porque la configuración actual no permite enviar este tipo de documento${blockedSuffix}.`
+            );
+          const message = messageTemplate.replace('{blocked}', blockedSuffix);
+          await confirmAction(getMessage(documentos.sendBlockedTitle), message, 'error');
           return false;
         }
-        showNotification(data.message || 'Error al enviar documento', 'error');
+        showNotification(data.message || getMessage(documentos.sendError), 'error');
         return false;
       }
 
       const successMessage =
         data.message ||
-        (action === 'send' ? 'Documento enviado correctamente' : 'Documento reenviado correctamente');
+        (action === 'send'
+          ? getMessage(documentos.sendSuccess)
+          : getMessage(documentos.resendSuccess));
       showNotification(successMessage, 'success');
 
       window.emailRecipients = recipients;
@@ -1255,10 +1459,48 @@ export function initFilesScript() {
       return true;
     } catch (error) {
       console.error('Error enviando documento:', error);
-      showNotification('Error al enviar documento', 'error');
+      showNotification(getMessage(documentos.sendError), 'error');
       return false;
     }
   }
+  function normalizeForCompare(value) {
+    return (value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '');
+  }
+
+  function buildDocumentDisplayName(fileName, order) {
+    const baseName = fileName || '';
+    let cleanedBase = baseName
+      .replace(/\s*-\s*Cliente\s*-\s*PO\s*-?\s*/i, ' ')
+      .replace(/\s*-\s*PO\s*-?\s*$/i, '')
+      .trim();
+    const cleanedBaseLower = cleanedBase.toLowerCase();
+    const cleanedBaseNormalized = normalizeForCompare(cleanedBase);
+    const nameParts = [];
+    if (cleanedBase) nameParts.push(cleanedBase);
+    const normalizedClient = (resolvedClientName || '').trim();
+    if (normalizedClient) {
+      const clientLower = normalizedClient.toLowerCase();
+      const clientNormalized = normalizeForCompare(normalizedClient);
+      if (!cleanedBaseLower.includes(clientLower) && !cleanedBaseNormalized.includes(clientNormalized)) {
+        nameParts.push(normalizedClient);
+      }
+    }
+    const normalizedOrder = (order || '').trim();
+    if (normalizedOrder) {
+      const poText = /\bPO\b/i.test(normalizedOrder) ? normalizedOrder : `PO ${normalizedOrder}`;
+      const poLower = poText.toLowerCase();
+      const poNormalized = normalizeForCompare(poText);
+      if (!cleanedBaseLower.includes('po ') && !cleanedBaseLower.includes(poLower) && !cleanedBaseNormalized.includes(poNormalized)) {
+        nameParts.push(poText);
+      }
+    }
+    return nameParts.length ? nameParts.join(' - ') : '-';
+  }
+
   function openMessageModal(fileId, fileName, order, action, isGenerated = '1') {
     const orderDisplay = qs('#orderNumberDisplay');
     const docDisplay = qs('#orderDocumentDisplay');
@@ -1266,7 +1508,9 @@ export function initFilesScript() {
     const validationMode = String(isGenerated) === '0' ? '0' : '1';
 
     if (orderDisplay) orderDisplay.textContent = order || '-';
-    if (docDisplay) docDisplay.textContent = fileName || '-';
+    if (docDisplay) {
+      docDisplay.textContent = buildDocumentDisplayName(fileName, order);
+    }
     if (messageInput) messageInput.value = '';
     if (window.emailRecipientController?.setValidationMode) {
       window.emailRecipientController.setValidationMode(validationMode);
@@ -1303,7 +1547,7 @@ export function initFilesScript() {
   window.downloadFile = async (fileId) => {
     try {
       if (!token) {
-        showNotification('Debes iniciar sesión para ver archivos', 'error');
+        showNotification(getMessage(documentos.authRequired), 'error');
         return;
       }
 
@@ -1316,11 +1560,11 @@ export function initFilesScript() {
 
       if (!response.ok) {
         if (response.status === 403) {
-          showNotification('No tienes permisos para acceder a este archivo', 'error');
+          showNotification(getMessage(documentos.noPermission), 'error');
         } else if (response.status === 404) {
-          showNotification('Archivo no encontrado', 'error');
+          showNotification(getMessage(documentos.fileNotFound), 'error');
         } else {
-          showNotification('Error al cargar archivo', 'error');
+          showNotification(getMessage(documentos.loadFileError), 'error');
         }
         return;
       }
@@ -1341,7 +1585,7 @@ export function initFilesScript() {
 
     } catch (error) {
       console.error('Error cargando archivo:', error);
-      showNotification('Error de conexión al cargar archivo', 'error');
+      showNotification(getMessage(documentos.loadFileNetworkError), 'error');
     }
   };
 
@@ -1363,7 +1607,7 @@ export function initFilesScript() {
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                 </svg>
               </button>
-              <button id="close-file-modal" class="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors" title="Cerrar">
+              <button id="close-file-modal" class="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors" title="${getMessage(comond.close)}">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                 </svg>
@@ -1378,7 +1622,7 @@ export function initFilesScript() {
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                   </svg>
                 </div>
-                <p class="text-sm text-gray-600 dark:text-gray-400">Cargando archivo...</p>
+                <p class="text-sm text-gray-600 dark:text-gray-400">${getMessage(documentos.loadingFile)}</p>
               </div>
             </div>
           </div>
@@ -1409,10 +1653,10 @@ export function initFilesScript() {
             document.body.removeChild(a);
             window.URL.revokeObjectURL(url);
           } else {
-            showNotification('Error al descargar archivo', 'error');
+            showNotification(getMessage(documentos.downloadError), 'error');
           }
         } catch (error) {
-          showNotification('Error al descargar archivo', 'error');
+          showNotification(getMessage(documentos.downloadError), 'error');
         }
       });
       
@@ -1432,6 +1676,16 @@ export function initFilesScript() {
     
     // Cargar archivo con token temporal
     loadFileWithToken(fileId);
+  }
+
+  function showFileError() {
+    const fileContent = document.getElementById('file-content');
+    if (!fileContent) return;
+    fileContent.innerHTML = `
+      <div class="flex flex-col items-center justify-center h-full text-center px-6">
+        <p class="text-sm text-gray-600 dark:text-gray-400">${getMessage(documentos.loadFileError)}</p>
+      </div>
+    `;
   }
 
   // Función para cargar archivo con token temporal
@@ -1491,10 +1745,14 @@ export function initFilesScript() {
     const fileRow = btn.closest('tr');
     const fileNameCell = fileRow.querySelector('.filename-text');
     const fileName = fileNameCell ? fileNameCell.textContent.trim() : 'documento';
+    const urlParams = new URLSearchParams(window.location.search);
+    const orderFromUrl = urlParams.get('oc') || '';
+    const order = btn.dataset?.order || orderOc || orderFromUrl || '';
+    const displayName = buildDocumentDisplayName(fileName, order);
 
     const confirmed = await confirmAction(
-      '¿Generar documento?',
-      `Esto generará un nuevo documento de ${fileName}.`,
+      getMessage(documentos.confirmGenerateTitle),
+      getMessage(documentos.confirmGenerateMessage).replace('{name}', displayName),
       'info'
     );
 
@@ -1517,10 +1775,10 @@ export function initFilesScript() {
           body: JSON.stringify({ lang })
         });
 
-        if (!res.ok) throw new Error('Error al generar archivo');
-        showNotification('Documento generado correctamente', 'success');
+        if (!res.ok) throw new Error(getMessage(documentos.generateError));
+        showNotification(getMessage(documentos.generateSuccess), 'success');
       } catch (err) {
-        showNotification('Error al generar documento', 'error');
+        showNotification(getMessage(documentos.generateError), 'error');
       } finally {
         // Restaurar botón
         btn.innerHTML = originalText;
@@ -1542,8 +1800,8 @@ export function initFilesScript() {
     // Si es un botón de reenviar, preguntar si regenerar primero
     if (btn.classList.contains('resend-btn')) {
       const regenerate = await confirmAction(
-        '¿Regenerar documento?',
-        '¿Desea regenerar el documento antes de enviar por correo al cliente?',
+        getMessage(documentos.confirmRegenerateTitle),
+        getMessage(documentos.confirmRegenerateMessage),
         'question'
       );
 
@@ -1567,7 +1825,7 @@ export function initFilesScript() {
             body: JSON.stringify({ lang })
           });
 
-          if (!res.ok) throw new Error('Error al regenerar archivo');
+          if (!res.ok) throw new Error(getMessage(documentos.regenerateError));
           
           const result = await res.json();
           
@@ -1577,7 +1835,7 @@ export function initFilesScript() {
           openMessageModal(fileId, result.fileName, finalOrder, 'resend', isGeneratedValue);
           
         } catch (err) {
-          showNotification('Error al regenerar documento', 'error');
+          showNotification(getMessage(documentos.regenerateError), 'error');
         } finally {
           // Restaurar botón
           btn.innerHTML = originalText;
@@ -1608,8 +1866,8 @@ export function initFilesScript() {
     const fileId = btn.dataset.fileId;
 
     const confirmed = await confirmAction(
-      '¿Estás seguro?',
-      'Esta acción eliminará el documento de forma permanente',
+      getMessage(documentos.confirmDeleteTitle),
+      getMessage(documentos.confirmDeleteMessage),
       'warning'
     );
 
@@ -1626,13 +1884,13 @@ export function initFilesScript() {
         const data = await res.json();
 
         if (res.ok) {
-          showNotification('Archivo eliminado correctamente', 'success');
+          showNotification(getMessage(documentos.deleteSuccess), 'success');
           btn.closest('tr')?.remove();
         } else {
-          showNotification(data.message || 'Error al eliminar el archivo', 'error');
+          showNotification(data.message || getMessage(documentos.deleteError), 'error');
         }
       } catch (err) {
-        showNotification('Error al eliminar el archivo', 'error');
+        showNotification(getMessage(documentos.deleteError), 'error');
       }
     }
   });
@@ -1728,7 +1986,7 @@ export function initFilesScript() {
       const visible = visibleSelect.value;
       
       if (!name) {
-        showNotification('El nombre no puede estar vacío', 'error');
+        showNotification(getMessage(documentos.nameRequired), 'error');
         return;
       }
       
@@ -1737,20 +1995,19 @@ export function initFilesScript() {
       const fileId = editBtn?.dataset?.fileId;
       
       if (!fileId) {
-        showNotification('Error: No se pudo identificar el archivo', 'error');
+        showNotification(getMessage(documentos.fileIdentifyError), 'error');
         return;
       }
 
       // Mostrar confirmación
       const confirmed = await confirmAction(
-        '¿Guardar cambios?',
-        'Se actualizará el nombre y visibilidad del archivo.',
+        getMessage(documentos.confirmEditTitle),
+        getMessage(documentos.confirmEditMessage),
         'question'
       );
 
       if (confirmed) {
         // Mostrar loading
-        showGlobalSpinner();
         
         try {
           const res = await fetch(`${apiBase}/api/files/rename/${fileId}/`, {
@@ -1768,16 +2025,15 @@ export function initFilesScript() {
           const data = await res.json();
 
           if (res.ok) {
-            showNotification('Archivo actualizado correctamente', 'success');
+            showNotification(getMessage(documentos.updateSuccess), 'success');
             hideModal('#editFileModal');
             await refreshFiles();
           } else {
-            showNotification(data.message || 'Error al actualizar archivo', 'error');
+            showNotification(data.message || getMessage(documentos.updateError), 'error');
           }
         } catch (err) {
-          showNotification('Error de red al actualizar archivo', 'error');
+          showNotification(getMessage(documentos.updateNetworkError), 'error');
         } finally {
-          hideGlobalSpinner();
         }
       }
     });
@@ -1802,7 +2058,7 @@ export function initFilesScript() {
       const newName = nameInput.value.trim();
       
       if (!newName) {
-        showNotification('El nombre no puede estar vacío', 'error');
+        showNotification(getMessage(documentos.nameRequired), 'error');
         return;
       }
       
@@ -1812,7 +2068,7 @@ export function initFilesScript() {
       const fileId = cell?.dataset?.id;
       
       if (!fileId || !spanElement) {
-        showNotification('Error: No se pudo identificar el archivo', 'error');
+        showNotification(getMessage(documentos.fileIdentifyError), 'error');
         return;
       }
       
@@ -1823,14 +2079,13 @@ export function initFilesScript() {
 
       // Mostrar confirmación
       const confirmed = await confirmAction(
-        '¿Cambiar nombre?',
-        'Se actualizará el nombre del archivo.',
+        getMessage(documentos.confirmRenameTitle),
+        getMessage(documentos.confirmRenameMessage),
         'question'
       );
 
       if (confirmed) {
         // Mostrar loading
-        showGlobalSpinner();
         
         try {
           const res = await fetch(`${apiBase}/api/files/rename/${fileId}`, {
@@ -1846,16 +2101,15 @@ export function initFilesScript() {
 
           if (res.ok) {
             spanElement.textContent = newName;
-            showNotification('Nombre actualizado correctamente', 'success');
+            showNotification(getMessage(documentos.renameSuccess), 'success');
             renderTable();
             hideModal('#renameFileModal');
           } else {
-            showNotification(data.message || 'Error al cambiar el nombre', 'error');
+            showNotification(data.message || getMessage(documentos.renameError), 'error');
           }
         } catch (err) {
-          showNotification('Error al renombrar archivo', 'error');
+          showNotification(getMessage(documentos.renameError), 'error');
         } finally {
-          hideGlobalSpinner();
         }
       }
     });
@@ -1865,13 +2119,11 @@ export function initFilesScript() {
   // Event listener para el botón de crear archivos por defecto
   createDefaultFilesBtn?.addEventListener('click', async () => {
     const confirmTitle =
-      window.translations?.documentos?.create_default_files_title ||
-      '¿Crear archivos por defecto?';
+      getMessage(documentos.create_default_files_title);
     const confirmMessage =
-      window.translations?.documentos?.create_default_files_message ||
-      'Si la orden tiene factura se crearán: Aviso de Embarque, Aviso de Entrega y Aviso de Disponibilidad. Si no tiene factura, se creará solo el Aviso de Recepción de Orden.';
+      getMessage(documentos.create_default_files_message);
     const creatingLabel =
-      window.translations?.documentos?.creating_files || 'Creando...';
+      getMessage(documentos.creating_files);
 
     const confirmed = await confirmAction(
       confirmTitle,
@@ -1892,24 +2144,33 @@ export function initFilesScript() {
       createDefaultFilesBtn.disabled = true;
 
       try {
-        const res = await fetch(`${apiBase}/api/files/create-default/${folderId}`, {
+        const res = await fetch(`${apiBase}/api/files/create-default`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`
-          }
+          },
+          body: JSON.stringify({
+            pc: window.orderPc,
+            oc: window.orderOc
+          })
         });
 
         const data = await res.json();
 
         if (res.ok) {
-          showNotification(`Archivos por defecto creados exitosamente: ${data.filesCreated} archivos`, 'success');
+          const successTemplate = getMessage(documentos.createDefaultSuccess);
+          showNotification(successTemplate.replace('{count}', data.filesCreated), 'success');
           await refreshFiles();
         } else {
-          showNotification(data.message || 'Error al crear archivos por defecto', 'error');
+          if (data && data.code === 'FILES_ALREADY_EXIST') {
+            showNotification(getMessage(documentos.createDefaultAlreadyExists), 'warning');
+          } else {
+            showNotification(data.message || getMessage(documentos.createDefaultError), 'error');
+          }
         }
       } catch (err) {
-        showNotification('Error de red al crear archivos por defecto', 'error');
+        showNotification(getMessage(documentos.createDefaultNetworkError), 'error');
       } finally {
         // Restaurar botón
         createDefaultFilesBtn.innerHTML = originalContent;
@@ -1924,8 +2185,7 @@ export function initFilesScript() {
     if (spinnerIcon) spinnerIcon.classList.remove('hidden');
 
     setTimeout(() => {
-      const titleElement = qs('#titleFile');
-      const clientName = titleElement?.textContent?.replace('Documentos ', '').trim() || '';
+      const clientName = resolvedClientName || readClientNameFromTitle();
       const orderNumber = pc;
 
       if (spinnerIcon) spinnerIcon.classList.add('hidden');
@@ -1968,7 +2228,7 @@ export function initFilesScript() {
         if (uploadFileName) uploadFileName.value = '';
         if (uploadFileType) uploadFileType.value = 'PDF';
         if (uploadFileInput) uploadFileInput.value = '';
-        if (dropZoneText) dropZoneText.textContent = 'Arrastra el archivo aquí o haz click para seleccionar';
+        if (dropZoneText) dropZoneText.textContent = getMessage(documentos.dragAndDrop);
       });
     }
   });
@@ -1986,16 +2246,29 @@ export function initFilesScript() {
       const idFolder = qs('#uploadModal')?.dataset?.folderId;
       const isVisibleToCustomer = qs('#isVisibleToClient')?.value;
       const fileObject = qs('#uploadFileInput')?.files?.[0];
+      const orderPc = window.orderPc || pcName || '';
+      const orderOc = window.orderOc || '';
 
       if (!fileId || !fileName || !fileType || !fileObject) {
-        showNotification('Debe completar todos los campos y seleccionar un archivo', 'error');
+        showNotification(getMessage(documentos.uploadFieldsRequired), 'error');
         return;
       }
 
-      showGlobalSpinner();
-      
+      const originalUploadContent = confirmUploadBtn.innerHTML;
+      const uploadingLabel = getMessage(documentos.uploading);
+      confirmUploadBtn.innerHTML = `
+        <span class="flex items-center gap-2">
+          <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+          </svg>
+          <span>${uploadingLabel}</span>
+        </span>
+      `;
+      confirmUploadBtn.disabled = true;
+
       try {
-        const response = await fetch(`${apiBase}/api/customers/uuid/${uuid}`, {
+        const response = await fetch(`${apiBase}/api/customers/rut/${uuid}`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -2003,15 +2276,17 @@ export function initFilesScript() {
           }
         });
 
-        if (!response.ok) throw new Error(`Error al obtener cliente: ${response.status}`);
+        if (!response.ok) throw new Error(getMessage(documentos.customerFetchError));
 
         const { name: clientName } = await response.json();
 
         const formData = new FormData();
         formData.append('customer_id', uuid);
-        formData.append('folder_id', idFolder);
+        formData.append('folder_id', idFolder || '');
         formData.append('client_name', clientName);
-        formData.append('subfolder', pcName);
+        formData.append('subfolder', pcName || orderPc);
+        formData.append('pc', orderPc);
+        formData.append('oc', orderOc);
         formData.append('name', fileName);
         formData.append('file_id', fileId);
         formData.append('file', fileObject);
@@ -2024,10 +2299,10 @@ export function initFilesScript() {
         });
 
         if (!res.ok) {
-          throw new Error('Error al subir archivo');
+          throw new Error(getMessage(documentos.uploadError));
         }
 
-        showNotification('Archivo subido correctamente', 'success');
+        showNotification(getMessage(documentos.uploadSuccess), 'success');
 
         hideUploadModal();
 
@@ -2039,13 +2314,14 @@ export function initFilesScript() {
         if (uploadFileName) uploadFileName.value = '';
         if (uploadFileType) uploadFileType.value = 'PDF';
         if (uploadFileInput) uploadFileInput.value = '';
-        if (dropZoneText) dropZoneText.textContent = 'Arrastra el archivo aquí o haz click para seleccionar';
+        if (dropZoneText) dropZoneText.textContent = getMessage(documentos.dragAndDrop);
 
         await refreshFiles();
       } catch (err) {
-        showNotification(err.message || 'Error al subir archivo', 'error');
+        showNotification(err.message || getMessage(documentos.uploadError), 'error');
       } finally {
-        hideGlobalSpinner();
+        confirmUploadBtn.innerHTML = originalUploadContent;
+        confirmUploadBtn.disabled = false;
       }
     });
   }
@@ -2059,7 +2335,7 @@ export function initFilesScript() {
     if (dropZoneText) {
       dropZoneText.textContent = fileInput.files.length > 0
         ? fileInput.files[0].name
-        : 'Arrastra el archivo aquí o haz click para seleccionar';
+        : getMessage(documentos.dragAndDrop);
     }
   });
 
@@ -2084,6 +2360,8 @@ export function initFilesScript() {
   // Inicializar - Los event listeners se manejan con event delegation
   
   // Cargar archivos al inicializar la página
+  loadDocumentTypes();
+  loadRecipients();
   refreshFiles();
 
   /* ---------- visibilidad (checkbox) ---------- */
@@ -2113,11 +2391,11 @@ export function initFilesScript() {
 
           if (!res.ok) throw new Error();
 
-          showNotification('Visibilidad actualizada correctamente', 'success');
+          showNotification(getMessage(documentos.visibilityUpdateSuccess), 'success');
         } catch (err) {
           // Revierte el estado si hay error
           e.target.checked = !e.target.checked;
-          showNotification('Error al actualizar visibilidad', 'error');
+          showNotification(getMessage(documentos.visibilityUpdateError), 'error');
         }
       });
     });
@@ -2189,7 +2467,7 @@ export function initFilesScript() {
       const messageInput = qs('#customMessage');
 
       if (!window.currentMessageData) {
-        showNotification('Error: No hay datos de mensaje', 'error');
+        showNotification(getMessage(documentos.noMessageData), 'error');
         return;
       }
 
@@ -2216,17 +2494,24 @@ export function initFilesScript() {
 
       if (invalidRecipients.length) {
         const restrictionLabel = getRestrictionLabel(validationMode);
+        const blockedTemplate = getMessage(
+          documentos.sendBlockedMessage,
+          `No se puede enviar el documento a ${invalidRecipients.join(', ')} porque no tienen habilitado ${restrictionLabel}.`
+        );
+        const blockedMessage = blockedTemplate
+          .replace('{emails}', invalidRecipients.join(', '))
+          .replace('{restriction}', restrictionLabel);
         await confirmAction(
-          'Envío bloqueado',
-          `No se puede enviar el documento a ${invalidRecipients.join(', ')} porque no tienen habilitado ${restrictionLabel}.`,
+          getMessage(documentos.sendBlockedTitle),
+          blockedMessage,
           'error'
         );
         return;
       }
 
       const confirmed = await confirmAction(
-        '¿Enviar documento?',
-        'El documento se enviará por correo al cliente.',
+        getMessage(documentos.confirmSendTitle),
+        getMessage(documentos.confirmSendMessage),
         'question'
       );
 
@@ -2235,7 +2520,6 @@ export function initFilesScript() {
       }
 
       hideModal('#messageModal');
-      showGlobalSpinner();
       
       try {
         const ccoRecipients = Array.from(new Set([...getCcoEmailsFromMetadata(), ...ccoFromSelected]));
@@ -2259,7 +2543,6 @@ export function initFilesScript() {
         }
         window.currentMessageData = null;
       } finally {
-        hideGlobalSpinner();
       }
     });
   }
@@ -2275,8 +2558,6 @@ export function initFilesScript() {
   }
 
   // ===== SISTEMA DE ORDENAMIENTO =====
-  
-  let currentSort = { column: null, direction: 'asc' };
 
   /**
    * Función para actualizar los iconos de ordenamiento
@@ -2319,7 +2600,7 @@ export function initFilesScript() {
     }
     
     // Ordenar las filas
-    sortRows(currentSort.column, currentSort.direction);
+    sortFiles(currentSort.column, currentSort.direction);
     
     // Actualizar iconos
     updateSortIcons(currentSort.column, currentSort.direction);
@@ -2332,29 +2613,68 @@ export function initFilesScript() {
   /**
    * Función para ordenar las filas
    */
-  function sortRows(column, direction) {
+  function sortFiles(column, direction) {
     if (!column) return;
-    
-    filteredFiles.sort((a, b) => {
-      let aVal = a[column];
-      let bVal = b[column];
-      
-      // Manejar valores nulos/undefined
-      if (aVal == null) aVal = '';
-      if (bVal == null) bVal = '';
-      
-      // Convertir a string para comparación
-      aVal = String(aVal).toLowerCase();
-      bVal = String(bVal).toLowerCase();
-      
-      if (direction === 'asc') {
-        return aVal.localeCompare(bVal);
-      } else {
-        return bVal.localeCompare(aVal);
+
+    const dateColumns = new Set(['fecha_generacion', 'fecha_envio', 'fecha_reenvio']);
+    const localeCompareOptions = { numeric: true, sensitivity: 'base' };
+    const multiplier = direction === 'desc' ? -1 : 1;
+
+    const getComparableValue = (file) => {
+      switch (column) {
+        case 'name':
+          return file.name ?? '';
+        case 'status_name':
+          return file.status_name ?? '';
+        case 'fecha_generacion':
+          return file.fecha_generacion ?? '';
+        case 'fecha_envio':
+          return file.fecha_envio ?? '';
+        case 'fecha_reenvio':
+          return file.fecha_reenvio ?? '';
+        default:
+          return file[column] ?? '';
       }
+    };
+
+    filteredFiles.sort((aFile, bFile) => {
+      const rawA = getComparableValue(aFile);
+      const rawB = getComparableValue(bFile);
+
+      if (dateColumns.has(column)) {
+        const timeA = rawA ? new Date(rawA).getTime() : Number.NaN;
+        const timeB = rawB ? new Date(rawB).getTime() : Number.NaN;
+
+        const aInvalid = Number.isNaN(timeA);
+        const bInvalid = Number.isNaN(timeB);
+
+        if (aInvalid && bInvalid) return 0;
+        if (aInvalid) return 1 * multiplier;
+        if (bInvalid) return -1 * multiplier;
+
+        if (timeA === timeB) return 0;
+        return (timeA - timeB) * multiplier;
+      }
+
+      const aValue = rawA.toString().trim().toLowerCase();
+      const bValue = rawB.toString().trim().toLowerCase();
+
+      const aEmpty = aValue.length === 0;
+      const bEmpty = bValue.length === 0;
+
+      if (aEmpty || bEmpty) {
+        if (aEmpty && bEmpty) return 0;
+        return aEmpty ? 1 * multiplier : -1 * multiplier;
+      }
+
+      const comparison = aValue.localeCompare(bValue, undefined, localeCompareOptions);
+      return comparison * multiplier;
     });
+
+    renderTable();
   }
 }
+
 
 
 

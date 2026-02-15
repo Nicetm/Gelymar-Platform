@@ -61,11 +61,11 @@ router.post('/:customerId/create-account', authMiddleware, authorizeRoles(['admi
  */
 router.get('/:id', authMiddleware, authorizeRoles(['admin']), customerController.getCustomerById);
 
-router.get('/uuid/:uuid', authMiddleware, authorizeRoles(['admin']), customerController.getCustomerByUUID);
+router.get('/rut/:rut', authMiddleware, authorizeRoles(['admin']), customerController.getCustomerByRut);
 
 router.post('/contacts', authMiddleware, authorizeRoles(['admin']), customerController.createCustomerContact);
 
-router.get('/:uuid/contacts', authMiddleware, authorizeRoles(['admin']), customerController.getCustomerContacts);
+router.get('/:rut/contacts', authMiddleware, authorizeRoles(['admin']), customerController.getCustomerContacts);
 
 /**
  * @swagger
@@ -89,19 +89,19 @@ router.get('/:uuid/contacts', authMiddleware, authorizeRoles(['admin']), custome
  *       500:
  *         description: Server error
  */
-router.delete('/contacts/:customerUuid/:contactIdx', authMiddleware, authorizeRoles(['admin']), customerController.deleteCustomerContact);
-router.patch('/contacts/:customerUuid/:contactIdx', authMiddleware, authorizeRoles(['admin']), customerController.updateCustomerContact);
+router.delete('/contacts/:customerRut/:contactIdx', authMiddleware, authorizeRoles(['admin']), customerController.deleteCustomerContact);
+router.patch('/contacts/:customerRut/:contactIdx', authMiddleware, authorizeRoles(['admin']), customerController.updateCustomerContact);
 
 /**
  * @swagger
- * /api/customers/{uuid}:
+ * /api/customers/{rut}:
  *   patch:
  *     summary: Update a customer by UUID
  *     tags: [Customers]
  *     security:
  *       - bearerAuth: []
  *     parameters:
- *       - name: uuid
+ *       - name: rut
  *         in: path
  *         required: true
  *         schema:
@@ -131,18 +131,18 @@ router.patch('/contacts/:customerUuid/:contactIdx', authMiddleware, authorizeRol
  *       500:
  *         description: Server error
  */
-router.patch('/:uuid', authMiddleware, authorizeRoles(['admin']), customerController.updateCustomer);
+router.patch('/:rut', authMiddleware, authorizeRoles(['admin']), customerController.updateCustomer);
 
 /**
  * @swagger
- * /api/customers/change-password/{uuid}:
+ * /api/customers/change-password/{rut}:
  *   patch:
  *     summary: Change customer password
  *     tags: [Customers]
  *     security:
  *       - bearerAuth: []
  *     parameters:
- *       - name: uuid
+ *       - name: rut
  *         in: path
  *         required: true
  *         schema:
@@ -169,6 +169,6 @@ router.patch('/:uuid', authMiddleware, authorizeRoles(['admin']), customerContro
  *       500:
  *         description: Server error
  */
-router.patch('/change-password/:uuid', authMiddleware, authorizeRoles(['admin']), customerController.changeCustomerPassword);
+router.patch('/change-password/:rut', authMiddleware, authorizeRoles(['admin']), customerController.changeCustomerPassword);
 
 module.exports = router;

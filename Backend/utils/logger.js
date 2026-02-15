@@ -3,12 +3,30 @@ const { createLogger, format, transports } = require('winston');
 const path = require('path');
 const fs = require('fs');
 
+const getCallerTag = () => {
+  const stack = new Error().stack?.split('\n') || [];
+  const callerLine = stack.find((line) => (
+    line.includes('(') &&
+    !line.includes('logger.js') &&
+    !line.includes('winston') &&
+    !line.includes('node:internal')
+  ));
+  if (!callerLine) return '[log]';
+  const match = callerLine.match(/\((.*):\d+:\d+\)/) || callerLine.match(/at (.*):\d+:\d+/);
+  const filePath = match?.[1];
+  if (!filePath) return '[log]';
+  const base = path.basename(filePath, path.extname(filePath));
+  return base ? `[${base}]` : '[log]';
+};
+
 // Formato simple para consola
 const consoleFormat = format.combine(
   format.colorize(),
   format.timestamp({ format: 'YYYY-MM-DDTHH:mm:ss.SSSZ' }),
   format.printf(({ timestamp, level, message, ...meta }) => {
-    let log = `[${timestamp}] -> Logger Process -> ${message}`;
+    const needsTag = typeof message === 'string' && !message.trim().startsWith('[');
+    const tag = needsTag ? `${getCallerTag()} ` : '';
+    let log = `[${timestamp}] -> Logger Process -> ${tag}${message}`;
     if (Object.keys(meta).length > 0) {
       log += ` ${JSON.stringify(meta)}`;
     }

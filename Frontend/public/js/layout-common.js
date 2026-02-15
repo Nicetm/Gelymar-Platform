@@ -23,10 +23,6 @@ function applyThemePreference() {
   document.documentElement.classList.toggle('dark', shouldUseDark);
 }
 
-function removeInitialSpinner() {
-  const spinner = document.getElementById('globalSpinnerInit');
-  if (spinner) spinner.remove();
-}
 
 function getApiBaseFallback() {
   if (typeof window === 'undefined') return '';
@@ -171,13 +167,5 @@ export function initLayoutCommon(config = {}) {
   setupSocketReadyFlag();
   setupTokenWatcher(apiBase || window.apiBase || getApiBaseFallback());
 
-  const onDomReady = () => {
-    removeInitialSpinner();
-  };
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', onDomReady, { once: true });
-  } else {
-    onDomReady();
-  }
+  // no initial spinner
 }

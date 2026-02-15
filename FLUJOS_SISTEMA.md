@@ -367,7 +367,7 @@ graph TD
 ## Variables de Entorno Críticas
 
 ### Backend
-- `DB_HOST`, `DB_USER`, `DB_PASS`, `DB_NAME` - Conexión MySQL
+- `MYSQL_DB_HOST`, `MYSQL_DB_USER`, `MYSQL_DB_PASS`, `MYSQL_DB_NAME` - Conexión MySQL
 - `JWT_SECRET` - Firma de tokens
 - `FILE_SERVER_URL`, `FILE_SERVER_ROOT` - Configuración Fileserver
 - `SMTP_*` - Configuración email

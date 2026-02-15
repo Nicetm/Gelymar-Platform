@@ -1,7 +1,8 @@
 // services/user.service.js
 const { poolPromise } = require('../config/db');
-const { v4: uuidv4 } = require('uuid');
+const { getSqlPool, sql } = require('../config/sqlserver');
 const Customer = require('../models/customer.model');
+const { logger } = require('../utils/logger');
 
 /**
  * Obtiene todos los clientes con un conteo de carpetas asociadas (folder_count)
@@ -10,66 +11,132 @@ const Customer = require('../models/customer.model');
 async function getAllCustomers(options = {}) {
   const { salesRut = null } = options;
   const pool = await poolPromise;
-  const params = [];
+  const sqlPool = await getSqlPool();
 
-  console.log('[getAllCustomers] salesRut recibido:', salesRut);
-  
-  let query = '';
-  
-  if (salesRut) {
-    // Para sellers: solo clientes que tienen órdenes relacionadas con este vendedor
-    query = `
-      SELECT 
-        c.*, 
-        COUNT(DISTINCT o.id) AS order_count,
-        cc.primary_email,
-        u.online
-      FROM customers c
-      INNER JOIN orders o ON o.customer_id = c.id AND o.rut = c.rut
-      LEFT JOIN customer_contacts cc ON cc.customer_id = c.id
-      LEFT JOIN users u ON u.rut = c.rut
-      WHERE EXISTS (
-        SELECT 1 
-        FROM order_detail od
-        INNER JOIN sellers s ON s.codigo = od.vendedor
-        WHERE od.order_id = o.id AND s.rut = ?
+  try {
+    let sellerCodes = [];
+    if (salesRut) {
+      const [sellerRows] = await pool.query('SELECT codigo FROM sellers WHERE rut = ?', [salesRut]);
+      sellerCodes = sellerRows.map((row) => row.codigo).filter(Boolean);
+      if (sellerCodes.length === 0) {
+        return [];
+      }
+    }
+
+    const request = sqlPool.request();
+    request.timeout = 60000;
+
+    let query = `
+      WITH hdr AS (
+        SELECT
+          Rut,
+          COUNT(DISTINCT Nro) AS order_count
+        FROM jor_imp_HDR_90_softkey
+    `;
+
+    if (sellerCodes.length > 0) {
+      const placeholders = sellerCodes.map((_, idx) => `@sellerCode${idx}`);
+      query += ` WHERE Vendedor IN (${placeholders.join(', ')})`;
+      sellerCodes.forEach((code, idx) => {
+        request.input(`sellerCode${idx}`, sql.VarChar, code);
+      });
+    }
+
+    query += `
+        GROUP BY Rut
       )
-      GROUP BY c.id, cc.primary_email, u.online
+      SELECT
+        c.Rut,
+        c.Nombre,
+        c.Direccion,
+        c.Direccion2,
+        c.Ciudad,
+        c.Pais,
+        c.Contacto,
+        c.Contacto2,
+        c.Fax,
+        c.Telefono,
+        c.Correo,
+        ISNULL(h.order_count, 0) AS order_count
+      FROM jor_imp_CLI_01_softkey c
     `;
-    params.push(salesRut);
-    console.log('[getAllCustomers] Query para seller ejecutada con salesRut:', salesRut);
-  } else {
-    // Para admin: todos los clientes
-    query = `
-      SELECT 
-        c.*, 
-        COUNT(DISTINCT o.id) AS order_count,
-        cc.primary_email,
-        u.online
-      FROM customers c
-      LEFT JOIN orders o ON o.customer_id = c.id
-      LEFT JOIN order_detail od ON od.order_id = o.id
-      LEFT JOIN sellers s ON s.codigo = od.vendedor
-      LEFT JOIN customer_contacts cc ON cc.customer_id = c.id
-      LEFT JOIN users u ON u.rut = c.rut
-      GROUP BY c.id, cc.primary_email, u.online
-    `;
-  }
 
-  const [rows] = await pool.query(query, params);
-  
-  console.log('[getAllCustomers] Resultados obtenidos:', rows.length, 'clientes');
-  if (salesRut && rows.length > 0) {
-    console.log('[getAllCustomers] Primer cliente encontrado:', { id: rows[0].id, name: rows[0].name, rut: rows[0].rut });
-  }
+    if (sellerCodes.length > 0) {
+      query += ` INNER JOIN hdr h ON h.Rut = c.Rut`;
+    } else {
+      query += ` LEFT JOIN hdr h ON h.Rut = c.Rut`;
+    }
 
-  return rows.map(row => {
-    const customer = new Customer(row);
-    customer.folder_count = row.folder_count;
-    //customer.email = row.primary_email; // Usar el email principal de la nueva tabla
-    customer.online = row.online; // Agregar campo online
-    return customer;
-  });
+    logger.info(`[getAllCustomers] SQL query start. sellerCodes=${sellerCodes.length}`);
+    const sqlStart = Date.now();
+    const result = await request.query(query);
+    logger.info(`[getAllCustomers] SQL query done in ${Date.now() - sqlStart}ms rows=${result.recordset?.length || 0}`);
+    const rows = result.recordset || [];
+
+    if (rows.length === 0) return [];
+
+    const normalizeRutKey = (value) => String(value || '').trim().replace(/C$/i, '');
+    const ruts = rows.map((row) => row.Rut).filter(Boolean);
+    const normalizedRuts = ruts.map(normalizeRutKey).filter(Boolean);
+    logger.info(`[getAllCustomers] MySQL contacts query start. ruts=${ruts.length}`);
+    const mysqlStart = Date.now();
+    const [contactRows] = await pool.query(
+      `
+        SELECT cc.rut, cc.primary_email, u.online
+        FROM customer_contacts cc
+        LEFT JOIN users u ON u.rut = cc.rut
+        WHERE cc.rut IN (?)
+      `,
+      [normalizedRuts.length ? normalizedRuts : ruts]
+    );
+    logger.info(`[getAllCustomers] MySQL contacts query done in ${Date.now() - mysqlStart}ms rows=${contactRows.length}`);
+    const contactMap = new Map();
+    contactRows.forEach((row) => {
+      contactMap.set(normalizeRutKey(row.rut), {
+        primary_email: row.primary_email,
+        online: row.online
+      });
+    });
+
+    const [userRows] = normalizedRuts.length
+      ? await pool.query(
+        `SELECT rut, online FROM users WHERE rut IN (?)`,
+        [normalizedRuts]
+      )
+      : [[]];
+    const userOnlineMap = new Map();
+    (userRows || []).forEach((row) => {
+      userOnlineMap.set(normalizeRutKey(row.rut), row.online);
+    });
+
+    return rows.map((row) => {
+      const normalizedRut = normalizeRutKey(row.Rut);
+      const contact = contactMap.get(normalizedRut) || {};
+      const userOnline = userOnlineMap.get(normalizedRut);
+      const customer = new Customer({
+        id: null,
+        rut: row.Rut?.trim() || null,
+        name: row.Nombre?.trim() || null,
+        address: row.Direccion?.trim() || null,
+        address_alt: row.Direccion2?.trim() || null,
+        city: row.Ciudad?.trim() || null,
+        country: row.Pais?.trim() || null,
+        contact_name: row.Contacto?.trim() || null,
+        contact_secondary: row.Contacto2?.trim() || null,
+        fax: row.Fax?.trim() || null,
+        phone: row.Telefono?.trim() || null,
+        email: contact.primary_email || row.Contacto2?.trim() || null,
+        order_count: row.order_count || 0,
+        online: typeof userOnline !== 'undefined'
+          ? userOnline
+          : (typeof contact.online !== 'undefined' ? contact.online : 0)
+      });
+      return customer;
+    });
+  } catch (error) {
+    logger.error(`[getAllCustomers] Error: ${error.message}`);
+    throw error;
+  }
 }
 
 /**
@@ -78,55 +145,19 @@ async function getAllCustomers(options = {}) {
  * @returns {Customer|null} Objeto Customer si existe, null si no encontrado
  */
 async function getCustomerById(id) {
-  const pool = await poolPromise;
-  const [rows] = await pool.query(`
-    SELECT 
-      c.*,
-      cc.primary_email,
-      u.online
-    FROM customers c
-    LEFT JOIN customer_contacts cc ON cc.customer_id = c.id
-    LEFT JOIN users u ON u.rut = c.rut
-    WHERE c.id = ?
-  `, [id]);
-
-  if (rows.length === 0) return null;
-
-  const customer = new Customer(rows[0]);
-  customer.email = rows[0].email || rows[0].primary_email;
-  if (typeof rows[0].online !== 'undefined') {
-    customer.online = rows[0].online;
-  }
-  return customer;
+  if (!id) return null;
+  return getCustomerByRut(String(id));
 }
 
 
 /**
- * Obtiene un cliente por su UUID público
- * @param {string} uuid - UUID del cliente
+ * Obtiene un cliente por su RUT (alias para compatibilidad)
+ * @param {string} rut - RUT del cliente
  * @returns {Customer|null} Objeto Customer si existe, null si no encontrado
  */
-async function getCustomerByUUID(uuid) {
-  const pool = await poolPromise;
-  const [rows] = await pool.query(`
-    SELECT 
-      c.*,
-      cc.primary_email,
-      u.online
-    FROM customers c
-    LEFT JOIN customer_contacts cc ON cc.customer_id = c.id
-    LEFT JOIN users u ON u.rut = c.rut
-    WHERE c.uuid = ?
-  `, [uuid]);
-
-  if (rows.length === 0) return null;
-
-  const customer = new Customer(rows[0]);
-  customer.email = rows[0].email || rows[0].primary_email;
-  if (typeof rows[0].online !== 'undefined') {
-    customer.online = rows[0].online;
-  }
-  return customer;
+async function getCustomerByUUID(rut) {
+  if (!rut) return null;
+  return getCustomerByRut(String(rut));
 }
 
 
@@ -137,33 +168,77 @@ async function getCustomerByUUID(uuid) {
  */
 async function getCustomerByRut(rut) {
   try {
+    if (!rut) return null;
+    const normalizedRut = String(rut).trim().replace(/C$/i, '');
+    const altRut = normalizedRut ? `${normalizedRut}C` : String(rut).trim();
+    const sqlPool = await getSqlPool();
+    const sqlResult = await sqlPool
+      .request()
+      .input('rut', sql.VarChar, rut)
+      .query(`
+        SELECT TOP 1
+          Rut,
+          Nombre,
+          Direccion,
+          Direccion2,
+          Ciudad,
+          Pais,
+          Contacto,
+          Contacto2,
+          Fax,
+          Telefono,
+          Correo
+        FROM jor_imp_CLI_01_softkey
+        WHERE Rut = @rut
+      `);
+
+    const row = sqlResult.recordset?.[0];
+    if (!row) return null;
+
     const pool = await poolPromise;
-    const query = `
-      SELECT 
-        c.*,
-        cc.primary_email,
-        u.online
-      FROM customers c
-      LEFT JOIN customer_contacts cc ON cc.customer_id = c.id
-      LEFT JOIN users u ON u.rut = c.rut
-      WHERE c.rut = ?
-    `;
-    const params = [rut];
-
-    const [rows] = await pool.query(query, params);
-
-    if (rows.length === 0) {
-      return null;
+    let contactMeta = {};
+    const [userRows] = await pool.query(
+      `
+        SELECT cc.primary_email, u.online
+        FROM users u
+        LEFT JOIN customer_contacts cc ON cc.rut = u.rut
+        WHERE u.rut IN (?, ?)
+        LIMIT 1
+      `,
+      [normalizedRut, altRut]
+    );
+    if (userRows && userRows.length) {
+      contactMeta = userRows[0] || {};
+    } else {
+      const [contactRows] = await pool.query(
+        `
+          SELECT cc.primary_email
+          FROM customer_contacts cc
+          WHERE cc.rut IN (?, ?)
+          LIMIT 1
+        `,
+        [normalizedRut, altRut]
+      );
+      contactMeta = contactRows[0] || {};
     }
 
-    const customer = new Customer(rows[0]);
-    customer.email = rows[0].email || rows[0].primary_email;
-    if (typeof rows[0].online !== 'undefined') {
-      customer.online = rows[0].online;
-    }
+    const customer = new Customer({
+      id: null,
+      rut: row.Rut?.trim() || null,
+      name: row.Nombre?.trim() || null,
+      address: row.Direccion?.trim() || null,
+      address_alt: row.Direccion2?.trim() || null,
+      city: row.Ciudad?.trim() || null,
+      country: row.Pais?.trim() || null,
+      contact_name: row.Contacto?.trim() || null,
+      contact_secondary: row.Contacto2?.trim() || null,
+      fax: row.Fax?.trim() || null,
+      phone: row.Telefono?.trim() || null,
+      email: (contactMeta.primary_email || row.Contacto2?.trim()) ?? null,
+      online: typeof contactMeta.online !== 'undefined' ? contactMeta.online : 0
+    });
 
     return customer;
-
   } catch (error) {
     console.error(`Error buscando cliente por RUT "${rut}":`);
     console.error(`   Error: ${error.message}`);
@@ -173,11 +248,59 @@ async function getCustomerByRut(rut) {
   }
 }
 
+/**
+ * Obtiene un cliente por su RUT desde SQL Server (vista jor_imp_CLI_01_softkey)
+ * @param {string} rut - RUT del cliente
+ * @returns {object|null} Datos del cliente si existe, null si no encontrado
+ */
+async function getCustomerByRutFromSql(rut) {
+  const pool = await getSqlPool();
+  const result = await pool
+    .request()
+    .input('rut', sql.VarChar, rut)
+    .query(`
+      SELECT TOP 1
+        Rut,
+        Nombre,
+        Direccion,
+        Direccion2,
+        Ciudad,
+        Pais,
+        Contacto,
+        Contacto2,
+        Fax,
+        Telefono,
+        Correo
+      FROM jor_imp_CLI_01_softkey
+      WHERE Rut = @rut
+    `);
+
+  const row = result.recordset?.[0];
+  if (!row) return null;
+
+  return {
+    rut: row.Rut?.trim() || null,
+    name: row.Nombre?.trim() || null,
+    address: row.Direccion?.trim() || null,
+    address_alt: row.Direccion2?.trim() || null,
+    city: row.Ciudad?.trim() || null,
+    country: row.Pais?.trim() || null,
+    contact_name: row.Contacto?.trim() || null,
+    contact_secondary: row.Contacto2?.trim() || null,
+    fax: row.Fax?.trim() || null,
+    phone: row.Telefono?.trim() || null,
+    email: row.Contacto2?.trim() || null,
+    mobile: null,
+  };
+}
+
 
 async function getAllCustomerRuts() {
-  const pool = await poolPromise;
-  const [rows] = await pool.query('SELECT rut FROM customers');
-  return rows.map(r => r.rut);
+  const sqlPool = await getSqlPool();
+  const result = await sqlPool.request().query(
+    'SELECT Rut FROM jor_imp_CLI_01_softkey WHERE Rut IS NOT NULL'
+  );
+  return (result.recordset || []).map((row) => row.Rut);
 }
 
 /**
@@ -186,9 +309,41 @@ async function getAllCustomerRuts() {
  * @returns {Customer|null} Cliente encontrado o null
  */
 async function getCustomerByRutForUpdate(rut) {
-  const pool = await poolPromise;
-  const [rows] = await pool.query('SELECT * FROM customers WHERE rut = ?', [rut]);
-  return rows.length > 0 ? rows[0] : null;
+  const sqlPool = await getSqlPool();
+  const request = sqlPool.request();
+  request.input('rut', sql.VarChar, rut);
+  const result = await request.query(`
+    SELECT TOP 1
+      Rut,
+      Nombre,
+      Direccion,
+      Direccion2,
+      Ciudad,
+      Pais,
+      Contacto,
+      Contacto2,
+      Fax,
+      Telefono,
+      Correo
+    FROM jor_imp_CLI_01_softkey
+    WHERE Rut = @rut
+  `);
+  const row = result.recordset?.[0];
+  if (!row) return null;
+  return {
+    rut: row.Rut?.trim() || null,
+    name: row.Nombre?.trim() || null,
+    address: row.Direccion?.trim() || null,
+    address_alt: row.Direccion2?.trim() || null,
+    city: row.Ciudad?.trim() || null,
+    country: row.Pais?.trim() || null,
+    contact_name: row.Contacto?.trim() || null,
+    contact_secondary: row.Contacto2?.trim() || null,
+    fax: row.Fax?.trim() || null,
+    phone: row.Telefono?.trim() || null,
+    email: row.Contacto2?.trim() || null,
+    mobile: null
+  };
 }
 
 /**
@@ -198,78 +353,21 @@ async function getCustomerByRutForUpdate(rut) {
  * @returns {boolean} true si se actualizó, false si no
  */
 async function updateCustomerByRut(rut, updateData) {
-  const pool = await poolPromise;
-  
-  // Construir la query de actualización dinámicamente
-  const allowedFields = ['name', 'email', 'contact_name', 'contact_secondary', 'phone', 'fax', 'mobile', 'address', 'address_alt', 'country', 'city'];
-  const fieldsToUpdate = [];
-  const values = [];
-
-  for (const [key, value] of Object.entries(updateData)) {
-    if (allowedFields.includes(key)) {
-      fieldsToUpdate.push(`${key} = ?`);
-      values.push(value); // Permitir null para actualizar campos vacíos a NULL
-    }
-  }
-
-  if (fieldsToUpdate.length === 0) {
-    return false; // No hay campos para actualizar
-  }
-
-  // Agregar el RUT al final para la condición WHERE
-  values.push(rut);
-
-  const query = `
-    UPDATE customers 
-    SET ${fieldsToUpdate.join(', ')}, updated_at = NOW()
-    WHERE rut = ?
-  `;
-
-  await pool.query(query, values);
-  return true;
+  logger.warn(`[updateCustomerByRut] Operación no soportada en vistas SQL. Rut=${rut}`);
+  throw new Error('Actualización de clientes no disponible: datos se leen desde SQL');
 }
 
-async function insertCustomer(data) {
+
+async function createCustomerContacts(customer_rut, contacts) {
   const pool = await poolPromise;
-  const query = `
-    INSERT INTO customers (
-      uuid, rut, name, email, address, address_alt, city, country,
-      contact_name, contact_secondary, fax, phone, status, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW())
-  `;
+  if (!customer_rut) throw new Error('RUT requerido');
 
-  const params = [
-    uuidv4(),
-    data.rut,
-    data.name,
-    data.email || null,
-    data.address,
-    data.address_alt,
-    data.city,
-    data.country,
-    data.contact_name,
-    data.contact_secondary,
-    data.fax,
-    data.phone
-  ];
+  logger.info(`[createCustomerContacts] start rut=${customer_rut} contacts=${Array.isArray(contacts) ? contacts.length : 'N/A'}`);
 
-  await pool.query(query, params);
-}
-
-async function createCustomerContacts(customer_uuid, contacts) {
-  const pool = await poolPromise;
-  
-  // Buscar el cliente por UUID
-  const [customerRows] = await pool.query('SELECT id, rut, email FROM customers WHERE uuid = ?', [customer_uuid]);
-  const customer = customerRows[0];
-  if (!customer) throw new Error('Cliente no encontrado');
-  
-  const customerId = customer.id;
-
-  // Obtener (si existe) el registro de contactos para el cliente
+  // Obtener (si existe) el registro de contactos para el cliente por RUT
   const [contactRows] = await pool.query(
-    'SELECT id, contact_email, primary_email, role FROM customer_contacts WHERE customer_id = ?',
-    [customerId]
+    'SELECT id, contact_email, primary_email, role FROM customer_contacts WHERE rut = ?',
+    [customer_rut]
   );
   const contactRecord = contactRows[0];
   
@@ -305,45 +403,33 @@ async function createCustomerContacts(customer_uuid, contacts) {
   if (contactRecord) {
     // Actualizar registro existente
     await pool.query(
-      'UPDATE customer_contacts SET contact_email = ?, primary_email = ? WHERE customer_id = ?',
-      [JSON.stringify(allContacts), customer.email || null, customerId]
+      'UPDATE customer_contacts SET contact_email = ?, primary_email = ? WHERE rut = ?',
+      [JSON.stringify(allContacts), contactRecord.primary_email || null, customer_rut]
     );
+    logger.info(`[createCustomerContacts] updated rut=${customer_rut} total=${allContacts.length}`);
   } else {
     // Crear registro si no existe aún
     await pool.query(
-      'INSERT INTO customer_contacts (customer_id, rut, primary_email, contact_email, role) VALUES (?, ?, ?, ?, ?)',
-      [customerId, customer.rut, customer.email || null, JSON.stringify(allContacts), '3']
+      'INSERT INTO customer_contacts (rut, primary_email, contact_email, role) VALUES (?, ?, ?, ?)',
+      [customer_rut, null, JSON.stringify(allContacts), '3']
     );
+    logger.info(`[createCustomerContacts] inserted rut=${customer_rut} total=${allContacts.length}`);
   }
 }
 
-async function getContactsByCustomerUUID(uuid) {
+async function getContactsByCustomerRut(rut) {
   const pool = await poolPromise;
-  
-  // Buscar el cliente por UUID
-  const [customerRows] = await pool.query('SELECT id, email FROM customers WHERE uuid = ?', [uuid]);
-  const customer = customerRows[0];
-  if (!customer) {
-    return {
-      id: null,
-      primary_email: null,
-      role: null,
-      additional_contacts: []
-    };
-  }
-  
-  const customerId = customer.id;
   
   // Buscar en la tabla de contactos
   const [contactRows] = await pool.query(
-    'SELECT id, primary_email, contact_email, role FROM customer_contacts WHERE customer_id = ?', 
-    [customerId]
+    'SELECT id, primary_email, contact_email, role FROM customer_contacts WHERE rut = ?', 
+    [rut]
   );
   const contactRecord = contactRows[0];
   
   const result = {
     id: contactRecord ? contactRecord.id : null,
-    primary_email: customer.email || null,
+    primary_email: contactRecord ? contactRecord.primary_email : null,
     role: contactRecord ? contactRecord.role : null,
     additional_contacts: []
   };
@@ -366,37 +452,30 @@ async function getContactsByCustomerUUID(uuid) {
 
 /**
  * Crea o actualiza el registro principal de contactos cuando se actualiza el email principal
- * @param {string} customer_uuid - UUID del cliente
+ * @param {string} customer_rut - RUT del cliente
  * @param {string} primary_email - Email principal del cliente
  * @returns {void}
  */
-async function createOrUpdatePrimaryContact(customer_uuid, primary_email) {
+async function createOrUpdatePrimaryContact(customer_rut, primary_email) {
   const pool = await poolPromise;
-  
-  // Buscar el cliente por UUID
-  const [customer] = await pool.query('SELECT id, rut FROM customers WHERE uuid = ?', [customer_uuid]);
-  if (!customer[0]) throw new Error('Cliente no encontrado');
-  
-  const customer_id = customer[0].id;
-  const customer_rut = customer[0].rut;
   
   // Verificar si ya existe un registro
   const [existingRecord] = await pool.query(
-    'SELECT id FROM customer_contacts WHERE customer_id = ?', 
-    [customer_id]
+    'SELECT id FROM customer_contacts WHERE rut = ?', 
+    [customer_rut]
   );
   
   if (existingRecord[0]) {
     // Actualizar registro existente
     await pool.query(
-      'UPDATE customer_contacts SET primary_email = ? WHERE customer_id = ?',
-      [primary_email, customer_id]
+      'UPDATE customer_contacts SET primary_email = ? WHERE rut = ?',
+      [primary_email, customer_rut]
     );
   } else {
     // Crear nuevo registro
     await pool.query(
-      'INSERT INTO customer_contacts (customer_id, rut, primary_email, role) VALUES (?, ?, ?, ?)',
-      [customer_id, customer_rut, primary_email, '3']
+      'INSERT INTO customer_contacts (rut, primary_email, role) VALUES (?, ?, ?)',
+      [customer_rut, primary_email, '3']
     );
   }
 }
@@ -405,14 +484,63 @@ async function createOrUpdatePrimaryContact(customer_uuid, primary_email) {
  * Obtiene clientes que no tienen cuenta de usuario
  * @returns {Array<Customer>} Lista de clientes sin cuenta
  */
+
+const normalizeRutKey = (value) => {
+  if (value === null || value === undefined) return '';
+  const cleaned = String(value)
+    .toUpperCase()
+    .replace(/[^0-9K]/g, '')
+    .replace(/C$/i, '');
+  return cleaned.replace(/^0+/, '');
+};
+
 async function getCustomersWithoutAccount() {
-  const pool = await poolPromise;
-  const [rows] = await pool.query(`
-    SELECT * FROM customers 
-    WHERE rut NOT IN (SELECT rut FROM users)
+  const sqlPool = await getSqlPool();
+  const sqlResult = await sqlPool.request().query(`
+    SELECT
+      Rut,
+      Nombre,
+      Direccion,
+      Direccion2,
+      Ciudad,
+      Pais,
+      Contacto,
+      Contacto2,
+      Fax,
+      Telefono,
+      Correo
+    FROM jor_imp_CLI_01_softkey
+    WHERE Rut IS NOT NULL
   `);
 
-  return rows.map(row => new Customer(row));
+  const rows = sqlResult.recordset || [];
+  if (rows.length === 0) return [];
+
+  const pool = await poolPromise;
+  const [userRows] = await pool.query('SELECT rut FROM users');
+  const userRuts = new Set(userRows.map((row) => normalizeRutKey(row.rut)));
+    logger.info(`[getCustomersWithoutAccount] SQL customers=${rows.length} users=${userRows.length}`);
+
+    const missing = rows.filter((row) => !userRuts.has(normalizeRutKey(row.Rut)));
+    logger.info(`[getCustomersWithoutAccount] missing=${missing.length}`);
+    logger.info(`[getCustomersWithoutAccount] sample=${missing.slice(0, 5).map(r => r.Rut).join(', ')}`);
+
+  return rows
+    .filter((row) => !userRuts.has(normalizeRutKey(row.Rut)))
+    .map((row) => new Customer({
+      id: null,
+      rut: row.Rut?.trim() || null,
+      name: row.Nombre?.trim() || null,
+      address: row.Direccion?.trim() || null,
+      address_alt: row.Direccion2?.trim() || null,
+      city: row.Ciudad?.trim() || null,
+      country: row.Pais?.trim() || null,
+      contact_name: row.Contacto?.trim() || null,
+      contact_secondary: row.Contacto2?.trim() || null,
+      fax: row.Fax?.trim() || null,
+      phone: row.Telefono?.trim() || null,
+      email: row.Contacto2?.trim() || null
+    }));
 }
 
 /**
@@ -420,19 +548,13 @@ async function getCustomersWithoutAccount() {
  * @param {number} contactId - ID del contacto a eliminar
  * @returns {boolean} true si se eliminó, false si no se encontró
  */
-async function deleteCustomerContact(customer_uuid, contactIdx) {
+async function deleteCustomerContact(customer_rut, contactIdx) {
   const pool = await poolPromise;
-  
-  // Buscar el cliente por UUID
-  const [customer] = await pool.query('SELECT id FROM customers WHERE uuid = ?', [customer_uuid]);
-  if (!customer[0]) throw new Error('Cliente no encontrado');
-  
-  const customer_id = customer[0].id;
   
   // Obtener el registro de contactos
   const [contactRecord] = await pool.query(
-    'SELECT contact_email FROM customer_contacts WHERE customer_id = ?', 
-    [customer_id]
+    'SELECT contact_email FROM customer_contacts WHERE rut = ?', 
+    [customer_rut]
   );
   
   if (!contactRecord[0] || !contactRecord[0].contact_email) {
@@ -458,24 +580,19 @@ async function deleteCustomerContact(customer_uuid, contactIdx) {
   
   // Actualizar el registro
   await pool.query(
-    'UPDATE customer_contacts SET contact_email = ? WHERE customer_id = ?',
-    [JSON.stringify(updatedContacts), customer_id]
+    'UPDATE customer_contacts SET contact_email = ? WHERE rut = ?',
+    [JSON.stringify(updatedContacts), customer_rut]
   );
   
   return true;
 }
 
-async function updateCustomerContact(customer_uuid, contactIdx, contactData) {
+async function updateCustomerContact(customer_rut, contactIdx, contactData) {
   const pool = await poolPromise;
 
-  const [customer] = await pool.query('SELECT id FROM customers WHERE uuid = ?', [customer_uuid]);
-  if (!customer[0]) throw new Error('Cliente no encontrado');
-
-  const customer_id = customer[0].id;
-
   const [contactRecord] = await pool.query(
-    'SELECT contact_email FROM customer_contacts WHERE customer_id = ?',
-    [customer_id]
+    'SELECT contact_email FROM customer_contacts WHERE rut = ?',
+    [customer_rut]
   );
 
   if (!contactRecord[0] || !contactRecord[0].contact_email) {
@@ -510,81 +627,24 @@ async function updateCustomerContact(customer_uuid, contactIdx, contactData) {
   };
 
   await pool.query(
-    'UPDATE customer_contacts SET contact_email = ? WHERE customer_id = ?',
-    [JSON.stringify(contacts), customer_id]
+    'UPDATE customer_contacts SET contact_email = ? WHERE rut = ?',
+    [JSON.stringify(contacts), customer_rut]
   );
 
   return contacts[contactIndex];
-}
-
-/**
- * Actualiza un cliente por su UUID
- * @param {string} uuid - UUID del cliente
- * @param {Object} updateData - Datos a actualizar
- * @returns {Customer|null} Cliente actualizado o null si no encontrado
- */
-async function updateCustomerByUUID(uuid, updateData) {
-  const pool = await poolPromise;
-  
-  // Verificar que el cliente existe
-  const [existingCustomer] = await pool.query('SELECT * FROM customers WHERE uuid = ?', [uuid]);
-  if (existingCustomer.length === 0) {
-    console.error(`Cliente no encontrado con UUID: ${uuid}`);
-    return null;
-  }
-
-  // Construir la query de actualización dinámicamente
-  const allowedFields = ['name', 'email', 'phone', 'country', 'city', 'address', 'address_alt', 'contact_name', 'contact_secondary', 'fax'];
-  const fieldsToUpdate = [];
-  const values = [];
-
-  for (const [key, value] of Object.entries(updateData)) {
-    if (allowedFields.includes(key) && value !== undefined) {
-      fieldsToUpdate.push(`${key} = ?`);
-      values.push(value);
-    }
-  }
-
-  if (fieldsToUpdate.length === 0) {
-    throw new Error('No hay campos válidos para actualizar');
-  }
-
-  // Agregar el UUID al final para la condición WHERE
-  values.push(uuid);
-
-  const query = `
-    UPDATE customers 
-    SET ${fieldsToUpdate.join(', ')}, updated_at = NOW()
-    WHERE uuid = ?
-  `;
-
-  await pool.query(query, values);
-
-  // Si se actualizó el email, crear o actualizar el registro de contactos
-  if (updateData.email) {
-    try {
-      await createOrUpdatePrimaryContact(uuid, updateData.email);
-    } catch (error) {
-      console.error('Error actualizando contacto principal:', error.message);
-    }
-  }
-
-  // Retornar el cliente actualizado
-  const updatedCustomer = await getCustomerByUUID(uuid);
-  return updatedCustomer;
 }
 
 module.exports = {
   getAllCustomerRuts,
   getCustomerByRutForUpdate,
   updateCustomerByRut,
-  insertCustomer,
   getAllCustomers,
   getCustomerById,  
   getCustomerByUUID,
   getCustomerByRut,
+  getCustomerByRutFromSql,
   createCustomerContacts,
-  getContactsByCustomerUUID,
+  getContactsByCustomerRut,
   deleteCustomerContact,
   updateCustomerContact,
   createOrUpdatePrimaryContact,

@@ -7,7 +7,7 @@ const { authorizeRoles } = require('../middleware/role.middleware');
 
 /**
  * @swagger
- * /api/files/{customerUuid}:
+ * /api/files/{customerRut}:
  *   get:
  *     summary: Lista archivos de un cliente según carpeta
  *     tags: [Archivos]
@@ -44,7 +44,7 @@ router.get('/temp-view/:token', controller.tempViewFile);
 // view-with-token valida el token de query en el controlador; se expone sin auth aquí
 router.get('/view-with-token/:id', controller.viewWithToken);
 router.get('/download/:id', authMiddleware, controller.downloadFile);
-router.get('/:customerUuid', authMiddleware, authorizeRoles(['admin', 'client']), controller.getFilesByCustomerAndFolder);
+router.get('/:customerRut', authMiddleware, authorizeRoles(['admin', 'client']), controller.getFilesByCustomerAndFolder);
 
 /**
  * @swagger
@@ -154,6 +154,7 @@ router.delete('/delete/:id', authMiddleware, authorizeRoles(['admin']), controll
  *       500:
  *         description: Error interno del servidor
  */
+router.post('/create-default', authMiddleware, authorizeRoles(['admin']), controller.createDefaultFiles);
 router.post('/create-default/:orderId', authMiddleware, authorizeRoles(['admin']), controller.createDefaultFiles);
 router.post('/process-new-orders', controller.processNewOrdersAndSendReception);
 

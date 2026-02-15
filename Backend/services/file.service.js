@@ -1,9 +1,38 @@
 const { poolPromise } = require('../config/db');
+const { getSqlPool, sql } = require('../config/sqlserver');
 const File = require('../models/file');
 const fs = require('fs').promises;
 const path = require('path');
 const { cleanDirectoryName } = require('../utils/directoryUtils');
-const { getOrderByIdSimple } = require('./order.service');
+const { createOrderService } = require('./order.service');
+const { getOrderByIdSimple, getOrderByPc, getOrderByPcOc } = createOrderService();
+
+const normalizeOc = (value) => {
+  if (value === null || value === undefined) return '';
+  return String(value).trim().replace(/\s+/g, ' ');
+};
+
+const normalizeOcForCompare = (value) => {
+  if (value === null || value === undefined) return '';
+  return String(value).toUpperCase().replace(/[\s()-]+/g, '');
+};
+
+const getCustomerByRutSql = async (rut) => {
+  if (!rut) return null;
+  const sqlPool = await getSqlPool();
+  const request = sqlPool.request();
+  request.input('rut', sql.VarChar, rut);
+  const result = await request.query(`
+    SELECT TOP 1
+      Rut,
+      Nombre,
+      Pais,
+      Correo
+    FROM jor_imp_CLI_01_softkey
+    WHERE Rut = @rut
+  `);
+  return result.recordset?.[0] || null;
+};
 
 /**
  * Inserta un nuevo archivo en la base de datos
@@ -28,10 +57,11 @@ const insertFile = async ({
 }) => {
   
   const pool = await poolPromise;
-  const [rows] = await pool.query('SELECT id FROM customers WHERE uuid = ?', [customer_id]);
-
-  if (rows.length === 0) {
-    throw new Error('Cliente no encontrado');
+  if (customer_id) {
+    const customer = await getCustomerByRutSql(customer_id);
+    if (!customer) {
+      console.warn(`Cliente no encontrado en SQL para rut=${customer_id}. Continuando sin validar.`);
+    }
   }
   
   const visibleValue = (() => {
@@ -60,12 +90,12 @@ const insertFile = async ({
 
   const [result] = await pool.query(`
     INSERT INTO order_files (
-      order_id, pc, oc, name, path, file_identifier, file_id,
+      pc, oc, name, path, file_identifier, file_id,
       created_at, updated_at, was_sent, 
       document_type, file_type, status_id, is_generated, is_visible_to_client
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW(), ?, ?, ?, ?, ?, ?)`,
     [
-      order_id, pc, oc, name, path, file_identifier, file_id,
+      pc, oc, name, path, file_identifier, file_id,
       was_sent, document_type, file_type, status_id, is_generated, visibleValue
     ]
   );
@@ -127,15 +157,12 @@ const getFiles = async (customerId, folderId) => {
         f.*, 
         os.id AS status_id, 
         os.name AS status_name,
-        o.pc,
-        o.oc,
         f.fecha_generacion,
         f.fecha_envio,
         f.fecha_reenvio
      FROM order_files f
      LEFT JOIN order_status os ON f.status_id = os.id
-     JOIN orders o ON f.order_id = o.id
-     WHERE f.order_id = ?
+     WHERE f.pc = ?
      ORDER BY f.created_at DESC`,
     [folderId]
   );
@@ -147,75 +174,65 @@ const getFiles = async (customerId, folderId) => {
  * @param {number} customerId - ID interno del cliente
  * @returns {Object} Mapa con folder_id como clave y cantidad de archivos como valor
  */
-const getFileCountByCustomer = async (customerId) => {
-  const pool = await poolPromise;
-
-  const [rows] = await pool.query(`
-    SELECT f.order_id, COUNT(*) AS fileCount
-    FROM order_files f
-    INNER JOIN orders o ON f.order_id = o.id
-    WHERE o.customer_id = ?
-    GROUP BY f.order_id
-  `, [customerId]);
-
-  const countMap = {};
-  rows.forEach(row => {
-    countMap[row.order_id] = row.fileCount;
-  });
-
-  return countMap;
-};
 
 const getFileById = async(id) => {
   const pool = await poolPromise;
-  const [rows] = await pool.query(`
-    SELECT 
-      f.*, 
-      c.id AS customer_id,
-      c.name AS customer_name, 
-      c.country,
-      cc.primary_email AS customer_email,
-      cl.lang,
-      f.fecha_generacion,
-      f.fecha_envio,
-      f.fecha_reenvio,
-      cc.contact_email AS contact_email_json
-    FROM order_files f
-    JOIN orders fd ON f.order_id = fd.id
-    JOIN customers c ON fd.customer_id = c.id
-    JOIN country_lang cl on c.country = cl.country
-    LEFT JOIN customer_contacts cc ON c.id = cc.customer_id
-    WHERE f.id = ?
-  `, [id]);
-
+  const [rows] = await pool.query('SELECT * FROM order_files WHERE id = ?', [id]);
   if (rows.length === 0) return null;
 
   const file = rows[0];
-  
-  // Parsear contact_email JSON y extraer emails
+  const pc = file.pc;
+  const oc = normalizeOc(file.oc);
+  const order = oc ? await getOrderByPcOc(pc, oc) : await getOrderByPc(pc);
+  const customerRut = order?.rut || order?.customer_uuid || null;
+  const customerSql = customerRut ? await getCustomerByRutSql(customerRut) : null;
+  const customerName = order?.customer_name || customerSql?.Nombre || null;
+  const customerCountry = customerSql?.Pais || null;
+  const customerEmail = customerSql?.Correo || null;
+
+  let customerLang = null;
+  if (customerCountry) {
+    const [langRows] = await pool.query(
+      'SELECT lang FROM country_lang WHERE country = ? LIMIT 1',
+      [customerCountry]
+    );
+    customerLang = langRows?.[0]?.lang || null;
+  }
+
   let contactEmails = [];
-  if (file.contact_email_json) {
-    try {
-      const contacts = typeof file.contact_email_json === 'string' 
-        ? JSON.parse(file.contact_email_json) 
-        : file.contact_email_json;
-      
-      if (Array.isArray(contacts)) {
-        contactEmails = contacts
-          .map(contact => contact.email)
-          .filter(email => email && email.trim());
+  if (customerRut) {
+    const [contactRows] = await pool.query(
+      'SELECT contact_email FROM customer_contacts WHERE rut = ? LIMIT 1',
+      [customerRut]
+    );
+    const contactEmailJson = contactRows?.[0]?.contact_email;
+    if (contactEmailJson) {
+      try {
+        const contacts = typeof contactEmailJson === 'string'
+          ? JSON.parse(contactEmailJson)
+          : contactEmailJson;
+        if (Array.isArray(contacts)) {
+          contactEmails = contacts
+            .map(contact => contact.email)
+            .filter(email => email && email.trim());
+        }
+      } catch (error) {
+        console.error('Error parseando contact_email:', error);
       }
-    } catch (error) {
-      console.error('Error parseando contact_email:', error);
     }
   }
-  
+
+  file.customer_id = null;
+  file.customer_rut = customerRut;
+  file.customer_name = customerName;
+  file.country = customerCountry;
+  file.customer_email = customerEmail;
+  file.lang = customerLang;
   file.contact_emails = contactEmails.join(',');
-  delete file.contact_email_json;
-  
+
   return file;
 }
-
+  
 const updateFile = async(data) => {
   const pool = await poolPromise;
   
@@ -291,13 +308,13 @@ const duplicateFile = async (fileId, newPath = null, newName = null) => {
   // Insertar el nuevo registro duplicado
   const [result] = await pool.query(`
     INSERT INTO order_files (
-      order_id, pc, oc, name, path, file_identifier, file_id,
+      pc, oc, name, path, file_identifier, file_id,
       created_at, updated_at, was_sent, 
       document_type, file_type, status_id, is_visible_to_client,
       fecha_generacion, fecha_envio
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW(), ?, ?, ?, ?, ?, ?, ?)`,
     [
-      file.order_id, file.pc, file.oc, nameToUse, pathToUse, file.file_identifier, file.file_id,
+      file.pc, file.oc, nameToUse, pathToUse, file.file_identifier, file.file_id,
       true, file.document_type, file.file_type, 4, file.is_visible_to_client,
       file.fecha_generacion, file.fecha_envio
     ]
@@ -311,21 +328,35 @@ const duplicateFile = async (fileId, newPath = null, newName = null) => {
  * @returns {Promise<Object>} Objeto con RUT como clave y array de órdenes como valor
  */
 const getAllOrdersGroupedByRut = async () => {
-  const pool = await poolPromise;
-  const [rows] = await pool.query(`
-    SELECT id, rut, pc, oc, factura, created_at 
-    FROM orders 
-    WHERE rut IS NOT NULL AND pc IS NOT NULL AND oc IS NOT NULL
-    ORDER BY rut, created_at
+  const sqlPool = await getSqlPool();
+  const result = await sqlPool.request().query(`
+    SELECT
+      h.Rut,
+      h.Nro,
+      h.OC,
+      h.Factura,
+      h.Fecha
+    FROM jor_imp_HDR_90_softkey h
+    WHERE h.Rut IS NOT NULL AND h.Nro IS NOT NULL AND h.OC IS NOT NULL
+    ORDER BY h.Rut, h.Fecha
   `);
+
+  const rows = result.recordset || [];
   
   // Agrupar por RUT
   const ordersByRut = {};
   rows.forEach(order => {
-    if (!ordersByRut[order.rut]) {
-      ordersByRut[order.rut] = [];
+    const rut = order.Rut;
+    if (!ordersByRut[rut]) {
+      ordersByRut[rut] = [];
     }
-    ordersByRut[order.rut].push(order);
+    ordersByRut[rut].push({
+      rut,
+      pc: order.Nro,
+      oc: order.OC,
+      factura: order.Factura,
+      created_at: order.Fecha
+    });
   });
   
   return ordersByRut;
@@ -335,15 +366,6 @@ const getAllOrdersGroupedByRut = async () => {
  * Obtiene el siguiente order_id disponible
  * @returns {Promise<number>} El siguiente order_id
  */
-const getNextFolderId = async () => {
-  const pool = await poolPromise;
-  
-  // Obtener el máximo order_id actual
-  const [rows] = await pool.query('SELECT MAX(order_id) as max_order_id FROM order_files');
-  const maxOrderId = rows[0].max_order_id || 4800; // Si no hay registros, empezar en 4800
-  
-  return maxOrderId + 1;
-};
 
 /**
  * Obtiene todos los archivos
@@ -360,11 +382,36 @@ const getAllFiles = async () => {
  * @param {number} orderId - ID del order
  * @returns {Promise<Array>}
  */
-const getFilesByFolderId = async (orderId) => {
-  const pool = await poolPromise;
-  const [rows] = await pool.query('SELECT * FROM order_files WHERE order_id = ?', [orderId]);
-  return rows;
-};
+  const getFilesByPcOc = async (pc, oc) => {
+    const pool = await poolPromise;
+    const normalizedOc = oc ? normalizeOcForCompare(oc) : '';
+    const [rows] = await pool.query(
+      oc
+        ? "SELECT * FROM order_files WHERE pc = ? AND REPLACE(REPLACE(REPLACE(REPLACE(UPPER(COALESCE(oc, '')), ' ', ''), '(', ''), ')', ''), '-', '') = ?"
+        : 'SELECT * FROM order_files WHERE pc = ?',
+      oc ? [pc, normalizedOc] : [pc]
+    );
+    return rows;
+  };
+
+  const getFilesByPc = async (pc) => {
+    const pool = await poolPromise;
+    const [rows] = await pool.query(
+      `SELECT 
+          f.*, 
+          os.id AS status_id, 
+          os.name AS status_name,
+          f.fecha_generacion,
+          f.fecha_envio,
+          f.fecha_reenvio
+       FROM order_files f
+       LEFT JOIN order_status os ON f.status_id = os.id
+       WHERE f.pc = ?
+       ORDER BY f.created_at DESC`,
+      [pc]
+    );
+    return rows.map(row => new File(row));
+  };
 
 /**
  * Crea archivos por defecto para una orden específica
@@ -388,8 +435,8 @@ const createDefaultFilesForOrder = async (orderId, customerName, pc, oc) => {
     const hasFactura = orderData && orderData.factura !== null && orderData.factura !== undefined && orderData.factura !== '' && orderData.factura !== 0 && orderData.factura !== '0';
 
     // Verificar si ya existen archivos para esta orden
-    const existingFiles = await getFilesByFolderId(orderId);
-    const existingFileIds = new Set(existingFiles.map(f => f.file_id));
+      const existingFiles = await getFilesByPcOc(pc, oc);
+      const existingFileIds = new Set(existingFiles.map(f => f.file_id).filter(Boolean));
 
     // Documentos requeridos según factura
     const requiredDocs = hasFactura
@@ -397,10 +444,15 @@ const createDefaultFilesForOrder = async (orderId, customerName, pc, oc) => {
       : ['Order Receipt Notice'];
 
     // Determinar cuáles faltan
-    const missingDocs = requiredDocs.filter(name => !existingFileIds.has(FILE_ID_MAP[name]));
+      const missingDocs = requiredDocs.filter(
+        name => !existingFileIds.has(FILE_ID_MAP[name])
+      );
 
     if (missingDocs.length === 0) {
-      throw new Error('Ya existen archivos para esta orden');
+      const err = new Error('FILES_ALREADY_EXIST');
+      err.code = 'FILES_ALREADY_EXIST';
+      err.status = 409;
+      throw err;
     }
 
     // Usar path/identificador existente si ya había algún archivo, de lo contrario crear nuevos
@@ -419,7 +471,6 @@ const createDefaultFilesForOrder = async (orderId, customerName, pc, oc) => {
 
     const defaultDocuments = missingDocs.map(name => ({
       name,
-      order_id: orderId,
       pc,
       oc,
       path: directoryPath,
@@ -448,6 +499,81 @@ const createDefaultFilesForOrder = async (orderId, customerName, pc, oc) => {
 
   } catch (error) {
     console.error(`Error creando archivos por defecto para orden ${orderId}:`, error.message);
+    throw error;
+  }
+};
+
+const createDefaultFilesForPcOc = async (pc, oc, customerName, factura) => {
+  try {
+    const FILE_ID_MAP = {
+      'Order Receipt Notice': 9,
+      'Shipment Notice': 19,
+      'Order Delivery Notice': 15,
+      'Availability Notice': 6
+    };
+
+    const hasFactura =
+      factura !== null && factura !== undefined && factura !== '' && factura !== 0 && factura !== '0';
+
+      const existingFiles = await getFilesByPcOc(pc, oc);
+      const existingFileIds = new Set(existingFiles.map(f => f.file_id).filter(Boolean));
+
+    const requiredDocs = hasFactura
+      ? ['Shipment Notice', 'Order Delivery Notice', 'Availability Notice']
+      : ['Order Receipt Notice'];
+
+      const missingDocs = requiredDocs.filter(
+        name => !existingFileIds.has(FILE_ID_MAP[name])
+      );
+
+    if (missingDocs.length === 0) {
+      const err = new Error('FILES_ALREADY_EXIST');
+      err.code = 'FILES_ALREADY_EXIST';
+      err.status = 409;
+      throw err;
+    }
+
+    let directoryPath;
+    let fileIdentifier;
+    if (existingFiles.length > 0) {
+      directoryPath = existingFiles[0].path;
+      fileIdentifier = existingFiles[0].file_identifier || await getNextFileIdentifier(pc);
+    } else {
+      fileIdentifier = await getNextFileIdentifier(pc);
+      directoryPath = await createClientDirectory(customerName, pc, fileIdentifier);
+      if (!directoryPath) {
+        throw new Error('Error creando directorio físico');
+      }
+    }
+
+    const defaultDocuments = missingDocs.map(name => ({
+      name,
+      pc,
+      oc,
+      path: directoryPath,
+      file_identifier: fileIdentifier,
+      file_id: FILE_ID_MAP[name]
+    }));
+
+    const createdFiles = [];
+    for (const doc of defaultDocuments) {
+      const result = await insertDefaultFile(doc);
+      createdFiles.push({
+        id: result.insertId,
+        name: doc.name,
+        path: doc.path
+      });
+    }
+
+    return {
+      success: true,
+      message: 'Archivos por defecto creados exitosamente',
+      filesCreated: createdFiles.length,
+      directoryPath: directoryPath,
+      files: createdFiles
+    };
+  } catch (error) {
+    console.error(`Error creando archivos por defecto para PC ${pc}:`, error.message);
     throw error;
   }
 };
@@ -497,14 +623,13 @@ const insertDefaultFile = async (fileData) => {
   try {
     const query = `
       INSERT INTO order_files (
-        order_id, pc, oc, name, path, file_identifier, file_id, was_sent, 
+        pc, oc, name, path, file_identifier, file_id, was_sent, 
         document_type, file_type, status_id, is_visible_to_client, 
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, 'PDF', 1, 0, NOW(), NOW())
+      ) VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, 'PDF', 1, 0, NOW(), NOW())
     `;
 
     const params = [
-      fileData.order_id,
       fileData.pc,
       fileData.oc,
       fileData.name,
@@ -572,24 +697,36 @@ const markFileAsVisibleToClient = async (fileId) => {
 // Función para obtener datos completos de la orden para PDF
 const getOrderDataForPDF = async (orderId) => {
   try {
-    const pool = await poolPromise;
-    const [rows] = await pool.query(`
-      SELECT 
-        o.*,
-        c.name as customer_name,
-        c.email as customer_email,
-        c.rut as customer_rut,
-        c.address as customer_address,
-        c.city as customer_city,
-        c.country as customer_country,
-        od.*
-      FROM orders o
-      JOIN customers c ON o.customer_id = c.id
-      LEFT JOIN order_detail od ON o.id = od.order_id
-      WHERE o.id = ?
-    `, [orderId]);
-    
-    return rows[0] || null;
+    const key = String(orderId || '');
+    let pc = key;
+    let oc = '';
+    if (key.includes('|')) {
+      const parts = key.split('|');
+      pc = parts[0] || '';
+      oc = normalizeOcForCompare(parts[1] || '');
+    }
+
+    const sqlPool = await getSqlPool();
+    const request = sqlPool.request();
+    request.input('pc', sql.VarChar, pc);
+    if (oc) request.input('oc', sql.VarChar, oc);
+
+    const result = await request.query(`
+      SELECT TOP 1
+        h.*,
+        c.Nombre AS customer_name,
+        c.Correo AS customer_email,
+        c.Rut AS customer_rut,
+        c.Direccion AS customer_address,
+        c.Ciudad AS customer_city,
+        c.Pais AS customer_country
+      FROM jor_imp_HDR_90_softkey h
+      LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
+      WHERE h.Nro = @pc ${oc ? "AND REPLACE(REPLACE(REPLACE(REPLACE(UPPER(h.OC), ' ', ''), '(', ''), ')', ''), '-', '') = @oc" : ''}
+      ORDER BY ISNULL(h.Fecha, h.Fecha_factura) DESC
+    `);
+
+    return result.recordset?.[0] || null;
   } catch (error) {
     console.error('Error obteniendo datos de la orden para PDF:', error);
     return null;
@@ -600,30 +737,24 @@ const getOrderDataForPDF = async (orderId) => {
 const createDefaultFilesIfNotExist = async (orderId) => {
   try {
     // Verificar si ya existen archivos para esta orden
-    const existingFiles = await getFilesByFolderId(orderId);
+    const existingFiles = await getFilesByPc(orderId);
     if (existingFiles.length > 0) {
       return existingFiles;
     }
 
     // Obtener información de la orden y cliente
-    const pool = await poolPromise;
-    const [[order]] = await pool.query(`
-      SELECT o.*, c.name as customer_name 
-      FROM orders o
-      JOIN customers c ON o.customer_id = c.id
-      WHERE o.id = ?
-    `, [orderId]);
+    const order = await getOrderByPc(orderId);
 
     if (!order) {
       throw new Error('Orden no encontrada');
     }
 
     // Crear archivos por defecto usando la función existente
-    const result = await createDefaultFilesForOrder(
-      orderId,
-      order.customer_name,
+    const result = await createDefaultFilesForPcOc(
       order.pc,
-      order.oc
+      order.oc,
+      order.customer_name,
+      order.factura
     );
 
     return result.files;
@@ -637,17 +768,17 @@ module.exports = {
   RenameFile,
   getFileById,
   insertFile,
-  getFiles,
-  updateFile,
-  getFileCountByCustomer,
-  duplicateFile,
-  deleteFileById,
-  getAllOrdersGroupedByRut,
-  getNextFolderId,
-  getAllFiles,
-  getFilesByFolderId,
-  createDefaultFilesForOrder,
-  insertDefaultFile,
+    getFiles,
+    updateFile,
+    duplicateFile,
+    deleteFileById,
+    getAllOrdersGroupedByRut,
+    getAllFiles,
+    getFilesByPcOc,
+    getFilesByPc,
+    createDefaultFilesForOrder,
+    createDefaultFilesForPcOc,
+    insertDefaultFile,
   createClientDirectory,
   getNextFileIdentifier,
   markFileAsVisibleToClient,

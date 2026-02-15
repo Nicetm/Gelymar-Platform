@@ -2,7 +2,7 @@
 export const prerender = false;
 
 import LayoutSidebar from '../../../../app/LayoutSidebarAdmin.astro';
-import { loadTranslations, getServerLang } from '../../../../lib/i18n.js';
+import { loadTranslations, getServerLang } from '@lib/i18n.js';
 
 const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
 const apiPublic = import.meta.env.PUBLIC_API_URL;

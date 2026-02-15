@@ -4,6 +4,8 @@ const jwt = require('jsonwebtoken');
 const fs = require('fs').promises;
 const path = require('path');
 const multer = require('multer');
+const { container } = require('../config/container');
+const monitoringService = container.resolve('monitoringService');
 
 // Configuración de multer para subida de archivos
 const upload = multer({ dest: '/tmp/' });
@@ -18,7 +20,6 @@ const verifyToken = (req, res, next) => {
     
     try {
         // Usar el mismo sistema de verificación que monitoring
-        const monitoringService = require('../services/monitoring.service');
         const user = monitoringService.verifySessionToken(token);
         
         if (!user) {
@@ -45,7 +46,6 @@ router.post('/login', async (req, res) => {
         }
 
         // Usar el mismo sistema que monitoring
-        const monitoringService = require('../services/monitoring.service');
         const user = await monitoringService.authenticateUser(username, password);
         
         if (!user) {

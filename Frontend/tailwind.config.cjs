@@ -85,6 +85,17 @@ module.exports = {
     'bg-opacity-50',
     'dark:bg-opacity-80',
     'grid',
+    'hover:text-green-500',
+    'dark:hover:text-green-400',
+    'text-rose-500',
+    'hover:text-rose-600',
+    'dark:text-rose-400',
+    'dark:hover:text-rose-300',
+    'text-green-500',
+    'text-green-600',
+    'dark:text-green-400',
+    'hover:text-green-500',
+    'dark:hover:text-green-300',
   ],
 
   plugins: [

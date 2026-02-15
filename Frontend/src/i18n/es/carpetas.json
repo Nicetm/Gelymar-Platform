@@ -45,7 +45,7 @@
 	"editFolder": "Editar Orden",
 	"deleteFolder": "Eliminar Orden",
 	"noFolders": "No hay ordenes disponibles.",
-	"loading": "Cargando ordenes...",
+	"loading": "Cargando órdenes...",
 	"searchPlaceholder": "Buscar por N° SAP o Ruta",
 	"sortBy": {
 		"nameAsc": "Nombre Ascendente",
@@ -78,15 +78,26 @@
 	"certificados": "Certificados",
 	"tooltipGoToOrder": "Ver documentos y archivos",
 	"tooltipViewItems": "Ver lista de items",
+	"tooltipViewItemsDetailed": "Ver items detallados",
 	"tooltipExpandItems": "Expandir items en tabla",
 	"tooltipOrderDetails": "Ver detalles de orden",
  "gastoAdicional": "Gasto Adicional",
  "cliente": "Cliente",
+ "customerName": "Nombre Cliente",
  "cantidad": "Cantidad",
   "kgSolicitados": "KG SOLICITADOS",
+  "kgDespachados": "KG DESPACHADOS",
   "kgFacturados": "KG FACTURADOS",
+ "tipo": "Tipo",
  "precioUnitario": "Precio Unitario",
+ "noItemsFound": "No se encontraron items para esta orden",
+ "itemsOfOrder": "Items de Orden",
  "viewDocuments": "Documentos",
  "documents": "Documentos",
- "onlyOpen": "Solo Abiertas"
+ "onlyOpen": "Solo Abiertas",
+ "exportEmpty": "No hay órdenes disponibles para exportar",
+  "exportSuccess": "Se exportaron {count} órdenes a Excel"
+  ,
+  "pageIndicator": "",
+  "pageIndicatorSeparator": "--"
 }

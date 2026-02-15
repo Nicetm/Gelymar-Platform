@@ -9,6 +9,10 @@ export function initUserMenu(config = {}) {
   const API_BASE = apiBase || window.apiBase || '';
   const FILE_SERVER = fileServer || window.fileServer || '';
 
+  const translations = window.translations || {};
+  const usermenu = translations.usermenu || {};
+  const getMessage = (value) => (typeof value === 'string' ? value : '');
+
   const ADMIN_ROLE_NAMES = ['admin', 'administrador'];
   const SELLER_ROLE_NAMES = ['seller', 'ventas', 'vendedor'];
   const CLIENT_ROLE_NAMES = ['client', 'cliente'];
@@ -30,11 +34,14 @@ export function initUserMenu(config = {}) {
     return normalizedRole || 'client';
   };
 
+  const roleLabels = {
+    admin: getMessage(usermenu.role_admin),
+    seller: getMessage(usermenu.role_seller),
+    client: getMessage(usermenu.role_client),
+  };
+
   const resolveRoleLabel = (roleKey) => {
-    if (roleKey === 'admin') return 'Admin';
-    if (roleKey === 'seller') return 'Seller';
-    if (roleKey === 'client') return 'Client';
-    return 'Guest';
+    return roleLabels[roleKey] || getMessage(usermenu.role_guest);
   };
 
   const logoutButton = document.getElementById('logoutButton');

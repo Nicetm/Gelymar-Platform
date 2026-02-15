@@ -1,5 +1,5 @@
 const { poolPromise } = require('../config/db');
-const { getAllOrdersGroupedByRut, getNextFolderId } = require('./file.service');
+const { getAllOrdersGroupedByRut, getNextFileIdentifier } = require('./file.service');
 const { getCustomerByRut } = require('./customer.service');
 const fs = require('fs').promises;
 const path = require('path');
@@ -43,7 +43,7 @@ async function generateDefaultFiles() {
             }
             
             // Verificar si ya existen documentos para esta orden
-            const existingFiles = await checkExistingFiles(order.id, order.pc);
+            const existingFiles = await checkExistingFiles(order.id, order.pc, order.oc);
             // Determinar ruta base: usar la existente si hay archivos previos
             let directoryPath = existingFiles[0]?.path;
 
@@ -77,13 +77,12 @@ async function generateDefaultFiles() {
                   'Order Receipt Notice'
                 ];
 
-            // Filtrar los que ya existen
-            const existingNames = new Set(existingFiles.map(f => f.name));
+            // Filtrar los que ya existen (usar file_id para evitar duplicados cuando cambia el nombre)
+            const existingFileIds = new Set(existingFiles.map(f => f.file_id).filter(Boolean));
             const documentsToCreate = requiredDocs
-              .filter(name => !existingNames.has(name))
+              .filter(name => !existingFileIds.has(FILE_ID_MAP[name]))
               .map(name => ({
                 name,
-                order_id: order.id,
                 pc: order.pc,
                 oc: order.oc,
                 path: directoryPath,
@@ -102,7 +101,7 @@ async function generateDefaultFiles() {
                 await insertDefaultFile(doc);
                 totalFilesCreated++;
               } catch (insertError) {
-                console.error(`[${new Date().toISOString()}] -> Check Default Files Process -> Error insertando ${doc.name} para orden ${order.id}:`, insertError.message);
+                console.error(`[${new Date().toISOString()}] -> Check Default Files Process -> Error insertando ${doc.name} para PC ${order.pc}:`, insertError.message);
               }
             }
             
@@ -124,19 +123,23 @@ async function generateDefaultFiles() {
   }
 }
 
-async function checkExistingFiles(orderId, pc) {
+async function checkExistingFiles(orderId, pc, oc) {
   const pool = await poolPromise;
   
   try {
-    const [rows] = await pool.query(`
-      SELECT f.* FROM order_files f 
-      WHERE f.order_id = ? AND f.pc = ?
-    `, [orderId, pc]);
+    const normalizedPc = pc == null ? '' : String(pc).trim();
+    const normalizedOc = oc == null ? '' : String(oc).toUpperCase().replace(/[\s-]+/g, '');
+    const query = normalizedOc
+      ? `SELECT f.* FROM order_files f WHERE TRIM(COALESCE(f.pc, '')) = ? AND REPLACE(REPLACE(UPPER(COALESCE(f.oc, '')), ' ', ''), '-', '') = ?`
+      : `SELECT f.* FROM order_files f WHERE TRIM(COALESCE(f.pc, '')) = ? AND (f.oc IS NULL OR TRIM(f.oc) = '')`;
+    const params = normalizedOc ? [normalizedPc, normalizedOc] : [normalizedPc];
+    console.log(`[${new Date().toISOString()}] -> Check Default Files Process -> checkExistingFiles query: ${query} params=${JSON.stringify(params)}`);
+    const [rows] = await pool.query(query, params);
     
     return rows;
     
   } catch (error) {
-    console.error(`[${new Date().toISOString()}] -> Check Default Files Process -> Error verificando archivos existentes para orden ${orderId}:`, error.message);
+    console.error(`[${new Date().toISOString()}] -> Check Default Files Process -> Error verificando archivos existentes para PC ${pc}:`, error.message);
     console.error(`[${new Date().toISOString()}] -> Check Default Files Process -> Stack completo:`, error.stack);
     // Si hay error, retornar array vacío para que continúe el proceso
     return [];
@@ -147,29 +150,34 @@ async function insertDefaultFile(fileData) {
   const pool = await poolPromise;
   
   try {
+    const normalizedOc = fileData.oc == null ? '' : String(fileData.oc).trim();
     const query = `
       INSERT INTO order_files (
-        order_id, pc, oc, name, path, eta, etd, file_id, was_sent, 
+        pc, oc, name, path, file_identifier, file_id, was_sent, 
         document_type, file_type, status_id, is_visible_to_client, 
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, NULL, NULL, ?, NULL, NULL, 'PDF', 1, 0, NOW(), NOW())
+      ) VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, 'PDF', 1, 0, NOW(), NOW())
     `;
 
+    const nextIdentifier = await getNextFileIdentifier(fileData.pc);
+    if (!nextIdentifier) {
+      throw new Error(`No se pudo generar file_identifier para PC ${fileData.pc}`);
+    }
     const params = [
-      fileData.order_id, // Usar el order_id real
       fileData.pc,
-      fileData.oc,
+      normalizedOc || null,
       fileData.name,
       fileData.path,
+      nextIdentifier,
       fileData.file_id || null
     ];
 
     const [result] = await pool.query(query, params);
-    console.log(`[${new Date().toISOString()}] -> Check Default Files Process -> Archivo por defecto insertado: ${fileData.name} para orden ${fileData.order_id}`);
+    console.log(`[${new Date().toISOString()}] -> Check Default Files Process -> Archivo por defecto insertado: ${fileData.name} para PC ${fileData.pc}`);
     return result;
     
   } catch (error) {
-    console.error(`[${new Date().toISOString()}] -> Check Default Files Process -> Error insertando archivo por defecto ${fileData.name} para orden ${fileData.order_id}:`, error.message);
+    console.error(`[${new Date().toISOString()}] -> Check Default Files Process -> Error insertando archivo por defecto ${fileData.name} para PC ${fileData.pc}:`, error.message);
     throw error;
   }
 }

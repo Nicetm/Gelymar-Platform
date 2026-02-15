@@ -45,7 +45,7 @@
 	"editFolder": "Edit Folder",
 	"deleteFolder": "Delete Folder",
 	"noFolders": "No folders available.",
-	"loading": "Loading folders...",
+	"loading": "Loading orders...",
 	"searchPlaceholder": "Search by N° SAP or Path",
 	"sortBy": {
 		"nameAsc": "Name Ascending",
@@ -78,15 +78,26 @@
 	"certificados": "Certificates",
 	"tooltipGoToOrder": "View documents and files",
 	"tooltipViewItems": "View items list",
+	"tooltipViewItemsDetailed": "View detailed items",
 	"tooltipExpandItems": "Expand items in table",
 	"tooltipOrderDetails": "View order details",
  "gastoAdicional": "Additional Expense",
  "cliente": "Customer",
+ "customerName": "Customer Name",
  "cantidad": "Quantity",
   "kgSolicitados": "Requested KG",
+  "kgDespachados": "Dispatched KG",
   "kgFacturados": "Invoiced KG",
+ "tipo": "Type",
  "precioUnitario": "Unit Price",
+ "noItemsFound": "No items found for this order",
+ "itemsOfOrder": "Order Items",
  "viewDocuments": "Documents",
  "documents": "Documents",
- "onlyOpen": "Open Only"
+ "onlyOpen": "Open Only",
+ "exportEmpty": "No orders available to export",
+  "exportSuccess": "{count} orders exported to Excel"
+  ,
+  "pageIndicator": "",
+  "pageIndicatorSeparator": "--"
 }

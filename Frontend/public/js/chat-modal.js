@@ -21,7 +21,10 @@ export function initChatModal(config = {}) {
 
   window.lang = lang;
   const t = translations || {};
-  window.translations = t;
+  window.translations = { ...(window.translations || {}), ...t };
+  const messages = t.messages || {};
+  const chatTexts = messages.chat || {};
+  const getMessage = (value) => (typeof value === 'string' ? value : '');
 
   // Socket.io service (inline)
   class SocketService {
@@ -108,6 +111,7 @@ export function initChatModal(config = {}) {
   const adminStatusText = document.getElementById('chat-admin-status-text');
   const adminStatusDot = document.getElementById('chat-admin-status-dot');
   const adminNameLabel = document.getElementById('chat-admin-name');
+  const adminAvatar = document.getElementById('chat-admin-avatar');
   const adminSelection = document.getElementById('admin-selection');
   const adminList = document.getElementById('admin-list');
   const chatInputArea = document.getElementById('chat-input-area');
@@ -154,11 +158,13 @@ export function initChatModal(config = {}) {
   let customerIdRequest = null;
   let currentAdminOnline = false;
   let adminStatusInterval = null;
-  let adminDisplayName = 'Administrador';
+  let adminListInterval = null;
+  let adminDisplayName = getMessage(chatTexts.admin_default_name);
   let selectedAdminId = null;
   let lastAdminActivity = null; // Timestamp de la última actividad del admin
   let isMinimized = false;
   const adminUnreadCounts = new Map();
+  const defaultAdminAvatarMarkup = adminAvatar ? adminAvatar.innerHTML : '';
 
   function incrementAdminUnread(adminId) {
     if (!adminId) return;
@@ -265,7 +271,7 @@ export function initChatModal(config = {}) {
   }
 
   function setAdminDisplayName(name) {
-    const sanitized = (name && name.toString().trim()) || t.messages?.chat?.select_agent || 'Seleccionar Agente';
+    const sanitized = (name && name.toString().trim()) || getMessage(chatTexts.select_agent);
     adminDisplayName = sanitized;
     if (adminNameLabel) {
       adminNameLabel.textContent = adminDisplayName;
@@ -276,9 +282,9 @@ export function initChatModal(config = {}) {
     currentAdminOnline = Boolean(isOnline);
     if (adminStatusText) {
       if (selectedAdminId) {
-        adminStatusText.textContent = currentAdminOnline ? t.messages?.chat?.online || 'On line' : t.messages?.chat?.offline || 'Off line';
+        adminStatusText.textContent = currentAdminOnline ? getMessage(chatTexts.online) : getMessage(chatTexts.offline);
       } else {
-        adminStatusText.textContent = t.messages?.chat?.choose_agent || 'Elige un agente para iniciar'; 
+        adminStatusText.textContent = getMessage(chatTexts.choose_agent);
       }
     }
     if (adminStatusContainer) {
@@ -329,7 +335,7 @@ export function initChatModal(config = {}) {
         if (selectedAdminId) {
           setAdminDisplayName(adminDisplayName);
         } else {
-          setAdminDisplayName(t.messages?.chat?.select_agent || 'Seleccionar Agente');
+          setAdminDisplayName(getMessage(chatTexts.select_agent));
         }
         return;
       }
@@ -350,7 +356,7 @@ export function initChatModal(config = {}) {
       if (selectedAdminId) {
         setAdminDisplayName(adminDisplayName);
       } else {
-        setAdminDisplayName(t.messages?.chat?.select_agent || 'Seleccionar Agente');
+        setAdminDisplayName(getMessage(chatTexts.select_agent));
       }
     }
   }
@@ -360,6 +366,26 @@ export function initChatModal(config = {}) {
     adminStatusInterval = setInterval(refreshAdminOnlineStatus, 10000);
   }
 
+  function buildAvatarUrl(path) {
+    if (!path) return '';
+    const baseUrl = window.fileServerUrl || '';
+    const normalizedPath = String(path).replace(/\\/g, '/').replace(/^\/+/, '');
+    if (baseUrl) {
+      return `${baseUrl.replace(/\/$/, '')}/${normalizedPath}`;
+    }
+    return `/${normalizedPath}`;
+  }
+
+  function setAdminAvatar(avatarPath) {
+    if (!adminAvatar) return;
+    const avatarUrl = buildAvatarUrl(avatarPath);
+    if (avatarUrl) {
+      adminAvatar.innerHTML = `<img src="${avatarUrl}" alt="" class="w-full h-full object-cover" onerror="this.remove();">`;
+      return;
+    }
+    adminAvatar.innerHTML = defaultAdminAvatarMarkup;
+  }
+
   function stopAdminStatusPolling() {
     if (adminStatusInterval) {
       clearInterval(adminStatusInterval);
@@ -367,8 +393,24 @@ export function initChatModal(config = {}) {
     }
   }
 
+  function startAdminListPolling() {
+    if (adminListInterval) return;
+    adminListInterval = setInterval(() => {
+      if (!selectedAdminId && chatModal && !chatModal.classList.contains('hidden')) {
+        loadAdminList();
+      }
+    }, 10000);
+  }
+
+  function stopAdminListPolling() {
+    if (adminListInterval) {
+      clearInterval(adminListInterval);
+      adminListInterval = null;
+    }
+  }
+
   updateAdminPresence(false);
-  setAdminDisplayName(t.messages?.chat?.select_agent || 'Seleccionar Agente');
+  setAdminDisplayName(getMessage(chatTexts.select_agent));
 
   // Función para cargar lista de administradores
   async function loadAdminList() {
@@ -397,7 +439,7 @@ export function initChatModal(config = {}) {
       adminList.innerHTML = '';
 
       if (admins.length === 0) {
-        adminList.innerHTML = '<div class="text-center text-gray-500 dark:text-gray-400"><p>No hay agentes disponibles</p></div>';
+        adminList.innerHTML = `<div class="text-center text-gray-500 dark:text-gray-400"><p>${getMessage(chatTexts.no_admins_available)}</p></div>`;
         return;
       }
 
@@ -405,16 +447,23 @@ export function initChatModal(config = {}) {
         const adminItem = document.createElement('div');
         adminItem.className = 'flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors';
         adminItem.dataset.adminId = admin.id;
+        adminItem.dataset.avatarPath = admin.avatar_path || '';
         
         const isOnline = normalizeOnlineFlag(admin.online);
         const statusColor = isOnline ? 'bg-green-500' : 'bg-gray-400';
-        const statusText = isOnline ? 'On line' : 'Offline';
+        const statusText = isOnline ? getMessage(chatTexts.online) : getMessage(chatTexts.offline);
+        const avatarUrl = buildAvatarUrl(admin.avatar_path);
+        const initials = admin.full_name ? admin.full_name.charAt(0).toUpperCase() : '';
         
         adminItem.innerHTML = `
           <div class="flex items-center gap-3">
-            <div class="relative w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
-              <span class="text-white font-semibold text-sm">${admin.full_name.charAt(0).toUpperCase()}</span>
-              <span class="admin-unread-badge absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center hidden"></span>
+            <div class="relative w-10 h-10">
+              <div class="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center overflow-hidden">
+                ${avatarUrl
+                  ? `<img src="${avatarUrl}" alt="${admin.full_name || 'Admin'}" class="w-full h-full object-cover">`
+                  : `<span class="text-white font-semibold text-sm">${initials}</span>`}
+              </div>
+              <span class="admin-unread-badge absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center hidden z-10 animate-pulse"></span>
             </div>
             <div>
               <p class="font-semibold text-sm text-gray-900 dark:text-white">${admin.full_name}</p>
@@ -430,7 +479,8 @@ export function initChatModal(config = {}) {
         `;
 
         adminItem.addEventListener('click', () => {
-          selectAdmin(admin);
+          const avatarPath = admin.avatar_path || adminItem.dataset.avatarPath || '';
+          selectAdmin({ ...admin, avatar_path: avatarPath });
         });
 
         adminList.appendChild(adminItem);
@@ -439,7 +489,7 @@ export function initChatModal(config = {}) {
     } catch (error) {
       console.error('Error cargando lista de administradores:', error);
       if (adminList) {
-        adminList.innerHTML = '<div class="text-center text-red-500"><p>Error cargando agentes: ' + error.message + '</p></div>';
+        adminList.innerHTML = `<div class="text-center text-red-500"><p>${getMessage(chatTexts.loading_agents_error)}: ${error.message}</p></div>`;
       }
     }
   }
@@ -448,6 +498,7 @@ export function initChatModal(config = {}) {
   function selectAdmin(admin) {
     selectedAdminId = admin.id;
     setAdminDisplayName(admin.full_name);
+    setAdminAvatar(admin.avatar_path || admin.avatarPath || admin.avatar_url || admin.avatar);
     updateAdminPresence(normalizeOnlineFlag(admin.online));
     resetAdminUnread(admin.id);
     
@@ -471,11 +522,13 @@ export function initChatModal(config = {}) {
     }
     setChatMinimized(false);
     stopAdminStatusPolling();
+    stopAdminListPolling();
     updateAdminPresence(false);
     
     // Resetear estado
     selectedAdminId = null;
-    setAdminDisplayName(t.messages?.chat?.select_agent || 'Seleccionar Agente');
+    setAdminDisplayName(getMessage(chatTexts.select_agent));
+    setAdminAvatar('');
     updateAdminPresence(false); // Resetear estado a "Elige un agente para iniciar"
     adminSelection.classList.remove('hidden');
     chatMessagesDiv.classList.add('hidden');
@@ -511,7 +564,7 @@ export function initChatModal(config = {}) {
     });
 
     if (!response.ok) {
-      throw new Error('Error subiendo imagen');
+        throw new Error(getMessage(chatTexts.upload_image_error));
     }
 
     return response.json();
@@ -564,7 +617,7 @@ export function initChatModal(config = {}) {
       if (imageFile) {
         const customerId = await getCustomerId();
         if (!customerId) {
-          throw new Error('customerId no encontrado');
+          throw new Error(getMessage(chatTexts.customer_id_missing));
         }
         const uploadResult = await uploadChatImage(imageFile, customerId, selectedAdminId);
         payloadMessage = JSON.stringify({
@@ -607,7 +660,7 @@ export function initChatModal(config = {}) {
       });
       
       if (!response.ok) {
-        throw new Error('Error enviando mensaje');
+        throw new Error(getMessage(chatTexts.message_error));
       }
       
       // Marcar mensajes como leídos
@@ -623,7 +676,7 @@ export function initChatModal(config = {}) {
       sendMessageBtn.disabled = false;
     } catch (error) {
       console.error('Error enviando mensaje:', error);
-      addMessageToChat('Error enviando mensaje. Inténtalo de nuevo.', 'admin', new Date());
+      addMessageToChat(getMessage(chatTexts.message_send_error), 'admin', new Date());
     } finally {
       isTyping = false;
       sendMessageBtn.disabled = false;
@@ -712,7 +765,7 @@ export function initChatModal(config = {}) {
     if (content.type === 'image') {
       const imageEl = document.createElement('img');
       imageEl.src = content.url;
-      imageEl.alt = 'Imagen adjunta';
+      imageEl.alt = getMessage(chatTexts.image_alt);
       imageEl.className = 'rounded-lg max-w-[220px] h-auto';
       imageEl.loading = 'lazy';
       imageEl.style.cursor = 'zoom-in';
@@ -831,7 +884,7 @@ export function initChatModal(config = {}) {
       });
       
       if (!response.ok) {
-        throw new Error('Error cargando mensajes');
+        throw new Error(getMessage(chatTexts.load_messages_error));
       }
       
       const data = await response.json();
@@ -855,9 +908,11 @@ export function initChatModal(config = {}) {
     chatMessagesDiv.innerHTML = '';
     
     // Agregar mensaje de bienvenida
-    const welcomeMessage = selectedAdminId ? 
-      `Hello! My name is ${adminDisplayName}, how can I help you today?` : 
-      'Please select an agent to start the conversation.';
+      const welcomeAdminTemplate = getMessage(chatTexts.welcome_admin);
+      const welcomeSelectTemplate = getMessage(chatTexts.welcome_select_agent);
+      const welcomeMessage = selectedAdminId
+        ? welcomeAdminTemplate.replace('{name}', adminDisplayName || '')
+        : welcomeSelectTemplate;
     addMessageToChat(welcomeMessage, 'admin');
     
     // Agregar mensajes desde la API (filtrar mensajes de seguridad)
@@ -1021,19 +1076,19 @@ export function initChatModal(config = {}) {
     
     switch (reason) {
       case 'sql_injection':
-        warningMessage = '⚠️ ¡Cuidado! Tu mensaje contiene patrones sospechosos. Por favor, evita usar comandos de base de datos o caracteres especiales.';
+        warningMessage = getMessage(chatTexts.warning_sql_injection);
         break;
       case 'xss':
-        warningMessage = '⚠️ ¡Cuidado! Tu mensaje contiene código potencialmente peligroso. Por favor, escribe solo texto normal.';
+        warningMessage = getMessage(chatTexts.warning_xss);
         break;
       case 'too_long':
-        warningMessage = '⚠️ Tu mensaje es demasiado largo. Por favor, acorta tu mensaje a menos de 1000 caracteres.';
+        warningMessage = getMessage(chatTexts.warning_too_long);
         break;
       case 'dangerous_chars':
-        warningMessage = '⚠️ Tu mensaje contiene caracteres especiales no permitidos. Por favor, usa solo texto normal.';
+        warningMessage = getMessage(chatTexts.warning_dangerous_chars);
         break;
       default:
-        warningMessage = '⚠️ ¡Cuidado con lo que escribes en el chat! Tu mensaje contiene contenido no permitido.';
+        warningMessage = getMessage(chatTexts.warning_default);
     }
     
     // Mostrar mensaje de advertencia en el chat sin timestamp
@@ -1088,6 +1143,7 @@ export function initChatModal(config = {}) {
       stopAdminStatusPolling();
       refreshAdminOnlineStatus();
       startAdminStatusPolling();
+      startAdminListPolling();
 
       // Inicializar Socket.io si no está inicializado
       if (!socket) {
@@ -1166,6 +1222,7 @@ export function initChatModal(config = {}) {
     refreshAdminOnlineStatus();
     initializeChatSocket();
     setChatMinimized(false);
+    startAdminListPolling();
   });
 
   // Event listeners for emojis

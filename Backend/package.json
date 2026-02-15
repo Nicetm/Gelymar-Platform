@@ -7,6 +7,7 @@
     "check:permissions": "node scripts/cleanup.js --check-permissions"
   },
   "dependencies": {
+    "awilix": "^10.0.1",
     "axios": "^1.9.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
