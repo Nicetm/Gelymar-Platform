@@ -5,6 +5,7 @@ const path = require('path');
 const dotenv = require('dotenv');
 const os = require('os');
 const fs = require('fs');
+const { logger } = require('../Backend/utils/logger');
 
 // Detectar entorno y cargar variables automáticamente
 const networkInterfaces = os.networkInterfaces();
@@ -21,20 +22,20 @@ if (fs.existsSync(envFile)) {
 }
 
 async function runSimpleSequence() {
-  console.log('Ejecutando Cron Master...');
+  logger.info('[run-simple-sequence] Ejecutando Cron Master...');
   
   try {
     const scriptPath = path.join(__dirname, 'cron', 'cronMaster.js');
     const result = await runScript(scriptPath, ['execute-now']);
     
     if (result.success) {
-      console.log('Cron Master ejecutado exitosamente');
+      logger.info('[run-simple-sequence] Cron Master ejecutado exitosamente');
     } else {
-      console.log('Cron Master ejecutado con warnings');
+      logger.warn('[run-simple-sequence] Cron Master ejecutado con warnings');
     }
     
   } catch (error) {
-    console.error('Error ejecutando Cron Master:', error.message);
+    logger.error(`[run-simple-sequence] Error ejecutando Cron Master: ${error.message}`);
   }
 }
 
@@ -79,4 +80,4 @@ function runScript(scriptPath, args = []) {
 }
 
 // Ejecutar
-runSimpleSequence().catch(console.error); 
+runSimpleSequence().catch(error => logger.error(`[run-simple-sequence] Error inesperado: ${error.message}`));

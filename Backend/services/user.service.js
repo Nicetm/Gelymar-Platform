@@ -48,6 +48,25 @@ async function getSqlCustomerByEmail(email) {
   return result.recordset?.[0] || null;
 }
 
+async function getSqlSellerByRut(rut) {
+  if (!rut) return null;
+  const pool = await getSqlPool();
+  const request = pool.request();
+  const rawRut = String(rut).trim();
+  const hasTrailingC = rawRut.toLowerCase().endsWith('c');
+  const altRut = hasTrailingC ? rawRut.slice(0, -1) : `${rawRut}C`;
+  request.input('rut', sql.VarChar, rawRut);
+  request.input('rutAlt', sql.VarChar, altRut);
+  const result = await request.query(`
+    SELECT TOP 1
+      Rut,
+      SlpName
+    FROM jor_imp_VEND_90_softkey
+    WHERE Rut = @rut OR Rut = @rutAlt
+  `);
+  return result.recordset?.[0] || null;
+}
+
 /**
  * Obtiene todos los clientes con un conteo de carpetas asociadas (folder_count)
  * @returns {Array<Users>} Lista de clientes con propiedad adicional folder_count
@@ -80,12 +99,10 @@ async function findUserByEmailOrUsername(emailOrUsername) {
            a.country AS admin_country,
            a.city AS admin_city,
            a.address AS admin_address,
-           s.nombre AS seller_name,
            r.name AS role
     FROM users u
     LEFT JOIN roles r ON u.role_id = r.id
     LEFT JOIN admins a ON u.rut COLLATE utf8mb4_general_ci = a.rut COLLATE utf8mb4_general_ci
-    LEFT JOIN sellers s ON u.rut COLLATE utf8mb4_general_ci = s.rut COLLATE utf8mb4_general_ci
     WHERE REPLACE(LOWER(TRIM(u.rut)), '.', '') COLLATE utf8mb4_general_ci
       = ? COLLATE utf8mb4_general_ci
     LIMIT 1
@@ -98,13 +115,18 @@ async function findUserByEmailOrUsername(emailOrUsername) {
   if (!user) return null;
 
   let sqlCustomer = null;
-  if (user.role_id === 2 || (!user.admin_name && !user.seller_name)) {
+  let sqlSeller = null;
+  if (user.role_id === 3 && !user.admin_name) {
+    sqlSeller = await getSqlSellerByRut(user.rut);
+  }
+  if (user.role_id === 2 || (!user.admin_name && !sqlSeller?.SlpName)) {
     sqlCustomer = await getSqlCustomerByRut(user.rut);
   }
 
   return {
     ...user,
-    full_name: user.admin_name || user.seller_name || sqlCustomer?.Nombre || null,
+    seller_name: sqlSeller?.SlpName || null,
+    full_name: user.admin_name || sqlSeller?.SlpName || sqlCustomer?.Nombre || null,
     phone: user.admin_phone || sqlCustomer?.Telefono || null,
     country: user.admin_country || sqlCustomer?.Pais || null,
     city: user.admin_city || sqlCustomer?.Ciudad || null,
@@ -194,12 +216,10 @@ async function findUserById(id) {
            a.city AS admin_city,
            a.address AS admin_address,
            a.email AS admin_email,
-           s.nombre AS seller_name,
            r.name AS role
     FROM users u
     LEFT JOIN roles r ON u.role_id = r.id
     LEFT JOIN admins a ON u.rut COLLATE utf8mb4_general_ci = a.rut COLLATE utf8mb4_general_ci
-    LEFT JOIN sellers s ON u.rut COLLATE utf8mb4_general_ci = s.rut COLLATE utf8mb4_general_ci
     WHERE u.id = ?
     LIMIT 1
     `,
@@ -209,13 +229,18 @@ async function findUserById(id) {
   const user = rows[0];
   if (!user) return null;
   let sqlCustomer = null;
-  if (user.role_id === 2 || (!user.admin_name && !user.seller_name)) {
+  let sqlSeller = null;
+  if (user.role_id === 3 && !user.admin_name) {
+    sqlSeller = await getSqlSellerByRut(user.rut);
+  }
+  if (user.role_id === 2 || (!user.admin_name && !sqlSeller?.SlpName)) {
     sqlCustomer = await getSqlCustomerByRut(user.rut);
   }
 
   return {
     ...user,
-    full_name: user.admin_name || user.seller_name || sqlCustomer?.Nombre || null,
+    seller_name: sqlSeller?.SlpName || null,
+    full_name: user.admin_name || sqlSeller?.SlpName || sqlCustomer?.Nombre || null,
     phone: user.admin_phone || sqlCustomer?.Telefono || null,
     country: user.admin_country || sqlCustomer?.Pais || null,
     city: user.admin_city || sqlCustomer?.Ciudad || null,
@@ -313,7 +338,6 @@ async function getUserProfile(userId) {
            a.country AS admin_country,
            a.city AS admin_city,
            a.address AS admin_address,
-           s.nombre AS seller_name,
            u.created_at, u.updated_at, u.change_pw,
            a.email AS admin_email,
            r.name AS role,
@@ -321,7 +345,6 @@ async function getUserProfile(userId) {
     FROM users u
     LEFT JOIN roles r ON u.role_id = r.id
     LEFT JOIN admins a ON u.rut COLLATE utf8mb4_general_ci = a.rut COLLATE utf8mb4_general_ci
-    LEFT JOIN sellers s ON u.rut COLLATE utf8mb4_general_ci = s.rut COLLATE utf8mb4_general_ci
     LEFT JOIN user_avatar ua ON u.id = ua.user_id AND ua.is_active = 1
     WHERE u.id = ?
     LIMIT 1
@@ -332,13 +355,18 @@ async function getUserProfile(userId) {
   const user = rows[0];
   if (!user) return null;
   let sqlCustomer = null;
-  if (user.role_id === 2 || (!user.admin_name && !user.seller_name)) {
+  let sqlSeller = null;
+  if (user.role_id === 3 && !user.admin_name) {
+    sqlSeller = await getSqlSellerByRut(user.rut);
+  }
+  if (user.role_id === 2 || (!user.admin_name && !sqlSeller?.SlpName)) {
     sqlCustomer = await getSqlCustomerByRut(user.rut);
   }
 
   return {
     ...user,
-    full_name: user.admin_name || user.seller_name || sqlCustomer?.Nombre || null,
+    seller_name: sqlSeller?.SlpName || null,
+    full_name: user.admin_name || sqlSeller?.SlpName || sqlCustomer?.Nombre || null,
     phone: user.admin_phone || sqlCustomer?.Telefono || null,
     country: user.admin_country || sqlCustomer?.Pais || null,
     city: user.admin_city || sqlCustomer?.Ciudad || null,

@@ -270,7 +270,7 @@ function parseNumber(value, fallback = 0) {
 }
 
 // Función para abrir modal de items (mover fuera de initFoldersScript)
-async function openItemsModal(orderPc, orderOc, factura) {
+async function openItemsModal(orderPc, orderOc, factura, idOv) {
   const itemsModal = document.getElementById('itemsModal');
   const itemsOrderTitle = document.getElementById('itemsOrderTitle');
   const itemsTableBody = document.getElementById('itemsTableBody');
@@ -287,9 +287,10 @@ async function openItemsModal(orderPc, orderOc, factura) {
     const safeFactura = factura && factura !== 'null' ? encodeURIComponent(factura) : '';
     
     // Usar endpoint diferente según si tiene factura o no
+    const idQuery = idOv ? `?idov=${encodeURIComponent(idOv)}` : '';
     const url = factura && factura !== 'null' 
-      ? `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/${safeFactura}/items`
-      : `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/items`;
+      ? `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/${safeFactura}/items${idQuery}`
+      : `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/items${idQuery}`;
     
     const response = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` }
@@ -705,7 +706,8 @@ export async function initFoldersScript() {
     const pcValue = folder.pc || '';
     const ocValue = folder.oc || '';
     const companyValue = displayCustomerName || '';
-    const documentsUrl = `${documentsPath}/${encodeURIComponent(customerRut)}/${encodeURIComponent(pcValue)}/${slugifyPath(ocValue)}/${slugifyPath(companyValue)}`;
+    const idOv = folder.id_nro_ov_mas_factura || '';
+    const documentsUrl = `${documentsPath}/${encodeURIComponent(customerRut)}/${encodeURIComponent(pcValue)}/${slugifyPath(ocValue)}/${slugifyPath(companyValue)}${idOv ? `?idov=${encodeURIComponent(idOv)}` : ''}`;
     const shippingMethod = (!folder.factura || folder.factura === 0 || folder.factura === '0')
       ? (folder.medio_envio_ov || '-')
       : (folder.medio_envio_factura || '-');
@@ -748,6 +750,7 @@ export async function initFoldersScript() {
             <div class="relative">
               <a href="#" class="items-list-btn text-gray-900 dark:text-white hover:text-green-500 transition"
                  data-order-pc="${safePcAttr}" data-order-oc="${safeOcAttr}" data-factura="${safeFacturaAttr}"
+                 data-id-ov="${idOv}"
                  data-tooltip="${getMessage(carpetas.tooltipViewItemsDetailed)}"
                  aria-label="${getMessage(carpetas.tooltipViewItemsDetailed)}">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -758,6 +761,7 @@ export async function initFoldersScript() {
             <div class="relative">
               <a href="#" class="items-detail-modal-btn text-gray-900 dark:text-white hover:text-green-500 transition"
                  data-order-pc="${safePcAttr}" data-order-oc="${safeOcAttr}" data-factura="${safeFacturaAttr}"
+                 data-id-ov="${idOv}"
                  data-tooltip="${getMessage(carpetas.tooltipViewItems)}"
                  aria-label="${getMessage(carpetas.tooltipViewItems)}">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -857,7 +861,8 @@ export async function initFoldersScript() {
       const pcValue = folder.pc || '';
       const ocValue = folder.oc || '';
       const companyValue = folder.customer_name || clientName || '';
-      const documentsUrl = `${documentsPath}/${encodeURIComponent(customerRut)}/${encodeURIComponent(pcValue)}/${slugifyPath(ocValue)}/${slugifyPath(companyValue)}`;
+      const idOv = folder.id_nro_ov_mas_factura || '';
+      const documentsUrl = `${documentsPath}/${encodeURIComponent(customerRut)}/${encodeURIComponent(pcValue)}/${slugifyPath(ocValue)}/${slugifyPath(companyValue)}${idOv ? `?idov=${encodeURIComponent(idOv)}` : ''}`;
       const shippingMethod = (!folder.factura || folder.factura === 0 || folder.factura === '0')
         ? (folder.medio_envio_ov || '')
         : (folder.medio_envio_factura || '');
@@ -1244,7 +1249,7 @@ export async function initFoldersScript() {
     `;
   }
 
-  async function openItemsDetailModal(orderPc, orderOc, factura) {
+  async function openItemsDetailModal(orderPc, orderOc, factura, idOv) {
     const detailModal = document.getElementById('itemsDetailModal');
     const detailTitle = document.getElementById('itemsDetailTitle');
     const detailContainer = document.getElementById('itemsDetailTableContainer');
@@ -1255,9 +1260,10 @@ export async function initFoldersScript() {
       const apiBase = window.apiBase;
       const safeOrderOc = orderOc ? encodeURIComponent(orderOc) : '';
       const safeFactura = factura && factura !== 'null' ? encodeURIComponent(factura) : '';
+      const idQuery = idOv ? `?idov=${encodeURIComponent(idOv)}` : '';
       const url = factura && factura !== 'null'
-        ? `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/${safeFactura}/items`
-        : `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/items`;
+        ? `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/${safeFactura}/items${idQuery}`
+        : `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/items${idQuery}`;
 
       const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` }
@@ -1368,7 +1374,8 @@ export async function initFoldersScript() {
         const orderPc = itemsBtn.dataset.orderPc;
         const orderOc = itemsBtn.dataset.orderOc;
         const factura = itemsBtn.dataset.factura;
-        openItemsModal(orderPc, orderOc, factura);
+        const idOv = itemsBtn.dataset.idOv;
+        openItemsModal(orderPc, orderOc, factura, idOv);
       }
     });
 
@@ -1379,7 +1386,8 @@ export async function initFoldersScript() {
         const orderPc = detailBtn.dataset.orderPc;
         const orderOc = detailBtn.dataset.orderOc;
         const factura = detailBtn.dataset.factura;
-        openItemsDetailModal(orderPc, orderOc, factura);
+        const idOv = detailBtn.dataset.idOv;
+        openItemsDetailModal(orderPc, orderOc, factura, idOv);
       }
     });
 

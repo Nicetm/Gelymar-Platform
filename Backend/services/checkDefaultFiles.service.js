@@ -4,29 +4,92 @@ const { getCustomerByRut } = require('./customer.service');
 const fs = require('fs').promises;
 const path = require('path');
 const { cleanDirectoryName } = require('../utils/directoryUtils');
+const { logger } = require('../utils/logger');
 // Las variables de entorno ya se cargan automáticamente en app.js
 
-async function generateDefaultFiles() {
+async function generateDefaultFiles(filterPc = null) {
   try {
-    console.log('Iniciando generación de documentos por defecto...');
+    logger.info(`[checkDefaultFiles] Iniciando generación de documentos por defecto${filterPc ? ` pc=${filterPc}` : ''}`);
+    const normalizedFilterPc = filterPc ? String(filterPc).trim() : null;
     
     // Obtener todas las órdenes agrupadas por RUT
     const ordersByRut = await getAllOrdersGroupedByRut();
     const totalClients = Object.keys(ordersByRut).length;
     
     if (totalClients === 0) {
-      console.log(`No hay órdenes para procesar`);
+      logger.info('[checkDefaultFiles] No hay órdenes para procesar');
       return;
     }
     
     let totalFilesCreated = 0;
     let totalOrdersProcessed = 0;
     let totalDirectoriesCreated = 0;
-    
+
+    const normalizeOcKey = (value) =>
+      String(value || '').toUpperCase().replace(/[\s()-]+/g, '');
+    const shipmentIncoterms = new Set(['CFR', 'CIF', 'CIP', 'DAP', 'DDP', 'CPT']);
+    const availabilityIncoterms = new Set([
+      'EWX',
+      'FCA',
+      'FOB',
+      'FCA PORT',
+      'FCA WAREHOUSE SANTIAGO',
+      'FCA AIRPORT',
+      'FCAWSTGO'
+    ]);
+    const hasFacturaValue = (value) => (
+      value !== null &&
+      value !== undefined &&
+      value !== '' &&
+      value !== 0 &&
+      value !== '0'
+    );
+    const isInList = (list, value) => list.has(String(value || '').trim().toUpperCase());
+    const canCreateShipment = (order) => (
+      hasFacturaValue(order.factura) &&
+      isInList(shipmentIncoterms, order.incoterm) &&
+      !!order.fecha_etd_factura &&
+      !!order.fecha_eta_factura
+    );
+    const canCreateDelivery = (order) => (
+      hasFacturaValue(order.factura) &&
+      !!order.fecha_eta_factura
+    );
+    const canCreateAvailability = (order) => (
+      hasFacturaValue(order.factura) &&
+      isInList(availabilityIncoterms, order.incoterm)
+    );
+
     // Procesar clientes en lotes para evitar problemas de memoria
-    const clientEntries = Object.entries(ordersByRut);
+    let clientEntries = Object.entries(ordersByRut);
+    if (normalizedFilterPc) {
+      clientEntries = clientEntries
+        .map(([rut, orders]) => [rut, orders.filter((order) => String(order.pc || '').trim() === normalizedFilterPc)])
+        .filter(([, orders]) => orders.length > 0);
+    }
+    if (clientEntries.length === 0) {
+      logger.info(`[checkDefaultFiles] No hay órdenes para procesar${normalizedFilterPc ? ` para pc=${normalizedFilterPc}` : ''}`);
+      return;
+    }
+
     const batchSize = 10; // Lotes más pequeños para clientes
     const totalBatches = Math.ceil(clientEntries.length / batchSize);
+
+    const partialKeyCount = new Map();
+    const partialKeyMinDate = new Map();
+    clientEntries.forEach(([, orders]) => {
+      orders.forEach((order) => {
+        const key = `${String(order.pc || '').trim()}|${normalizeOcKey(order.oc)}`;
+        partialKeyCount.set(key, (partialKeyCount.get(key) || 0) + 1);
+        const orderDate = order.created_at ? new Date(order.created_at) : null;
+        if (orderDate && !Number.isNaN(orderDate.getTime())) {
+          const currentMin = partialKeyMinDate.get(key);
+          if (!currentMin || orderDate < currentMin) {
+            partialKeyMinDate.set(key, orderDate);
+          }
+        }
+      });
+    });
     
     for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
       const startIndex = batchIndex * batchSize;
@@ -43,7 +106,13 @@ async function generateDefaultFiles() {
             }
             
             // Verificar si ya existen documentos para esta orden
-            const existingFiles = await checkExistingFiles(order.id, order.pc, order.oc);
+            const existingFiles = await checkExistingFiles(
+              order.id,
+              order.pc,
+              order.oc,
+              order.factura,
+              order.id_nro_ov_mas_factura
+            );
             // Determinar ruta base: usar la existente si hay archivos previos
             let directoryPath = existingFiles[0]?.path;
 
@@ -51,7 +120,7 @@ async function generateDefaultFiles() {
             if (!directoryPath) {
               directoryPath = await createClientDirectory(customer.name, order.pc);
               if (!directoryPath) {
-                console.log(`[${new Date().toISOString()}] -> Check Default Files Process -> Error creando directorio para orden ${order.id}, omitiendo`);
+                logger.warn(`[checkDefaultFiles] Error creando directorio para orden ${order.id}, omitiendo`);
                 continue;
               }
               totalDirectoriesCreated++;
@@ -64,29 +133,48 @@ async function generateDefaultFiles() {
               'Order Delivery Notice': 15,
               'Availability Notice': 6
             };
-            const hasFactura = order.factura !== null && order.factura !== undefined && order.factura !== '' && order.factura !== 0 && order.factura !== '0';
+            const hasFactura = hasFacturaValue(order.factura);
+            const partialKey = `${String(order.pc || '').trim()}|${normalizeOcKey(order.oc)}`;
+            const hasPartial = (partialKeyCount.get(partialKey) || 0) > 1;
+            const orderDate = order.created_at ? new Date(order.created_at) : null;
+            const minDate = partialKeyMinDate.get(partialKey) || null;
+            const isParent =
+              !hasPartial ||
+              (orderDate && minDate && !Number.isNaN(orderDate.getTime()) && orderDate.getTime() === minDate.getTime());
 
             // Determinar documentos requeridos según estado de factura
-            const requiredDocs = hasFactura
-              ? [
-                  'Shipment Notice',
-                  'Order Delivery Notice',
-                  'Availability Notice'
-                ]
-              : [
-                  'Order Receipt Notice'
-                ];
+            const requiredDocs = hasPartial
+              ? (isParent && !hasFactura
+                ? ['Order Receipt Notice']
+                : ['Shipment Notice', 'Order Delivery Notice', 'Availability Notice'])
+              : hasFactura
+                ? ['Shipment Notice', 'Order Delivery Notice', 'Availability Notice']
+                : ['Order Receipt Notice'];
 
             // Filtrar los que ya existen (usar file_id para evitar duplicados cuando cambia el nombre)
             const existingFileIds = new Set(existingFiles.map(f => f.file_id).filter(Boolean));
             const documentsToCreate = requiredDocs
               .filter(name => !existingFileIds.has(FILE_ID_MAP[name]))
+              .filter((name) => {
+                if (name === 'Shipment Notice') {
+                  return canCreateShipment(order);
+                }
+                if (name === 'Order Delivery Notice') {
+                  return canCreateDelivery(order);
+                }
+                if (name === 'Availability Notice') {
+                  return canCreateAvailability(order);
+                }
+                return true;
+              })
               .map(name => ({
                 name,
                 pc: order.pc,
                 oc: order.oc,
                 path: directoryPath,
-                file_id: FILE_ID_MAP[name]
+                file_id: FILE_ID_MAP[name],
+                factura: order.factura,
+                id_nro_ov_mas_factura: order.id_nro_ov_mas_factura
               }));
 
             // Si no hay documentos por crear, continuar
@@ -101,7 +189,7 @@ async function generateDefaultFiles() {
                 await insertDefaultFile(doc);
                 totalFilesCreated++;
               } catch (insertError) {
-                console.error(`[${new Date().toISOString()}] -> Check Default Files Process -> Error insertando ${doc.name} para PC ${order.pc}:`, insertError.message);
+                logger.error(`[checkDefaultFiles] Error insertando ${doc.name} pc=${order.pc} oc=${order.oc || 'N/A'} factura=${order.factura || 'N/A'} id=${order.id_nro_ov_mas_factura || 'N/A'}: ${insertError.message}`);
               }
             }
             
@@ -114,33 +202,43 @@ async function generateDefaultFiles() {
       }
     }
     
-    console.log(`Documentos generados: ${totalFilesCreated} archivos, ${totalOrdersProcessed} órdenes, ${totalDirectoriesCreated} directorios`);
+    logger.info(`[checkDefaultFiles] Documentos generados: files=${totalFilesCreated} orders=${totalOrdersProcessed} dirs=${totalDirectoriesCreated}`);
     
   } catch (error) {
-    console.error(`[${new Date().toISOString()}] -> Check Default Files Process -> Error en generación de documentos por defecto:`, error.message);
-    console.error(`   Stack: ${error.stack}`);
+    logger.error(`[checkDefaultFiles] Error en generación de documentos por defecto: ${error.message}`);
+    logger.error(`[checkDefaultFiles] Stack: ${error.stack}`);
     throw error;
   }
 }
 
-async function checkExistingFiles(orderId, pc, oc) {
+async function checkExistingFiles(orderId, pc, oc, factura = null, idNroOvMasFactura = null) {
   const pool = await poolPromise;
   
   try {
     const normalizedPc = pc == null ? '' : String(pc).trim();
     const normalizedOc = oc == null ? '' : String(oc).toUpperCase().replace(/[\s-]+/g, '');
+    const normalizedFactura = factura !== null && factura !== undefined && factura !== '' && factura !== 0 && factura !== '0'
+      ? String(factura).trim()
+      : null;
+    const normalizedId = idNroOvMasFactura ? String(idNroOvMasFactura).trim() : null;
+    const idClause = normalizedId ? ' AND f.id_nro_ov_mas_factura = ?' : '';
+    const facturaClause = normalizedFactura ? ' AND f.factura = ?' : " AND (f.factura IS NULL OR f.factura = '' OR f.factura = 0 OR f.factura = '0')";
     const query = normalizedOc
-      ? `SELECT f.* FROM order_files f WHERE TRIM(COALESCE(f.pc, '')) = ? AND REPLACE(REPLACE(UPPER(COALESCE(f.oc, '')), ' ', ''), '-', '') = ?`
-      : `SELECT f.* FROM order_files f WHERE TRIM(COALESCE(f.pc, '')) = ? AND (f.oc IS NULL OR TRIM(f.oc) = '')`;
-    const params = normalizedOc ? [normalizedPc, normalizedOc] : [normalizedPc];
-    console.log(`[${new Date().toISOString()}] -> Check Default Files Process -> checkExistingFiles query: ${query} params=${JSON.stringify(params)}`);
+      ? `SELECT f.* FROM order_files f WHERE TRIM(COALESCE(f.pc, '')) = ? AND REPLACE(REPLACE(UPPER(COALESCE(f.oc, '')), ' ', ''), '-', '') = ?${facturaClause}${idClause}`
+      : `SELECT f.* FROM order_files f WHERE TRIM(COALESCE(f.pc, '')) = ? AND (f.oc IS NULL OR TRIM(f.oc) = '')${facturaClause}${idClause}`;
+    const params = normalizedOc
+      ? (normalizedFactura ? [normalizedPc, normalizedOc, normalizedFactura] : [normalizedPc, normalizedOc])
+      : (normalizedFactura ? [normalizedPc, normalizedFactura] : [normalizedPc]);
+    if (normalizedId) {
+      params.push(normalizedId);
+    }
     const [rows] = await pool.query(query, params);
     
     return rows;
     
   } catch (error) {
-    console.error(`[${new Date().toISOString()}] -> Check Default Files Process -> Error verificando archivos existentes para PC ${pc}:`, error.message);
-    console.error(`[${new Date().toISOString()}] -> Check Default Files Process -> Stack completo:`, error.stack);
+    logger.error(`[checkDefaultFiles] Error verificando archivos existentes pc=${pc}: ${error.message}`);
+    logger.error(`[checkDefaultFiles] Stack: ${error.stack}`);
     // Si hay error, retornar array vacío para que continúe el proceso
     return [];
   }
@@ -153,19 +251,25 @@ async function insertDefaultFile(fileData) {
     const normalizedOc = fileData.oc == null ? '' : String(fileData.oc).trim();
     const query = `
       INSERT INTO order_files (
-        pc, oc, name, path, file_identifier, file_id, was_sent, 
+        pc, oc, factura, id_nro_ov_mas_factura, name, path, file_identifier, file_id, was_sent, 
         document_type, file_type, status_id, is_visible_to_client, 
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, 'PDF', 1, 0, NOW(), NOW())
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, 'PDF', 1, 0, NOW(), NOW())
     `;
 
     const nextIdentifier = await getNextFileIdentifier(fileData.pc);
     if (!nextIdentifier) {
       throw new Error(`No se pudo generar file_identifier para PC ${fileData.pc}`);
     }
+    const normalizedFactura = fileData.factura !== null && fileData.factura !== undefined && fileData.factura !== '' && fileData.factura !== 0 && fileData.factura !== '0'
+      ? String(fileData.factura).trim()
+      : null;
+    const normalizedId = fileData.id_nro_ov_mas_factura ? String(fileData.id_nro_ov_mas_factura).trim() : null;
     const params = [
       fileData.pc,
       normalizedOc || null,
+      normalizedFactura,
+      normalizedId,
       fileData.name,
       fileData.path,
       nextIdentifier,
@@ -173,11 +277,11 @@ async function insertDefaultFile(fileData) {
     ];
 
     const [result] = await pool.query(query, params);
-    console.log(`[${new Date().toISOString()}] -> Check Default Files Process -> Archivo por defecto insertado: ${fileData.name} para PC ${fileData.pc}`);
+    logger.info(`[checkDefaultFiles] Archivo por defecto insertado pc=${fileData.pc} oc=${fileData.oc || 'N/A'} factura=${fileData.factura || 'N/A'} id=${fileData.id_nro_ov_mas_factura || 'N/A'} doc=${fileData.name}`);
     return result;
     
   } catch (error) {
-    console.error(`[${new Date().toISOString()}] -> Check Default Files Process -> Error insertando archivo por defecto ${fileData.name} para PC ${fileData.pc}:`, error.message);
+    logger.error(`[checkDefaultFiles] Error insertando archivo por defecto ${fileData.name} pc=${fileData.pc}: ${error.message}`);
     throw error;
   }
 }
@@ -216,7 +320,7 @@ async function createClientDirectory(customerName, pc) {
       return directoryPath;
     
   } catch (error) {
-    console.error(`[${new Date().toISOString()}] -> Check Default Files Process -> Error creando directorio para cliente ${customerName}, PC ${pc}:`);
+    logger.error(`[checkDefaultFiles] Error creando directorio para cliente ${customerName}, pc=${pc}:`);
     console.error(`   Error: ${error.message}`);
     console.error(`   Stack: ${error.stack}`);
     return null;

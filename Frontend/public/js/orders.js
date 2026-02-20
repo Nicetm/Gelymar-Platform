@@ -190,7 +190,11 @@ export async function initOrdersScript() {
     const pcValue = order.pc || '';
     const ocValue = order.oc || order.orderNumber || '';
     const companyValue = order.customer_name || '';
-    const documentUrl = `${documentsPath}/${encodeURIComponent(customerRut)}/${encodeURIComponent(pcValue)}/${slugifyPath(ocValue)}/${slugifyPath(companyValue)}`;
+    const idOv = order.id_nro_ov_mas_factura || '';
+    const isSellerView = basePath.startsWith('/seller');
+    const documentUrl = isSellerView
+      ? `${documentsPath}/${encodeURIComponent(customerRut)}?pc=${encodeURIComponent(pcValue)}&oc=${encodeURIComponent(ocValue)}&c=${encodeURIComponent(companyValue)}${idOv ? `&idov=${encodeURIComponent(idOv)}` : ''}`
+      : `${documentsPath}/${encodeURIComponent(customerRut)}/${encodeURIComponent(pcValue)}/${slugifyPath(ocValue)}/${slugifyPath(companyValue)}${idOv ? `?idov=${encodeURIComponent(idOv)}` : ''}`;
     const shippingMethod = (!order.factura || order.factura === 0 || order.factura === '0')
       ? (order.medio_envio_ov || '-')
       : (order.medio_envio_factura || '-');
@@ -236,6 +240,7 @@ export async function initOrdersScript() {
             <div class="relative">
               <a href="#" class="items-list-btn text-gray-900 dark:text-white hover:text-green-500 dark:hover:text-green-400 transition"
                  data-order-pc="${order.pc}" data-order-oc="${order.oc}" data-factura="${order.factura}"
+                 data-id-ov="${idOv}"
                  data-tooltip="${orders.tooltipViewItemsDetailed}"
                  aria-label="${orders.tooltipViewItemsDetailed}">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -248,6 +253,7 @@ export async function initOrdersScript() {
             <div class="relative">
               <a href="#" class="items-detail-modal-btn text-gray-900 dark:text-white hover:text-green-500 dark:hover:text-green-400 transition"
                  data-order-pc="${order.pc}" data-order-oc="${order.oc}" data-factura="${order.factura}"
+                 data-id-ov="${idOv}"
                  data-tooltip="${orders.tooltipViewItems}"
                  aria-label="${orders.tooltipViewItems}">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -934,7 +940,8 @@ export async function initOrdersScript() {
         const orderPc = itemsBtn.dataset.orderPc;
         const orderOc = itemsBtn.dataset.orderOc;
         const factura = itemsBtn.dataset.factura;
-        openItemsModal(orderPc, orderOc, factura);
+        const idOv = itemsBtn.dataset.idOv;
+        openItemsModal(orderPc, orderOc, factura, idOv);
       }
     });
 
@@ -945,7 +952,8 @@ export async function initOrdersScript() {
         const orderPc = detailBtn.dataset.orderPc;
         const orderOc = detailBtn.dataset.orderOc;
         const factura = detailBtn.dataset.factura;
-        openItemsDetailModal(orderPc, orderOc, factura);
+        const idOv = detailBtn.dataset.idOv;
+        openItemsDetailModal(orderPc, orderOc, factura, idOv);
       }
     });
 
@@ -1034,7 +1042,7 @@ export async function initOrdersScript() {
 }
 
 // Función para abrir el modal de items
-async function openItemsModal(orderPc, orderOc, factura) {
+async function openItemsModal(orderPc, orderOc, factura, idOv) {
   const itemsModal = document.getElementById('itemsModal');
   const itemsOrderTitle = document.getElementById('itemsOrderTitle');
   const itemsCustomerName = document.getElementById('itemsCustomerName');
@@ -1087,9 +1095,10 @@ async function openItemsModal(orderPc, orderOc, factura) {
     }
     
     // Usar endpoint diferente según si tiene factura o no
+    const idQuery = idOv ? `?idov=${encodeURIComponent(idOv)}` : '';
     const url = hasFacturaRequest
-      ? `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/${safeFactura}/items`
-      : `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/items`;
+      ? `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/${safeFactura}/items${idQuery}`
+      : `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/items${idQuery}`;
     
     const response = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` }
@@ -1329,7 +1338,7 @@ function buildLoadingRow(colspan, message) {
   `;
 }
 
-async function openItemsDetailModal(orderPc, orderOc, factura) {
+async function openItemsDetailModal(orderPc, orderOc, factura, idOv) {
   const detailModal = document.getElementById('itemsDetailModal');
   const detailTitle = document.getElementById('itemsDetailTitle');
   const detailCustomerName = document.getElementById('itemsDetailCustomerName');
@@ -1379,9 +1388,10 @@ async function openItemsDetailModal(orderPc, orderOc, factura) {
     const facturaValue = factura === undefined || factura === null ? '' : String(factura).trim();
     const hasFacturaRequest = facturaValue !== '' && facturaValue !== 'null' && facturaValue !== '0';
     const safeFactura = hasFacturaRequest ? encodeURIComponent(facturaValue) : '';
+    const idQuery = idOv ? `?idov=${encodeURIComponent(idOv)}` : '';
     const url = hasFacturaRequest
-      ? `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/${safeFactura}/items`
-      : `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/items`;
+      ? `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/${safeFactura}/items${idQuery}`
+      : `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/items${idQuery}`;
 
     const response = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` }

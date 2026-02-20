@@ -27,6 +27,7 @@ class Order {
     puerto_destino = null,
     certificados = null,
     estado_ov = null,
+    id_nro_ov_mas_factura = null,
     document_count = 0
   }) {
     this.id = id;
@@ -55,6 +56,7 @@ class Order {
     this.puerto_destino = puerto_destino;
     this.certificados = certificados;
     this.estado_ov = estado_ov;
+    this.id_nro_ov_mas_factura = id_nro_ov_mas_factura;
     this.document_count = document_count;
   }
 }

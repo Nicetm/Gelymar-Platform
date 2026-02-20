@@ -1841,10 +1841,12 @@ async function openItemsModal(orderPc, orderOc, factura) {
     const token = localStorage.getItem('token');
     const apiBase = window.apiBase;
     
+    const idOv = new URLSearchParams(window.location.search).get('idov') || '';
+    const idQuery = idOv ? `?idov=${encodeURIComponent(idOv)}` : '';
     // Usar endpoint diferente según si tiene factura o no
     const url = factura && factura !== 'null' 
-      ? `${apiBase}/api/orders/${orderPc}/${orderOc}/${factura}/items`
-      : `${apiBase}/api/orders/${orderPc}/${orderOc}/items`;
+      ? `${apiBase}/api/orders/${orderPc}/${orderOc}/${factura}/items${idQuery}`
+      : `${apiBase}/api/orders/${orderPc}/${orderOc}/items${idQuery}`;
     
     const response = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` }

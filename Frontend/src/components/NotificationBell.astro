@@ -30,7 +30,8 @@ let t: any = {};
 
 try {
   t = {
-    notifications: await loadTranslations(lang, 'notifications')
+    notifications: await loadTranslations(lang, 'notifications'),
+    messages: await loadTranslations(lang, 'messages')
   };
 } catch (error) {
   console.warn('Error cargando traducciones (NotificationBell):', error);

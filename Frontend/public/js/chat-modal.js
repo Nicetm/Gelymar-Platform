@@ -366,14 +366,21 @@ export function initChatModal(config = {}) {
     adminStatusInterval = setInterval(refreshAdminOnlineStatus, 10000);
   }
 
-  function buildAvatarUrl(path) {
-    if (!path) return '';
-    const baseUrl = window.fileServerUrl || '';
-    const normalizedPath = String(path).replace(/\\/g, '/').replace(/^\/+/, '');
-    if (baseUrl) {
-      return `${baseUrl.replace(/\/$/, '')}/${normalizedPath}`;
+  function buildAssetUrl(assetPath) {
+    if (!assetPath) return '';
+    const apiBase = window.apiBase || '';
+    const normalizedPath = String(assetPath).replace(/\\/g, '/').replace(/^\/+/, '');
+    const token = localStorage.getItem('token') || '';
+    if (apiBase) {
+      const encodedPath = encodeURIComponent(normalizedPath);
+      const encodedToken = token ? `&token=${encodeURIComponent(token)}` : '';
+      return `${apiBase}/api/assets?path=${encodedPath}${encodedToken}`;
     }
     return `/${normalizedPath}`;
+  }
+
+  function buildAvatarUrl(path) {
+    return buildAssetUrl(path);
   }
 
   function setAdminAvatar(avatarPath) {
@@ -685,25 +692,22 @@ export function initChatModal(config = {}) {
   
   // Función para agregar mensaje al chat
   function buildChatImageUrl(rawUrl, rawPath) {
-    const baseUrl = window.fileServerUrl || '';
     if (rawPath) {
-      const normalizedPath = String(rawPath).replace(/\\/g, '/').replace(/^\/+/, '');
-      if (baseUrl) {
-        return `${baseUrl.replace(/\/$/, '')}/${normalizedPath}`;
-      }
-      return `/${normalizedPath}`;
+      return buildAssetUrl(rawPath);
     }
     if (!rawUrl) {
       return '';
     }
     const url = String(rawUrl);
     if (/^https?:\/\//i.test(url)) {
+      const uploadsIndex = url.indexOf('/uploads/');
+      if (uploadsIndex !== -1) {
+        const relative = url.slice(uploadsIndex + 1);
+        return buildAssetUrl(relative);
+      }
       return url;
     }
-    if (baseUrl) {
-      return `${baseUrl.replace(/\/$/, '')}/${url.replace(/^\/+/, '')}`;
-    }
-    return url;
+    return buildAssetUrl(url);
   }
 
   function parseChatPayload(message) {

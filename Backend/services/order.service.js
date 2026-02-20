@@ -70,6 +70,19 @@ const createOrderService = ({
    * @param {object} filters
    * @returns {Promise<Order[]>}
    */
+  const getSellerCodesByRut = async (rut) => {
+    const rawRut = String(rut || '').trim();
+    if (!rawRut) return [];
+    const pool = await mysqlPoolPromise;
+    const [sellerRows] = await pool.query(
+      'SELECT codigo FROM sellers WHERE rut = ?',
+      [rawRut]
+    );
+    return sellerRows
+      .map((row) => String(row.codigo || '').trim())
+      .filter((code) => code.length > 0);
+  };
+
   const getOrdersByFilters = async (filters = {}) => {
     const pool = await mysqlPoolPromise;
     const sqlPool = await getSqlPoolFn();
@@ -94,6 +107,7 @@ const createOrderService = ({
       h.Certificados,
       h.EstadoOV,
       h.Vendedor,
+      h.IDNroOvMasFactura,
       c.Nombre AS customer_name
     FROM jor_imp_HDR_90_softkey h
     LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
@@ -109,15 +123,14 @@ const createOrderService = ({
 
   let sellerCodes = [];
   if (filters.salesRut) {
-    const [sellerRows] = await pool.query('SELECT codigo FROM sellers WHERE rut = ?', [filters.salesRut]);
-    sellerCodes = sellerRows.map((row) => row.codigo).filter(Boolean);
+    sellerCodes = await getSellerCodesByRut(filters.salesRut);
     if (sellerCodes.length === 0) {
       return [];
     }
     const placeholders = sellerCodes.map((_, idx) => `@sellerCode${idx}`);
     conditions.push(`h.Vendedor IN (${placeholders.join(', ')})`);
     sellerCodes.forEach((code, idx) => {
-      request.input(`sellerCode${idx}`, sqlModule.VarChar, code);
+      request.input(`sellerCode${idx}`, sqlModule.VarChar, String(code).trim());
     });
   }
 
@@ -140,30 +153,30 @@ const createOrderService = ({
   }));
 
   const orderPairs = mappedRows
-    .map((row) => ({ pc: row.mapped.pc, oc: row.mapped.oc }))
+    .map((row) => ({ pc: row.mapped.pc, oc: row.mapped.oc, id: row.mapped.id_nro_ov_mas_factura }))
     .filter((pair) => pair.pc && pair.oc);
 
   const documentCountMap = new Map();
   if (orderPairs.length) {
-    const pairConditions = orderPairs.map(() => '(pc = ? AND oc = ?)').join(' OR ');
+    const pairConditions = orderPairs.map(() => '(pc = ? AND oc = ? AND id_nro_ov_mas_factura = ?)').join(' OR ');
     const pairParams = [];
     orderPairs.forEach((pair) => {
-      pairParams.push(pair.pc, pair.oc);
+      pairParams.push(pair.pc, pair.oc, pair.id || null);
     });
     const [docRows] = await pool.query(
-      `SELECT pc, oc, COUNT(*) AS document_count
+      `SELECT pc, oc, id_nro_ov_mas_factura, COUNT(*) AS document_count
        FROM order_files
        WHERE ${pairConditions}
-       GROUP BY pc, oc`,
+       GROUP BY pc, oc, id_nro_ov_mas_factura`,
       pairParams
     );
     docRows.forEach((row) => {
-      documentCountMap.set(`${row.pc}|${row.oc}`, row.document_count);
+      documentCountMap.set(`${row.pc}|${row.oc}|${row.id_nro_ov_mas_factura || ''}`, row.document_count);
     });
   }
 
   return mappedRows.map(({ raw, mapped }) => {
-    const docCountKey = `${mapped.pc}|${mapped.oc}`;
+    const docCountKey = `${mapped.pc}|${mapped.oc}|${mapped.id_nro_ov_mas_factura || ''}`;
     const order = new Order({
       id: `${mapped.pc}|${mapped.oc}`,
       rut: mapped.rut,
@@ -189,6 +202,7 @@ const createOrderService = ({
       puerto_destino: mapped.puerto_destino,
       certificados: mapped.certificados,
       estado_ov: mapped.estado_ov,
+      id_nro_ov_mas_factura: mapped.id_nro_ov_mas_factura,
       document_count: documentCountMap.get(docCountKey) || 0
     });
 
@@ -388,6 +402,7 @@ const createOrderService = ({
           h.Certificados,
           h.EstadoOV,
           h.Vendedor,
+          h.IDNroOvMasFactura,
           c.Nombre AS customer_name
         FROM jor_imp_HDR_90_softkey h
         LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
@@ -423,7 +438,8 @@ const createOrderService = ({
         incoterm: mapped.incoterm,
         puerto_destino: mapped.puerto_destino,
         certificados: mapped.certificados,
-        estado_ov: mapped.estado_ov
+        estado_ov: mapped.estado_ov,
+        id_nro_ov_mas_factura: mapped.id_nro_ov_mas_factura
       });
     } catch (error) {
       logger.error('Error en getOrderByIdSimple:', error.message);
@@ -470,6 +486,7 @@ const createOrderService = ({
           h.Certificados,
           h.EstadoOV,
           h.Vendedor,
+          h.IDNroOvMasFactura,
           c.Nombre AS customer_name
           FROM jor_imp_HDR_90_softkey h
           LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
@@ -506,7 +523,8 @@ const createOrderService = ({
         incoterm: mapped.incoterm,
         puerto_destino: mapped.puerto_destino,
         certificados: mapped.certificados,
-        estado_ov: mapped.estado_ov
+        estado_ov: mapped.estado_ov,
+        id_nro_ov_mas_factura: mapped.id_nro_ov_mas_factura
       });
     } catch (error) {
       logger.error('Error en getOrderByPcOc:', error.message);
@@ -582,7 +600,8 @@ const createOrderService = ({
         incoterm: mapped.incoterm,
         puerto_destino: mapped.puerto_destino,
         certificados: mapped.certificados,
-        estado_ov: mapped.estado_ov
+        estado_ov: mapped.estado_ov,
+        id_nro_ov_mas_factura: mapped.id_nro_ov_mas_factura
       });
     } catch (error) {
       logger.error('Error en getOrderByPc:', error.message);
@@ -646,8 +665,7 @@ const createOrderService = ({
 
       if (roleId === 3) {
         const pool = await mysqlPoolPromise;
-        const [sellerRows] = await pool.query('SELECT codigo FROM sellers WHERE rut = ?', [user.rut || user.email]);
-        const sellerCodes = sellerRows.map((r) => r.codigo).filter(Boolean);
+        const sellerCodes = await getSellerCodesByRut(user.rut || user.email);
         if (!sellerCodes.includes(mapped.vendedor)) {
           return null;
         }
@@ -739,8 +757,7 @@ const createOrderService = ({
 
       if (roleId === 3) {
         const pool = await mysqlPoolPromise;
-        const [sellerRows] = await pool.query('SELECT codigo FROM sellers WHERE rut = ?', [user.rut || user.email]);
-        const sellerCodes = sellerRows.map((r) => r.codigo).filter(Boolean);
+        const sellerCodes = await getSellerCodesByRut(user.rut || user.email);
         if (!sellerCodes.includes(mapped.vendedor)) {
           return null;
         }
@@ -1109,16 +1126,20 @@ const createOrderService = ({
     };
   };
 
-  const getOrderItems = async (orderPc, orderOc, factura, user) => {
+  const getOrderItems = async (orderPc, orderOc, factura, user, idNroOvMasFactura = null) => {
     try {
       const roleId = Number(user.roleId || user.role_id);
       const sqlPool = await getSqlPoolFn();
+      const normalizedId = idNroOvMasFactura ? String(idNroOvMasFactura).trim() : null;
 
       const headerRequest = sqlPool.request();
       headerRequest.input('pc', sqlModule.VarChar, orderPc);
       headerRequest.input('oc', sqlModule.VarChar, normalizeOcForCompare(orderOc));
       if (factura && factura !== 'null') {
         headerRequest.input('factura', sqlModule.VarChar, factura);
+      }
+      if (normalizedId) {
+        headerRequest.input('idNroOvMasFactura', sqlModule.VarChar, normalizedId);
       }
 
       const headerResult = await headerRequest.query(`
@@ -1134,6 +1155,7 @@ const createOrderService = ({
         LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
         WHERE h.Nro = @pc AND UPPER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = UPPER(@oc)
         ${factura && factura !== 'null' ? 'AND h.Factura = @factura' : ''}
+        ${normalizedId ? 'AND h.IDNroOvMasFactura = @idNroOvMasFactura' : ''}
         ORDER BY CAST(h.Fecha AS date) DESC
       `);
 
@@ -1149,8 +1171,7 @@ const createOrderService = ({
 
       if (roleId === 3) {
         const pool = await mysqlPoolPromise;
-        const [sellerRows] = await pool.query('SELECT codigo FROM sellers WHERE rut = ?', [user.rut || user.email]);
-        const sellerCodes = sellerRows.map((r) => r.codigo).filter(Boolean);
+        const sellerCodes = await getSellerCodesByRut(user.rut || user.email);
         if (!sellerCodes.includes(mappedHeader.vendedor)) {
           return null;
         }
@@ -1161,6 +1182,9 @@ const createOrderService = ({
       if (factura && factura !== 'null') {
         itemsRequest.input('factura', sqlModule.VarChar, factura);
       }
+      if (normalizedId) {
+        itemsRequest.input('idNroOvMasFactura', sqlModule.VarChar, normalizedId);
+      }
 
       const itemsResult = await itemsRequest.query(`
         SELECT *
@@ -1169,6 +1193,7 @@ const createOrderService = ({
         ${factura && factura !== 'null'
           ? 'AND Factura = @factura'
           : "AND (Factura IS NULL OR Factura = '' OR Factura = 0 OR Factura = '0')"}
+        ${normalizedId ? 'AND IDNroOvMasFactura = @idNroOvMasFactura' : ''}
         ORDER BY Linea ASC
       `);
 

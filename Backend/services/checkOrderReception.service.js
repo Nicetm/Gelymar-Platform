@@ -90,7 +90,7 @@ async function isSendOrderReceptionEnabled() {
   }
 }
 
-async function getOrdersReadyForOrderReceiptNotice(sendFromDate = null) {
+async function getOrdersReadyForOrderReceiptNotice(sendFromDate = null, filterPc = null, filterFactura = null) {
   try {
     const sqlPool = await getSqlPool();
     const request = sqlPool.request();
@@ -99,11 +99,25 @@ async function getOrdersReadyForOrderReceiptNotice(sendFromDate = null) {
       sendFromFilter = ' AND CONVERT(date, h.Fecha) >= @sendFrom';
       request.input('sendFrom', sql.Date, sendFromDate);
     }
+    const normalizedPc = filterPc ? String(filterPc).trim() : null;
+    let pcFilter = '';
+    if (normalizedPc) {
+      pcFilter = ' AND h.Nro = @pc';
+      request.input('pc', sql.VarChar, normalizedPc);
+    }
+    const normalizedFactura = filterFactura ? String(filterFactura).trim() : null;
+    let facturaFilter = '';
+    if (normalizedFactura) {
+      facturaFilter = ' AND h.Factura = @factura';
+      request.input('factura', sql.VarChar, normalizedFactura);
+    }
 
     const result = await request.query(`
       SELECT
         h.Nro AS pc,
         h.OC AS oc,
+        h.Factura AS factura,
+        h.IDNroOvMasFactura AS id_nro_ov_mas_factura,
         h.Fecha AS fecha_ingreso,
         c.Nombre AS customer_name,
         c.Rut AS customer_rut
@@ -111,6 +125,8 @@ async function getOrdersReadyForOrderReceiptNotice(sendFromDate = null) {
       JOIN jor_imp_CLI_01_softkey c ON h.Rut = c.Rut
       WHERE (h.Factura IS NULL OR LTRIM(RTRIM(CAST(h.Factura AS NVARCHAR(50)))) = '' OR h.Factura = 0 OR h.Factura = '0')
         ${sendFromFilter}
+        ${pcFilter}
+        ${facturaFilter}
       ORDER BY h.Nro ASC
     `);
 
@@ -126,7 +142,7 @@ async function getOrdersReadyForOrderReceiptNotice(sendFromDate = null) {
     if (!pcs.length) return orders;
 
     const [fileRows] = await pool.query(
-      `SELECT id, pc, oc, fecha_envio
+      `SELECT id, pc, oc, id_nro_ov_mas_factura, fecha_envio
        FROM order_files
        WHERE file_id = 9 AND pc IN (${pcs.map(() => '?').join(',')})`,
       pcs
@@ -134,7 +150,9 @@ async function getOrdersReadyForOrderReceiptNotice(sendFromDate = null) {
 
     const fileMap = new Map();
     fileRows.forEach((row) => {
-      const key = `${row.pc}||${normalizeOc(row.oc)}`;
+      const key = row.id_nro_ov_mas_factura
+        ? `${row.pc}||${normalizeOc(row.oc)}||${row.id_nro_ov_mas_factura}`
+        : `${row.pc}||${normalizeOc(row.oc)}`;
       if (!fileMap.has(key)) {
         fileMap.set(key, row);
       }
@@ -142,7 +160,9 @@ async function getOrdersReadyForOrderReceiptNotice(sendFromDate = null) {
 
     return orders
       .map((order) => {
-        const key = `${order.pc}||${normalizeOc(order.oc)}`;
+        const key = order.id_nro_ov_mas_factura
+          ? `${order.pc}||${normalizeOc(order.oc)}||${order.id_nro_ov_mas_factura}`
+          : `${order.pc}||${normalizeOc(order.oc)}`;
         const file = fileMap.get(key) || null;
         return {
           ...order,
@@ -314,16 +334,21 @@ async function getReportEmailsAndLang(customerRut) {
  * @param {number} orderId - ID de la orden
  * @returns {Promise<Object|null>} Datos del archivo de recepción
  */
-async function getReceptionFile(pc, oc) {
+async function getReceptionFile(pc, oc, idNroOvMasFactura = null) {
   const pool = await poolPromise;
   try {
+    const normalizedId = idNroOvMasFactura ? String(idNroOvMasFactura).trim() : null;
+    const idClause = normalizedId ? 'AND id_nro_ov_mas_factura = ?' : '';
     const [rows] = await pool.query(
       `SELECT id, path 
        FROM order_files 
        WHERE pc = ? AND file_id = ?
        ${oc ? 'AND oc = ?' : 'AND (oc IS NULL OR oc = \'\')'}
+       ${idClause}
        ORDER BY id DESC LIMIT 1`,
-      oc ? [pc, 9, oc] : [pc, 9]
+      oc
+        ? (normalizedId ? [pc, 9, oc, normalizedId] : [pc, 9, oc])
+        : (normalizedId ? [pc, 9, normalizedId] : [pc, 9])
     );
     return rows.length > 0 ? rows[0] : null;
   } catch (error) {

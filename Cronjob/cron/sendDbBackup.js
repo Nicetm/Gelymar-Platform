@@ -3,6 +3,7 @@ const path = require('path');
 const cron = require('node-cron');
 const { spawn } = require('child_process');
 const zlib = require('zlib');
+const { logger } = require('../../Backend/utils/logger');
 
 const emitReady = () => {
   if (process.send) {
@@ -32,7 +33,7 @@ function removeOldBackups(backupDir, keepFile) {
       try {
         fs.unlinkSync(path.join(backupDir, file));
       } catch (error) {
-        console.error(`[DB Backup] Error removing old backup ${file}: ${error.message}`);
+        logger.error(`[sendDbBackup] Error removing old backup ${file}: ${error.message}`);
       }
     }
   });
@@ -67,7 +68,7 @@ async function runBackup() {
     '--lock-tables=false'
   ];
 
-  console.log(`[DB Backup] Starting backup: ${filePath}`);
+  logger.info(`[sendDbBackup] Starting backup: ${filePath}`);
 
   const dump = spawn('mysqldump', args, {
     env: { ...process.env, MYSQL_PWD: dbPass }
@@ -103,9 +104,9 @@ async function runBackup() {
 async function executeWithErrorHandling() {
   try {
     const filePath = await runBackup();
-    console.log(`[DB Backup] Backup completed: ${filePath}`);
+    logger.info(`[sendDbBackup] Backup completed: ${filePath}`);
   } catch (error) {
-    console.error(`[DB Backup] Error: ${error.message}`);
+    logger.error(`[sendDbBackup] Error: ${error.message}`);
   } finally {
     emitReady();
   }
@@ -123,6 +124,6 @@ cron.schedule('0 2 * * *', async () => {
   try {
     await runBackup();
   } catch (error) {
-    console.error(`[DB Backup] Error: ${error.message}`);
+    logger.error(`[sendDbBackup] Error: ${error.message}`);
   }
 });

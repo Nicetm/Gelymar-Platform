@@ -3,6 +3,7 @@ const cron = require('node-cron');
 const dotenv = require('dotenv');
 const os = require('os');
 const fs = require('fs');
+const { logger } = require('../../Backend/utils/logger');
 // mysql ya no se necesita, se usa endpoint del backend
 // El cron llama a endpoints del backend para procesar datos
 
@@ -12,23 +13,21 @@ const isServer = Object.values(networkInterfaces)
   .flat()
   .some(iface => iface && iface.address === '172.20.10.151');
 
-console.log(`[Cronjob] Detección de entorno:`);
-console.log(`[Cronjob] - isServer: ${isServer}`);
-console.log(`[Cronjob] - networkInterfaces:`, Object.keys(networkInterfaces));
+logger.info(`[cronMaster] Detección de entorno isServer=${isServer} networkInterfaces=${Object.keys(networkInterfaces).join(',')}`);
 
 // Cargar archivo de configuración según entorno
 const envFile = isServer ? '../env.server' : '../env.local';
-console.log(`[Cronjob] Intentando cargar archivo: ${envFile}`);
-console.log(`[Cronjob] Archivo existe: ${fs.existsSync(envFile)}`);
+logger.info(`[cronMaster] Intentando cargar archivo: ${envFile}`);
+logger.info(`[cronMaster] Archivo existe: ${fs.existsSync(envFile)}`);
 
 if (fs.existsSync(envFile)) {
   dotenv.config({ path: envFile });
-  console.log(`[Cronjob] Entorno detectado: ${isServer ? 'Servidor Ubuntu (172.20.10.151)' : 'Desarrollo local'}`);
-  console.log(`[Cronjob] Archivo de configuración cargado: ${envFile}`);
+  logger.info(`[cronMaster] Entorno detectado: ${isServer ? 'Servidor Ubuntu (172.20.10.151)' : 'Desarrollo local'}`);
+  logger.info(`[cronMaster] Archivo de configuración cargado: ${envFile}`);
 } else {
-  console.log(`[Cronjob] Archivo de configuración no encontrado: ${envFile}`);
-  console.log(`[Cronjob] Directorio actual: ${process.cwd()}`);
-  console.log(`[Cronjob] Archivos en directorio:`, fs.readdirSync('.'));
+  logger.warn(`[cronMaster] Archivo de configuración no encontrado: ${envFile}`);
+  logger.info(`[cronMaster] Directorio actual: ${process.cwd()}`);
+  logger.info(`[cronMaster] Archivos en directorio: ${fs.readdirSync('.').join(', ')}`);
   dotenv.config(); // Fallback a .env si existe
 }
 
@@ -37,18 +36,18 @@ let BACKEND_API_URL = process.env.BACKEND_API_URL || 'http://localhost:3000';
 
 // Si estamos en Docker y no se cargó la configuración, forzar la URL correcta
 if (isServer && BACKEND_API_URL === 'http://localhost:3000') {
-  console.log(`[Cronjob] Forzando configuración para Docker...`);
+  logger.info('[cronMaster] Forzando configuración para Docker...');
   BACKEND_API_URL = 'http://backend:3000';
 }
 
 // Verificación adicional: si detectamos que estamos en un contenedor Docker
 if (process.env.DOCKER_ENV === 'true' || fs.existsSync('/.dockerenv')) {
-  console.log(`[Cronjob] Detectado entorno Docker, usando backend:3000`);
+  logger.info('[cronMaster] Detectado entorno Docker, usando backend:3000');
   BACKEND_API_URL = 'http://backend:3000';
 }
 
-console.log(`[Cronjob] BACKEND_API_URL configurado: ${BACKEND_API_URL}`);
-console.log(`[Cronjob] Variables de entorno disponibles:`, Object.keys(process.env).filter(key => key.includes('BACKEND')));
+logger.info(`[cronMaster] BACKEND_API_URL configurado: ${BACKEND_API_URL}`);
+logger.info(`[cronMaster] Variables de entorno disponibles: ${Object.keys(process.env).filter(key => key.includes('BACKEND')).join(', ')}`);
 
 // DB_CONFIG ya no se necesita, se usa endpoint del backend
 
@@ -61,14 +60,14 @@ async function getTaskConfig() {
     });
     
     if (response.data.success) {
-      console.log(`[Cronjob] Configuración de tareas cargada desde backend:`, response.data.config);
+      logger.info(`[cronMaster] Configuración de tareas cargada desde backend: ${JSON.stringify(response.data.config)}`);
       return response.data.config;
     } else {
       throw new Error('Respuesta del backend no exitosa');
     }
   } catch (error) {
-    console.error(`[Cronjob] Error cargando configuración desde backend:`, error.message);
-    console.log(`[Cronjob] Usando configuración por defecto...`);
+    logger.error(`[cronMaster] Error cargando configuración desde backend: ${error.message}`);
+    logger.info('[cronMaster] Usando configuración por defecto...');
     return {
       clean_database: false,
       check_clients: false,
@@ -82,10 +81,10 @@ async function getTaskConfig() {
 let taskConfig = {};
 
 async function checkClientAccess() {
-  console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Iniciando verificación de acceso de clientes...`);
+  logger.info('[cronMaster] Iniciando verificación de acceso de clientes...');
   try {
     const url = `${BACKEND_API_URL}/api/cron/check-client-access`;
-    console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Llamando al endpoint: ${url}`);
+    logger.info(`[cronMaster] Llamando al endpoint: ${url}`);
     const response = await axios.post(url, {}, {
       timeout: 300000, // 5 minutos
       family: 4, // Forzar IPv4
@@ -93,19 +92,19 @@ async function checkClientAccess() {
         'Content-Type': 'application/json'
       }
     });
-    console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Verificación de acceso de clientes completada exitosamente`);
+    logger.info('[cronMaster] Verificación de acceso de clientes completada exitosamente');
   } catch (error) {
-    console.error(`[${new Date().toISOString()}] -> Cron Master Process -> Error en checkClientAccess:`, error.message);
+    logger.error(`[cronMaster] Error en checkClientAccess: ${error.message}`);
     throw error;
   }
 }
 
 
 async function checkDefaultFiles() {
-  console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Iniciando verificación de archivos por defecto...`);
+  logger.info('[cronMaster] Iniciando verificación de archivos por defecto...');
   try {
     const url = `${BACKEND_API_URL}/api/cron/generate-default-files`;
-    console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Llamando al endpoint: ${url}`);
+    logger.info(`[cronMaster] Llamando al endpoint: ${url}`);
     const response = await axios.post(url, {}, {
       timeout: 300000, // 5 minutos
       family: 4, // Forzar IPv4
@@ -113,22 +112,22 @@ async function checkDefaultFiles() {
         'Content-Type': 'application/json'
       }
     });
-    console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Verificación de archivos por defecto completada exitosamente`);
+    logger.info('[cronMaster] Verificación de archivos por defecto completada exitosamente');
   } catch (error) {
-    console.error(`[${new Date().toISOString()}] -> Cron Master Process -> Error en checkDefaultFiles:`, error.message);
+    logger.error(`[cronMaster] Error en checkDefaultFiles: ${error.message}`);
     throw error;
   }
 }
 
 async function executeSequence() {
   const startTime = new Date();
-  console.log(`[${startTime.toISOString()}] -> Cron Master Process -> Iniciando secuencia de tareas...`);
+  logger.info('[cronMaster] Iniciando secuencia de tareas...');
   
   // Cargar configuración de tareas desde la base de datos
   taskConfig = await getTaskConfig();
   
   // El cron llama a endpoints del backend para procesar datos
-  console.log(`[${startTime.toISOString()}] -> Cron Master Process -> Iniciando tareas...`);
+  logger.info('[cronMaster] Iniciando tareas...');
   
   const tasks = [
     { name: 'Check Client Access', enabled: taskConfig.check_client_access, func: checkClientAccess },
@@ -137,37 +136,37 @@ async function executeSequence() {
 
   for (const task of tasks) {
     if (!task.enabled) {
-      console.log(`[${new Date().toISOString()}] -> Cron Master Process -> ${task.name} deshabilitado - saltando...`);
+      logger.info(`[cronMaster] ${task.name} deshabilitado - saltando...`);
       continue;
     }
     
     const taskStartTime = new Date();
-    console.log(`[${taskStartTime.toISOString()}] -> Cron Master Process -> TAREA ${task.name} HABILITADA - EJECUTANDO...`);
+    logger.info(`[cronMaster] TAREA ${task.name} HABILITADA - EJECUTANDO...`);
     
     try {
       await task.func();
       const taskEndTime = new Date();
       const taskDuration = taskEndTime - taskStartTime;
-      console.log(`[${taskEndTime.toISOString()}] -> Cron Master Process -> ${task.name} completado exitosamente`);
+      logger.info(`[cronMaster] ${task.name} completado exitosamente`);
       
       // Esperar entre procesos
-      console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Esperando 2 segundos...`);
+      logger.info('[cronMaster] Esperando 2 segundos...');
       await new Promise(resolve => setTimeout(resolve, 2000));
       
     } catch (error) {
       const taskErrorTime = new Date();
       const taskDuration = taskErrorTime - taskStartTime;
-      console.error(`[${taskErrorTime.toISOString()}] -> Cron Master Process -> Error en ${task.name}:`, error.message);
-      console.log(`[${taskErrorTime.toISOString()}] -> Cron Master Process -> Continuando con el siguiente proceso...`);
+      logger.error(`[cronMaster] Error en ${task.name}: ${error.message}`);
+      logger.info('[cronMaster] Continuando con el siguiente proceso...');
     }
   }
   
   const endTime = new Date();
   const totalDuration = endTime - startTime;
-  console.log(`[${endTime.toISOString()}] -> Cron Master Process -> Secuencia completada!`);
+  logger.info('[cronMaster] Secuencia completada!');
   
   // El cron completa la secuencia de tareas
-  console.log(`[${endTime.toISOString()}] -> Cron Master Process -> Secuencia completada`);
+  logger.info('[cronMaster] Secuencia completada');
 }
 
 // Función para emitir señal de ready
@@ -181,25 +180,25 @@ const emitReady = () => {
 const arg = process.argv[2];
 
 if (arg === 'execute-now') {
-  console.log('Ejecutando secuencia inmediatamente...');
+  logger.info('[cronMaster] Ejecutando secuencia inmediatamente...');
   (async () => {
     await executeSequence();
-    console.log('Secuencia completada, terminando...');
+    logger.info('[cronMaster] Secuencia completada, terminando...');
     process.exit(0);
   })();
 } else {
   // Solo levantar el proceso, NO ejecutar nada automáticamente
-  console.log('Cron Master iniciado - esperando horario programado (7:00 AM)...');
+  logger.info('[cronMaster] Cron Master iniciado - esperando horario programado (7:00 AM)...');
   emitReady();
 
   // Programar ejecución diaria a las 7:00 AM
   cron.schedule('0 7 * * *', async () => {
-    console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Iniciando secuencia programada...`);
+    logger.info('[cronMaster] Iniciando secuencia programada...');
     try {
       await executeSequence();
-      console.log(`[${new Date().toISOString()}] -> Cron Master Process -> Secuencia programada completada exitosamente`);
+      logger.info('[cronMaster] Secuencia programada completada exitosamente');
     } catch (error) {
-      console.error(`[${new Date().toISOString()}] -> Cron Master Process -> Error en secuencia programada:`, error.message);
+      logger.error(`[cronMaster] Error en secuencia programada: ${error.message}`);
     }
   });
 } 

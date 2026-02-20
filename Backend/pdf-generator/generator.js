@@ -316,9 +316,9 @@ function generateModernTable(doc, items, data = {}) {
   const tableWidth = 500;
   const tableX = (doc.page.width - tableWidth) / 2;
   const itemX = tableX + 10;
-  const qtyX = tableX + 250;
-  const priceX = tableX + 340;
-  const totalX = tableX + 410;
+  const qtyX = tableX + 215;
+  const priceX = tableX + 325;
+  const totalX = tableX + 400;
   const rowHeight = 28;
 
   const t = data.translations || {};
@@ -329,15 +329,16 @@ function generateModernTable(doc, items, data = {}) {
   doc.rect(tableX, tableTop, tableWidth, rowHeight).fill(STYLES.tableHeaderBg);
   doc.restore();
   doc.fontSize(9).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
-    .text(t.product || 'PRODUCTO', itemX, tableTop + 8, { width: 210 })
-    .text(t.quantity || 'CANTIDAD', qtyX, tableTop + 8, { width: 60, align: 'center' })
+    .text(t.product || 'PRODUCTO', itemX, tableTop + 8, { width: 180 })
+    .text(t.quantity || 'CANTIDAD', qtyX, tableTop + 8, { width: 90, align: 'center' })
     .text(t.price || 'PRECIO', priceX, tableTop + 8, { width: 70, align: 'center' })
-    .text(t.total || 'TOTAL', totalX, tableTop + 8, { width: 90, align: 'center' });
+    .text(t.total || 'TOTAL', totalX, tableTop + 8, { width: 90, align: 'right' });
   
   doc.moveTo(tableX, tableTop + rowHeight).lineTo(tableX + tableWidth, tableTop + rowHeight)
     .strokeColor(STYLES.lineColor).lineWidth(1).stroke();
 
   let grandTotal = 0;
+  let totalQuantity = 0;
 
   items.forEach((item, i) => {
     const y = tableTop + rowHeight * (i + 1);
@@ -348,22 +349,25 @@ function generateModernTable(doc, items, data = {}) {
     }
     
     const productName = item.descripcion || item.item_name || '';
-    const quantity = parseNumeric(item.kg_solicitados ?? item.kg_facturados ?? 0) || 0;
+    const quantity = data.hasFactura
+      ? (parseNumeric(item.kg_facturados ?? 0) || 0)
+      : (parseNumeric(item.kg_solicitados ?? item.kg_facturados ?? 0) || 0);
     const unitPrice = parseNumeric(item.unit_price) || 0;
     const total = quantity * unitPrice;
+    totalQuantity += quantity;
     
     doc.fontSize(9).font(STYLES.font).fillColor(STYLES.textPrimary)
-      .text(productName, itemX, y + 8, { width: 210 })
-      .text(`${formatNumber(quantity, data.lang)} kg`, qtyX, y + 8, { width: 60, align: 'center' })
+      .text(productName, itemX, y + 8, { width: 180 })
+      .text(`${formatNumber(quantity, data.lang)} kg`, qtyX, y + 8, { width: 90, align: 'center' })
       .text(`${formatCurrency(unitPrice, data.currency, 4)}`, priceX, y + 8, { width: 70, align: 'center' });
     
     if (Number.isFinite(total)) {
       grandTotal += total;
       doc.font(STYLES.fontBold)
-        .text(`${formatCurrency(total, data.currency, 2)}`, totalX, y + 8, { width: 90, align: 'center' });
+        .text(`${formatCurrency(total, data.currency, 2)}`, totalX, y + 8, { width: 90, align: 'right' });
     } else {
       doc.font(STYLES.fontBold)
-        .text('-', totalX, y + 8, { width: 90, align: 'center' });
+        .text('-', totalX, y + 8, { width: 90, align: 'right' });
     }
     
     doc.moveTo(tableX, y + rowHeight).lineTo(tableX + tableWidth, y + rowHeight)
@@ -376,19 +380,33 @@ function generateModernTable(doc, items, data = {}) {
   }
 
   if (Number.isFinite(grandTotal)) {
-    const totalY = tableTop + rowHeight * (items.length + 1);
+    const currency = data.currency || 'USD';
+    const summaryY = tableTop + rowHeight * (items.length + 1);
+    const totalsBlockHeight = 60;
+
     doc.save();
-    doc.rect(tableX, totalY, tableWidth, rowHeight).fill('#e5e7eb');
+    doc.rect(tableX, summaryY, tableWidth, totalsBlockHeight).fill('#e5e7eb');
     doc.restore();
-    
-    doc.moveTo(tableX, totalY).lineTo(tableX + tableWidth, totalY)
+
+    doc.moveTo(tableX, summaryY).lineTo(tableX + tableWidth, summaryY)
       .strokeColor('#9ca3af').lineWidth(1.2).stroke();
-    
+
+    const totalKgLine = `${t.total_kg || 'TOTAL KG'}: ${formatNumber(totalQuantity, data.lang)} kg`;
+    const additionalLine = `${t.additional_charge || 'GTO ADICIONAL'}: ${Number.isFinite(additionalCharge) ? formatCurrency(additionalCharge, currency, 2) : '-'}`;
+    const totalLine = `${t.total_general || 'TOTAL'}: ${formatCurrency(grandTotal, currency, 2)}`;
+
+    const qtyWidth = 90;
+    const totalWidth = 160;
+    const totalsX = totalX - (totalWidth - 90);
+    const line1Y = summaryY + 10;
+    const line2Y = summaryY + 30;
+
     doc.fontSize(9).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
-      .text(t.total_general || 'TOTAL GENERAL', priceX - 40, totalY + 12, { width: 110, align: 'right' })
-      .text(`${formatCurrency(grandTotal, data.currency, 2)}`, totalX, totalY + 12, { width: 90, align: 'center' });
-    
-    doc.moveTo(tableX, totalY + rowHeight).lineTo(tableX + tableWidth, totalY + rowHeight)
+      .text(totalKgLine, qtyX, line1Y, { width: qtyWidth, align: 'center', lineBreak: false })
+      .text(additionalLine, totalsX, line1Y, { width: totalWidth, align: 'right', lineBreak: false })
+      .text(totalLine, totalsX, line2Y, { width: totalWidth, align: 'right', lineBreak: false });
+
+    doc.moveTo(tableX, summaryY + totalsBlockHeight).lineTo(tableX + tableWidth, summaryY + totalsBlockHeight)
       .strokeColor(STYLES.lineColor).lineWidth(1).stroke();
   }
   doc.moveDown(3);
@@ -427,7 +445,9 @@ function generateEmbarqueTable(doc, items, data = {}) {
     }
     
     const productName = item.descripcion || item.item_name || '';
-    let quantity = parseNumeric(item.kg_facturados ?? item.kg_solicitados ?? 0);
+    let quantity = data.hasFactura
+      ? parseNumeric(item.kg_facturados ?? 0)
+      : parseNumeric(item.kg_solicitados ?? item.kg_facturados ?? 0);
     if (!Number.isFinite(quantity)) quantity = 0;
     else totalQuantity += quantity;
     
@@ -537,6 +557,16 @@ function drawInfoSectionEntrega(doc, data) {
     .font(STYLES.font).fillColor(STYLES.textSecondary)
     .text(` ${data.shippingMethod || '-'}`, { width: 180 });
 
+  doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text(`${t.etd || 'ETD:'}`, rightColumn, row5Y, { continued: true })
+    .font(STYLES.font).fillColor(STYLES.textSecondary)
+    .text(` ${formatDateByLanguage(data.etd, data.lang)}`, { width: 180 });
+
+  doc.fontSize(11).font(STYLES.fontBold).fillColor(STYLES.textPrimary)
+    .text(`${t.eta || 'ETA:'}`, rightColumn, row6Y, { continued: true })
+    .font(STYLES.font).fillColor(STYLES.textSecondary)
+    .text(` ${formatDateByLanguage(data.eta, data.lang)}`, { width: 180 });
+
   doc.y = row7Y + 5;
 }
 
@@ -575,7 +605,9 @@ function generateEntregaTable(doc, items, data = {}) {
     }
     
     const productName = item.descripcion || item.item_name || '';
-    let quantity = parseNumeric(item.kg_solicitados ?? item.kg_facturados ?? 0);
+    let quantity = data.hasFactura
+      ? parseNumeric(item.kg_facturados ?? 0)
+      : parseNumeric(item.kg_solicitados ?? item.kg_facturados ?? 0);
     if (!Number.isFinite(quantity)) quantity = 0;
     else totalQuantity += quantity;
     const factura = item.factura || '-';
@@ -722,7 +754,9 @@ function generateDisponibilidadTable(doc, items, data = {}) {
     }
     
     const productName = item.descripcion || item.item_name || '';
-    let quantity = parseNumeric(item.kg_facturados ?? item.kg_solicitados ?? 0);
+    let quantity = data.hasFactura
+      ? parseNumeric(item.kg_facturados ?? 0)
+      : parseNumeric(item.kg_solicitados ?? item.kg_facturados ?? 0);
     if (!Number.isFinite(quantity)) quantity = 0;
     else totalQuantity += quantity;
     

@@ -1,5 +1,6 @@
 const axios = require('axios');
 const cron = require('node-cron');
+const { logger } = require('../../Backend/utils/logger');
 
 const BACKEND_API_URL = process.env.BACKEND_API_URL || 'http://localhost:3000';
 
@@ -21,14 +22,14 @@ async function processOrderDeliveryNotices() {
     const data = response.data || {};
 
     if (data.processed === 0) {
-      console.log('No se encontraron Order Delivery Notice para enviar');
+      logger.info('[processOrderDeliveryNotices] No se encontraron Order Delivery Notice para enviar');
     } else {
-      console.log(`Order Delivery Notice enviados: ${data.processed}`);
+      logger.info(`[processOrderDeliveryNotices] Order Delivery Notice enviados: ${data.processed}`);
     }
   } catch (error) {
-    console.error('Error en procesamiento de Order Delivery Notice:', error.message);
+    logger.error(`[processOrderDeliveryNotices] Error en procesamiento de Order Delivery Notice: ${error.message}`);
     if (error.response) {
-      console.error('Respuesta del servidor:', error.response.data);
+      logger.error(`[processOrderDeliveryNotices] Respuesta del servidor: ${JSON.stringify(error.response.data)}`);
     }
   }
 }
@@ -37,7 +38,7 @@ async function executeWithErrorHandling() {
   try {
     await processOrderDeliveryNotices();
   } catch (error) {
-    console.error('Error en procesamiento:', error.message);
+    logger.error(`[processOrderDeliveryNotices] Error en procesamiento: ${error.message}`);
   } finally {
     emitReady();
   }
@@ -56,6 +57,6 @@ cron.schedule('0 10 * * *', async () => {
   try {
     await processOrderDeliveryNotices();
   } catch (error) {
-    console.error('Error en procesamiento de Order Delivery Notice:', error.message);
+    logger.error(`[processOrderDeliveryNotices] Error en procesamiento de Order Delivery Notice: ${error.message}`);
   }
 });

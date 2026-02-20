@@ -1,5 +1,6 @@
 const axios = require('axios');
 const cron = require('node-cron');
+const { logger } = require('../../Backend/utils/logger');
 
 // Configuración de la API del backend
 const BACKEND_API_URL = process.env.BACKEND_API_URL || 'http://localhost:3000';
@@ -27,19 +28,19 @@ async function processNewOrdersAndSendEmails() {
     const data = response.data || {};
 
     if (data.skipped) {
-      console.log('Envio automatico de recepcion deshabilitado por configuracion');
+      logger.info('[processNewOrdersAndSendEmails] Envio automatico de recepcion deshabilitado por configuracion');
       return;
     }
 
     if (data.processed === 0) {
-      console.log('No se encontraron ordenes nuevas para enviar recepcion');
+      logger.info('[processNewOrdersAndSendEmails] No se encontraron ordenes nuevas para enviar recepcion');
     } else {
-      console.log(`Envio de documentos de recepcion completado. Ordenes procesadas: ${data.processed}`);
+      logger.info(`[processNewOrdersAndSendEmails] Envio de documentos de recepcion completado. Ordenes procesadas: ${data.processed}`);
     }
   } catch (error) {
-    console.error('Error en procesamiento de órdenes nuevas:', error.message);
+    logger.error(`[processNewOrdersAndSendEmails] Error en procesamiento de órdenes nuevas: ${error.message}`);
     if (error.response) {
-      console.error('Respuesta del servidor:', error.response.data);
+      logger.error(`[processNewOrdersAndSendEmails] Respuesta del servidor: ${JSON.stringify(error.response.data)}`);
     }
   }
 }
@@ -49,7 +50,7 @@ async function executeWithErrorHandling() {
   try {
     await processNewOrdersAndSendEmails();
   } catch (error) {
-    console.error('Error en procesamiento:', error.message);
+    logger.error(`[processNewOrdersAndSendEmails] Error en procesamiento: ${error.message}`);
   } finally {
     emitReady();
   }
@@ -69,6 +70,6 @@ cron.schedule('0 10 * * *', async () => {
   try {
     await processNewOrdersAndSendEmails();
   } catch (error) {
-    console.error('Error en procesamiento de órdenes nuevas:', error.message);
+    logger.error(`[processNewOrdersAndSendEmails] Error en procesamiento de órdenes nuevas: ${error.message}`);
   }
 });

@@ -2,12 +2,18 @@ const { poolPromise } = require('../config/db');
 const { getSqlPool, sql } = require('../config/sqlserver');
 const { logger } = require('../utils/logger');
 
-async function getOrdersReadyForAvailabilityNotice(sendFromDate = null) {
+async function getOrdersReadyForAvailabilityNotice(sendFromDate = null, filterPc = null, filterFactura = null) {
   try {
     const sqlPool = await getSqlPool();
     const request = sqlPool.request();
     if (sendFromDate) {
       request.input('sendFrom', sql.Date, sendFromDate);
+    }
+    if (filterPc) {
+      request.input('pc', sql.VarChar, String(filterPc).trim());
+    }
+    if (filterFactura) {
+      request.input('factura', sql.VarChar, String(filterFactura).trim());
     }
 
     const sqlResult = await request.query(`
@@ -23,6 +29,8 @@ async function getOrdersReadyForAvailabilityNotice(sendFromDate = null) {
       WHERE h.Factura IS NOT NULL
         AND LTRIM(RTRIM(CONVERT(varchar(50), h.Factura))) <> ''
         AND h.Factura <> 0
+        ${filterPc ? 'AND h.Nro = @pc' : ''}
+        ${filterFactura ? 'AND h.Factura = @factura' : ''}
         AND h.Clausula IN (
           'EWX',
           'FCA',
@@ -32,12 +40,7 @@ async function getOrdersReadyForAvailabilityNotice(sendFromDate = null) {
           'FCA Airport',
           'FCAWSTGO'
         )
-        AND EXISTS (
-          SELECT 1
-          FROM jor_imp_item_90_softkey i
-          WHERE i.Nro = h.Nro
-            AND UPPER(LTRIM(RTRIM(i.Despacho_Stgo))) = 'SI'
-        )
+        -- regla Despacho_Stgo removida (columna no disponible)
         ${sendFromDate ? `AND CASE
               WHEN ISDATE(h.Fecha_factura) = 1 THEN CAST(h.Fecha_factura AS date)
             END >= @sendFrom` : ''}

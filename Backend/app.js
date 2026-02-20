@@ -14,6 +14,7 @@ const { createServer } = require('http');
 const { Server } = require('socket.io');
 const { normalizeRole } = require('./utils/role.util');
 const userService = require('./services/user.service');
+const customerService = require('./services/customer.service');
 const { logger } = require('./utils/logger');
 require('module-alias/register');
 
@@ -66,6 +67,7 @@ const cronRoutes = require('./routes/cron.routes');
 const cronConfigRoutes = require('./routes/cronConfig.routes');
 const monitoringRoutes = require('./routes/monitoring.routes');
 const fileserverRoutes = require('./routes/fileserver.routes');
+const assetsRoutes = require('./routes/assets.routes');
 const configRoutes = require('./routes/config.routes');
 const messageRoutes = require('./routes/message.routes');
 const vendedorRoutes = require('./routes/vendedor.routes');
@@ -183,6 +185,7 @@ app.get('/api-docs', (req, res) => {
 app.use('/api/auth', authLimiter, authSlowDown, authRoutes);
 app.use('/api/monitoring', monitoringRoutes);
 app.use('/api/fileserver', fileserverRoutes);
+app.use('/api/assets', assetsRoutes);
 
 // Rutas protegidas (requieren token + rol adecuado)
 app.use('/api/customers', authMiddleware, authorizeRoles(['admin']), customerRoutes);
@@ -229,7 +232,6 @@ app.use('/api', (req, res) => {
 
 
 // Sirve archivos estáticos desde la carpeta 'uploads'
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Rutas protegidas del frontend (HTML)
 const pathAdmin = path.join(__dirname, 'views-protegidas/admin/index.html');
@@ -312,6 +314,7 @@ const markUserOnline = async (userId) => {
   if (!userId) return;
   try {
     await userService.updateUserOnlineStatus(userId, 1);
+    io.to('admin-room').emit('userPresenceUpdated', { userId, online: 1 });
   } catch (error) {
     logger.error(`[socket.io] Error actualizando online=1 userId=${userId} error=${error?.message || error}`);
   }
@@ -328,6 +331,7 @@ const scheduleUserOffline = (userId, delayMs = 5000) => {
       try {
         await userService.updateUserOnlineStatus(userId, 0);
         io.to('admin-room').emit('updateNotifications');
+        io.to('admin-room').emit('userPresenceUpdated', { userId, online: 0 });
       } catch (error) {
         logger.error(`[socket.io] Error actualizando online=0 userId=${userId} error=${error?.message || error}`);
       }
@@ -374,12 +378,44 @@ io.on('connection', (socket) => {
   if (socket?.user?.id) {
     const current = onlineConnections.get(socket.user.id) || 0;
     onlineConnections.set(socket.user.id, current + 1);
+    const hadOfflineTimer = offlineTimers.has(socket.user.id);
     if (offlineTimers.has(socket.user.id)) {
       clearTimeout(offlineTimers.get(socket.user.id));
       offlineTimers.delete(socket.user.id);
     }
     if (current === 0) {
       markUserOnline(socket.user.id);
+    }
+
+    if (socket.user.role === 'client' && current === 0 && !hadOfflineTimer) {
+      (async () => {
+        const rut =
+          socket.user.customer_id ||
+          socket.user.customer_rut ||
+          socket.user.rut ||
+          null;
+        let name = '';
+        let country = '';
+        if (rut) {
+          try {
+            const customer = await customerService.getCustomerByRutFromSql(String(rut));
+            name = customer?.name || '';
+            country = customer?.country || '';
+          } catch (error) {
+            logger.warn(`[socket.io] No se pudo resolver nombre cliente rut=${rut} error=${error?.message || error}`);
+          }
+        }
+        const payload = {
+          rut: rut || null,
+          name: name || rut || 'Cliente',
+          country: country || null,
+          timestamp: new Date().toISOString()
+        };
+        io.to('admin-room').emit('clientConnected', payload);
+        logger.info(`[socket.io] clientConnected rut=${payload.rut ?? 'N/A'} name=${payload.name ?? 'N/A'}`);
+      })().catch((error) => {
+        logger.error(`[socket.io] clientConnected error=${error?.message || error}`);
+      });
     }
   }
   // Unir al usuario a una sala específica según su rol

@@ -7,6 +7,8 @@ class Vendedor {
     phone,
     country,
     city,
+    activo = 0,
+    bloqueado = 0,
     role_id,
     online = 0,
     created_at,
@@ -19,6 +21,8 @@ class Vendedor {
     this.phone = phone;
     this.country = country;
     this.city = city;
+    this.activo = activo;
+    this.bloqueado = bloqueado;
     this.role_id = role_id;
     this.online = online;
     this.created_at = created_at;

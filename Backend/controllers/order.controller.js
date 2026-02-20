@@ -28,7 +28,7 @@ exports.getAllOrders = async (req, res) => {
 
     res.json(data);
   } catch (err) {
-    console.error('[getAllOrders] Error:', err.message);
+    logger.error(`[getAllOrders] Error: ${err.message}`);
     res.status(500).json({ message: 'Error al obtener órdenes' });
   }
 };
@@ -55,7 +55,7 @@ exports.searchOrders = async (req, res) => {
 
     res.json(data);
   } catch (err) {
-    console.error('[searchOrders] Error:', err.message);
+    logger.error(`[searchOrders] Error: ${err.message}`);
     res.status(500).json({ message: 'Error interno al buscar órdenes' });
   }
 };
@@ -168,9 +168,10 @@ exports.getClientOrderDocuments = async (req, res) => {
 exports.getOrderItems = async (req, res) => {
   try {
     const { orderPc, orderOc, factura } = req.params;
+    const idNroOvMasFactura = req.query.idov || req.query.idNroOvMasFactura || null;
 
     // Obtener items de la orden
-    const items = await orderService.getOrderItems(orderPc, orderOc, factura, req.user);
+    const items = await orderService.getOrderItems(orderPc, orderOc, factura, req.user, idNroOvMasFactura);
 
     if (!items) {
       logger.warn(`[getOrderItems] Orden no encontrada pc=${orderPc || 'N/A'} oc=${orderOc || 'N/A'} factura=${factura || 'N/A'}`);

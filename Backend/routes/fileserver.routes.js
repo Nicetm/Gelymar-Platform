@@ -12,7 +12,10 @@ const upload = multer({ dest: '/tmp/' });
 
 // Middleware para verificar token (usar el mismo sistema que monitoring)
 const verifyToken = (req, res, next) => {
-    const token = req.headers.authorization?.replace('Bearer ', '');
+    const token =
+        req.headers.authorization?.replace('Bearer ', '') ||
+        req.query?.token ||
+        null;
     
     if (!token) {
         return res.status(401).json({ success: false, message: 'Token requerido' });
@@ -134,6 +137,39 @@ router.get('/files', verifyToken, async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Error al obtener archivos'
+        });
+    }
+});
+
+// Descargar archivo
+router.get('/download', verifyToken, async (req, res) => {
+    try {
+        const filePath = req.query?.path;
+        const uploadDir = '/var/www/html/uploads';
+        if (!filePath) {
+            return res.status(400).json({
+                success: false,
+                message: 'Ruta requerida'
+            });
+        }
+
+        const cleanPath = String(filePath).replace(/^\/+/, '');
+        const fullPath = path.join(uploadDir, cleanPath);
+
+        if (!fullPath.startsWith(uploadDir)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Acceso denegado'
+            });
+        }
+
+        await fs.stat(fullPath);
+        return res.sendFile(fullPath);
+    } catch (error) {
+        console.error('Error al descargar archivo:', error);
+        return res.status(404).json({
+            success: false,
+            message: 'Archivo no encontrado'
         });
     }
 });

@@ -20,8 +20,12 @@ Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
 Header always set Access-Control-Allow-Headers "Content-Type, Authorization"
 
 # Configuración de directorio
-Options Indexes FollowSymLinks
+Options -Indexes FollowSymLinks
 Require all granted
+
+# Bloquear acceso directo a uploads
+RewriteEngine On
+RewriteRule ^uploads/ - [F,L]
 
 # Habilitar autoindex como respaldo
 DirectoryIndex index.php index.html
@@ -102,34 +106,12 @@ if [ ! -f /var/www/html/style.css ]; then
     cp /tmp/style.css /var/www/html/style.css 2>/dev/null || echo "style.css no encontrado en /tmp"
 fi
 
-# Asegurar que el index.php esté en uploads (para el directorio uploads)
-if [ ! -f /var/www/html/uploads/index.php ]; then
-    cat > /var/www/html/uploads/index.php << 'EOF'
-<?php
-// Redirigir al file manager
-header('Location: /file-manager.php');
-exit;
-?>
+# Bloquear acceso directo a uploads con .htaccess
+cat > /var/www/html/uploads/.htaccess << 'EOF'
+Options -Indexes
+DirectoryIndex disabled
+Require all denied
 EOF
-fi
-
-# Asegurar que el index.html esté en uploads
-if [ ! -f /var/www/html/uploads/index.html ]; then
-    cat > /var/www/html/uploads/index.html << 'EOF'
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Gelymar Uploads</title>
-    <meta http-equiv="refresh" content="0; url=/file-manager.php">
-</head>
-<body>
-    <p>Redirigiendo al File Manager...</p>
-    <script>window.location.href = '/file-manager.php';</script>
-</body>
-</html>
-EOF
-fi
 
 # Crear archivo de configuración con variables de entorno
 cat > /var/www/html/config.js << EOF

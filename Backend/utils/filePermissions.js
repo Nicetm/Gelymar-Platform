@@ -36,7 +36,9 @@ async function setSecureFilePermissions(filePath, permissions = FILE_PERMISSIONS
     }
 
     await fs.promises.chmod(filePath, permissions);
-    logger.info(`Permisos establecidos para ${filePath}: ${permissions.toString(8)}`);
+    if (process.env.LOG_FILE_PERMISSIONS === 'true') {
+      logger.info(`Permisos establecidos para ${filePath}: ${permissions.toString(8)}`);
+    }
     return true;
   } catch (error) {
     logger.error(`Error estableciendo permisos para ${filePath}:`, error.message);

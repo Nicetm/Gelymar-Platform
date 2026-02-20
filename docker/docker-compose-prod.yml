@@ -327,6 +327,8 @@ services:
       - PMA_PORT=${MYSQL_DB_PORT}
       - PMA_ARBITRARY=1
       - PMA_ABSOLUTE_URI=http://172.20.10.151:8081
+      - APACHE_LOG_LEVEL=error
+      - UPLOAD_LIMIT=100M
     networks:
       - gelymar-network
     depends_on:

@@ -1,9 +1,20 @@
-import { qs, showError, formatDateShort } from './utils.js';
+import {
+  qs,
+  showError,
+  formatDateShort,
+  showNotification,
+  confirmAction,
+  showModal,
+  hideModal,
+  setupModalClose
+} from './utils.js';
 
 export async function initSellersScript() {
   const apiBase = window.apiBase;
   const translations = window.translations || {};
   const vendedores = translations.vendedores || {};
+  const lang = window.lang || 'es';
+  const isEnglish = String(lang).toLowerCase().startsWith('en');
 
   const searchInput = qs('sellerSearchInput');
   const itemsPerPageSelect = qs('itemsPerPageSelect');
@@ -22,6 +33,25 @@ export async function initSellersScript() {
   let currentPage = 1;
   let itemsPerPage = parseInt(itemsPerPageSelect.value, 10) || 10;
   let currentSort = { column: null, direction: 'asc' };
+  let selectedSeller = null;
+
+  const changePasswordModalId = '#changePasswordModal';
+  const sellerUpdateModalId = '#sellerUpdateModal';
+  const changePasswordNameEl = document.getElementById('changePasswordCustomerName');
+  const newPasswordInput = document.getElementById('newPassword');
+  const confirmPasswordInput = document.getElementById('confirmPassword');
+  const savePasswordBtn = document.getElementById('savePasswordBtn');
+  const cancelChangePasswordBtn = document.getElementById('cancelChangePasswordBtn');
+
+  const sellerUpdateName = document.getElementById('sellerUpdateName');
+  const sellerUpdatePhone = document.getElementById('sellerUpdatePhone');
+  const sellerUpdateEmail = document.getElementById('sellerUpdateEmail');
+  const sellerUpdateRut = document.getElementById('sellerUpdateRut');
+  const sellerUpdateActive = document.getElementById('sellerUpdateActive');
+  const sellerUpdateBlocked = document.getElementById('sellerUpdateBlocked');
+  const saveSellerUpdateBtn = document.getElementById('saveSellerUpdateBtn');
+  const cancelSellerUpdateBtn = document.getElementById('cancelSellerUpdateBtn');
+  const closeSellerUpdateModalBtn = document.getElementById('closeSellerUpdateModalBtn');
 
   function setupStickyHeaderScroll() {
     const containers = document.querySelectorAll('[data-scroll-sync]');
@@ -109,16 +139,100 @@ export async function initSellersScript() {
     noResults: getMessage(vendedores.noResults),
     loading: getMessage(vendedores.loading),
     error: getMessage(vendedores.error),
+    validationRequired: getMessage(vendedores.validation_required),
+    validationPhoneRequired: getMessage(vendedores.validation_phone_required),
+    validationEmail: getMessage(vendedores.validation_email),
+    validationPhone: getMessage(vendedores.validation_phone),
+    validationRut: getMessage(vendedores.validation_rut),
+    validationRutExists: getMessage(vendedores.validation_rut_exists),
+    validationPasswordMatch: getMessage(vendedores.validation_password_match),
+    validationPasswordStrength: getMessage(vendedores.validation_password_strength),
+    confirmUpdateTitle: getMessage(vendedores.confirm_update_title),
+    confirmUpdateMessage: getMessage(vendedores.confirm_update_message),
+    confirmPasswordTitle: getMessage(vendedores.confirm_password_title),
+    confirmPasswordMessage: getMessage(vendedores.confirm_password_message),
+    updateSuccess: getMessage(vendedores.update_success),
+    updateError: getMessage(vendedores.update_error),
+    passwordSuccess: getMessage(vendedores.password_success),
+    passwordError: getMessage(vendedores.password_error)
   };
+
+  const resolveBackendMessage = (message) => {
+    const raw = String(message || '').trim();
+    if (!raw) return '';
+    if (/column 'phone' cannot be null/i.test(raw)) {
+      return t.validationPhoneRequired || raw;
+    }
+    if (/rut ya existe/i.test(raw)) {
+      return t.validationRutExists || raw;
+    }
+    if (/rut requerido/i.test(raw)) {
+      return t.validationRequired || raw;
+    }
+    if (isEnglish) {
+      if (/error al actualizar vendedor/i.test(raw)) {
+        return t.updateError || raw;
+      }
+      if (/tel[eé]fono debe tener/i.test(raw)) {
+        return t.validationPhone || raw;
+      }
+      if (/email inv[aá]lido/i.test(raw)) {
+        return t.validationEmail || raw;
+      }
+      if (/vendedor no encontrado/i.test(raw)) {
+        return t.updateError || raw;
+      }
+    }
+    return raw;
+  };
+
+  async function buildErrorFromResponse(response, fallbackMessage = '') {
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch (err) {
+      // ignore parse errors
+    }
+    const message = payload?.message || fallbackMessage || `HTTP ${response.status}: ${response.statusText}`;
+    const error = new Error(message);
+    if (payload?.code) {
+      error.code = payload.code;
+    }
+    error.status = response.status;
+    error.payload = payload;
+    return error;
+  }
+
+  function buildLoadingRow(colspan, message) {
+    const safeMessage = message || t.loading;
+    return `
+      <tr class="bg-white dark:bg-gray-900">
+        <td colspan="${colspan}" class="px-6 py-6 text-center text-gray-500 dark:text-gray-400">
+          <div class="flex items-center justify-center">
+            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            ${safeMessage}
+          </div>
+        </td>
+      </tr>
+    `;
+  }
 
   function renderSellerRow(seller) {
     const createdAt = formatDateShort(seller.created_at) || '-';
     const email = seller.email || '-';
-    const phone = seller.phone || '-';
-    const country = seller.country || '-';
-    const city = seller.city || '-';
-    const name = seller.full_name || email;
+    const name = seller.full_name || seller.rut || '-';
     const online = seller.online === 1;
+    const isActive = Number(seller.activo) === 1;
+    const isBlocked = Number(seller.bloqueado) === 1;
+    const activeCheckbox = `
+      <input type="checkbox" disabled ${isActive ? 'checked' : ''} class="h-4 w-4 accent-green-500 cursor-not-allowed">
+    `;
+    const blockedCheckbox = `
+      <input type="checkbox" disabled ${isBlocked ? 'checked' : ''} class="h-4 w-4 accent-rose-500 cursor-not-allowed">
+    `;
 
     const statusBadge = `
       <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
@@ -134,22 +248,252 @@ export async function initSellersScript() {
     return `
       <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
         <td class="px-6 py-4 whitespace-nowrap text-xs font-medium text-gray-900 dark:text-gray-100">${name}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-300">${seller.rut || '-'}</td>
         <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-300">${email}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-300">${phone}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-300">${country}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-300">${city}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-300">${activeCheckbox}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-300">${blockedCheckbox}</td>
         <td class="px-6 py-4 whitespace-nowrap text-xs">${statusBadge}</td>
         <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-300">${createdAt}</td>
+        <td class="sticky right-0 bg-gray-50 dark:bg-gray-700 z-10 px-6 py-4 min-w-[120px] overflow-visible">
+          <div class="flex items-center justify-center gap-3 relative">
+            <div class="relative">
+              <button class="text-gray-900 dark:text-white hover:text-green-500 dark:hover:text-green-400 transition"
+                data-action="change-password"
+                data-rut="${seller.rut || ''}"
+                data-name="${name}"
+                data-tooltip="${getMessage(vendedores.action_change_password)}"
+                aria-label="${getMessage(vendedores.action_change_password)}"
+              >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                </svg>
+              </button>
+            </div>
+            <div class="relative">
+              <button class="text-gray-900 dark:text-white hover:text-green-500 dark:hover:text-green-400 transition"
+                data-action="update"
+                data-rut="${seller.rut || ''}"
+                data-name="${name}"
+                data-email="${seller.email || ''}"
+                data-phone="${seller.phone || ''}"
+                data-activo="${seller.activo ?? 0}"
+                data-bloqueado="${seller.bloqueado ?? 0}"
+                data-tooltip="${getMessage(vendedores.action_update)}"
+                aria-label="${getMessage(vendedores.action_update)}"
+              >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11 16l-4 1 1-4 8.586-8.586z" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </td>
       </tr>
     `;
   }
 
   setupStickyHeaderScroll();
 
+  if (closeSellerUpdateModalBtn) {
+    closeSellerUpdateModalBtn.addEventListener('click', () => hideModal(sellerUpdateModalId));
+  }
+  if (cancelSellerUpdateBtn) {
+    cancelSellerUpdateBtn.addEventListener('click', () => hideModal(sellerUpdateModalId));
+  }
+  setupModalClose(changePasswordModalId, '#closeChangePasswordModalBtn');
+  setupModalClose(sellerUpdateModalId, '#closeSellerUpdateModalBtn, #cancelSellerUpdateBtn');
+  if (cancelChangePasswordBtn) {
+    cancelChangePasswordBtn.addEventListener('click', () => hideModal(changePasswordModalId));
+  }
+
+  const updateChangePasswordRules = (value) => {
+    const rulesList = document.getElementById('changePasswordRules');
+    if (!rulesList) return;
+    const rules = {
+      length: value.length >= 8,
+      upper: /[A-Z]/.test(value),
+      lower: /[a-z]/.test(value),
+      number: /[0-9]/.test(value)
+    };
+    rulesList.querySelectorAll('li[data-rule]').forEach((item) => {
+      const ruleKey = item.getAttribute('data-rule');
+      const passed = !!rules[ruleKey];
+      const icon = item.querySelector('.rule-icon');
+      if (icon) {
+        icon.textContent = passed ? '✓' : '✗';
+        icon.classList.toggle('text-green-500', passed);
+        icon.classList.toggle('dark:text-green-400', passed);
+        icon.classList.toggle('text-rose-500', !passed);
+        icon.classList.toggle('dark:text-rose-400', !passed);
+      }
+      item.classList.toggle('text-green-600', passed);
+      item.classList.toggle('dark:text-green-400', passed);
+      item.classList.toggle('text-rose-500', !passed);
+      item.classList.toggle('dark:text-rose-400', !passed);
+    });
+  };
+
+  if (newPasswordInput) {
+    newPasswordInput.addEventListener('input', (e) => {
+      updateChangePasswordRules(e.target.value || '');
+    });
+  }
+
+  const openChangePasswordModal = (seller) => {
+    selectedSeller = seller;
+    if (changePasswordNameEl) {
+      changePasswordNameEl.textContent = seller.full_name || seller.rut || '-';
+    }
+    if (newPasswordInput) newPasswordInput.value = '';
+    if (confirmPasswordInput) confirmPasswordInput.value = '';
+    updateChangePasswordRules('');
+    showModal(changePasswordModalId);
+  };
+
+  const openUpdateModal = (seller) => {
+    selectedSeller = seller;
+    if (sellerUpdateName) sellerUpdateName.value = seller.full_name || seller.rut || '';
+    if (sellerUpdatePhone) sellerUpdatePhone.value = seller.phone || '';
+    if (sellerUpdateEmail) sellerUpdateEmail.value = seller.email || '';
+    if (sellerUpdateRut) sellerUpdateRut.value = seller.rut || '';
+    if (sellerUpdateActive) sellerUpdateActive.checked = Number(seller.activo) === 1;
+    if (sellerUpdateBlocked) sellerUpdateBlocked.checked = Number(seller.bloqueado) === 1;
+    showModal(sellerUpdateModalId);
+  };
+
+  const isValidRut = (value) => {
+    const rut = String(value || '').trim();
+    return rut.length >= 6;
+  };
+
+  const isValidEmail = (value) => {
+    const email = String(value || '').trim();
+    return email === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
+
+  const isValidPhone = (value) => {
+    const phone = String(value || '').trim();
+    if (!phone) return true;
+    return phone.length >= 8 && phone.length <= 20;
+  };
+
+  const handleSaveSeller = async () => {
+    if (!selectedSeller) return;
+    const rut = String(selectedSeller.rut || '').trim();
+    const nextRut = sellerUpdateRut?.value?.trim() || '';
+    const email = sellerUpdateEmail?.value?.trim() || '';
+    const phone = sellerUpdatePhone?.value?.trim() || '';
+    const activo = sellerUpdateActive?.checked ? 1 : 0;
+    const bloqueado = sellerUpdateBlocked?.checked ? 1 : 0;
+
+    if (!nextRut) {
+      showNotification(t.validationRequired, 'warning');
+      return;
+    }
+    if (!phone) {
+      showNotification(t.validationPhoneRequired || t.validationRequired, 'warning');
+      return;
+    }
+    if (!isValidRut(nextRut)) {
+      showNotification(t.validationRut, 'warning');
+      return;
+    }
+    if (!isValidEmail(email)) {
+      showNotification(t.validationEmail, 'warning');
+      return;
+    }
+    if (!isValidPhone(phone)) {
+      showNotification(t.validationPhone, 'warning');
+      return;
+    }
+
+    const confirmed = await confirmAction(t.confirmUpdateTitle, t.confirmUpdateMessage, 'warning');
+    if (!confirmed) return;
+
+    try {
+      const token = getToken();
+      const response = await fetch(`${apiBase}/api/vendedores/${encodeURIComponent(rut)}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          rut: nextRut,
+          email,
+          phone,
+          activo,
+          bloqueado
+        })
+      });
+      if (!response.ok) {
+        throw await buildErrorFromResponse(response, t.updateError);
+      }
+      showNotification(t.updateSuccess, 'success');
+      hideModal(sellerUpdateModalId);
+      await loadSellers();
+    } catch (error) {
+      console.error('Error updating seller:', error);
+      const message = resolveBackendMessage(error?.message) || t.updateError;
+      showNotification(message, 'error');
+    }
+  };
+
+  const handleSavePassword = async () => {
+    if (!selectedSeller) return;
+    const rut = String(selectedSeller.rut || '').trim();
+    const newPassword = newPasswordInput?.value?.trim() || '';
+    const confirmPassword = confirmPasswordInput?.value?.trim() || '';
+    if (!newPassword || !confirmPassword) {
+      showNotification(t.validationRequired, 'warning');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      showNotification(t.validationPasswordMatch, 'warning');
+      return;
+    }
+    const strongRules = {
+      length: newPassword.length >= 8,
+      upper: /[A-Z]/.test(newPassword),
+      lower: /[a-z]/.test(newPassword),
+      number: /[0-9]/.test(newPassword)
+    };
+    const strong = Object.values(strongRules).every(Boolean);
+    if (!strong) {
+      updateChangePasswordRules(newPassword);
+      showNotification(t.validationPasswordStrength, 'warning');
+      return;
+    }
+
+    const confirmed = await confirmAction(t.confirmPasswordTitle, t.confirmPasswordMessage, 'warning');
+    if (!confirmed) return;
+
+    try {
+      const token = getToken();
+      const response = await fetch(`${apiBase}/api/vendedores/change-password/${encodeURIComponent(rut)}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ password: newPassword })
+      });
+      if (!response.ok) {
+        throw await buildErrorFromResponse(response, t.passwordError);
+      }
+      showNotification(t.passwordSuccess, 'success');
+      hideModal(changePasswordModalId);
+    } catch (error) {
+      console.error('Error changing seller password:', error);
+      const message = resolveBackendMessage(error?.message) || t.passwordError;
+      showNotification(message, 'error');
+    }
+  };
+
   function renderEmptyState() {
     tableBody.innerHTML = `
       <tr class="bg-white dark:bg-gray-900">
-        <td colspan="7" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+        <td colspan="8" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
           ${t.noResults}
         </td>
       </tr>
@@ -213,11 +557,16 @@ export async function initSellersScript() {
       if (aVal == null) aVal = '';
       if (bVal == null) bVal = '';
 
-      if (column === 'created_at') {
-        const aDate = new Date(aVal);
-        const bDate = new Date(bVal);
-        return ((aDate - bDate) || 0) * multiplier;
-      }
+    if (column === 'created_at') {
+      const aDate = new Date(aVal);
+      const bDate = new Date(bVal);
+      return ((aDate - bDate) || 0) * multiplier;
+    }
+    if (column === 'activo' || column === 'bloqueado') {
+      const aNum = Number(aVal) || 0;
+      const bNum = Number(bVal) || 0;
+      return (aNum - bNum) * multiplier;
+    }
 
       if (typeof aVal === 'number' || typeof bVal === 'number') {
         return (Number(aVal) - Number(bVal)) * multiplier;
@@ -257,8 +606,9 @@ export async function initSellersScript() {
         seller.full_name,
         seller.email,
         seller.phone,
-        seller.country,
-        seller.city
+        seller.rut,
+        seller.activo,
+        seller.bloqueado
       ]
         .filter(Boolean)
         .map((value) => value.toString().toLowerCase());
@@ -275,6 +625,7 @@ export async function initSellersScript() {
     const token = getToken();
 
     try {
+      tableBody.innerHTML = buildLoadingRow(8, t.loading);
       const response = await fetch(`${apiBase}/api/vendedores`, {
         headers: {
           Authorization: `Bearer ${token}`
@@ -347,7 +698,86 @@ export async function initSellersScript() {
     renderTable();
   });
 
+  tableBody.addEventListener('click', (e) => {
+    const actionBtn = e.target.closest('button[data-action]');
+    if (!actionBtn) return;
+    const action = actionBtn.dataset.action;
+    const seller = {
+      rut: actionBtn.dataset.rut,
+      full_name: actionBtn.dataset.name,
+      email: actionBtn.dataset.email,
+      phone: actionBtn.dataset.phone,
+      activo: actionBtn.dataset.activo,
+      bloqueado: actionBtn.dataset.bloqueado
+    };
+    if (action === 'change-password') {
+      openChangePasswordModal(seller);
+    }
+    if (action === 'update') {
+      openUpdateModal(seller);
+    }
+  });
+
+  if (saveSellerUpdateBtn) {
+    saveSellerUpdateBtn.addEventListener('click', handleSaveSeller);
+  }
+  if (savePasswordBtn) {
+    savePasswordBtn.addEventListener('click', handleSavePassword);
+  }
+
   await loadSellers();
+
+  const canAutoRefresh = () => {
+    const changePasswordModal = document.querySelector(changePasswordModalId);
+    const updateModal = document.querySelector(sellerUpdateModalId);
+    const isChangeOpen = changePasswordModal && !changePasswordModal.classList.contains('hidden');
+    const isUpdateOpen = updateModal && !updateModal.classList.contains('hidden');
+    return !isChangeOpen && !isUpdateOpen;
+  };
+
+  const initializePresenceSocket = () => {
+    const token = getToken();
+    if (!token) return;
+
+    const tryConnect = (attempt = 0) => {
+      if (typeof io === 'undefined') {
+        if (attempt >= 10) {
+          console.error('Socket.io no está disponible');
+          return;
+        }
+        window.setTimeout(() => tryConnect(attempt + 1), 300);
+        return;
+      }
+
+      const socket = io(apiBase, {
+        auth: { token },
+        transports: ['websocket', 'polling'],
+        reconnectionAttempts: 5
+      });
+
+      let refreshTimer = null;
+      const requestRefresh = () => {
+        if (refreshTimer) return;
+        refreshTimer = window.setTimeout(async () => {
+          refreshTimer = null;
+          if (document.hidden || !canAutoRefresh()) return;
+          await loadSellers();
+        }, 250);
+      };
+
+      socket.on('userPresenceUpdated', () => {
+        requestRefresh();
+      });
+
+      socket.on('connect_error', (error) => {
+        console.error('Error de conexión Socket.io:', error);
+      });
+    };
+
+    tryConnect();
+  };
+
+  initializePresenceSocket();
 }
 
 function getToken() {

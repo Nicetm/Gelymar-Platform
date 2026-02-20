@@ -16,8 +16,14 @@ async function getAllCustomers(options = {}) {
   try {
     let sellerCodes = [];
     if (salesRut) {
-      const [sellerRows] = await pool.query('SELECT codigo FROM sellers WHERE rut = ?', [salesRut]);
-      sellerCodes = sellerRows.map((row) => row.codigo).filter(Boolean);
+      const rawRut = String(salesRut || '').trim();
+      const [sellerRows] = await pool.query(
+        'SELECT codigo FROM sellers WHERE rut = ?',
+        [rawRut]
+      );
+      sellerCodes = sellerRows
+        .map((row) => String(row.codigo || '').trim())
+        .filter((code) => code.length > 0);
       if (sellerCodes.length === 0) {
         return [];
       }
@@ -38,7 +44,7 @@ async function getAllCustomers(options = {}) {
       const placeholders = sellerCodes.map((_, idx) => `@sellerCode${idx}`);
       query += ` WHERE Vendedor IN (${placeholders.join(', ')})`;
       sellerCodes.forEach((code, idx) => {
-        request.input(`sellerCode${idx}`, sql.VarChar, code);
+        request.input(`sellerCode${idx}`, sql.VarChar, String(code).trim());
       });
     }
 
@@ -519,11 +525,8 @@ async function getCustomersWithoutAccount() {
   const pool = await poolPromise;
   const [userRows] = await pool.query('SELECT rut FROM users');
   const userRuts = new Set(userRows.map((row) => normalizeRutKey(row.rut)));
-    logger.info(`[getCustomersWithoutAccount] SQL customers=${rows.length} users=${userRows.length}`);
-
-    const missing = rows.filter((row) => !userRuts.has(normalizeRutKey(row.Rut)));
-    logger.info(`[getCustomersWithoutAccount] missing=${missing.length}`);
-    logger.info(`[getCustomersWithoutAccount] sample=${missing.slice(0, 5).map(r => r.Rut).join(', ')}`);
+  const missing = rows.filter((row) => !userRuts.has(normalizeRutKey(row.Rut)));
+  logger.info(`[getCustomersWithoutAccount] customers=${rows.length} users=${userRows.length} missing=${missing.length}`);
 
   return rows
     .filter((row) => !userRuts.has(normalizeRutKey(row.Rut)))

@@ -85,20 +85,48 @@ const processNotificationQueue = async () => {
     
     const notification = document.createElement('div');
     
-    // Configurar colores según el tipo
+    const isDark = document.documentElement.classList.contains('dark');
     const colorMap = {
-        success: { bg: '#10b981', text: '#ffffff' },
-        error: { bg: '#ef4444', text: '#ffffff' },
-        warning: { bg: '#f59e0b', text: '#ffffff' },
-        info: { bg: '#3b82f6', text: '#ffffff' },
-        danger: { bg: '#dc2626', text: '#ffffff' },
-        primary: { bg: '#2563eb', text: '#ffffff' },
-        secondary: { bg: '#6b7280', text: '#ffffff' },
-        dark: { bg: '#1f2937', text: '#ffffff' },
-        light: { bg: '#f3f4f6', text: '#1f2937' }
+        success: {
+            light: { bg: '#ffffff', text: '#059669', border: '#10b981' },
+            dark: { bg: '#111827', text: '#34d399', border: '#10b981' }
+        },
+        error: {
+            light: { bg: '#ffffff', text: '#dc2626', border: '#ef4444' },
+            dark: { bg: '#111827', text: '#f87171', border: '#ef4444' }
+        },
+        warning: {
+            light: { bg: '#ffffff', text: '#d97706', border: '#f59e0b' },
+            dark: { bg: '#111827', text: '#fbbf24', border: '#f59e0b' }
+        },
+        info: {
+            light: { bg: '#ffffff', text: '#2563eb', border: '#3b82f6' },
+            dark: { bg: '#111827', text: '#60a5fa', border: '#3b82f6' }
+        },
+        danger: {
+            light: { bg: '#ffffff', text: '#b91c1c', border: '#dc2626' },
+            dark: { bg: '#111827', text: '#f87171', border: '#dc2626' }
+        },
+        primary: {
+            light: { bg: '#ffffff', text: '#1d4ed8', border: '#2563eb' },
+            dark: { bg: '#111827', text: '#60a5fa', border: '#2563eb' }
+        },
+        secondary: {
+            light: { bg: '#ffffff', text: '#6b7280', border: '#9ca3af' },
+            dark: { bg: '#111827', text: '#d1d5db', border: '#6b7280' }
+        },
+        dark: {
+            light: { bg: '#ffffff', text: '#111827', border: '#1f2937' },
+            dark: { bg: '#111827', text: '#e5e7eb', border: '#374151' }
+        },
+        light: {
+            light: { bg: '#ffffff', text: '#111827', border: '#e5e7eb' },
+            dark: { bg: '#111827', text: '#e5e7eb', border: '#374151' }
+        }
     };
-    
-    const colors = colorMap[type] || colorMap.info;
+
+    const palette = colorMap[type] || colorMap.info;
+    const colors = isDark ? palette.dark : palette.light;
     
     // Configurar iconos
     const icons = {
@@ -156,6 +184,7 @@ const processNotificationQueue = async () => {
         font-weight: 500 !important;
         background-color: ${colors.bg} !important;
         color: ${colors.text} !important;
+        border: 1px solid ${colors.border} !important;
         margin-bottom: 0.5rem !important;
     `;
     

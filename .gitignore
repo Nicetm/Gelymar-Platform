@@ -73,3 +73,5 @@ coverage/
 *.tar.lzo
 *.tar.lzo*.tar
 docker/*.tar
+
+.codex/

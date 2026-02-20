@@ -371,26 +371,36 @@ try {
   }
 
   // Agregar mensaje al chat
+  function buildAssetUrl(assetPath) {
+    if (!assetPath) return '';
+    const apiBase = window.apiBase || apiPublic || '';
+    const normalizedPath = String(assetPath).replace(/\\/g, '/').replace(/^\/+/, '');
+    const token = localStorage.getItem('token') || '';
+    if (apiBase) {
+      const encodedPath = encodeURIComponent(normalizedPath);
+      const encodedToken = token ? `&token=${encodeURIComponent(token)}` : '';
+      return `${apiBase}/api/assets?path=${encodedPath}${encodedToken}`;
+    }
+    return `/${normalizedPath}`;
+  }
+
   function buildChatImageUrl(rawUrl, rawPath) {
-    const baseUrl = window.fileServerUrl || '';
     if (rawPath) {
-      const normalizedPath = String(rawPath).replace(/\\/g, '/').replace(/^\/+/, '');
-      if (baseUrl) {
-        return `${baseUrl.replace(/\/$/, '')}/${normalizedPath}`;
-      }
-      return `/${normalizedPath}`;
+      return buildAssetUrl(rawPath);
     }
     if (!rawUrl) {
       return '';
     }
     const url = String(rawUrl);
     if (/^https?:\/\//i.test(url)) {
+      const uploadsIndex = url.indexOf('/uploads/');
+      if (uploadsIndex !== -1) {
+        const relative = url.slice(uploadsIndex + 1);
+        return buildAssetUrl(relative);
+      }
       return url;
     }
-    if (baseUrl) {
-      return `${baseUrl.replace(/\/$/, '')}/${url.replace(/^\/+/, '')}`;
-    }
-    return url;
+    return buildAssetUrl(url);
   }
 
   function parseChatPayload(message) {

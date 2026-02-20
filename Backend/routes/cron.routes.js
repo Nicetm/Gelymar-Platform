@@ -7,17 +7,17 @@ const { checkClientAccess } = container.resolve('checkClientAccessService');
 const { generateDefaultFiles } = container.resolve('checkDefaultFilesService');
 const cronConfigService = container.resolve('cronConfigService');
 const adminNotificationSummaryService = container.resolve('adminNotificationSummaryService');
+const { logger } = require('../utils/logger');
 
 
 // Endpoint para verificar acceso de clientes
 router.post('/check-client-access', async (req, res) => {
   try {
-    console.log('Iniciando verificación de acceso de clientes...');
+    logger.info('[cronRoutes] Iniciando verificación de acceso de clientes');
     await checkClientAccess();
-    console.log('Verificación de acceso de clientes completada');
     res.json({ success: true, message: 'Acceso de clientes verificado correctamente' });
   } catch (error) {
-    console.error('Error verificando acceso de clientes:', error.message);
+    logger.error(`[cronRoutes] Error verificando acceso de clientes: ${error.message}`);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -27,12 +27,12 @@ router.post('/check-client-access', async (req, res) => {
 // Endpoint para generar archivos por defecto
 router.post('/generate-default-files', async (req, res) => {
   try {
-    console.log('Iniciando generación de archivos por defecto...');
-    await generateDefaultFiles();
-    console.log('Generación de archivos por defecto completada');
+    const { pc } = req.body || {};
+    logger.info(`[cronRoutes] Iniciando generación de archivos por defecto${pc ? ` pc=${pc}` : ''}`);
+    await generateDefaultFiles(pc);
     res.json({ success: true, message: 'Archivos por defecto generados correctamente' });
   } catch (error) {
-    console.error('Error generando archivos por defecto:', error.message);
+    logger.error(`[cronRoutes] Error generando archivos por defecto: ${error.message}`);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -41,12 +41,11 @@ router.post('/generate-default-files', async (req, res) => {
 // Endpoint para enviar resumen diario de notificaciones admin
 router.post('/send-admin-notification-summary', async (req, res) => {
   try {
-    console.log('Iniciando envio de resumen diario de notificaciones...');
+    logger.info('[cronRoutes] Iniciando envio de resumen diario de notificaciones');
     const result = await adminNotificationSummaryService.sendDailyAdminNotificationSummary();
-    console.log('Envio de resumen diario completado');
     res.json({ success: true, ...result });
   } catch (error) {
-    console.error('Error enviando resumen diario:', error.message);
+    logger.error(`[cronRoutes] Error enviando resumen diario: ${error.message}`);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -57,7 +56,7 @@ router.get('/tasks-config', async (req, res) => {
     const config = await cronConfigService.getCronTasksConfig();
     res.json({ success: true, config });
   } catch (error) {
-    console.error('Error obteniendo configuración de tareas:', error.message);
+    logger.error(`[cronRoutes] Error obteniendo configuración de tareas: ${error.message}`);
     // Fallback a configuración por defecto
     const defaultConfig = {
       clean_database: false,

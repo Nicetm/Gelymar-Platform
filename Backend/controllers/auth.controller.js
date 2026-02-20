@@ -229,6 +229,10 @@ const extractTwoFAPayload = (req) => {
     // Actualizar campo online a 1
     try {
       await userService.updateUserOnlineStatus(user.id, 1);
+      const io = req.app.get('io');
+      if (io) {
+        io.to('admin-room').emit('userPresenceUpdated', { userId: user.id, online: 1 });
+      }
     } catch (error) {
       logger.error(`Error actualizando online=1 para usuario ${user.id}: ${error.message}`);
     }
@@ -554,7 +558,11 @@ exports.logout = async (req, res) => {
     // Si hay usuario autenticado, actualizar online a 0
     if (req.user && req.user.id) {
       await userService.updateUserOnlineStatus(req.user.id, 0);
-        logger.info(`Usuario ${req.user.rut || req.user.email} desconectado - online actualizado a 0`);
+      const io = req.app.get('io');
+      if (io) {
+        io.to('admin-room').emit('userPresenceUpdated', { userId: req.user.id, online: 0 });
+      }
+      logger.info(`Usuario ${req.user.rut || req.user.email} desconectado - online actualizado a 0`);
     }
   } catch (error) {
     logger.error(`Error actualizando estado online en logout: ${error.message}`);

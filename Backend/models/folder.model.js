@@ -5,6 +5,7 @@ class Folder {
     pc,
     oc,
     factura,
+    id_nro_ov_mas_factura = null,
     name,
     path,
     created_at,
@@ -30,6 +31,7 @@ class Folder {
     this.pc = pc;
     this.oc = oc;
     this.factura = factura;
+    this.id_nro_ov_mas_factura = id_nro_ov_mas_factura;
     this.name = name;
     this.path = path;
     this.created_at = created_at;

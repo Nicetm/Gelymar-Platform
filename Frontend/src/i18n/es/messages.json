@@ -89,7 +89,9 @@
     "warning_dangerous_chars": "⚠️ Tu mensaje contiene caracteres especiales no permitidos. Por favor, usa solo texto normal.",
     "warning_default": "⚠️ ¡Cuidado con lo que escribes en el chat! Tu mensaje contiene contenido no permitido.",
     "data_protection": "Protección de Datos",
-    "data_protection_message": "Todos los mensajes y datos serán tratados de acuerdo con nuestra Política de Privacidad."
+    "data_protection_message": "Todos los mensajes y datos serán tratados de acuerdo con nuestra Política de Privacidad.",
+    "client_connected_toast": "Cliente {name} se ha conectado.",
+    "country_label": "Pais"
   },
   "messaging": {
     "shared": {

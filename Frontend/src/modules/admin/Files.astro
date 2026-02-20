@@ -23,6 +23,7 @@ const url = new URL(Astro.url.href);
 const clientName = url.searchParams.get('c') ?? routeCompany ?? '';
 const decodedClientName = decodeURIComponent(clientName);
 const folderId = url.searchParams.get('f') ?? '';
+const idOv = url.searchParams.get('idov') ?? '';
 const pc = url.searchParams.get('pc') ?? routePc ?? '';
 const oc = url.searchParams.get('oc') ?? routeOc ?? '';
 
@@ -60,6 +61,7 @@ const contactEmailMetadata: any[] = [];
   data-uuid={id}
   data-folder-id={resolvedFolderId}
   data-pc={orderPc}
+  data-id-ov={idOv}
   data-base-path={basePath}
   data-clients-path={clientsPath}
   data-folders-path={foldersViewPath}
@@ -477,7 +479,7 @@ const contactEmailMetadata: any[] = [];
 	<div id="notification" class="hidden fixed top-5 right-5 px-6 py-4 rounded-lg shadow-lg z-50 text-black text-base font-semibold transition-all duration-300 ease-in-out"></div>
 </section>
 
-<script type="module" define:vars={{ apiBase, apiPublic, fileServer, lang, documentTypes, orderOc, orderPc, t, emailRecipients, contactEmailMetadata }}>
+<script type="module" define:vars={{ apiBase, apiPublic, fileServer, lang, documentTypes, orderOc, orderPc, idOv, t, emailRecipients, contactEmailMetadata }}>
 
   import { initFilesScript } from '/js/files.js';
   
@@ -488,6 +490,7 @@ const contactEmailMetadata: any[] = [];
   window.documentTypes = documentTypes;
   window.orderOc = orderOc;
   window.orderPc = orderPc;
+  window.orderIdOv = idOv;
   window.translations = { ...(window.translations || {}), ...t };
   window.emailRecipients = Array.isArray(emailRecipients)
     ? Array.from(new Set(emailRecipients.map((email) => (typeof email === 'string' ? email.trim() : '')).filter(Boolean)))

@@ -1,10 +1,8 @@
 Options -Indexes
-DirectoryIndex index.php index.html 
+DirectoryIndex disabled
 
-# Permitir acceso a archivos
-<Files "*">
-    Require all granted
-</Files>
+# Bloquear acceso a archivos
+Require all denied
 
 # Configuración de tipos MIME
 AddType application/octet-stream .zip

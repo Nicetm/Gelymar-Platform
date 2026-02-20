@@ -15,7 +15,7 @@ const fileServerPublic = import.meta.env.PUBLIC_FILE_SERVER_URL || '';
 const fileServerAlt = import.meta.env.PUBLIC_FILE_SERVER || '';
 const connectSrc = buildConnectSrc(apiPublic, frontendPublic);
 const scriptSrc = SCRIPT_SRC_DIRECTIVES.join(' ');
-const imgSrcExtra = [fileServerPublic, fileServerAlt, 'https://api.dicebear.com'].filter(Boolean).join(' ');
+const imgSrcExtra = [fileServerPublic, fileServerAlt, apiPublic, 'https://api.dicebear.com'].filter(Boolean).join(' ');
 ---
 
 <!DOCTYPE html>

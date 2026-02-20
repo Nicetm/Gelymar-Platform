@@ -19,6 +19,7 @@ const mapHdrRowToOrder = (row = {}) => ({
   certificados: normalizeValue(row.Certificados),
   estado_ov: normalizeValue(row.EstadoOV),
   vendedor: normalizeValue(row.Vendedor),
+  id_nro_ov_mas_factura: normalizeValue(row.IDNroOvMasFactura),
 });
 
 module.exports = {

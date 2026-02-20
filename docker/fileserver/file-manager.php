@@ -278,6 +278,14 @@
         }
         
         // Cargar archivos del directorio actual
+        function buildDownloadUrl(filePath) {
+            const token = localStorage.getItem('user_token');
+            const backendUrl = window.APP_CONFIG?.BACKEND_BASE_URL || 'http://localhost:3000';
+            const encodedPath = encodeURIComponent(filePath || '');
+            const encodedToken = token ? `&token=${encodeURIComponent(token)}` : '';
+            return `${backendUrl}/api/fileserver/download?path=${encodedPath}${encodedToken}`;
+        }
+
         async function loadFiles() {
             try {
                 const token = localStorage.getItem('user_token');
@@ -352,7 +360,7 @@
                     </div>
                     <div class="file-actions">
                         ${!file.isDirectory ? 
-                            `<a href="/uploads/${file.path}" class="btn btn-primary" target="_blank">
+                            `<a href="${buildDownloadUrl(file.path)}" class="btn btn-primary" target="_blank" rel="noopener">
                                 <i class="fas fa-download"></i>
                             </a>` : ''
                         }

@@ -8,7 +8,7 @@ El sistema está compuesto por **8 contenedores principales** que interactúan e
 
 | Contenedor | Puerto | Función | Dependencias |
 |------------|--------|---------|--------------|
-| **mysql** | 3306 | Base de datos principal | - |
+| **mysql** | 3306 | Base de datos de la app (usuarios, archivos, chat, configs) | - |
 | **backend** | 3000 | API REST y lógica de negocio | mysql, fileserver |
 | **frontend** | 2121 | Interfaz web (Astro + React) | backend |
 | **fileserver** | 8080, 21 | Servidor de archivos (HTTP/FTP) | mysql |
@@ -37,7 +37,7 @@ graph TB
     end
     
     subgraph "Data Layer"
-        DB[(MySQL :3306<br/>Base de Datos)]
+        DB[(MySQL :3306<br/>Base de Datos App)]
         FS[Fileserver :8080<br/>Archivos + FTP]
     end
     
@@ -52,7 +52,7 @@ graph TB
     end
     
     subgraph "External Systems"
-        CSV[Archivos CSV<br/>Network Mount]
+        SQLSRV[SQL Server Softkey<br/>Vistas jor_imp_*]
         EMAIL[Sistema Email<br/>SMTP/Resend]
     end
     
@@ -60,6 +60,7 @@ graph TB
     U -->|HTTP/HTTPS| F
     F -->|REST API + JWT| B
     B -->|SQL Queries| DB
+    B -->|SQL Queries| SQLSRV
     B -->|File Operations| FS
     
     %% Flujo de autenticación
@@ -74,8 +75,8 @@ graph TB
     
     %% Flujo de sincronización automática
     C -->|Scheduled Tasks| B
-    B -->|Read CSV Files| CSV
-    B -->|Sync Data| DB
+    B -->|Read views| SQLSRV
+    B -->|Save metadata| DB
     B -->|Create Directories| FS
     
     %% Flujo de notificaciones
@@ -108,7 +109,7 @@ graph TB
     class DB,FS dataLayer
     class CM,PM,T managementLayer
     class C automationLayer
-    class CSV,EMAIL externalLayer
+    class SQLSRV,EMAIL externalLayer
 ```
 
 ### Descripción del Flujo General
@@ -128,7 +129,8 @@ graph TB
 - Comunicación con base de datos y fileserver
 
 **4. Capa de Datos**
-- MySQL: Almacena toda la información estructurada
+- MySQL: Almacena información propia de la app (usuarios, archivos, chat, config)
+- SQL Server Softkey: Origen de órdenes, items y clientes (vistas `jor_imp_*`)
 - Fileserver: Gestiona archivos y documentos
 - Volúmenes Docker para persistencia
 
@@ -178,15 +180,15 @@ graph TD
 ```mermaid
 graph TD
     A[Frontend] --> B["Backend /api/orders"]
-    B --> C["MySQL - Tabla orders"]
-    C --> D["MySQL - Tabla order_items"]
-    D --> E["MySQL - Tabla items"]
+    B --> C["SQL Server - Vistas jor_imp_HDR_90_softkey"]
+    C --> D["SQL Server - Vistas jor_imp_item_90_softkey"]
+    D --> E["SQL Server - Vistas jor_imp_PRO_01_softkey"]
     E --> F["Respuesta con datos completos"]
     F --> G["Frontend renderiza tabla"]
     
     H["Usuario selecciona orden"] --> I["Frontend /api/orders/pc/oc/items"]
     I --> J["Backend valida permisos"]
-    J --> K["MySQL - Consulta items específicos"]
+    J --> K["SQL Server - Consulta items específicos"]
     K --> L["Modal con items de la orden"]
 ```
 
@@ -206,10 +208,10 @@ graph TD
     E --> F["MySQL - Registro metadata"]
     F --> G["Respuesta éxito"]
     
-    H["Usuario descarga"] --> I["Frontend /api/files/id"]
+    H["Usuario descarga"] --> I["Frontend /api/files/id o /api/assets"]
     I --> J["Backend valida permisos"]
-    J --> K["Fileserver sirve archivo"]
-    K --> L["Descarga directa"]
+    J --> K["Fileserver sirve archivo (proxy)"]
+    K --> L["Descarga/visualización"]
 ```
 
 **Endpoints clave:**
@@ -218,33 +220,20 @@ graph TD
 - `GET /api/files/{id}` - Descargar archivo específico
 - `POST /api/files/generate/{id}` - Generar PDF
 
-### 4. Flujo de Sincronización de Datos (Cron)
+### 4. Flujo de Procesos Automáticos (Cron)
 
 ```mermaid
 graph TD
-    A["Cron Container"] --> B["Backend /api/cron/check-orders"]
-    B --> C["Network Mount Service"]
-    C --> D["Archivo FAC_HDR_SOFTKEY.txt"]
-    D --> E["Parse CSV"]
-    E --> F["MySQL - Insertar/Actualizar orders"]
-    F --> G["MySQL - Insertar/Actualizar order_items"]
-    G --> H["MySQL - Insertar/Actualizar items"]
-    H --> I["Respuesta éxito"]
-    
-    J["Cron Container"] --> K["Backend /api/cron/check-clients"]
-    K --> L["Archivo CLIENTES_SOFTKEY.txt"]
-    L --> M["MySQL - Sincronizar customers"]
-    
-    N["Cron Container"] --> O["Backend /api/cron/check-default-files"]
-    O --> P["Crear directorios cliente"]
-    P --> Q["Fileserver estructura"]
+    A["Cron Container"] --> B["Backend /api/cron/process-new-orders"]
+    B --> C["SQL Server - Vistas jor_imp_*"]
+    C --> D["MySQL - Registrar metadatos"]
+    D --> E["Fileserver estructura"]
 ```
 
 **Tareas programadas:**
-- `checkOrders` - Sincronizar órdenes desde archivo CSV
-- `checkClients` - Sincronizar clientes
-- `checkItems` - Sincronizar items/productos
-- `checkDefaultFiles` - Crear estructura de directorios
+- `process-new-orders` - Procesa órdenes nuevas desde SQL Server
+- `generate-default-files` - Crea archivos por defecto
+- `process-order-reception` / `process-shipment-notice` - Generación y envío de documentos
 
 ### 5. Flujo de Chat en Tiempo Real
 
@@ -289,9 +278,14 @@ graph TD
 
 ### Backend ↔ MySQL
 - **Conexión**: Pool de conexiones MySQL2
-- **Operaciones**: CRUD en todas las tablas del sistema
+- **Operaciones**: CRUD en tablas de la app
 - **Autenticación**: Validación de usuarios y roles
-- **Datos**: Órdenes, clientes, archivos, usuarios, chat
+- **Datos**: archivos, usuarios, chat, config, metadatos
+
+### Backend ↔ SQL Server (Softkey)
+- **Conexión**: Pool de conexiones mssql
+- **Operaciones**: Lecturas desde vistas `jor_imp_*`
+- **Datos**: Órdenes, items, clientes
 
 ### Backend ↔ Fileserver
 - **Conexión**: Volumen compartido `/var/www/html`
@@ -322,20 +316,20 @@ graph TD
 ## Flujos de Datos Específicos
 
 ### Gestión de Clientes
-1. **Sincronización**: Cron lee `CLIENTES_SOFTKEY.txt` → Backend → MySQL
-2. **Consulta**: Frontend → Backend `/api/customers` → MySQL
+1. **Origen**: SQL Server (vistas `jor_imp_CLI_01_softkey`)
+2. **Consulta**: Frontend → Backend `/api/customers` → SQL Server
 3. **Permisos**: Clientes solo ven sus propias órdenes y archivos
 
 ### Gestión de Órdenes
-1. **Sincronización**: Cron lee `FAC_HDR_SOFTKEY.txt` → Backend → MySQL
-2. **Consulta**: Frontend → Backend `/api/orders` → MySQL
-3. **Items**: Frontend → Backend `/api/orders/{pc}/{oc}/items` → MySQL
+1. **Origen**: SQL Server (vistas `jor_imp_HDR_90_softkey`, `jor_imp_item_90_softkey`, `jor_imp_PRO_01_softkey`)
+2. **Consulta**: Frontend → Backend `/api/orders` → SQL Server
+3. **Items**: Frontend → Backend `/api/orders/{pc}/{oc}/items` → SQL Server
 4. **Archivos**: Cada orden tiene su directorio en Fileserver
 
 ### Gestión de Archivos
 1. **Subida**: Frontend → Backend → Fileserver + MySQL metadata
-2. **Descarga**: Frontend → Backend → Fileserver (con validación de permisos)
-3. **Generación**: Backend genera PDFs dinámicos usando datos de MySQL
+2. **Descarga/Visualización**: Frontend → Backend (`/api/files/*` o `/api/assets`) → Fileserver (con validación de permisos)
+3. **Generación**: Backend genera PDFs dinámicos usando datos de SQL Server + MySQL metadata
 4. **Estructura**: `/uploads/{cliente}/{pc-oc}/archivo.pdf`
 
 ### Sistema de Chat

@@ -1,5 +1,6 @@
 const axios = require('axios');
 const cron = require('node-cron');
+const { logger } = require('../../Backend/utils/logger');
 
 const BACKEND_API_URL = process.env.BACKEND_API_URL || 'http://localhost:3000';
 
@@ -21,12 +22,12 @@ async function sendAdminNotificationSummary() {
 
     const data = response.data || {};
     if (data.skipped) {
-      console.log('Resumen diario: sin destinatarios configurados.');
+      logger.info('[sendAdminNotifications] Resumen diario: sin destinatarios configurados.');
       return;
     }
-    console.log(`Resumen diario enviado. Admins procesados: ${data.processed || 0}`);
+    logger.info(`[sendAdminNotifications] Resumen diario enviado. Admins procesados: ${data.processed || 0}`);
   } catch (error) {
-    console.error('Error enviando resumen diario de notificaciones:', error.message);
+    logger.error(`[sendAdminNotifications] Error enviando resumen diario de notificaciones: ${error.message}`);
   }
 }
 

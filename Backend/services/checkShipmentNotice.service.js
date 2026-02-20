@@ -2,12 +2,18 @@ const { poolPromise } = require('../config/db');
 const { getSqlPool, sql } = require('../config/sqlserver');
 const { logger } = require('../utils/logger');
 
-async function getOrdersReadyForShipmentNotice(sendFromDate = null) {
+async function getOrdersReadyForShipmentNotice(sendFromDate = null, filterPc = null, filterFactura = null) {
   try {
     const sqlPool = await getSqlPool();
     const request = sqlPool.request();
     if (sendFromDate) {
       request.input('sendFrom', sql.Date, sendFromDate);
+    }
+    if (filterPc) {
+      request.input('pc', sql.VarChar, String(filterPc).trim());
+    }
+    if (filterFactura) {
+      request.input('factura', sql.VarChar, String(filterFactura).trim());
     }
 
     const sqlResult = await request.query(`
@@ -17,22 +23,24 @@ async function getOrdersReadyForShipmentNotice(sendFromDate = null) {
         h.Rut AS customer_rut,
         c.Nombre AS customer_name,
         h.Fecha_factura AS fecha_factura,
-        COALESCE(NULLIF(LTRIM(RTRIM(h.ETD_ENC_FA)), ''), NULLIF(LTRIM(RTRIM(h.ETD_OV)), '')) AS etd,
-        COALESCE(NULLIF(LTRIM(RTRIM(h.ETA_ENC_FA)), ''), NULLIF(LTRIM(RTRIM(h.ETA_OV)), '')) AS eta,
+        NULLIF(LTRIM(RTRIM(h.ETD_ENC_FA)), '') AS etd,
+        NULLIF(LTRIM(RTRIM(h.ETA_ENC_FA)), '') AS eta,
         h.Clausula AS incoterm
       FROM jor_imp_HDR_90_softkey h
       LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
       WHERE h.Factura IS NOT NULL
         AND LTRIM(RTRIM(CONVERT(varchar(50), h.Factura))) <> ''
         AND h.Factura <> 0
+        ${filterPc ? 'AND h.Nro = @pc' : ''}
+        ${filterFactura ? 'AND h.Factura = @factura' : ''}
         AND h.Clausula IN ('CFR', 'CIF', 'CIP', 'DAP', 'DDP')
         AND CASE
-              WHEN ISDATE(COALESCE(NULLIF(LTRIM(RTRIM(h.ETD_ENC_FA)), ''), NULLIF(LTRIM(RTRIM(h.ETD_OV)), ''))) = 1
-              THEN CAST(COALESCE(NULLIF(LTRIM(RTRIM(h.ETD_ENC_FA)), ''), NULLIF(LTRIM(RTRIM(h.ETD_OV)), '')) AS date)
+              WHEN ISDATE(NULLIF(LTRIM(RTRIM(h.ETD_ENC_FA)), '')) = 1
+              THEN CAST(NULLIF(LTRIM(RTRIM(h.ETD_ENC_FA)), '') AS date)
             END IS NOT NULL
         AND CASE
-              WHEN ISDATE(COALESCE(NULLIF(LTRIM(RTRIM(h.ETA_ENC_FA)), ''), NULLIF(LTRIM(RTRIM(h.ETA_OV)), ''))) = 1
-              THEN CAST(COALESCE(NULLIF(LTRIM(RTRIM(h.ETA_ENC_FA)), ''), NULLIF(LTRIM(RTRIM(h.ETA_OV)), '')) AS date)
+              WHEN ISDATE(NULLIF(LTRIM(RTRIM(h.ETA_ENC_FA)), '')) = 1
+              THEN CAST(NULLIF(LTRIM(RTRIM(h.ETA_ENC_FA)), '') AS date)
             END IS NOT NULL
         ${sendFromDate ? `AND CASE
               WHEN ISDATE(h.Fecha_factura) = 1 THEN CAST(h.Fecha_factura AS date)

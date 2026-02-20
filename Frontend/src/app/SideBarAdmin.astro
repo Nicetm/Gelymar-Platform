@@ -180,8 +180,8 @@ const links = [
   },
 ].filter(link => link.show);
 
-const avatarUrl = user?.avatar
-  ? (user.avatar.startsWith('http') ? user.avatar : `${fileServer}/${user.avatar}`)
+const avatarUrl = user?.avatar && user.avatar.startsWith('http')
+  ? user.avatar
   : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user?.full_name || t.sidebar.default_admin_name)}&backgroundColor=4b5563&fontColor=ffffff`;
 
 let avatarLightSrc = avatarUrl;

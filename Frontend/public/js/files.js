@@ -133,6 +133,7 @@ function getFilesContext() {
     uuid: dataset.uuid || null,
     folderId: dataset.folderId || null,
     pc: dataset.pc || null,
+    idOv: dataset.idOv || window.orderIdOv || null,
   };
 }
 
@@ -392,6 +393,7 @@ export function initFilesScript() {
     uuid,
     folderId,
     pc: pcFromDataset,
+    idOv,
   } = getFilesContext();
 
   const lang = window.lang;
@@ -709,6 +711,36 @@ export function initFilesScript() {
     filterFiles();
   });
 
+  function resolveFileVersionSuffix(file) {
+    const sources = [file?.path, file?.name].filter(Boolean).map(String);
+    for (const source of sources) {
+      const match = source.match(/_v(\d+)\.pdf$/i);
+      if (match) {
+        return `v_${match[1]}`;
+      }
+    }
+    return '';
+  }
+
+  function resolveFileDisplayName(file) {
+    const explicit = typeof file?.document_type === 'string' ? file.document_type.trim() : '';
+    const versionSuffix = resolveFileVersionSuffix(file);
+    if (explicit) return versionSuffix ? `${explicit} ${versionSuffix}` : explicit;
+    const full = typeof file?.name === 'string' ? file.name.trim() : '';
+    if (!full) return '-';
+    const [firstPart] = full.split(' - ');
+    const baseName = (firstPart || full).trim();
+    return versionSuffix ? `${baseName} ${versionSuffix}` : baseName;
+  }
+
+  function escapeHtmlAttribute(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
   function renderFileRow(file) {
     const statusColors = {
       1: '#FF0000',    // Por Generar --> rojo
@@ -826,11 +858,15 @@ export function initFilesScript() {
 
     const actionsCell = hideActions ? '' : `<td class="sticky right-0 bg-gray-50 dark:bg-gray-700 z-10 px-6 py-4 min-w-[120px] overflow-visible">${actions}</td>`;
 
+    const fullName = typeof file.name === 'string' ? file.name.trim() : '';
+    const displayName = resolveFileDisplayName(file);
+    const fullNameAttr = escapeHtmlAttribute(fullName);
+
     return `
       <tr data-id="${file.id}" data-is-generated="${isGeneratedFlag}" class="bg-white dark:bg-gray-900 transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-800 hover:shadow-[0_1px_3px_rgba(0,0,0,0.12)]">
         <td class="px-6 py-4 text-sm editable-filename cursor-pointer" data-id="${file.id}">
           <div class="inline-flex items-center gap-1 relative group">
-            <span class="filename-text block truncate">${file.name}</span>
+            <span class="filename-text block truncate" data-full-name="${fullNameAttr}">${displayName}</span>
             <svg class="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5 M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z"/>
             </svg>
@@ -1006,7 +1042,8 @@ export function initFilesScript() {
   async function refreshFiles() {
     const loadingRow = document.getElementById('loadingRow');
     try {
-      const pcQuery = pc ? `?pc=${encodeURIComponent(pc)}` : '';
+      const idQuery = idOv ? `&idov=${encodeURIComponent(idOv)}` : '';
+      const pcQuery = pc ? `?pc=${encodeURIComponent(pc)}${idQuery}` : (idQuery ? `?${idQuery.slice(1)}` : '');
       const res = await fetch(`${apiBase}/api/files/${uuid}${pcQuery}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -1744,7 +1781,7 @@ export function initFilesScript() {
     // Obtener el nombre del archivo desde la fila de la tabla
     const fileRow = btn.closest('tr');
     const fileNameCell = fileRow.querySelector('.filename-text');
-    const fileName = fileNameCell ? fileNameCell.textContent.trim() : 'documento';
+    const fileName = fileNameCell?.dataset?.fullName || (fileNameCell ? fileNameCell.textContent.trim() : 'documento');
     const urlParams = new URLSearchParams(window.location.search);
     const orderFromUrl = urlParams.get('oc') || '';
     const order = btn.dataset?.order || orderOc || orderFromUrl || '';
@@ -1927,7 +1964,7 @@ export function initFilesScript() {
 
     const row = btn.closest('tr');
     const span = row?.querySelector('.filename-text');
-    const currentName = span?.textContent?.trim() || '';
+    const currentName = span?.dataset?.fullName || span?.textContent?.trim() || '';
     const visibleCell = row?.querySelector('[data-v]');
     const currentVisible = visibleCell?.dataset?.v === '1';
 
@@ -1946,7 +1983,7 @@ export function initFilesScript() {
 
     const cell = span.closest('.editable-filename');
     const fileId = cell?.dataset?.id;
-    const currentName = span.textContent.trim();
+    const currentName = span.dataset?.fullName || span.textContent.trim();
 
     openRenameFileModal(fileId, currentName, span);
   });
@@ -2152,7 +2189,8 @@ export function initFilesScript() {
           },
           body: JSON.stringify({
             pc: window.orderPc,
-            oc: window.orderOc
+            oc: window.orderOc,
+            idNroOvMasFactura: window.orderIdOv || null
           })
         });
 
@@ -2248,6 +2286,7 @@ export function initFilesScript() {
       const fileObject = qs('#uploadFileInput')?.files?.[0];
       const orderPc = window.orderPc || pcName || '';
       const orderOc = window.orderOc || '';
+      const orderIdOv = idOv || window.orderIdOv || '';
 
       if (!fileId || !fileName || !fileType || !fileObject) {
         showNotification(getMessage(documentos.uploadFieldsRequired), 'error');
@@ -2287,6 +2326,9 @@ export function initFilesScript() {
         formData.append('subfolder', pcName || orderPc);
         formData.append('pc', orderPc);
         formData.append('oc', orderOc);
+        if (orderIdOv) {
+          formData.append('idNroOvMasFactura', orderIdOv);
+        }
         formData.append('name', fileName);
         formData.append('file_id', fileId);
         formData.append('file', fileObject);
@@ -2374,7 +2416,7 @@ export function initFilesScript() {
 
         // Mantén el nombre actual para el endpoint de actualización
         const row = e.target.closest('tr');
-        const currentName = row?.querySelector('.filename-text')?.textContent?.trim() || '';
+        const currentName = row?.querySelector('.filename-text')?.dataset?.fullName || row?.querySelector('.filename-text')?.textContent?.trim() || '';
 
         try {
           const res = await fetch(`${apiBase}/api/files/rename/${fileId}/`, {

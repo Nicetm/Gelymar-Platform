@@ -27,6 +27,7 @@ async function getFoldersByCustomerRut(customerRut) {
           hdr.Fecha AS fecha,
           hdr.Fecha_factura AS fecha_factura,
           hdr.Factura AS factura,
+          hdr.IDNroOvMasFactura AS id_nro_ov_mas_factura,
           hdr.ETD_OV AS fecha_etd,
           hdr.ETA_OV AS fecha_eta,
           hdr.ETD_ENC_FA AS fecha_etd_factura,
@@ -56,15 +57,15 @@ async function getFoldersByCustomerRut(customerRut) {
     logger.info(`[getFoldersByCustomerRut] file counts start. pcCount=${pcs.length}`);
     const [countRows] = await mysqlPool.query(
       `
-        SELECT pc, oc, COUNT(*) AS fileCount
+        SELECT pc, oc, id_nro_ov_mas_factura, COUNT(*) AS fileCount
         FROM order_files
         WHERE pc IN (?)
-        GROUP BY pc, oc
+        GROUP BY pc, oc, id_nro_ov_mas_factura
       `,
       [pcs]
     );
     countRows.forEach(row => {
-      const key = `${row.pc}|${row.oc || ''}`;
+      const key = `${row.pc}|${row.oc || ''}|${row.id_nro_ov_mas_factura || ''}`;
       fileCountMap[key] = Number(row.fileCount) || 0;
     });
   }
@@ -78,6 +79,7 @@ async function getFoldersByCustomerRut(customerRut) {
       customer_name: r.customer_name,
       customer_rut: r.customer_rut,
       factura: r.factura,
+      id_nro_ov_mas_factura: r.id_nro_ov_mas_factura,
       fecha_factura: r.fecha_factura,
       fecha: r.fecha,
       fecha_etd: r.fecha_etd,
@@ -92,7 +94,7 @@ async function getFoldersByCustomerRut(customerRut) {
       certificados: r.certificados
     });
     folder.customer_uuid = r.customer_rut;
-    const key = `${r.pc}|${r.oc || ''}`;
+    const key = `${r.pc}|${r.oc || ''}|${r.id_nro_ov_mas_factura || ''}`;
     folder.fileCount = fileCountMap[key] || 0;
     folder.document_count = folder.fileCount;
     return folder;

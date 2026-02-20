@@ -14,6 +14,7 @@ export function initSidebarAdmin(config) {
 
   const translations = t || {};
   const adminSettingsTexts = translations.admin_settings || {};
+  const sidebarTexts = translations.sidebar || {};
   let currentAdminId = null;
   let currentAdminRut = null;
 
@@ -142,6 +143,21 @@ export function initSidebarAdmin(config) {
     return hasVisibleSettings;
   }
 
+  function buildAssetUrl(assetPath, authToken) {
+    if (!assetPath) return '';
+    const normalizedPath = String(assetPath).replace(/\\/g, '/').replace(/^\/+/, '');
+    const tokenValue = authToken || getClientToken();
+    if (API_BASE) {
+      const encodedPath = encodeURIComponent(normalizedPath);
+      const encodedToken = tokenValue ? `&token=${encodeURIComponent(tokenValue)}` : '';
+      return `${API_BASE}/api/assets?path=${encodedPath}${encodedToken}`;
+    }
+    if (FILE_SERVER) {
+      return `${FILE_SERVER.replace(/\/$/, '')}/${normalizedPath}`;
+    }
+    return `/${normalizedPath}`;
+  }
+
   async function loadAdminData() {
     try {
       const res = await fetch(`${API_BASE}/api/users/profile`, {
@@ -161,7 +177,7 @@ export function initSidebarAdmin(config) {
       if (u.country)    document.getElementById("adminCountryInput").value = u.country;
 
       if (u.avatar_path) {
-        const avatarUrl = `${FILE_SERVER}/${u.avatar_path}`;
+        const avatarUrl = buildAssetUrl(u.avatar_path, token);
         document.getElementById("adminAvatarLight").src = avatarUrl;
         document.getElementById("adminAvatarDark").src  = avatarUrl;
       } else if (u.full_name) {
@@ -490,7 +506,7 @@ export function initSidebarAdmin(config) {
         if (avatarPath) {
           const headerAvatar = document.getElementById('userAvatar');
           if (headerAvatar) {
-            headerAvatar.src = `${FILE_SERVER}/${avatarPath}`;
+            headerAvatar.src = buildAssetUrl(avatarPath, authToken);
           }
           try {
             const storedProfileRaw = localStorage.getItem('userProfile');

@@ -17,58 +17,68 @@ export async function initAdminPresence({ apiBase, fileServer, labels } = {}) {
   if (!container) return;
   const token = localStorage.getItem('token');
   if (!token) return;
+  const apiRoot = apiBase || window.apiBase || '';
 
   const onlineLabel = labels?.online || 'Online';
   const offlineLabel = labels?.offline || 'Offline';
 
-  try {
-    const [presenceResponse, meResponse] = await Promise.all([
-      fetch(`${apiBase}/api/users/admins/presence`, {
-        headers: { Authorization: `Bearer ${token}` }
-      }),
-      fetch(`${apiBase}/api/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-    ]);
+  const fetchPresence = async () => {
+    try {
+      const [presenceResponse, meResponse] = await Promise.all([
+        fetch(`${apiRoot}/api/users/admins/presence`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        fetch(`${apiRoot}/api/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+      ]);
 
-    if (!presenceResponse.ok) return;
-    const admins = await presenceResponse.json();
-    const meData = meResponse.ok ? await meResponse.json() : null;
-    const currentUserId = Number(meData?.id ?? meData?.user?.id ?? null);
-    if (!Array.isArray(admins) || admins.length === 0) return;
+      if (!presenceResponse.ok) return;
+      const admins = await presenceResponse.json();
+      const meData = meResponse.ok ? await meResponse.json() : null;
+      const currentUserId = Number(meData?.id ?? meData?.user?.id ?? null);
+      if (!Array.isArray(admins) || admins.length === 0) return;
 
-    const html = admins
-      .filter((admin) => {
-        if (!currentUserId || Number.isNaN(currentUserId)) return true;
-        return Number(admin.id) !== currentUserId;
-      })
-      .map((admin) => {
-      const name = admin.full_name || admin.name || admin.email || 'Admin';
-      const isOnline = admin.online === true || admin.online === 1 || admin.online === '1';
-      const statusLabel = isOnline ? onlineLabel : offlineLabel;
-      const statusClass = isOnline ? 'bg-green-500' : 'bg-red-500';
-      const avatarPath = admin.avatar_path
-        ? `${fileServer.replace(/\/$/, '')}/${admin.avatar_path.replace(/^\/+/, '')}`
-        : '';
+      const html = admins
+        .filter((admin) => {
+          if (!currentUserId || Number.isNaN(currentUserId)) return true;
+          return Number(admin.id) !== currentUserId;
+        })
+        .map((admin) => {
+        const name = admin.full_name || admin.name || admin.email || 'Admin';
+        const isOnline = admin.online === true || admin.online === 1 || admin.online === '1';
+        const statusLabel = isOnline ? onlineLabel : offlineLabel;
+        const statusClass = isOnline ? 'bg-green-500' : 'bg-red-500';
+        const avatarPath = admin.avatar_path
+          ? `${apiRoot}/api/assets?path=${encodeURIComponent(admin.avatar_path.replace(/^\/+/, ''))}&token=${encodeURIComponent(token)}`
+          : '';
 
-      const avatarMarkup = avatarPath
-        ? `<img src="${avatarPath}" alt="${name}" class="w-10 h-10 rounded-full object-cover">`
-        : `<div class="w-10 h-10 rounded-full bg-gray-200 text-gray-900 dark:bg-gray-600 dark:text-white flex items-center justify-center text-xs font-semibold">${buildInitials(name)}</div>`;
+        const avatarMarkup = avatarPath
+          ? `<img src="${avatarPath}" alt="${name}" class="w-7 h-7 rounded-full object-cover">`
+          : `<div class="w-7 h-7 rounded-full bg-gray-200 text-gray-900 dark:bg-gray-600 dark:text-white flex items-center justify-center text-xs font-semibold">${buildInitials(name)}</div>`;
 
-      return `
-        <div class="relative" title="${name} · ${statusLabel}" aria-label="${name} · ${statusLabel}">
-          ${avatarMarkup}
-          <span class="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white dark:border-gray-900 ${statusClass} shadow-sm"></span>
+        return `
+          <div class="relative" title="${name} · ${statusLabel}" aria-label="${name} · ${statusLabel}">
+            ${avatarMarkup}
+            <span class="absolute bottom-0 right-0 w-2 h-2 rounded-full ${statusClass} shadow-sm"></span>
+          </div>
+        `;
+      }).join('');
+
+      container.innerHTML = `
+        <div class="flex items-center -space-x-3">
+          ${html}
         </div>
       `;
-    }).join('');
+    } catch (error) {
+      // no-op
+    }
+  };
 
-    container.innerHTML = `
-      <div class="flex items-center gap-2">
-        ${html}
-      </div>
-    `;
-  } catch (error) {
-    // no-op
+  await fetchPresence();
+
+  if (window.__adminPresenceInterval) {
+    clearInterval(window.__adminPresenceInterval);
   }
+  window.__adminPresenceInterval = setInterval(fetchPresence, 10000);
 }

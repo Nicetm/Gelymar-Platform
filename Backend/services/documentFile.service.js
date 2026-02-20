@@ -6,11 +6,26 @@ function normalizeOcForCompare(value) {
   return String(value || '').toUpperCase().replace(/[\s()-]+/g, '');
 }
 
-async function getOrderWithCustomerForPdf(pc, oc) {
+function normalizeRutKey(value) {
+  if (value === null || value === undefined) return '';
+  return String(value).trim().replace(/C$/i, '').toUpperCase();
+}
+
+async function getOrderWithCustomerForPdf(pc, oc, factura = null, idNroOvMasFactura = null) {
   if (!pc) return null;
   const sqlPool = await getSqlPool();
   const request = sqlPool.request();
   request.input('pc', sql.VarChar, pc);
+  const normalizedFactura = factura !== null && factura !== undefined && factura !== '' && factura !== 0 && factura !== '0'
+    ? String(factura).trim()
+    : null;
+  const normalizedId = idNroOvMasFactura ? String(idNroOvMasFactura).trim() : null;
+  if (normalizedId) {
+    request.input('idNroOvMasFactura', sql.VarChar, normalizedId);
+  }
+  if (normalizedFactura) {
+    request.input('factura', sql.VarChar, normalizedFactura);
+  }
   if (oc) {
     request.input('oc', sql.VarChar, normalizeOcForCompare(oc));
   }
@@ -28,6 +43,8 @@ async function getOrderWithCustomerForPdf(pc, oc) {
     LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
     WHERE h.Nro = @pc
       ${oc ? "AND REPLACE(REPLACE(REPLACE(REPLACE(UPPER(h.OC), ' ', ''), '(', ''), ')', ''), '-', '') = @oc" : ''}
+      ${normalizedFactura ? 'AND h.Factura = @factura' : ''}
+      ${normalizedId ? 'AND h.IDNroOvMasFactura = @idNroOvMasFactura' : ''}
     ORDER BY h.Nro
   `);
   const row = result.recordset?.[0];
@@ -44,15 +61,25 @@ async function getOrderWithCustomerForPdf(pc, oc) {
   };
 }
 
-async function getOrderDetailForPdf(pc, oc) {
+async function getOrderDetailForPdf(pc, oc, factura = null, idNroOvMasFactura = null) {
   if (!pc) return null;
   const sqlPool = await getSqlPool();
   const request = sqlPool.request();
   request.input('pc', sql.VarChar, pc);
+  const normalizedFactura = factura !== null && factura !== undefined && factura !== '' && factura !== 0 && factura !== '0'
+    ? String(factura).trim()
+    : null;
+  const normalizedId = idNroOvMasFactura ? String(idNroOvMasFactura).trim() : null;
+  if (normalizedId) {
+    request.input('idNroOvMasFactura', sql.VarChar, normalizedId);
+  }
+  if (normalizedFactura) {
+    request.input('factura', sql.VarChar, normalizedFactura);
+  }
   if (oc) {
     request.input('oc', sql.VarChar, normalizeOcForCompare(oc));
   }
-  const result = await request.query(`
+  const query = `
     SELECT TOP 1
       h.Nro AS pc,
       h.OC AS oc,
@@ -79,8 +106,11 @@ async function getOrderDetailForPdf(pc, oc) {
     FROM jor_imp_HDR_90_softkey h
     WHERE h.Nro = @pc
       ${oc ? "AND REPLACE(REPLACE(REPLACE(REPLACE(UPPER(h.OC), ' ', ''), '(', ''), ')', ''), '-', '') = @oc" : ''}
+      ${normalizedFactura ? 'AND h.Factura = @factura' : ''}
+      ${normalizedId ? 'AND h.IDNroOvMasFactura = @idNroOvMasFactura' : ''}
     ORDER BY h.Nro
-  `);
+  `;
+  const result = await request.query(query);
   const row = result.recordset?.[0];
   if (!row) return null;
   return {
@@ -109,16 +139,20 @@ async function getOrderDetailForPdf(pc, oc) {
   };
 }
 
-async function getOrderItemsByPcOcFactura(pc, oc, factura) {
+async function getOrderItemsByPcOcFactura(pc, oc, factura, idNroOvMasFactura = null) {
   if (!pc) return [];
   const sqlPool = await getSqlPool();
   const request = sqlPool.request();
   request.input('pc', sql.VarChar, pc);
+  const normalizedId = idNroOvMasFactura ? String(idNroOvMasFactura).trim() : null;
+  if (normalizedId) {
+    request.input('idNroOvMasFactura', sql.VarChar, normalizedId);
+  }
   if (factura && factura !== 'null') {
     request.input('factura', sql.VarChar, factura);
   }
   const withFactura = factura && factura !== 'null';
-  const result = await request.query(`
+  const query = `
     SELECT
       i.Nro AS pc,
       i.Linea AS linea,
@@ -137,8 +171,10 @@ async function getOrderItemsByPcOcFactura(pc, oc, factura) {
     FROM jor_imp_item_90_softkey i
     WHERE i.Nro = @pc
       ${withFactura ? 'AND i.Factura = @factura' : "AND (i.Factura IS NULL OR i.Factura = '' OR i.Factura = 0 OR i.Factura = '0')"}
+      ${normalizedId ? 'AND i.IDNroOvMasFactura = @idNroOvMasFactura' : ''}
     ORDER BY i.Linea
-  `);
+  `;
+  const result = await request.query(query);
   return (result.recordset || []).map((row) => ({
     pc: normalizeValue(row.pc),
     linea: row.linea,
@@ -252,7 +288,9 @@ async function getCustomerCheckForViewFile(fileId, userId) {
   `);
   const row = sqlResult.recordset?.[0];
   if (!row?.Rut) return null;
-  return String(row.Rut).trim() === String(userRow.rut).trim() ? { rut: row.Rut } : null;
+  const sqlRut = normalizeRutKey(row.Rut);
+  const userRut = normalizeRutKey(userRow.rut);
+  return sqlRut && userRut && sqlRut === userRut ? { rut: row.Rut } : null;
 }
 
 async function getUserCustomerByUserId(userId) {
@@ -284,8 +322,9 @@ async function getFileCustomerCheck(fileId, customerRut) {
   `);
   const row = sqlResult.recordset?.[0];
   if (!row?.Rut) return null;
-
-  return String(row.Rut).trim() === String(customerRut).trim()
+  const sqlRut = normalizeRutKey(row.Rut);
+  const userRut = normalizeRutKey(customerRut);
+  return sqlRut && userRut && sqlRut === userRut
     ? { pc: fileRow.pc, oc: fileRow.oc }
     : null;
 }
@@ -316,8 +355,9 @@ async function getCustomerCheckForDownload(fileId, userId) {
   `);
   const row = sqlResult.recordset?.[0];
   if (!row?.Rut) return null;
-
-  return String(row.Rut).trim() === String(userRow.rut).trim() ? { rut: row.Rut } : null;
+  const sqlRut = normalizeRutKey(row.Rut);
+  const userRut = normalizeRutKey(userRow.rut);
+  return sqlRut && userRut && sqlRut === userRut ? { rut: row.Rut } : null;
 }
 
 async function getCustomerByRut(customerRut) {
@@ -335,23 +375,64 @@ async function getCustomerByRut(customerRut) {
   return null;
 }
 
-async function getOrderWithCustomerForDefaultFiles(orderId) {
+async function getOrderWithCustomerForDefaultFiles(orderId, idNroOvMasFactura = null) {
   if (!orderId) return null;
   const sqlPool = await getSqlPool();
   const request = sqlPool.request();
   request.input('pc', sql.VarChar, String(orderId).trim());
+  const normalizedId = idNroOvMasFactura ? String(idNroOvMasFactura).trim() : null;
+  if (normalizedId) {
+    request.input('idNroOvMasFactura', sql.VarChar, normalizedId);
+  }
   const result = await request.query(`
     SELECT TOP 1
       h.Nro AS pc,
       h.OC AS oc,
+      h.Factura AS factura,
+      h.IDNroOvMasFactura AS id_nro_ov_mas_factura,
       c.Nombre AS customer_name
     FROM jor_imp_HDR_90_softkey h
     LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
     WHERE h.Nro = @pc
+      ${normalizedId ? 'AND h.IDNroOvMasFactura = @idNroOvMasFactura' : ''}
     ORDER BY ISNULL(h.Fecha, h.Fecha_factura) DESC
   `);
   const row = result.recordset?.[0];
-  return row ? { pc: row.pc?.trim(), oc: row.oc?.trim(), customer_name: row.customer_name } : null;
+  return row ? {
+    pc: row.pc?.trim(),
+    oc: row.oc?.trim(),
+    customer_name: row.customer_name,
+    factura: row.factura,
+    id_nro_ov_mas_factura: row.id_nro_ov_mas_factura
+  } : null;
+}
+
+async function resolveIdNroOvMasFactura(pc, oc, factura = null) {
+  if (!pc) return null;
+  const sqlPool = await getSqlPool();
+  const request = sqlPool.request();
+  request.input('pc', sql.VarChar, pc);
+  if (oc) {
+    request.input('oc', sql.VarChar, normalizeOcForCompare(oc));
+  }
+  const normalizedFactura = factura !== null && factura !== undefined && factura !== '' && factura !== 0 && factura !== '0'
+    ? String(factura).trim()
+    : null;
+  if (normalizedFactura) {
+    request.input('factura', sql.VarChar, normalizedFactura);
+  }
+  const result = await request.query(`
+    SELECT TOP 1
+      h.IDNroOvMasFactura AS id_nro_ov_mas_factura
+    FROM jor_imp_HDR_90_softkey h
+    WHERE h.Nro = @pc
+      ${oc ? "AND REPLACE(REPLACE(REPLACE(REPLACE(UPPER(h.OC), ' ', ''), '(', ''), ')', ''), '-', '') = @oc" : ''}
+      ${normalizedFactura ? 'AND h.Factura = @factura' : "AND (h.Factura IS NULL OR h.Factura = '' OR h.Factura = 0 OR h.Factura = '0')"}
+    ORDER BY ISNULL(h.Fecha, h.Fecha_factura) DESC
+  `);
+  const row = result.recordset?.[0];
+  const resolved = row?.id_nro_ov_mas_factura ? String(row.id_nro_ov_mas_factura).trim() : null;
+  return resolved || null;
 }
 
 module.exports = {
@@ -368,5 +449,6 @@ module.exports = {
   getFileCustomerCheck,
   getCustomerCheckForDownload,
   getCustomerByRut,
-  getOrderWithCustomerForDefaultFiles
+  getOrderWithCustomerForDefaultFiles,
+  resolveIdNroOvMasFactura
 };

@@ -1,5 +1,6 @@
 const axios = require('axios');
 const cron = require('node-cron');
+const { logger } = require('../../Backend/utils/logger');
 
 const BACKEND_API_URL = process.env.BACKEND_API_URL || 'http://localhost:3000';
 
@@ -21,14 +22,14 @@ async function processAvailabilityNotices() {
     const data = response.data || {};
 
     if (data.processed === 0) {
-      console.log('No se encontraron Availability Notice para enviar');
+      logger.info('[processAvailabilityNotices] No se encontraron Availability Notice para enviar');
     } else {
-      console.log(`Availability Notice enviados: ${data.processed}`);
+      logger.info(`[processAvailabilityNotices] Availability Notice enviados: ${data.processed}`);
     }
   } catch (error) {
-    console.error('Error en procesamiento de Availability Notice:', error.message);
+    logger.error(`[processAvailabilityNotices] Error en procesamiento de Availability Notice: ${error.message}`);
     if (error.response) {
-      console.error('Respuesta del servidor:', error.response.data);
+      logger.error(`[processAvailabilityNotices] Respuesta del servidor: ${JSON.stringify(error.response.data)}`);
     }
   }
 }
@@ -37,7 +38,7 @@ async function executeWithErrorHandling() {
   try {
     await processAvailabilityNotices();
   } catch (error) {
-    console.error('Error en procesamiento:', error.message);
+    logger.error(`[processAvailabilityNotices] Error en procesamiento: ${error.message}`);
   } finally {
     emitReady();
   }
@@ -56,6 +57,6 @@ cron.schedule('0 10 * * *', async () => {
   try {
     await processAvailabilityNotices();
   } catch (error) {
-    console.error('Error en procesamiento de Availability Notice:', error.message);
+    logger.error(`[processAvailabilityNotices] Error en procesamiento de Availability Notice: ${error.message}`);
   }
 });

@@ -87,6 +87,25 @@ export function initUserMenu(config = {}) {
     return;
   }
 
+  const buildAssetUrl = (assetPath) => {
+    if (!assetPath) return '';
+    const token =
+      localStorage.getItem('token') ||
+      localStorage.getItem('accessToken') ||
+      localStorage.getItem('jwt') ||
+      null;
+    const normalizedPath = String(assetPath).replace(/\\/g, '/').replace(/^\/+/, '');
+    if (API_BASE) {
+      const encodedPath = encodeURIComponent(normalizedPath);
+      const encodedToken = token ? `&token=${encodeURIComponent(token)}` : '';
+      return `${API_BASE}/api/assets?path=${encodedPath}${encodedToken}`;
+    }
+    if (FILE_SERVER) {
+      return `${FILE_SERVER.replace(/\/$/, '')}/${normalizedPath}`;
+    }
+    return `/${normalizedPath}`;
+  };
+
   const applyUserProfile = (profile = {}) => {
     const {
       fullName,
@@ -107,7 +126,7 @@ export function initUserMenu(config = {}) {
     }
 
     if (avatarPath) {
-      avatarEl.src = `${FILE_SERVER}/${avatarPath}`;
+      avatarEl.src = buildAssetUrl(avatarPath);
     } else if (avatarUrl) {
       avatarEl.src = avatarUrl;
     } else if (fullName) {

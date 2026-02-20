@@ -21,8 +21,12 @@ export function initNotificationBell(config = {}) {
   const locale = (lang && lang.toLowerCase().startsWith('en')) ? 'en-US' : 'es-CL';
   const translationsRoot = (translations && Object.keys(translations).length) ? translations : (window.translations || {});
   const notificationsTexts = translationsRoot.notifications || {};
+  const messagesTexts = translationsRoot.messages || {};
+  const chatTexts = messagesTexts.chat || {};
   const getMessage = (value) => (typeof value === 'string' ? value : '');
   const unknownValue = getMessage(notificationsTexts.unknown_value);
+  const connectedTemplate = getMessage(chatTexts.client_connected_toast);
+  const countryLabel = getMessage(chatTexts.country_label);
 
   const formatCustomerCountMessage = (count) => {
     const plural = count === 1 ? '' : 's';
@@ -47,6 +51,12 @@ export function initNotificationBell(config = {}) {
   const formatConfirmCreateAccountMessage = (email) => {
     const template = getMessage(notificationsTexts.confirm_create_account_message);
     return template.replace('{email}', email || '');
+  };
+
+  const formatClientConnectedMessage = (name) => {
+    const template = connectedTemplate || 'Cliente {name} se ha conectado.';
+    const safeName = name || '';
+    return template.replace('{name}', safeName);
   };
 
   const slugifyPath = (text) => {
@@ -301,6 +311,12 @@ export function initNotificationBell(config = {}) {
     onUpdateNotifications(callback) {
       if (this.socket) {
         this.socket.on('updateNotifications', callback);
+      }
+    }
+
+    onClientConnected(callback) {
+      if (this.socket) {
+        this.socket.on('clientConnected', callback);
       }
     }
   }
@@ -573,6 +589,114 @@ headers: {
       markAllRead.classList.toggle('hidden', unreadCount === 0);
     }
   }
+
+  function getClientToastTheme() {
+    const isDark = document.documentElement.classList.contains('dark');
+    return {
+      bg: isDark ? '#111827' : '#ffffff',
+      text: isDark ? '#e5e7eb' : '#111827',
+      border: isDark ? '#1f2937' : '#e5e7eb',
+      accent: '#10b981'
+    };
+  }
+
+  function renderClientConnectedToast({ name, country }) {
+    const existing = document.querySelectorAll('[data-client-connected-toast]');
+    const bottomOffset = 1 + (existing.length * 4.25);
+    const colors = getClientToastTheme();
+
+    const toast = document.createElement('div');
+    toast.setAttribute('data-client-connected-toast', 'true');
+    toast.style.cssText = `
+      position: fixed;
+      right: 1rem;
+      bottom: ${bottomOffset}rem;
+      z-index: 999999;
+      background: ${colors.bg};
+      color: ${colors.text};
+      border: 1px solid ${colors.border};
+      box-shadow: 0 12px 24px rgba(0,0,0,0.15);
+      border-radius: 0.75rem;
+      padding: 0.85rem 1rem;
+      display: flex;
+      align-items: stretch;
+      gap: 0.85rem;
+      min-width: 300px;
+      max-width: 440px;
+      min-height: 112px;
+      font-size: 14px;
+      line-height: 1.3;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: all 0.25s ease;
+    `;
+
+    const avatar = document.createElement('div');
+    avatar.style.cssText = `
+      width: 40px;
+      height: 40px;
+      border-radius: 999px;
+      background: ${colors.accent};
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 14px;
+      flex-shrink: 0;
+      box-shadow: 0 6px 14px rgba(16,185,129,0.35);
+    `;
+    const initials = (name || '').trim().charAt(0).toUpperCase() || 'C';
+    avatar.textContent = initials;
+
+    const content = document.createElement('div');
+    content.style.cssText = 'flex:1;display:flex;flex-direction:column;gap:0.4rem;';
+
+    const title = document.createElement('div');
+    title.style.cssText = 'font-weight:600;font-size:14px;';
+    title.textContent = formatClientConnectedMessage(name);
+
+    const divider = document.createElement('div');
+    divider.style.cssText = `height:1px;background:${colors.border};opacity:0.7;`;
+
+    const countryRow = document.createElement('div');
+    countryRow.style.cssText = 'font-size:12px;color:inherit;opacity:0.85;';
+    const label = countryLabel || 'Pais';
+    const safeCountry = (country || '').trim() || '-';
+    countryRow.textContent = `${label}: ${safeCountry}`;
+
+    content.appendChild(title);
+    content.appendChild(divider);
+    content.appendChild(countryRow);
+
+    toast.appendChild(avatar);
+    toast.appendChild(content);
+
+    document.body.appendChild(toast);
+
+    requestAnimationFrame(() => {
+      toast.style.opacity = '1';
+      toast.style.transform = 'translateY(0)';
+    });
+
+    const removeToast = () => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateY(8px)';
+      setTimeout(() => {
+        toast.remove();
+        repositionClientToasts();
+      }, 200);
+    };
+
+    setTimeout(removeToast, 4500);
+  }
+
+  function repositionClientToasts() {
+    const toasts = Array.from(document.querySelectorAll('[data-client-connected-toast]'));
+    toasts.forEach((toast, index) => {
+      toast.style.bottom = `${1 + index * 4.25}rem`;
+    });
+  }
   
   // Función para renderizar notificaciones
   function renderNotifications() {
@@ -838,6 +962,13 @@ headers: {
     // Escuchar actualizaciones de notificaciones
     socketService.onUpdateNotifications(() => {
       scheduleNotificationsRefresh(true);
+    });
+
+    socketService.onClientConnected((payload = {}) => {
+      if (userRole !== 'admin') return;
+      const name = payload?.name || payload?.rut || unknownValue;
+      const country = payload?.country || '';
+      renderClientConnectedToast({ name, country });
     });
     
     // Escuchar mensajes nuevos
