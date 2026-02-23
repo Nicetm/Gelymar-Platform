@@ -24,6 +24,7 @@ const createAuthMiddleware = (options = {}) => {
   return async (req, res, next) => {
     try {
       let token = null;
+      let tokenSourceUsed = 'none';
 
       // Obtener token según la fuente especificada
       const readFromHeader = () => {
@@ -37,15 +38,26 @@ const createAuthMiddleware = (options = {}) => {
       const readFromCookie = () => req.cookies?.token || null;
 
       if (tokenSource === 'both') {
-        token = preferHeader ? (readFromHeader() || readFromCookie()) : (readFromCookie() || readFromHeader());
+        const headerToken = readFromHeader();
+        const cookieToken = readFromCookie();
+        if (preferHeader) {
+          token = headerToken || cookieToken;
+          tokenSourceUsed = headerToken ? 'header' : (cookieToken ? 'cookie' : 'none');
+        } else {
+          token = cookieToken || headerToken;
+          tokenSourceUsed = cookieToken ? 'cookie' : (headerToken ? 'header' : 'none');
+        }
       } else if (tokenSource === 'header') {
         token = readFromHeader();
+        tokenSourceUsed = token ? 'header' : 'none';
       } else if (tokenSource === 'cookie') {
         token = readFromCookie();
+        tokenSourceUsed = token ? 'cookie' : 'none';
       }
 
       if (!token) {
         if (requireAuth) {
+          logger.warn(`[auth] token requerido path=${req.originalUrl || req.path} source=${tokenSourceUsed}`);
           return res.status(401).json({ message: 'Token requerido' });
         }
         return next();
@@ -75,6 +87,7 @@ const createAuthMiddleware = (options = {}) => {
               logger.error(`Error actualizando estado online por token expirado: ${error.message}`);
             }
           }
+          logger.warn(`[auth] token inválido path=${req.originalUrl || req.path} source=${tokenSourceUsed} reason=${err.name || 'unknown'}`);
           return res.status(403).json({ message: 'Token inválido o expirado' });
         }
       }
@@ -82,6 +95,7 @@ const createAuthMiddleware = (options = {}) => {
       // Obtener datos completos del usuario desde BD
       const user = await userService.findUserForAuth(decoded.id);
       if (!user) {
+        logger.warn(`[auth] usuario no encontrado id=${decoded?.id || 'N/A'} path=${req.originalUrl || req.path}`);
         return res.status(401).json({ message: 'Usuario no encontrado' });
       }
 
@@ -109,7 +123,8 @@ const createAuthMiddleware = (options = {}) => {
 };
 
 // Middleware por defecto (requiere autenticación)
-module.exports = createAuthMiddleware();
+// Preferir el token del header para evitar conflictos con cookies de otros portales.
+module.exports = createAuthMiddleware({ tokenSource: 'both', preferHeader: true });
 
 // Exportar función para crear middlewares personalizados
 module.exports.createAuthMiddleware = createAuthMiddleware;

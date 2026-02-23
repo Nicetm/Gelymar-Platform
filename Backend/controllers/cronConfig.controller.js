@@ -1,5 +1,7 @@
-const { poolPromise } = require('../config/db');
+const { container } = require('../config/container');
+const cronConfigService = container.resolve('cronConfigService');
 const { logger } = require('../utils/logger');
+const { t } = require('../i18n');
 
 /**
  * @route GET /api/cron-config/cron-tasks-config
@@ -8,18 +10,13 @@ const { logger } = require('../utils/logger');
  */
 const getCronTasksConfig = async (req, res) => {
   try {
-    const pool = await poolPromise;
-    const [rows] = await pool.query(`
-      SELECT id, task_name, task_description, is_enabled, created_at, updated_at
-      FROM cron_tasks_config
-      ORDER BY task_name
-    `);
+    const rows = await cronConfigService.getAllCronTasksWithDetails();
 
     logger.info(`Configuración de cron obtenida: ${rows.length} tareas`);
     res.json(rows);
   } catch (error) {
     logger.error(`Error obteniendo configuración de cron: ${error.message}`);
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: t('cronConfig.get_config_error', req.lang || 'es') });
   }
 };
 
@@ -34,25 +31,20 @@ const updateCronTaskConfig = async (req, res) => {
     const { is_enabled } = req.body;
 
     if (typeof is_enabled !== 'boolean') {
-      return res.status(400).json({ message: 'is_enabled debe ser un valor booleano' });
+      return res.status(400).json({ message: t('cronConfig.is_enabled_boolean', req.lang || 'es') });
     }
 
-    const pool = await poolPromise;
-    const [result] = await pool.query(`
-      UPDATE cron_tasks_config 
-      SET is_enabled = ?, updated_at = NOW()
-      WHERE task_name = ?
-    `, [is_enabled, taskName]);
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: 'Tarea de cron no encontrada' });
+    const success = await cronConfigService.updateCronTaskConfig(taskName, is_enabled);
+    
+    if (!success) {
+      return res.status(404).json({ message: t('cronConfig.task_not_found', req.lang || 'es') });
     }
 
     logger.info(`Configuración de cron actualizada: ${taskName} = ${is_enabled}`);
-    res.json({ message: 'Configuración actualizada exitosamente' });
+    res.json({ message: t('cronConfig.config_updated', req.lang || 'es') });
   } catch (error) {
     logger.error(`Error actualizando configuración de cron: ${error.message}`);
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: t('cronConfig.update_error', req.lang || 'es') });
   }
 };
 
@@ -66,41 +58,16 @@ const updateMultipleCronTasksConfig = async (req, res) => {
     const { tasks } = req.body;
 
     if (!Array.isArray(tasks)) {
-      return res.status(400).json({ message: 'tasks debe ser un array' });
+      return res.status(400).json({ message: t('cronConfig.tasks_must_be_array', req.lang || 'es') });
     }
 
-    const pool = await poolPromise;
-    const connection = await pool.getConnection();
+    await cronConfigService.updateMultipleCronTasksConfig(tasks);
     
-    try {
-      await connection.beginTransaction();
-
-      for (const task of tasks) {
-        const { task_name, is_enabled } = task;
-        
-        if (typeof is_enabled !== 'boolean') {
-          throw new Error(`is_enabled debe ser booleano para ${task_name}`);
-        }
-
-        await connection.query(`
-          UPDATE cron_tasks_config 
-          SET is_enabled = ?, updated_at = NOW()
-          WHERE task_name = ?
-        `, [is_enabled, task_name]);
-      }
-
-      await connection.commit();
-      logger.info(`Configuración de cron actualizada: ${tasks.length} tareas`);
-      res.json({ message: 'Configuraciones actualizadas exitosamente' });
-    } catch (error) {
-      await connection.rollback();
-      throw error;
-    } finally {
-      connection.release();
-    }
+    logger.info(`Configuración de cron actualizada: ${tasks.length} tareas`);
+    res.json({ message: t('cronConfig.multiple_updated', req.lang || 'es') });
   } catch (error) {
     logger.error(`Error actualizando múltiples configuraciones de cron: ${error.message}`);
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: t('cronConfig.multiple_update_error', req.lang || 'es') });
   }
 };
 

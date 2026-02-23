@@ -68,7 +68,8 @@ class ChatService {
           try {
             chat.last_message = EncryptionService.decrypt(chat.last_message);
           } catch (error) {
-            console.error('Error desencriptando mensaje reciente:', error);
+            const { logger } = require('../utils/logger');
+            logger.error(`[ChatService] Error desencriptando mensaje reciente: ${error.message}`);
             chat.last_message = '[Mensaje no disponible]';
           }
         }
@@ -95,7 +96,8 @@ class ChatService {
           try {
             chat.last_message = EncryptionService.decrypt(chat.last_message);
           } catch (error) {
-            console.error('Error desencriptando mensaje reciente:', error);
+            const { logger } = require('../utils/logger');
+            logger.error(`[ChatService] Error desencriptando mensaje reciente en summary: ${error.message}`);
             chat.last_message = '[Mensaje no disponible]';
           }
         }

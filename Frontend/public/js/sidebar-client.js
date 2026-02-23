@@ -29,6 +29,62 @@ export function initSidebarClient(config) {
   // Inicialización cuando el DOM está listo
   document.addEventListener("DOMContentLoaded", async () => {
 
+    // Sidebar collapse
+    const sidebar = document.getElementById('sidebar');
+    const rootEl = document.documentElement;
+    const collapseBtn = document.getElementById('toggleSidebarCollapse');
+    const sidebarUser = document.querySelector('[data-sidebar-user]');
+    const sidebarTexts = sidebar ? sidebar.querySelectorAll('[data-sidebar-text]') : [];
+    const sidebarLinks = sidebar ? sidebar.querySelectorAll('.sidebar-link') : [];
+
+    const applySidebarCollapsed = (collapsed) => {
+      if (!sidebar) return;
+      if (rootEl) {
+        rootEl.classList.toggle('sidebar-collapsed', collapsed);
+      }
+      sidebar.classList.toggle('w-20', collapsed);
+      sidebar.classList.toggle('w-56', !collapsed);
+      sidebar.classList.toggle('sidebar-collapsed', collapsed);
+
+      if (sidebarUser) {
+        sidebarUser.classList.toggle('hidden', collapsed);
+      }
+
+      sidebarTexts.forEach((node) => {
+        node.classList.toggle('hidden', collapsed);
+      });
+
+      sidebarLinks.forEach((link) => {
+        link.classList.toggle('justify-center', collapsed);
+        link.classList.toggle('gap-3', !collapsed);
+        link.classList.toggle('px-4', !collapsed);
+        link.classList.toggle('px-3', collapsed);
+      });
+    };
+
+    if (collapseBtn) {
+      const stored = localStorage.getItem('sidebarCollapsed');
+      const storedCollapsed = stored === '1';
+      const domCollapsed = sidebar?.classList.contains('sidebar-collapsed');
+      
+      // Priorizar localStorage sobre el estado del DOM
+      const desiredCollapsed = stored !== null ? storedCollapsed : domCollapsed;
+      
+      // Solo aplicar si el estado actual no coincide con el deseado
+      if (domCollapsed !== desiredCollapsed) {
+        applySidebarCollapsed(desiredCollapsed);
+      }
+
+      collapseBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const isCollapsed = sidebar?.classList.contains('sidebar-collapsed');
+        const next = !isCollapsed;
+        applySidebarCollapsed(next);
+        localStorage.setItem('sidebarCollapsed', next ? '1' : '0');
+        document.cookie = `sidebarCollapsed=${next ? '1' : '0'}; path=/; max-age=31536000`;
+      });
+    }
+
     // Highlight active page in sidebar
     const path = window.location.pathname;
     document.querySelectorAll("#sidebar a[href]").forEach(link => {

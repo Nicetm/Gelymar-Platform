@@ -2,6 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
 const { container } = require('../config/container');
+const { logger } = require('../utils/logger');
+const { t } = require('../i18n');
 const { 
   generateRecepcionOrden,
   generateAvisoEmbarque,
@@ -15,11 +17,12 @@ const fileService = container.resolve('fileService');
 const emailService = container.resolve('emailService');
 const orderService = container.resolve('orderService');
 const documentFileService = container.resolve('documentFileService');
+const customerService = container.resolve('customerService');
 const checkOrderReceptionService = container.resolve('checkOrderReceptionService');
 const checkShipmentNoticeService = container.resolve('checkShipmentNoticeService');
 const checkOrderDeliveryNoticeService = container.resolve('checkOrderDeliveryNoticeService');
 const checkAvailabilityNoticeService = container.resolve('checkAvailabilityNoticeService');
-const { logger } = require('../utils/logger');
+const { normalizeRut } = require('../utils/rut.util');
 const { cleanDirectoryName } = require('../utils/directoryUtils');
 const { validateFilePath, setSecureFilePermissions } = require('../utils/filePermissions');
 
@@ -387,7 +390,7 @@ exports.handleUpload = async (req, res) => {
 
     if (!file || !customer_id || !client_name || !orderPc) {
       logger.warn('Faltan parámetros obligatorios en handleUpload');
-      return res.status(400).json({ message: 'Faltan parámetros obligatorios' });
+      return res.status(400).json({ message: t('documentFile.missing_required_params', req.lang || 'es') });
     }
 
     let order = null;
@@ -456,13 +459,13 @@ exports.handleUpload = async (req, res) => {
       fs.mkdirSync(physicalDirPath, { recursive: true });
     } catch (error) {
       logger.error(`Error creando directorio: ${error.message}`);
-      return res.status(500).json({ message: 'Error creando directorio' });
+      return res.status(500).json({ message: t('documentFile.create_directory_error', req.lang || 'es') });
     }
 
     // Validar ruta de archivo para prevenir path traversal
     if (!validateFilePath(filePath, basePath)) {
       logger.warn(`Intento de upload con ruta insegura: ${filePath}`);
-      return res.status(400).json({ message: 'Ruta de archivo inválida' });
+      return res.status(400).json({ message: t('documentFile.invalid_file_path', req.lang || 'es') });
     }
 
     // Guardar el archivo desde el buffer de memoria
@@ -471,7 +474,7 @@ exports.handleUpload = async (req, res) => {
       fs.writeFileSync(physicalFilePath, file.buffer);
     } catch (error) {
       logger.error(`Error guardando archivo: ${error.message}`);
-      return res.status(500).json({ message: 'Error guardando archivo' });
+      return res.status(500).json({ message: t('documentFile.save_file_error', req.lang || 'es') });
     }
 
     // Establecer permisos seguros para el archivo subido
@@ -495,10 +498,10 @@ exports.handleUpload = async (req, res) => {
     await fileService.insertFile(fileData);
     
     logger.info(`[handleUpload] source=manual Archivo subido pc=${order.pc || 'N/A'} oc=${order.oc || 'N/A'} factura=${resolvedFactura ?? 'N/A'} id=${resolvedId || 'N/A'} name=${file.originalname}`);
-    res.status(201).json({ message: 'Archivo subido y registrado con éxito' });
+    res.status(201).json({ message: t('documentFile.file_uploaded_success', req.lang || 'es') });
   } catch (err) {
     logger.error(`Error al subir archivo: ${err.message}`);
-    res.status(500).json({ message: 'Error interno del servidor', error: err.message });
+    res.status(500).json({ message: t('documentFile.upload_error', req.lang || 'es'), error: err.message });
   }
 };
 
@@ -516,7 +519,7 @@ exports.viewFile = async (req, res) => {
     const file = await fileService.getFileById(id);
     if (!file) {
       logger.warn(`Archivo no encontrado ID: ${id}`);
-      return res.status(404).json({ message: 'Archivo no encontrado' });
+      return res.status(404).json({ message: t('documentFile.file_not_found', req.lang || 'es') });
     }
 
     // Verificar que el usuario tenga acceso al archivo
@@ -530,7 +533,7 @@ exports.viewFile = async (req, res) => {
       
       if (!customerCheck) {
         logger.warn(`Usuario ${userId} intentó acceder a archivo ${id} sin permisos`);
-        return res.status(403).json({ message: 'No tienes permisos para acceder a este archivo' });
+        return res.status(403).json({ message: t('documentFile.no_permission', req.lang || 'es') });
       }
     }
     
@@ -566,7 +569,7 @@ exports.viewFile = async (req, res) => {
 
   } catch (error) {
     logger.error(`Error en viewFile ${id}: ${error.message}`);
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: t('documentFile.view_file_error', req.lang || 'es') });
   }
 };
 
@@ -581,7 +584,7 @@ exports.tempViewFile = async (req, res) => {
   try {
     // Verificar token temporal
     if (!global.tempTokens || !global.tempTokens.has(token)) {
-      return res.status(404).json({ message: 'Token no válido o expirado' });
+      return res.status(404).json({ message: t('documentFile.token_invalid_expired', req.lang || 'es') });
     }
     
     const tokenData = global.tempTokens.get(token);
@@ -589,13 +592,13 @@ exports.tempViewFile = async (req, res) => {
     // Verificar expiración
     if (tokenData.expiresAt < new Date()) {
       global.tempTokens.delete(token);
-      return res.status(404).json({ message: 'Token expirado' });
+      return res.status(404).json({ message: t('documentFile.token_expired', req.lang || 'es') });
     }
     
     // Obtener información del archivo
     const file = await fileService.getFileById(tokenData.fileId);
     if (!file) {
-      return res.status(404).json({ message: 'Archivo no encontrado' });
+      return res.status(404).json({ message: t('documentFile.file_not_found', req.lang || 'es') });
     }
     
     const basePath = process.env.FILE_SERVER_ROOT || '/var/www/html';
@@ -608,7 +611,7 @@ exports.tempViewFile = async (req, res) => {
 
     // Verificar que la ruta es segura
     if (!validateFilePath(file.path, basePath)) {
-      return res.status(403).json({ message: 'Acceso denegado' });
+      return res.status(403).json({ message: t('documentFile.access_denied', req.lang || 'es') });
     }
 
     // Establecer headers para visualización (no descarga)
@@ -620,14 +623,14 @@ exports.tempViewFile = async (req, res) => {
       if (err) {
         logger.error(`Error enviando archivo ${tokenData.fileId}: ${err.message}`);
         if (!res.headersSent) {
-          res.status(500).json({ message: 'Error al cargar archivo' });
+          res.status(500).json({ message: t('documentFile.load_file_error', req.lang || 'es') });
         }
       }
     });
 
   } catch (error) {
     logger.error(`Error en tempViewFile ${token}: ${error.message}`);
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: t('documentFile.view_file_error', req.lang || 'es') });
   }
 };
 
@@ -643,7 +646,7 @@ exports.viewWithToken = async (req, res) => {
   try {
     // Verificar token JWT
     if (!token) {
-      return res.status(401).json({ message: 'Token requerido' });
+      return res.status(401).json({ message: t('documentFile.token_required', req.lang || 'es') });
     }
     
     // Verificar token JWT
@@ -653,27 +656,39 @@ exports.viewWithToken = async (req, res) => {
     // Obtener información del archivo
     const file = await fileService.getFileById(id);
     if (!file) {
-      return res.status(404).json({ message: 'Archivo no encontrado' });
+      return res.status(404).json({ message: t('documentFile.file_not_found', req.lang || 'es') });
     }
 
     // Verificar que el usuario tenga acceso al archivo
     const userId = decoded.id;
-    const userRole = decoded.role;
-    
+    const userRole = String(decoded.role || '').toLowerCase();
+    const userRoleId = Number(decoded.roleId || decoded.role_id || 0);
+
     // Si es admin, puede acceder a todos los archivos
-    if (userRole !== 'admin') {
-      // Primero obtener el customer del usuario
-      const userCustomer = await documentFileService.getUserCustomerByUserId(userId);
-      
-      if (!userCustomer) {
-        return res.status(403).json({ message: 'No tienes permisos para acceder a este archivo' });
-      }
-      
-      // Verificar que el archivo pertenece a una orden del customer
-      const customerCheck = await documentFileService.getFileCustomerCheck(id, userCustomer.rut);
-      
-      if (!customerCheck) {
-        return res.status(403).json({ message: 'No tienes permisos para acceder a este archivo' });
+    if (userRole !== 'admin' && userRoleId !== 1) {
+      if (userRole === 'seller' || userRoleId === 3) {
+        const customerService = container.resolve('customerService');
+        const customerRut = file?.customer_rut || file?.customerRut || file?.rut || null;
+        const allowed = customerRut
+          ? await customerService.sellerHasAccessToCustomerRut(decoded.rut, customerRut)
+          : false;
+        if (!allowed) {
+          logger.warn(`[viewWithToken] acceso denegado seller=${decoded.rut || 'N/A'} fileId=${id} customerRut=${customerRut || 'N/A'}`);
+          return res.status(403).json({ message: t('documentFile.no_permission', req.lang || 'es') });
+        }
+      } else {
+        // Cliente: verificar que el archivo pertenece a su RUT
+        const userCustomer = await documentFileService.getUserCustomerByUserId(userId);
+
+        if (!userCustomer) {
+          return res.status(403).json({ message: t('documentFile.no_permission', req.lang || 'es') });
+        }
+
+        const customerCheck = await documentFileService.getFileCustomerCheck(id, userCustomer.rut);
+
+        if (!customerCheck) {
+          return res.status(403).json({ message: t('documentFile.no_permission', req.lang || 'es') });
+        }
       }
     }
     
@@ -687,7 +702,7 @@ exports.viewWithToken = async (req, res) => {
 
     // Verificar que la ruta es segura
     if (!validateFilePath(file.path, basePath)) {
-      return res.status(403).json({ message: 'Acceso denegado' });
+      return res.status(403).json({ message: t('documentFile.access_denied', req.lang || 'es') });
     }
 
     // Establecer headers para visualización (no descarga)
@@ -699,14 +714,14 @@ exports.viewWithToken = async (req, res) => {
       if (err) {
         logger.error(`Error enviando archivo ${id}: ${err.message}`);
         if (!res.headersSent) {
-          res.status(500).json({ message: 'Error al cargar archivo' });
+          res.status(500).json({ message: t('documentFile.load_file_error', req.lang || 'es') });
         }
       }
     });
 
   } catch (error) {
     logger.error(`Error en viewWithToken ${id}: ${error.message}`);
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: t('documentFile.view_file_error', req.lang || 'es') });
   }
 };
 
@@ -724,7 +739,7 @@ exports.downloadFile = async (req, res) => {
     const file = await fileService.getFileById(id);
     if (!file) {
       logger.warn(`Archivo no encontrado ID: ${id}`);
-      return res.status(404).json({ message: 'Archivo no encontrado' });
+      return res.status(404).json({ message: t('documentFile.file_not_found', req.lang || 'es') });
     }
 
     // Verificar que el usuario tenga acceso al archivo
@@ -740,7 +755,7 @@ exports.downloadFile = async (req, res) => {
       
       if (!customerCheck) {
         logger.warn(`Usuario ${userId} intentó acceder a archivo ${id} sin permisos`);
-        return res.status(403).json({ message: 'No tienes permisos para acceder a este archivo' });
+        return res.status(403).json({ message: t('documentFile.no_permission', req.lang || 'es') });
       }
     }
     
@@ -756,7 +771,7 @@ exports.downloadFile = async (req, res) => {
     // Verificar que la ruta es segura
     if (!validateFilePath(file.path, basePath)) {
       logger.warn(`Intento de acceso a ruta insegura: ${file.path}`);
-      return res.status(403).json({ message: 'Acceso denegado' });
+      return res.status(403).json({ message: t('documentFile.access_denied', req.lang || 'es') });
     }
 
     // Establecer headers para la descarga
@@ -768,14 +783,14 @@ exports.downloadFile = async (req, res) => {
       if (err) {
         logger.error(`Error enviando archivo ${id}: ${err.message}`);
         if (!res.headersSent) {
-          res.status(500).json({ message: 'Error al descargar archivo' });
+          res.status(500).json({ message: t('documentFile.load_file_error', req.lang || 'es') });
         }
       }
     });
 
   } catch (error) {
     logger.error(`Error en downloadFile ${id}: ${error.message}`);
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: t('documentFile.view_file_error', req.lang || 'es') });
   }
 };
 
@@ -790,22 +805,37 @@ exports.getFilesByCustomerAndFolder = async (req, res) => {
   const idNroOvMasFactura = req.query.idov || req.query.idNroOvMasFactura || null;
 
   try {
+    const user = req.user || {};
+    const normalizeRutKey = normalizeRut;
+    const userRole = String(user.role || '').toLowerCase();
+    if (userRole === 'seller' || user.role_id === 3) {
+      const allowed = await customerService.sellerHasAccessToCustomerRut(user.rut, customerRut);
+      if (!allowed) {
+        logger.warn(`[getFilesByCustomerAndFolder] acceso denegado seller=${user.rut || 'N/A'} rut=${customerRut}`);
+        return res.status(403).json({ message: 'Acceso denegado' });
+      }
+    } else if (userRole === 'client' || user.role_id === 2) {
+      if (normalizeRutKey(user.rut) !== normalizeRutKey(customerRut)) {
+        logger.warn(`[getFilesByCustomerAndFolder] acceso denegado client=${user.rut || 'N/A'} rut=${customerRut}`);
+        return res.status(403).json({ message: 'Acceso denegado' });
+      }
+    }
     const customer = await documentFileService.getCustomerByRut(customerRut);
 
     if (!customer) {
       logger.warn(`Cliente no encontrado RUT: ${customerRut}`);
-      return res.status(404).json({ message: 'Cliente no encontrado' });
+      return res.status(404).json({ message: t('documentFile.customer_not_found', req.lang || 'es') });
     }
 
     if (!pc) {
-      return res.status(400).json({ message: 'PC requerido' });
+      return res.status(400).json({ message: t('documentFile.pc_required', req.lang || 'es') });
     }
 
     const files = await fileService.getFilesByPc(pc, idNroOvMasFactura);
     res.json(files);
   } catch (err) {
     logger.error(`Error al obtener archivos: ${err.message}`);
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: t('errors.internal_server_error', req.lang || 'es') });
   }
 };
 
@@ -818,15 +848,15 @@ exports.RenameFile = async (req, res) => {
   const { id } = req.params;
   const { name, visible } = req.body;
 
-  if (!name || !id) return res.status(400).json({ message: 'Faltan datos' });
+  if (!name || !id) return res.status(400).json({ message: t('documentFile.missing_data', req.lang || 'es') });
 
   try {
     const result = await fileService.RenameFile(id, name, visible);
-    if (result.affectedRows === 0) return res.status(404).json({ message: 'Archivo no encontrado' });
+    if (result.affectedRows === 0) return res.status(404).json({ message: t('documentFile.file_not_found', req.lang || 'es') });
     res.json({ success: true, name });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Error en la BD' });
+    logger.error(`[DocumentFileController][RenameFile] Error: ${err.message}`);
+    res.status(500).json({ message: t('documentFile.rename_error', req.lang || 'es') });
   }
 };
 
@@ -843,7 +873,7 @@ exports.generateFile = async (req, res) => {
     const file = await fileService.getFileById(id);
     if (!file) {
       logger.warn(`Archivo no encontrado ID: ${id}`);
-      return res.status(404).json({ message: 'Archivo no encontrado' });
+      return res.status(404).json({ message: t('documentFile.file_not_found', req.lang || 'es') });
     }
 
     // Usar el idioma de la BD (country_lang) o el del frontend como fallback
@@ -888,11 +918,11 @@ exports.generateFile = async (req, res) => {
     await fileService.updateFile(updateData);
 
     logger.info(`[generateFile] source=manual Archivo generado pc=${file.pc || 'N/A'} oc=${file.oc || 'N/A'} factura=${file.factura ?? 'N/A'} id=${file.id_nro_ov_mas_factura || 'N/A'} name=${fileName}`);
-    return res.json({ message: 'Archivo generado exitosamente', path: updateData.path });
+    return res.json({ message: t('documentFile.file_generated', req.lang || 'es'), path: updateData.path });
 
   } catch (error) {
     logger.error(`Error al generar archivo: ${error.message}`);
-    return res.status(500).json({ message: 'Error al generar el archivo' });
+    return res.status(500).json({ message: t('documentFile.generate_file_error', req.lang || 'es') });
   }
 };
 
@@ -909,7 +939,7 @@ exports.sendFile = async (req, res) => {
     
     if (!file) {
       logger.warn(`Archivo no encontrado para enviar: ${id}`);
-      return res.status(404).json({ message: 'Archivo no encontrado' });
+      return res.status(404).json({ message: t('documentFile.file_not_found', req.lang || 'es') });
     }
     logger.info(`[sendFile] source=manual file loaded id=${id} pc=${file.pc || 'N/A'} oc=${file.oc || 'N/A'} rut=${file.customer_rut || 'N/A'}`);
 
@@ -943,7 +973,7 @@ exports.sendFile = async (req, res) => {
     });
 
     logger.info(`[sendFile] source=manual Archivo enviado pc=${file.pc || 'N/A'} oc=${file.oc || 'N/A'} factura=${file.factura ?? 'N/A'} id=${file.id_nro_ov_mas_factura || 'N/A'} name=${file.name || 'N/A'}`);
-    res.json({ message: 'Documento enviado correctamente' });
+    res.json({ message: t('documentFile.document_sent', req.lang || 'es') });
   } catch (err) {
     logger.error(`Error al enviar archivo: ${err.message}`);
     
@@ -967,12 +997,12 @@ exports.sendFile = async (req, res) => {
     // Si es error de emails no configurados, retornar mensaje específico
     if (err.message.includes('No hay emails disponibles')) {
       return res.status(400).json({ 
-        message: 'El cliente no tiene configurado una casilla de email',
+        message: t('documentFile.no_email_configured', req.lang || 'es'),
         error: 'NO_EMAIL_CONFIGURED'
       });
     }
     
-    res.status(500).json({ message: 'Error al enviar documento' });
+    res.status(500).json({ message: t('documentFile.send_file_error', req.lang || 'es') });
   }
 };
 
@@ -989,7 +1019,7 @@ exports.deleteFileById = async (req, res) => {
 
     if (!file) {
       logger.warn(`Archivo no encontrado en BD: ${file}`);
-      return res.status(404).json({ message: 'Archivo no encontrado en la base de datos' });
+      return res.status(404).json({ message: t('documentFile.file_not_found_db', req.lang || 'es') });
     }
     
     if (typeof file.path === 'string' && file.path.trim()) {
@@ -1007,10 +1037,10 @@ exports.deleteFileById = async (req, res) => {
     await fileService.deleteFileById(file.id);
     
     logger.info(`[deleteFile] Archivo eliminado pc=${file.pc || 'N/A'} oc=${file.oc || 'N/A'} factura=${file.factura ?? 'N/A'} id=${file.id_nro_ov_mas_factura || 'N/A'} name=${file.name || 'N/A'}`);
-    res.json({ message: `Archivo ${file.name} eliminado correctamente` });
+    res.json({ message: `${t('documentFile.file_deleted', req.lang || 'es')} ${file.name}` });
   } catch (error) {
     logger.error(`Error al eliminar archivo: ${error.message}`);
-    res.status(500).json({ message: 'Error interno del servidor', error: error.message });
+    res.status(500).json({ message: t('documentFile.delete_file_error', req.lang || 'es'), error: error.message });
   }
 };
 
@@ -1027,7 +1057,7 @@ exports.regenerateFile = async (req, res) => {
     const file = await fileService.getFileById(id);
     if (!file) {
       logger.warn(`Archivo no encontrado ID: ${id}`);
-      return res.status(404).json({ message: 'Archivo no encontrado' });
+      return res.status(404).json({ message: t('documentFile.file_not_found', req.lang || 'es') });
     }
 
     // Usar el idioma de la BD (country_lang) o el del frontend como fallback
@@ -1089,14 +1119,14 @@ exports.regenerateFile = async (req, res) => {
 
     logger.info(`Archivo regenerado correctamente ID: ${id} - Versión: ${fileName} - Nuevo ID: ${newFileId}`);
     res.json({ 
-      message: 'Documento regenerado correctamente',
+      message: t('documentFile.document_regenerated', req.lang || 'es'),
       fileName: fileName,
       filePath: path.relative(FILE_SERVER_ROOT, filePath),
       newFileId: newFileId
     });
   } catch (err) {
     logger.error(`Error al regenerar archivo: ${err.message}`);
-    res.status(500).json({ message: 'Error al regenerar el documento' });
+    res.status(500).json({ message: t('documentFile.regenerate_error', req.lang || 'es') });
   }
 };
 
@@ -1141,7 +1171,7 @@ exports.resendFile = async (req, res) => {
     });
 
     logger.info(`Archivo reenviado correctamente ID: ${id}`);
-    res.json({ message: 'Documento reenviado y enviado por correo correctamente' });
+    res.json({ message: t('documentFile.document_resent', req.lang || 'es') });
   } catch (err) {
     logger.error(`Error al reenviar archivo: ${err.message}`);
     
@@ -1162,7 +1192,7 @@ exports.resendFile = async (req, res) => {
       });
     }
 
-    res.status(500).json({ message: 'Error al reenviar y enviar el documento' });
+    res.status(500).json({ message: t('documentFile.resend_error', req.lang || 'es') });
   }
 };
 
@@ -1224,7 +1254,7 @@ exports.createDefaultFiles = async (req, res) => {
 
       if (!order) {
         logger.warn(`Orden no encontrada ID: ${orderId}`);
-        return res.status(404).json({ message: 'Orden no encontrada' });
+        return res.status(404).json({ message: t('documentFile.order_not_found', req.lang || 'es') });
       }
 
       const orderMeta = await orderService.getOrderByPcOc(order.pc, order.oc);
@@ -1250,7 +1280,7 @@ exports.createDefaultFiles = async (req, res) => {
       logOc = order.oc || logOc;
     } else {
       if (!pc) {
-        return res.status(400).json({ message: 'PC requerido' });
+        return res.status(400).json({ message: t('documentFile.pc_required', req.lang || 'es') });
       }
 
       let resolvedOc = oc;
@@ -1264,7 +1294,7 @@ exports.createDefaultFiles = async (req, res) => {
 
       if (!orderData) {
         logger.warn(`Orden no encontrada PC/OC: ${pc} / ${resolvedOc || 'N/A'}`);
-        return res.status(404).json({ message: 'Orden no encontrada' });
+        return res.status(404).json({ message: t('documentFile.order_not_found', req.lang || 'es') });
       }
 
       const facturaValue = orderData?.factura;
@@ -1304,7 +1334,7 @@ exports.createDefaultFiles = async (req, res) => {
       });
     }
     res.status(500).json({ 
-      message: 'Error al crear archivos por defecto', 
+      message: t('documentFile.create_default_files_error', req.lang || 'es'), 
       error: error.message 
     });
   }
@@ -1332,7 +1362,7 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
 
     if (orders.length === 0) {
       return res.status(200).json({
-        message: 'No hay órdenes nuevas para procesar',
+        message: t('documentFile.no_new_orders', req.lang || 'es'),
         processed: 0
       });
     }
@@ -1459,7 +1489,7 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
 
     logger.info(`[processNewOrdersAndSendReception] done processed=${processed} errors=${errors} skipped=${skipped} total=${orders.length}`);
     res.status(200).json({
-      message: 'Procesamiento de órdenes nuevas completado',
+      message: t('documentFile.processing_complete', req.lang || 'es'),
       processed,
       errors,
       skipped,
@@ -1469,7 +1499,7 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
   } catch (error) {
     logger.error(`[processNewOrdersAndSendReception] Error: ${error.message}`);
     res.status(500).json({
-      message: 'Error al procesar órdenes nuevas',
+      message: t('documentFile.processing_error', req.lang || 'es'),
       error: error.message
     });
   }
@@ -1497,7 +1527,7 @@ exports.processShipmentNotices = async (req, res) => {
       const orders = await getOrdersReadyForShipmentNotice(sendFromDate, pc, factura);
     if (!orders.length) {
       return res.status(200).json({
-        message: 'No hay ordenes listas para Shipment Notice',
+        message: t('documentFile.no_orders_ready_shipment', req.lang || 'es'),
         processed: 0
       });
     }
@@ -1626,14 +1656,14 @@ exports.processShipmentNotices = async (req, res) => {
 
     logger.info(`[processShipmentNotices] done processed=${processed} skipped=${skipped} errors=${errors}`);
     res.status(200).json({
-      message: 'Procesamiento de Shipment Notice completado',
+      message: t('documentFile.shipment_processing_complete', req.lang || 'es'),
       processed,
       skipped,
       errors
     });
   } catch (error) {
     logger.error(`Error en processShipmentNotices: ${error.message}`);
-    res.status(500).json({ message: 'Error procesando Shipment Notice' });
+    res.status(500).json({ message: t('documentFile.shipment_processing_error', req.lang || 'es') });
   }
 };
 
@@ -1664,7 +1694,7 @@ exports.processOrderDeliveryNotices = async (req, res) => {
     );
     if (!orders.length) {
       return res.status(200).json({
-        message: 'No hay ordenes listas para Order Delivery Notice',
+        message: t('documentFile.no_orders_ready_delivery', req.lang || 'es'),
         processed: 0
       });
     }
@@ -1794,7 +1824,7 @@ exports.processOrderDeliveryNotices = async (req, res) => {
 
     logger.info(`[processOrderDeliveryNotices] done processed=${processed} skipped=${skipped} errors=${errors}`);
     res.status(200).json({
-      message: 'Procesamiento de Order Delivery Notice completado',
+      message: t('documentFile.delivery_processing_complete', req.lang || 'es'),
       processed,
       skipped,
       errors,
@@ -1803,7 +1833,7 @@ exports.processOrderDeliveryNotices = async (req, res) => {
     });
   } catch (error) {
     logger.error(`Error en processOrderDeliveryNotices: ${error.message}`);
-    res.status(500).json({ message: 'Error procesando Order Delivery Notice' });
+    res.status(500).json({ message: t('documentFile.delivery_processing_error', req.lang || 'es') });
   }
 };
 
@@ -1829,7 +1859,7 @@ exports.processAvailabilityNotices = async (req, res) => {
     const orders = await getOrdersReadyForAvailabilityNotice(sendFromDate, pc, factura);
     if (!orders.length) {
       return res.status(200).json({
-        message: 'No hay ordenes listas para Availability Notice',
+        message: t('documentFile.no_orders_ready_availability', req.lang || 'es'),
         processed: 0
       });
     }
@@ -1949,14 +1979,14 @@ exports.processAvailabilityNotices = async (req, res) => {
 
     logger.info(`[processAvailabilityNotices] done processed=${processed} skipped=${skipped} errors=${errors}`);
     res.status(200).json({
-      message: 'Procesamiento de Availability Notice completado',
+      message: t('documentFile.availability_processing_complete', req.lang || 'es'),
       processed,
       skipped,
       errors
     });
   } catch (error) {
     logger.error(`Error en processAvailabilityNotices: ${error.message}`);
-    res.status(500).json({ message: 'Error procesando Availability Notice' });
+    res.status(500).json({ message: t('documentFile.availability_processing_error', req.lang || 'es') });
   }
 };
 

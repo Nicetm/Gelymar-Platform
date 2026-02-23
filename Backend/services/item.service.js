@@ -3,11 +3,7 @@ const { mapProRowToItem } = require('../mappers/sqlsoftkey/pro.mapper');
 const { mapItemRowToOrderItem } = require('../mappers/sqlsoftkey/item.mapper');
 const { logger } = require('../utils/logger');
 const { mapHdrRowToOrder } = require('../mappers/sqlsoftkey/hdr.mapper');
-
-const normalizeOcForCompare = (value) => {
-  if (value === null || value === undefined) return '';
-  return String(value).toUpperCase().replace(/[\s()-]+/g, '');
-};
+const { normalizeOcForCompare } = require('../utils/oc.util');
 
 const parseOrderKey = (orderId) => {
   if (!orderId) return null;
@@ -103,7 +99,7 @@ async function getItemsByOrder(orderId, user) {
     );
     return (itemsResult.recordset || []).map((row) => mapItemRowToOrderItem(row));
   } catch (error) {
-    console.error('Error en getItemsByOrder:', error.message);
+    logger.error(`[ItemService] Error en getItemsByOrder: ${error.message}`);
     throw error;
   }
 }

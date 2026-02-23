@@ -2,6 +2,7 @@ const { poolPromise } = require('../config/db');
 const { getSqlPool } = require('../config/sqlserver');
 const bcrypt = require('bcrypt');
 const { logger } = require('../utils/logger');
+const { normalizeRut } = require('../utils/rut.util');
 
 /**
  * Verifica y crea usuarios de acceso para clientes y sellers que no tienen cuenta.
@@ -10,8 +11,6 @@ const { logger } = require('../utils/logger');
  */
 async function checkClientAccess() {
   const pool = await poolPromise;
-
-  const normalizeRut = (value = '') => value.toString().trim().toLowerCase();
 
   try {
     // 1. Obtener clientes con RUT válido (SQL Server)

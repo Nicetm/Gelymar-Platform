@@ -42,6 +42,7 @@ async function getFoldersByCustomerRut(customerRut) {
         FROM jor_imp_HDR_90_softkey hdr
         LEFT JOIN jor_imp_CLI_01_softkey cli ON cli.Rut = hdr.Rut
         WHERE hdr.Rut = @rut
+          AND ISNULL(LTRIM(RTRIM(UPPER(hdr.EstadoOV))), '') <> 'CANCELADO'
         ORDER BY CAST(hdr.Fecha AS date) DESC
       `);
   } catch (error) {
@@ -151,6 +152,7 @@ async function getCountDirectoryByCustomerRut(customerRut) {
       SELECT COUNT(*) AS total
       FROM jor_imp_HDR_90_softkey
       WHERE Rut = @rut
+        AND ISNULL(LTRIM(RTRIM(UPPER(EstadoOV))), '') <> 'CANCELADO'
     `);
   return result.recordset?.[0]?.total || 0;
 }

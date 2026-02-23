@@ -1,7 +1,6 @@
 ---
 import LayoutSidebarClient from '../../../app/LayoutSidebarClient.astro';
 import AuthGuard from '../../../components/AuthGuard.astro';
-import OrdersGrid from '../../../modules/client/OrderGrid.astro';
 import EmailModal from '../../../modules/client/EmailModal.astro';
 import { loadTranslations, getServerLang } from '@lib/i18n.js';
 
@@ -12,48 +11,337 @@ if (redirect) return redirect;
 
 // Configuración de API
 const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
+const apiPublic = import.meta.env.PUBLIC_API_URL;
 const fileServer = import.meta.env.PUBLIC_FILE_SERVER;
+const { basePath = '/client' } = Astro.props;
+const homeHref = basePath;
 
 let orders = [];
 const lang = getServerLang(Astro.cookies) || 'es';
-let translations = {};
-let t = {};
+let t: any = {};
 
 try {
-  translations = {
+  t = {
     documentos: await loadTranslations(lang, 'documentos'),
     carpetas: await loadTranslations(lang, 'carpetas'),
+    comond: await loadTranslations(lang, 'comond'),
   };
-  t = translations.documentos || {};
 } catch (error) {
   console.warn('Error cargando traducciones de documentos:', error);
-  translations = {};
   t = {};
+}
+
+// Fetch orders on the server side
+try {
+  const token = Astro.cookies.get('token')?.value;
+  if (token) {
+    const response = await fetch(`${apiBase}/api/orders/client/dashboard`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (response.ok) {
+      orders = await response.json();
+      console.log('[Documents SSR] Loaded', orders.length, 'orders');
+    } else {
+      console.warn('[Documents SSR] Failed to load orders:', response.status);
+    }
+  } else {
+    console.warn('[Documents SSR] No token found');
+  }
+} catch (error) {
+  console.error('[Documents SSR] Error loading orders:', error);
 }
 ---
 
 <LayoutSidebarClient title="Documents - Client Panel">
   <AuthGuard role="client" />
   
-  <div class="min-h-screen pt-5">
-    <!-- Contenido principal -->
-    <div class="px-6 py-8 space-y-8">
-      <!-- Loading state -->
-      <div id="loading-state" class="text-center py-12">
-        <div class="inline-flex items-center justify-center w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full mb-4">
-          <svg class="w-6 h-6 text-blue-600 dark:text-blue-400 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-        </div>
-        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">{t.loadingOrders}</h3>
-        <p class="text-sm text-gray-600 dark:text-gray-400">{t.loadingOrdersSubtitle}</p>
-      </div>
-      
-      <!-- Selector de órdenes -->
-      <div id="orders-section" class="hidden">
-        <OrdersGrid {orders} />
+  <section
+    id="DocumentsSection"
+    class="px-4 pt-20 pb-6 sm:px-6 lg:px-8 w-full"
+    data-base-path={basePath}
+    data-api-base={apiBase}
+  >
+    <!-- Encabezado y breadcrumb -->
+    <header class="flex flex-col gap-4 border-b border-gray-200 dark:border-gray-700 pb-4">
+      <nav class="text-sm text-gray-500 dark:text-gray-400" aria-label="Breadcrumb">
+        <ol class="inline-flex items-center space-x-1 md:space-x-2">
+          <li class="inline-flex items-center">
+            <a href={homeHref} class="inline-flex items-center gap-1 hover:text-primary-600 dark:hover:text-white">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
+              </svg>
+              <span>{t.comond?.home || 'Home'}</span>
+            </a>
+          </li>
+          <li class="flex items-center text-gray-400 dark:text-gray-300 font-medium" aria-current="page">
+            <span class="mx-1">/ {t.documentos?.myDocuments || 'My Documents'}</span>
+          </li>
+        </ol>
+      </nav>
+
+      <!-- Título -->
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{t.documentos?.myDocuments || 'My Documents'}</h1>
       </div>
 
+      <!-- Búsqueda y filtros -->
+      <div class="mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div class="flex flex-col sm:flex-row gap-3 items-center">
+          <div class="relative w-full sm:max-w-xs">
+            <label for="orders-search-input" class="sr-only">{t.comond?.search || 'Search'}</label>
+            <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+              <svg class="w-5 h-5 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M10 18a8 8 0 100-16 8 8 0 000 16z"/>
+              </svg>
+            </div>
+            <input id="orders-search-input" type="text" placeholder={t.comond?.search || 'Search'} class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-primary-500" />
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Tabla de órdenes -->
+    <div class="mt-6 rounded-xl shadow ring-1 ring-gray-200 dark:ring-gray-700 w-full">
+      <div class="relative w-full" data-scroll-sync="client-orders-table">
+        <div class="sticky top-0 z-30 bg-gray-100 dark:bg-gray-800 hidden" data-scroll-header>
+          <div class="overflow-x-auto scrollbar-hidden" data-scroll-header-track>
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900" style="width: max-content;"></table>
+          </div>
+        </div>
+        <div class="overflow-x-auto scrollbar-hidden" style="border-radius: 10px;" data-scroll-body>
+          <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900" style="width: max-content;">
+            <thead class="bg-gray-100 dark:bg-gray-800 sticky top-0">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="order">
+                  <div class="flex items-center justify-between">
+                    <span>{t.documentos?.order || 'Order'}</span>
+                    <svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+                    </svg>
+                  </div>
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="documents">
+                  <div class="flex items-center justify-between">
+                    <span>{t.documentos?.documentsCount || 'Documents'}</span>
+                    <svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+                    </svg>
+                  </div>
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="fecha_incoterm">
+                  <div class="flex items-center justify-between">
+                    <span>{t.documentos?.deliveryDate || 'Delivery Date'}</span>
+                    <svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+                    </svg>
+                  </div>
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="fecha_etd_factura">
+                  <div class="flex items-center justify-between">
+                    <span>{t.documentos?.fechaEtdFactura || 'ETD Invoice'}</span>
+                    <svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+                    </svg>
+                  </div>
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="fecha_eta_factura">
+                  <div class="flex items-center justify-between">
+                    <span>{t.documentos?.fechaEtaFactura || 'ETA Invoice'}</span>
+                    <svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+                    </svg>
+                  </div>
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="incoterm">
+                  <div class="flex items-center justify-between">
+                    <span>{t.documentos?.incoterm || 'Incoterm'}</span>
+                    <svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+                    </svg>
+                  </div>
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="shipping">
+                  <div class="flex items-center justify-between">
+                    <span>{t.documentos?.shippingMethod || 'Shipping'}</span>
+                    <svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+                    </svg>
+                  </div>
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="puerto_destino">
+                  <div class="flex items-center justify-between">
+                    <span>{t.documentos?.puertoDestino || 'Port'}</span>
+                    <svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+                    </svg>
+                  </div>
+                </th>
+                <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 sticky right-0 z-20 min-w-[120px]">{t.comond?.actions || 'Actions'}</th>
+              </tr>
+            </thead>
+            <tbody id="orders-grid" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-xs min-h-[600px]">
+              <!-- Los datos se cargarán dinámicamente con JavaScript -->
+              <tr id="loadingRow" class="bg-white dark:bg-gray-900">
+                <td colspan="9" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                  <div class="flex items-center justify-center">
+                    <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    {t.documentos?.loading || 'Loading...'}
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="sticky bottom-0 z-40 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm hidden" data-scrollbar>
+          <div class="overflow-x-auto" data-scrollbar-track>
+            <div class="h-1" data-scrollbar-inner></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <style>
+      .scrollbar-hidden {
+        scrollbar-width: none;
+      }
+      .scrollbar-hidden::-webkit-scrollbar {
+        height: 0;
+      }
+      .sticky-scrollbar-floating {
+        position: fixed;
+        bottom: 0;
+      }
+      .sticky-scroll-header-floating {
+        position: fixed;
+        top: 64px;
+      }
+    </style>
+
+    <!-- Paginación -->
+    <div class="mt-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-6 text-sm">
+      <div class="flex items-center gap-3">
+        <span id="orders-pagination-info" class="text-sm text-gray-700 dark:text-gray-300"></span>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button id="orders-prev-btn" aria-label="Previous page" class="text-xs w-9 h-9 flex items-center justify-center bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-100 rounded-md transition disabled:opacity-50 disabled:cursor-not-allowed">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <div id="orders-page-numbers" class="flex items-center gap-2"></div>
+        <button id="orders-next-btn" aria-label="Next page" class="text-xs w-9 h-9 flex items-center justify-center bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-100 rounded-md transition disabled:opacity-50 disabled:cursor-not-allowed">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div id="notification" class="hidden fixed top-5 right-5 px-6 py-4 rounded-lg shadow-lg z-50 text-white text-base font-semibold transition-all duration-300 ease-in-out"></div>
+  </section>
+
+  <!-- Modal de Items -->
+  <div id="itemsModal" class="fixed inset-0 bg-black bg-opacity-50 dark:bg-black/80 hidden justify-center items-center z-50">
+    <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 w-full max-w-4xl mx-4 relative max-h-[90vh] overflow-y-auto shadow-2xl">
+      <button id="closeItemsModalBtn" class="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition dark:text-gray-300 dark:hover:text-red-400">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+
+      <div class="flex items-center gap-4 mb-6">
+        <div class="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+          <span id="itemsInitials">IT</span>
+        </div>
+        <div>
+          <h2 id="itemsOrderTitle" class="text-xl font-bold text-gray-900 dark:text-gray-100"></h2>
+          <p id="itemsCustomerName" class="text-sm text-gray-600 dark:text-gray-400"></p>
+          <p id="itemsOrderSubtitle" class="text-sm text-gray-600 dark:text-gray-400">Items list</p>
+        </div>
+      </div>
+
+      <div class="overflow-hidden rounded-xl shadow ring-1 ring-gray-200 dark:ring-gray-700">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+          <thead class="bg-gray-100 dark:bg-gray-800 sticky top-0 z-10">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Item Code</th>
+              <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Item Name</th>
+              <th data-column="quantity" class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Quantity</th>
+              <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Unit Price</th>
+              <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Total</th>
+            </tr>
+          </thead>
+          <tbody id="itemsTableBody" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-xs"></tbody>
+        </table>
+      </div>
+
+      <div class="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Total items</p>
+            <p id="totalItems" class="text-lg font-bold text-gray-900 dark:text-gray-100">0</p>
+          </div>
+          <div>
+            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Total quantity</p>
+            <p id="totalQuantity" class="text-lg font-bold text-gray-900 dark:text-gray-100">0</p>
+          </div>
+          <div>
+            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Additional cost</p>
+            <p id="totalGastoAdicional" class="text-lg font-bold text-orange-600 dark:text-orange-400">$0</p>
+          </div>
+          <div>
+            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Total value</p>
+            <p id="totalValue" class="text-lg font-bold text-green-600 dark:text-green-400">$0</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Documentos -->
+  <div id="docsModal" class="fixed inset-0 bg-black bg-opacity-50 dark:bg-black/80 hidden flex justify-center items-center z-50">
+    <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 w-full max-w-4xl mx-4 relative max-h-[90vh] overflow-y-auto shadow-2xl">
+      <button id="closeDocsModalBtn" class="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition dark:text-gray-300 dark:hover:text-red-400">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+
+      <div class="flex items-center gap-4 mb-6">
+        <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+          <span id="docsInitials">DC</span>
+        </div>
+        <div>
+          <h2 id="docsOrderTitle" class="text-xl font-bold text-gray-900 dark:text-gray-100"></h2>
+          <p id="docsCustomerName" class="text-sm text-gray-600 dark:text-gray-400"></p>
+          <p id="docsOrderSubtitle" class="text-sm text-gray-600 dark:text-gray-400">Documents list</p>
+        </div>
+      </div>
+
+      <div class="overflow-hidden rounded-xl shadow ring-1 ring-gray-200 dark:ring-gray-700">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+          <thead class="bg-gray-100 dark:bg-gray-800 sticky top-0 z-10">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Name</th>
+              <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Type</th>
+              <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Status</th>
+              <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Created</th>
+              <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="docsListBody" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-xs">
+            <!-- Documentos se cargarán dinámicamente -->
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -61,12 +349,19 @@ try {
   <EmailModal />
 
   <!-- Configuración para JavaScript -->
-  <script define:vars={{ apiBase, orders, fileServer, translations, lang }}>
-    window.apiBase = apiBase || 'http://localhost:3000';
+  <script define:vars={{ apiBase, apiPublic, orders, fileServer, t, lang }}>
+    // Set global variables for the document-center.js script
+    window.apiBase = apiPublic || 'http://localhost:3000';
     window.fileServer = fileServer || 'http://localhost:8080';
     window.orders = orders || [];
-    window.translations = { ...(window.translations || {}), ...(translations || {}) };
+    window.translations = { ...(window.translations || {}), ...t };
     window.lang = lang || 'es';
+    
+    // Debug logging
+    console.log('[Documents Page] Configuration loaded');
+    console.log('[Documents Page] Orders count:', window.orders.length);
+    console.log('[Documents Page] API Base:', window.apiBase);
+    console.log('[Documents Page] Sample order:', window.orders[0]);
   </script>
 
   <!-- Lógica -->

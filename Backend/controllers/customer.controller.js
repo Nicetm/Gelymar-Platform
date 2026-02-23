@@ -1,8 +1,10 @@
 const { container } = require('../config/container');
 const customerService = container.resolve('customerService');
 const userService = container.resolve('userService');
+const passwordService = container.resolve('passwordService');
 const { logger } = require('../utils/logger');
-const bcrypt = require('bcrypt');
+const { normalizeRut } = require('../utils/rut.util');
+const { t } = require('../i18n');
 
 /**
  * @route GET /api/customers
@@ -22,7 +24,7 @@ exports.getAllCustomers = async (req, res) => {
     res.json(customers);
   } catch (error) {
     logger.error(`[getAllCustomers] Error: ${error.message}`);
-    res.status(500).json({ message: 'Error al obtener clientes desde la base de datos' });
+    res.status(500).json({ message: t('errors.get_customers_error', req.lang || 'es') });
   }
 };
 
@@ -37,11 +39,11 @@ exports.getCustomerById = async (req, res) => {
     const customer = await customerService.getCustomerById(id);
 
     if (!customer) {
-      return res.status(404).json({ message: 'Cliente no encontrado' });
+      return res.status(404).json({ message: t('errors.customer_not_found', req.lang || 'es') });
     }
     res.json(customer);
   } catch (error) {
-    res.status(500).json({ message: 'Error al obtener cliente desde la base de datos' });
+    res.status(500).json({ message: t('errors.get_customer_error', req.lang || 'es') });
   }
 };
 
@@ -51,20 +53,29 @@ exports.getCustomerById = async (req, res) => {
  * @access Protegido (requiere JWT)
  */
 exports.getCustomerByRut = async (req, res) => {
-  const rut = req.params.rut || req.params.uuid;
-
-  try {
+    const rut = req.params.rut || req.params.uuid;
+  
+    try {
+    const user = req.user || {};
+    const userRole = String(user.role || '').toLowerCase();
+    if (userRole === 'seller' || user.role_id === 3) {
+      const allowed = await customerService.sellerHasAccessToCustomerRut(user.rut, rut);
+      if (!allowed) {
+        logger.warn(`[getCustomerByRut] acceso denegado role=${userRole || 'seller'} user=${user.rut || 'N/A'} rut=${rut || 'N/A'} path=${req.originalUrl || req.path}`);
+        return res.status(403).json({ message: t('errors.access_denied', req.lang || 'es') });
+      }
+    }
     logger.info(`[getCustomerByRut] request rut=${rut || 'N/A'}`);
     const customer = await customerService.getCustomerByRutFromSql(rut);
-
-    if (!customer) {
+  
+      if (!customer) {
       logger.warn(`[getCustomerByRut] Cliente no encontrado RUT: ${rut || 'N/A'}`);
-      return res.status(404).json({ message: 'Cliente no encontrado' });
+      return res.status(404).json({ message: t('errors.customer_not_found', req.lang || 'es') });
     }
     res.json(customer);
   } catch (error) {
     logger.error(`[getCustomerByRut] Error obteniendo cliente RUT=${rut || 'N/A'}: ${error.message}`);
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: t('errors.internal_server_error', req.lang || 'es') });
   }
 };
 
@@ -79,28 +90,37 @@ exports.createCustomerContact = async (req, res) => {
   logger.info(`[createCustomerContact] payload rut=${customer_rut || 'N/A'} contactsType=${Array.isArray(contacts) ? 'array' : typeof contacts}`);
   if (!customer_rut || !Array.isArray(contacts) || contacts.length === 0) {
     logger.warn(`[createCustomerContact] invalid payload rut=${customer_rut || 'N/A'} contactsLength=${Array.isArray(contacts) ? contacts.length : 'N/A'}`);
-    return res.status(400).json({ message: 'Debe enviar el customer_rut y al menos un contacto' });
+    return res.status(400).json({ message: t('errors.customer_rut_contacts_required', req.lang || 'es') });
   }
 
   try {
     await customerService.createCustomerContacts(customer_rut, contacts);
     logger.info(`[createCustomerContact] contacts saved rut=${customer_rut} count=${contacts.length}`);
-    res.status(201).json({ message: 'Contactos creados correctamente' });
+    res.status(201).json({ message: t('success.contacts_created', req.lang || 'es') });
   } catch (error) {
     logger.error(`[createCustomerContact] Error rut=${customer_rut || 'N/A'}: ${error.message}`);
-    res.status(500).json({ message: 'Error al crear contactos' });
+    res.status(500).json({ message: t('errors.create_contacts_error', req.lang || 'es') });
   }
 };
 
 exports.getCustomerContacts = async (req, res) => {
-  const rut = req.params.rut || req.params.uuid;
-  try {
-    const contacts = await customerService.getContactsByCustomerRut(rut);
-    res.json(contacts);
-  } catch (error) {
-    res.status(500).json({ message: 'Error al obtener contactos' });
-  }
-};
+    const rut = req.params.rut || req.params.uuid;
+    try {
+      const user = req.user || {};
+      const userRole = String(user.role || '').toLowerCase();
+      if (userRole === 'seller' || user.role_id === 3) {
+        const allowed = await customerService.sellerHasAccessToCustomerRut(user.rut, rut);
+        if (!allowed) {
+          logger.warn(`[getCustomerContacts] acceso denegado role=${userRole || 'seller'} user=${user.rut || 'N/A'} rut=${rut || 'N/A'} path=${req.originalUrl || req.path}`);
+          return res.status(403).json({ message: t('errors.access_denied', req.lang || 'es') });
+        }
+      }
+      const contacts = await customerService.getContactsByCustomerRut(rut);
+      res.json(contacts);
+    } catch (error) {
+      res.status(500).json({ message: t('errors.get_contacts_error', req.lang || 'es') });
+    }
+  };
 
 /**
  * @route DELETE /api/customers/contacts/:contactId
@@ -111,14 +131,14 @@ exports.deleteCustomerContact = async (req, res) => {
   const customerRut = req.params.customerRut || req.params.customerUuid;
   const contactIdx = Number(req.params.contactIdx ?? req.params.contactId);
   if (!Number.isInteger(contactIdx)) {
-    return res.status(400).json({ message: 'contactId inválido' });
+    return res.status(400).json({ message: t('errors.invalid_contact_id', req.lang || 'es') });
   }
   
   try {
     await customerService.deleteCustomerContact(customerRut, contactIdx);
-    res.json({ message: 'Contacto eliminado correctamente' });
+    res.json({ message: t('success.contact_deleted', req.lang || 'es') });
   } catch (error) {
-    res.status(500).json({ message: error.message || 'Error al eliminar contacto' });
+    res.status(500).json({ message: error.message || t('errors.delete_contact_error', req.lang || 'es') });
   }
 };
 
@@ -130,12 +150,12 @@ exports.updateCustomerContact = async (req, res) => {
   logger.info(`[updateCustomerContact] request rut=${customerRut || 'N/A'} contactIdx=${req.params.contactIdx || req.params.contactId || 'N/A'} name=${nombre ? 'Y' : 'N'} email=${email ? 'Y' : 'N'}`);
   if (!Number.isInteger(contactIdx)) {
     logger.warn(`[updateCustomerContact] invalid contactId=${req.params.contactIdx || req.params.contactId || 'N/A'} rut=${customerRut || 'N/A'}`);
-    return res.status(400).json({ message: 'contactId inválido' });
+    return res.status(400).json({ message: t('errors.invalid_contact_id', req.lang || 'es') });
   }
 
   if (!nombre || !email) {
     logger.warn(`[updateCustomerContact] missing fields rut=${customerRut || 'N/A'} nombre=${nombre ? 'Y' : 'N'} email=${email ? 'Y' : 'N'}`);
-    return res.status(400).json({ message: 'El nombre y el email son obligatorios' });
+    return res.status(400).json({ message: t('errors.name_email_required', req.lang || 'es') });
   }
 
   try {
@@ -148,10 +168,10 @@ exports.updateCustomerContact = async (req, res) => {
       cco
     });
 
-    res.json({ message: 'Contacto actualizado correctamente', contact: updated });
+    res.json({ message: t('success.contact_updated', req.lang || 'es'), contact: updated });
   } catch (error) {
     logger.error(`[updateCustomerContact] Error rut=${customerRut || 'N/A'} contactIdx=${contactIdx}: ${error.message}`);
-    res.status(500).json({ message: error.message || 'Error al actualizar contacto' });
+    res.status(500).json({ message: error.message || t('errors.update_contact_error', req.lang || 'es') });
   }
 };
 
@@ -168,12 +188,12 @@ exports.updateCustomer = async (req, res) => {
     const updatedCustomer = await customerService.updateCustomerByRut(rut, updateData);
     
     if (!updatedCustomer) {
-      return res.status(404).json({ message: 'Cliente no encontrado' });
+      return res.status(404).json({ message: t('errors.customer_not_found', req.lang || 'es') });
     }
 
     res.json(updatedCustomer);
   } catch (error) {
-    res.status(500).json({ message: 'Error al actualizar cliente' });
+    res.status(500).json({ message: t('errors.update_customer_error', req.lang || 'es') });
   }
 };
 
@@ -185,7 +205,7 @@ exports.updateCustomer = async (req, res) => {
 exports.changeCustomerPassword = async (req, res) => {
   const rawRut = req.params.rut || req.params.uuid;
   const rut = rawRut ? String(rawRut).trim() : rawRut;
-  const normalizedRut = rut ? rut.replace(/C$/i, '') : rut;
+  const normalizedRut = rut ? normalizeRut(rut) : rut;
   const { password } = req.body;
   
   try {
@@ -193,18 +213,14 @@ exports.changeCustomerPassword = async (req, res) => {
     // Validar que se proporcione la contraseña
     if (!password) {
       logger.warn(`[changeCustomerPassword] missing password rut=${rut || 'N/A'}`);
-      return res.status(400).json({ message: 'La contraseña es requerida' });
+      return res.status(400).json({ message: t('errors.password_required', req.lang || 'es') });
     }
   
-    const isStrongPassword =
-      password.length >= 8 &&
-      /[A-Z]/.test(password) &&
-      /[a-z]/.test(password) &&
-      /[0-9]/.test(password);
-    if (!isStrongPassword) {
+    const validation = passwordService.validatePasswordStrength(password, req.lang || 'es');
+    if (!validation.valid) {
       logger.warn(`[changeCustomerPassword] weak password rut=${rut || 'N/A'}`);
       return res.status(400).json({
-        message: 'La contraseña debe tener al menos 8 caracteres e incluir mayúscula, minúscula y número'
+        message: validation.message
       });
     }
 
@@ -212,38 +228,25 @@ exports.changeCustomerPassword = async (req, res) => {
     const customer = await customerService.getCustomerByRutFromSql(rut);
     if (!customer) {
       logger.warn(`[changeCustomerPassword] customer not found rut=${rut || 'N/A'}`);
-      return res.status(404).json({ message: 'Cliente no encontrado' });
+      return res.status(404).json({ message: t('errors.customer_not_found', req.lang || 'es') });
     }
 
-    // Buscar el usuario asociado (users.rut = clientes en SQL: jor_imp_CLI_01_softkey.Rut)
-    const { poolPromise } = require('../config/db');
-    const pool = await poolPromise;
-    
-    const [users] = await pool.query(
-      'SELECT id, rut FROM users WHERE rut = ?',
-      [normalizedRut || customer.rut]
-    );
-
-    if (users.length === 0) {
+    // Buscar el usuario asociado
+    const user = await userService.findUserByEmailOrUsername(normalizedRut || customer.rut);
+    if (!user) {
       logger.warn(`[changeCustomerPassword] user not found for rut=${normalizedRut || customer.rut}`);
-      return res.status(404).json({ message: 'Usuario no encontrado para este cliente' });
+      return res.status(404).json({ message: t('errors.user_not_found_for_customer', req.lang || 'es') });
     }
 
-    const user = users[0];
+    const result = await passwordService.resetPassword(user.id, password, req.lang || 'es');
+    if (!result.success) {
+      return res.status(400).json({ message: result.message });
+    }
 
-    // Hashear la nueva contraseña
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Actualizar la contraseña en la base de datos
-    await pool.query(
-      'UPDATE users SET password = ?, change_pw = 1 WHERE id = ?',
-      [hashedPassword, user.id]
-    );
-
-    res.json({ message: 'Contraseña actualizada exitosamente' });
+    res.json({ message: t('success.password_updated_successfully', req.lang || 'es') });
 
   } catch (error) {
-    res.status(500).json({ message: 'Error al cambiar contraseña' });
+    res.status(500).json({ message: t('errors.change_password_error', req.lang || 'es') });
   }
 };
 
@@ -253,12 +256,12 @@ exports.changeCustomerPassword = async (req, res) => {
  * @access Protegido (requiere JWT)
  */
 exports.getCustomersWithoutAccount = async (req, res) => {
-
   try {
     const customers = await customerService.getCustomersWithoutAccount();
     res.json({ customers });
   } catch (error) {
-    res.status(500).json({ message: 'Error al obtener clientes sin cuenta desde la base de datos' });
+    logger.error(`[getCustomersWithoutAccount] Error: ${error.message}`);
+    res.status(500).json({ message: t('errors.get_customers_without_account_error', req.lang || 'es') });
   }
 };
 
@@ -274,19 +277,16 @@ exports.createCustomerAccount = async (req, res) => {
     const customer = await customerService.getCustomerByRut(requestedRut);
     if (!customer) {
       logger.warn(`[createCustomerAccount] Cliente no encontrado rut=${requestedRut || 'N/A'}`);
-      return res.status(404).json({ message: 'Cliente no encontrado' });
+      return res.status(404).json({ message: t('errors.customer_not_found', req.lang || 'es') });
     }
     
     const bcrypt = require('bcrypt');
-    // userService ya provisto por DI
     
     // Generar contraseña por defecto
     const defaultPassword = '123456';
     const hashedPassword = await bcrypt.hash(defaultPassword, 10);
     
-    // Crear usuario usando el servicio
-    
-    const normalizedRut = customer?.rut ? String(customer.rut).trim().replace(/C$/i, '') : '';
+    const normalizedRut = customer?.rut ? normalizeRut(customer.rut) : '';
     const userData = {
       rut: normalizedRut,
       password: hashedPassword,
@@ -302,13 +302,14 @@ exports.createCustomerAccount = async (req, res) => {
     logger.info(`[createCustomerAccount] user created id=${userId} rut=${userData.rut || 'N/A'}`);
     
     res.json({ 
-      message: 'Cuenta creada exitosamente',
+      message: t('success.account_created', req.lang || 'es'),
       userId: userId,
       customerName: customer.name,
       customerRut: customer.rut
     });
     
   } catch (error) {
-    res.status(500).json({ message: 'Error al crear cuenta de cliente' });
+    logger.error(`[createCustomerAccount] Error: ${error.message}`);
+    res.status(500).json({ message: t('errors.create_customer_account_error', req.lang || 'es') });
   }
 };

@@ -1,3 +1,5 @@
+import { confirmAction } from './utils.js';
+
 export function initUserMenu(config = {}) {
   const {
     apiBase = '',
@@ -6,7 +8,20 @@ export function initUserMenu(config = {}) {
 
   if (typeof window === 'undefined') return;
 
-  const API_BASE = apiBase || window.apiBase || '';
+  const resolveApiBase = (base) => {
+    if (!base || typeof window === 'undefined') return base || '';
+    try {
+      const parsed = new URL(base, window.location.origin);
+      if (parsed.hostname === 'backend') {
+        return `${window.location.protocol}//${window.location.hostname}:3000`;
+      }
+      return parsed.toString();
+    } catch {
+      return base;
+    }
+  };
+
+  const API_BASE = resolveApiBase(apiBase || window.apiBase || '');
   const FILE_SERVER = fileServer || window.fileServer || '';
 
   const translations = window.translations || {};
@@ -51,8 +66,52 @@ export function initUserMenu(config = {}) {
   /** @type {HTMLImageElement|null} */
   const avatarEl = document.querySelector('#userAvatar');
 
+  const setLogoutLoading = (isLoading) => {
+    if (!logoutButton) return;
+    const originalLabel = logoutButton.dataset.originalLabel || logoutButton.textContent.trim();
+    if (!logoutButton.dataset.originalLabel) {
+      logoutButton.dataset.originalLabel = originalLabel;
+    }
+    logoutButton.disabled = isLoading;
+    logoutButton.classList.toggle('opacity-70', isLoading);
+    logoutButton.classList.toggle('cursor-not-allowed', isLoading);
+    if (isLoading) {
+      logoutButton.innerHTML = `
+        <span class="inline-flex items-center gap-2">
+          <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+          </svg>
+          <span>Desconectando...</span>
+        </span>
+      `;
+    } else {
+      logoutButton.textContent = logoutButton.dataset.originalLabel || originalLabel;
+    }
+  };
+
   if (logoutButton) {
     logoutButton.addEventListener('click', async () => {
+      const translations = window.translations || {};
+      const comond = translations.comond || {};
+      const usermenu = translations.usermenu || {};
+      const title = typeof usermenu?.sign_out_title === 'string'
+        ? usermenu.sign_out_title
+        : 'Confirmar salida';
+      const message = typeof usermenu?.sign_out_confirm === 'string'
+        ? usermenu.sign_out_confirm
+        : '¿Seguro que deseas salir de la sesión?';
+
+      const confirmed = await confirmAction(title, message, 'warning', {
+        confirmButtonText: comond.confirm || 'Confirmar',
+        cancelButtonText: comond.cancel || 'Cancelar',
+      });
+
+      if (!confirmed) {
+        return;
+      }
+
+      setLogoutLoading(true);
       try {
         const token = localStorage.getItem('token');
 
@@ -79,6 +138,8 @@ export function initUserMenu(config = {}) {
       } catch (err) {
         console.error('Error logging out:', err);
         window.location.href = '/authentication/sign-in';
+      } finally {
+        setLogoutLoading(false);
       }
     });
   }

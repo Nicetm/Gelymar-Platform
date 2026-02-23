@@ -26,6 +26,13 @@ export function initAuthGuard(config = {}) {
         throw new Error('Token sin datos requeridos');
       }
 
+      if (payload?.exp) {
+        const expirationTime = payload.exp * 1000;
+        if (Date.now() >= expirationTime) {
+          throw new Error('Token expirado');
+        }
+      }
+
       if (requiredRole) {
         // En este punto solo podríamos comprobar que existe el rol en el payload.
         // La validación exhaustiva sigue siendo responsabilidad del backend.

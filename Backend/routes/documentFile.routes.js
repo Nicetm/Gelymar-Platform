@@ -44,7 +44,7 @@ router.get('/temp-view/:token', controller.tempViewFile);
 // view-with-token valida el token de query en el controlador; se expone sin auth aquí
 router.get('/view-with-token/:id', controller.viewWithToken);
 router.get('/download/:id', authMiddleware, controller.downloadFile);
-router.get('/:customerRut', authMiddleware, authorizeRoles(['admin', 'client']), controller.getFilesByCustomerAndFolder);
+router.get('/:customerRut', authMiddleware, authorizeRoles(['admin', 'seller', 'client']), controller.getFilesByCustomerAndFolder);
 
 /**
  * @swagger

@@ -4,6 +4,8 @@ const speakeasy = require('speakeasy');
 const qrcode = require('qrcode');
 const { container } = require('../config/container');
 const userService = container.resolve('userService');
+const passwordService = container.resolve('passwordService');
+const authService = container.resolve('authService');
 const fs = require('fs');
 const path = require('path');
 const Handlebars = require('handlebars');
@@ -12,17 +14,8 @@ const { generateToken } = require('../utils/jwt.util');
 const { sendEmail } = require('../utils/email.util');
 const { logger } = require('../utils/logger');
 const { normalizeRole } = require('../utils/role.util');
-const mysqlPoolPromise = container.resolve('mysqlPoolPromise');
+const { t } = require('../i18n');
 const MAX_LOGIN_ATTEMPTS = 5;
-
-const isStrongPassword = (value) => {
-  if (typeof value !== 'string') return false;
-  if (value.length < 8) return false;
-  if (!/[A-Z]/.test(value)) return false;
-  if (!/[a-z]/.test(value)) return false;
-  if (!/[0-9]/.test(value)) return false;
-  return true;
-};
 
 const verifyRecaptcha = async (token) => {
   const secret = process.env.RECAPTCHA_SECRET_KEY;
@@ -102,12 +95,24 @@ const extractTwoFAPayload = (req) => {
     const { email, username, password, otp, captchaResponse } = req.body;
     const identifier = email || username;
 
-  const captchaValid = await verifyRecaptcha(captchaResponse);
-  /*
-  if (!captchaValid) {
+  // Verificar si recaptcha está habilitado
+  let recaptchaEnabled = true;
+  try {
+    const configService = require('../services/config.service');
+    const config = await configService.getConfigByName('setRecapchaLogin');
+    recaptchaEnabled = config?.params?.enable === 1;
+  } catch (error) {
+    logger.warn(`Error obteniendo config de recaptcha: ${error.message}`);
+  }
+
+  // Solo validar recaptcha si está habilitado
+  if (recaptchaEnabled) {
+    const captchaValid = await verifyRecaptcha(captchaResponse);
+    if (!captchaValid) {
       logger.warn(`Failed captcha verification for ${identifier}`);
-    return res.status(400).json({ message: 'Captcha verification failed' });
-  }*/
+      return res.status(400).json({ message: t('auth.captcha_failed', req.lang || 'es') });
+    }
+  }
 
     logger.info(`Intento de login para: ${identifier}`);
 
@@ -115,13 +120,13 @@ const extractTwoFAPayload = (req) => {
     const user = await userService.findUserByEmailOrUsername(identifier);
     if (!user) {
       logger.warn(`Usuario no encontrado: ${identifier}`);
-      return res.status(401).json({ message: 'Usuario o clave incorrecta' });
+      return res.status(401).json({ message: t('auth.invalid_credentials', req.lang || 'es') });
     }
 
     if (Number(user.bloqueado) === 1) {
       logger.warn(`Usuario bloqueado: ${identifier}`);
       return res.status(403).json({
-        message: 'Tu cuenta ha sido bloqueada por intentos fallidos. Por favor contacta con un administrador',
+        message: t('auth.account_blocked', req.lang || 'es'),
         error: 'ACCOUNT_BLOCKED'
       });
     }
@@ -130,49 +135,27 @@ const extractTwoFAPayload = (req) => {
     if (!validPassword) {
       logger.warn(`Contraseña incorrecta para usuario: ${identifier}`);
       try {
-        const pool = await mysqlPoolPromise;
-        await pool.query(
-          `
-            UPDATE users
-            SET
-              intentos_fallidos = LEAST(COALESCE(intentos_fallidos, 0) + 1, 999),
-              bloqueado = CASE
-                WHEN COALESCE(intentos_fallidos, 0) + 1 >= ? THEN 1
-                ELSE bloqueado
-              END
-            WHERE id = ?
-          `,
-          [MAX_LOGIN_ATTEMPTS, user.id]
-        );
-          const [rows] = await pool.query(
-            'SELECT intentos_fallidos, bloqueado FROM users WHERE id = ?',
-            [user.id]
-          );
-          if (rows.length && Number(rows[0].bloqueado) === 1) {
-            return res.status(403).json({
-              message: 'Tu cuenta ha sido bloqueada por intentos fallidos. Por favor contacta con un administrador',
-              error: 'ACCOUNT_BLOCKED'
-            });
-          }
-          if (rows.length) {
-            const remainingAttempts = Math.max(
-              0,
-              MAX_LOGIN_ATTEMPTS - Number(rows[0].intentos_fallidos || 0)
-            );
-            return res.status(401).json({
-              message: 'Usuario o clave incorrecta',
-              remainingAttempts
-            });
-          }
-        } catch (updateError) {
-          logger.error(`Error actualizando intentos fallidos para ${identifier}: ${updateError.message}`);
+        const result = await authService.updateLoginAttempts(user.id, false);
+        
+        if (result.blocked) {
+          return res.status(403).json({
+            message: t('auth.account_blocked', req.lang || 'es'),
+            error: 'ACCOUNT_BLOCKED'
+          });
         }
+        
+        return res.status(401).json({
+          message: t('auth.invalid_credentials', req.lang || 'es'),
+          remainingAttempts: result.remainingAttempts
+        });
+      } catch (updateError) {
+        logger.error(`Error actualizando intentos fallidos para ${identifier}: ${updateError.message}`);
+      }
 
-        return res.status(401).json({ message: 'Usuario o clave incorrecta' });
+      return res.status(401).json({ message: t('auth.invalid_credentials', req.lang || 'es') });
     }
     try {
-    const pool = await mysqlPoolPromise;
-      await pool.query('UPDATE users SET intentos_fallidos = 0 WHERE id = ?', [user.id]);
+      await authService.updateLoginAttempts(user.id, true);
     } catch (resetError) {
       logger.error(`Error reseteando intentos fallidos para ${identifier}: ${resetError.message}`);
     }
@@ -180,7 +163,7 @@ const extractTwoFAPayload = (req) => {
       if (user.twoFAEnabled) {
         if (!user.twoFASecret) {
           logger.warn(`Usuario ${identifier} no enrolado en 2FA`);
-          return res.status(401).json({ message: 'Cuenta no enrolada en 2FA. Escanee el QR y configure su autenticación.' });
+          return res.status(401).json({ message: t('auth.not_enrolled_2fa', req.lang || 'es') });
         }
 
         if (!otp) {
@@ -196,7 +179,7 @@ const extractTwoFAPayload = (req) => {
         );
 
         return res.status(401).json({
-          message: 'twofa_required',
+          message: t('auth.2fa_required', req.lang || 'es'),
           requires2FA: true,
           twoFAToken
         });
@@ -211,7 +194,7 @@ const extractTwoFAPayload = (req) => {
 
         if (!verified) {
           logger.warn(`Código 2FA inválido para usuario ${identifier}`);
-          return res.status(401).json({ message: 'Código de autenticación inválido' });
+          return res.status(401).json({ message: t('auth.invalid_2fa_code', req.lang || 'es') });
         }
       }
 
@@ -265,7 +248,7 @@ const extractTwoFAPayload = (req) => {
 
   } catch (err) {
     logger.error(`Error en login: ${err.message}`);
-    res.status(500).json({ message: 'Error interno' });
+    res.status(500).json({ message: t('auth.login_error', req.lang || 'es') });
   }
 }
 
@@ -281,14 +264,14 @@ exports.refreshToken = async (req, res) => {
     
       const decodedRut = decoded?.rut || decoded?.email;
       if (!decoded || !decodedRut) {
-        return res.status(400).json({ message: 'Token inválido - sin rut' });
+        return res.status(400).json({ message: t('auth.invalid_token_no_rut', req.lang || 'es') });
       }
       
       const user = await userService.findUserByEmailOrUsername(decodedRut);
     
       if (!user) {
         logger.warn(`Usuario no encontrado en refresh: ${decodedRut}`);
-        return res.status(404).json({ message: 'Usuario no encontrado' });
+        return res.status(404).json({ message: t('errors.user_not_found', req.lang || 'es') });
       }
 
     const normalizedRole = normalizeRole(user.role, user.role_id);
@@ -316,7 +299,7 @@ exports.refreshToken = async (req, res) => {
     res.status(200).json({ token: newToken });
   } catch (error) {
     logger.error(`Error en refreshToken: ${error.message}`);
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: t('auth.refresh_error', req.lang || 'es') });
   }
 };
 
@@ -330,7 +313,7 @@ exports.setup2FA = async (req, res) => {
 
   if (!payload) {
     logger.warn('Intento de acceso a setup2FA sin token válido');
-    return res.status(401).json({ message: 'Autenticación 2FA requerida' });
+    return res.status(401).json({ message: t('auth.2fa_auth_required', req.lang || 'es') });
   }
 
   try {
@@ -338,7 +321,7 @@ exports.setup2FA = async (req, res) => {
     const user = await userService.findUserByEmailOrUsername(identifier);
     if (!user || user.id !== payload.id) {
       logger.warn(`Token 2FA no coincide con usuario solicitado: ${identifier}`);
-      return res.status(403).json({ message: 'Token 2FA inválido' });
+      return res.status(403).json({ message: t('auth.invalid_2fa_token', req.lang || 'es') });
     }
 
     if (user.twoFASecret) {
@@ -353,7 +336,7 @@ exports.setup2FA = async (req, res) => {
       return qrcode.toDataURL(otpauthUrl, (err, dataURL) => {
         if (err) {
           logger.error(`Error generando QR en setup2FA: ${err.message}`);
-          return res.status(500).json({ message: 'Error generando QR' });
+          return res.status(500).json({ message: t('auth.qr_generation_error', req.lang || 'es') });
         }
         return res.json({ qr: dataURL });
       });
@@ -365,7 +348,7 @@ exports.setup2FA = async (req, res) => {
     qrcode.toDataURL(secret.otpauth_url, (err, dataURL) => {
       if (err) {
         logger.error(`Error generando QR nuevo en setup2FA: ${err.message}`);
-        return res.status(500).json({ message: 'Error generando QR' });
+        return res.status(500).json({ message: t('auth.qr_generation_error', req.lang || 'es') });
       }
         logger.info(`Nuevo 2FA enrolado para usuario ${user.rut}`);
       return res.json({ qr: dataURL, secret: secret.base32 });
@@ -373,7 +356,7 @@ exports.setup2FA = async (req, res) => {
 
   } catch (err) {
     logger.error(`Error general en setup2FA: ${err.message}`);
-    res.status(500).json({ message: 'Error interno' });
+    res.status(500).json({ message: t('auth.login_error', req.lang || 'es') });
   }
 };
 
@@ -386,7 +369,7 @@ exports.check2FAStatus = async (req, res) => {
 
   if (!payload) {
     logger.warn('Intento de acceso a check2FAStatus sin token válido');
-    return res.status(401).json({ message: 'Autenticación 2FA requerida' });
+    return res.status(401).json({ message: t('auth.2fa_auth_required', req.lang || 'es') });
   }
 
   try {
@@ -394,7 +377,7 @@ exports.check2FAStatus = async (req, res) => {
       const user = await userService.findUserByEmailOrUsername(identifier);
       if (!user || user.id !== payload.id) {
         logger.warn(`Token 2FA no coincide con usuario solicitado: ${identifier}`);
-        return res.status(403).json({ message: 'Token 2FA inválido' });
+        return res.status(403).json({ message: t('auth.invalid_2fa_token', req.lang || 'es') });
       }
 
       logger.info(`Consulta de 2FA para usuario ${identifier}`);
@@ -406,7 +389,7 @@ exports.check2FAStatus = async (req, res) => {
 
   } catch (err) {
     logger.error(`Error general en check2FAStatus: ${err.message}`);
-    res.status(500).json({ message: 'Error interno' });
+    res.status(500).json({ message: t('auth.login_error', req.lang || 'es') });
   }
 };
 
@@ -423,18 +406,18 @@ exports.recoverPassword = async (req, res) => {
       const isHuman = await verifyRecaptcha(captchaResponse);
       if (!isHuman) {
         logger.warn(`Recaptcha invalido en recoverPassword: ${email}`);
-        return res.status(400).json({ message: 'Captcha invalido' });
+        return res.status(400).json({ message: t('auth.invalid_captcha', req.lang || 'es') });
       }
       const user = await userService.findUserForPasswordRecovery(email);
       if (!user) {
         logger.warn(`Usuario no encontrado en recoverPassword: ${email}`);
-        return res.status(404).json({ message: 'Usuario no encontrado' });
+        return res.status(404).json({ message: t('auth.user_not_found_recovery', req.lang || 'es') });
     }
 
       const recipientEmail = user.admin_email || user.customer_email;
       if (!recipientEmail) {
         logger.warn(`Email real no encontrado para recoverPassword: ${email}`);
-        return res.status(404).json({ message: 'Email no encontrado para la cuenta' });
+        return res.status(404).json({ message: t('auth.email_not_found', req.lang || 'es') });
       }
 
       const token = jwt.sign({ userId: user.id, email }, process.env.JWT_SECRET, { expiresIn: '15m' });
@@ -450,11 +433,11 @@ exports.recoverPassword = async (req, res) => {
       });
 
       logger.info(`Correo de recuperación enviado a ${recipientEmail}`);
-    res.json({ message: 'Correo enviado con instrucciones' });
+    res.json({ message: t('auth.recovery_email_sent', req.lang || 'es') });
 
   } catch (err) {
     logger.error(`Error en recoverPassword: ${err.message}`);
-    res.status(500).json({ message: 'Error interno' });
+    res.status(500).json({ message: t('auth.recovery_error', req.lang || 'es') });
   }
 };
 
@@ -467,12 +450,13 @@ exports.recoverPassword = async (req, res) => {
     const { token, newPassword, captchaResponse } = req.body;
     if (!token || !newPassword) {
       logger.warn('Faltan datos en resetPassword');
-      return res.status(400).json({ message: 'Faltan datos' });
+      return res.status(400).json({ message: t('auth.missing_data', req.lang || 'es') });
     }
   
-    if (!isStrongPassword(newPassword)) {
+    const validation = passwordService.validatePasswordStrength(newPassword, req.lang || 'es');
+    if (!validation.valid) {
       return res.status(400).json({
-        message: 'La contraseña debe tener al menos 8 caracteres e incluir mayúscula, minúscula y número'
+        message: validation.message
       });
     }
   
@@ -480,7 +464,7 @@ exports.recoverPassword = async (req, res) => {
       const isHuman = await verifyRecaptcha(captchaResponse);
       if (!isHuman) {
         logger.warn('Recaptcha invalido en resetPassword');
-        return res.status(400).json({ message: 'Captcha invalido' });
+        return res.status(400).json({ message: t('auth.invalid_captcha', req.lang || 'es') });
       }
 
       const { email, userId } = jwt.verify(token, process.env.JWT_SECRET);
@@ -489,19 +473,20 @@ exports.recoverPassword = async (req, res) => {
         : await userService.findUserForPasswordRecovery(email);
       if (!user) {
         logger.warn(`Usuario no encontrado en resetPassword: ${email}`);
-        return res.status(404).json({ message: 'Usuario no encontrado' });
+        return res.status(404).json({ message: t('auth.user_not_found_recovery', req.lang || 'es') });
       }
 
-    const hashed = await bcrypt.hash(newPassword, 10);
-    const pool = await mysqlPoolPromise;
-    await pool.query('UPDATE users SET password = ? WHERE id = ?', [hashed, user.id]);
+    const result = await passwordService.resetPassword(user.id, newPassword, req.lang || 'es');
+    if (!result.success) {
+      return res.status(400).json({ message: result.message });
+    }
 
     logger.info(`Contraseña actualizada para ${email}`);
-    res.json({ message: 'Contraseña actualizada correctamente' });
+    res.json({ message: t('auth.password_updated', req.lang || 'es') });
 
   } catch (err) {
     logger.error(`Error en resetPassword: ${err.message}`);
-    res.status(400).json({ message: 'Token inválido o expirado' });
+    res.status(400).json({ message: t('auth.invalid_or_expired_token', req.lang || 'es') });
   }
 };
 
@@ -515,36 +500,36 @@ exports.changePassword = async (req, res) => {
   const userId = req.user.id;
 
   if (!currentPassword || !newPassword) {
-    return res.status(400).json({ message: 'Faltan datos requeridos' });
+    return res.status(400).json({ message: t('auth.missing_required_data', req.lang || 'es') });
   }
 
-  if (!isStrongPassword(newPassword)) {
+  const validation = passwordService.validatePasswordStrength(newPassword, req.lang || 'es');
+  if (!validation.valid) {
     return res.status(400).json({
-      message: 'La contraseña debe tener al menos 8 caracteres e incluir mayúscula, minúscula y número'
+      message: validation.message
     });
   }
 
   try {
     const user = await userService.findUserByEmailOrUsername(req.user.rut || req.user.email);
     if (!user) {
-      return res.status(404).json({ message: 'Usuario no encontrado' });
+      return res.status(404).json({ message: t('errors.user_not_found', req.lang || 'es') });
     }
 
-    const validPassword = await bcrypt.compare(currentPassword, user.password);
-    if (!validPassword) {
-      return res.status(401).json({ message: 'Contraseña actual incorrecta' });
+    const result = await passwordService.changePassword(userId, currentPassword, newPassword, req.lang || 'es');
+    if (!result.success) {
+      if (result.message.includes('incorrecta')) {
+        return res.status(401).json({ message: result.message });
+      }
+      return res.status(400).json({ message: result.message });
     }
-
-    const hashed = await bcrypt.hash(newPassword, 10);
-    const pool = await mysqlPoolPromise;
-    await pool.query('UPDATE users SET password = ?, change_pw = 1 WHERE id = ?', [hashed, userId]);
 
       logger.info(`Contraseña cambiada para usuario ${user.rut}`);
-    res.json({ message: 'Contraseña actualizada correctamente' });
+    res.json({ message: t('auth.password_updated', req.lang || 'es') });
 
   } catch (err) {
     logger.error(`Error en changePassword: ${err.message}`);
-    res.status(500).json({ message: 'Error interno' });
+    res.status(500).json({ message: t('auth.change_password_error', req.lang || 'es') });
   }
 };
 
@@ -570,5 +555,5 @@ exports.logout = async (req, res) => {
   
   res.clearCookie('token');
   logger.info('Sesión cerrada correctamente');
-  res.status(200).json({ message: 'Sesión cerrada correctamente' });
+  res.status(200).json({ message: t('auth.logout_success', req.lang || 'es') });
 };

@@ -27,7 +27,7 @@ const { authorizeRoles } = require('../middleware/role.middleware');
  *       404:
  *         description: Cliente no encontrado
  */
-router.get('/:customerRut', authMiddleware, authorizeRoles(['admin']), controller.getClientDirectories);
+router.get('/:customerRut', authMiddleware, authorizeRoles(['admin', 'seller', 'client']), controller.getClientDirectories);
 
 /**
  * @swagger
@@ -99,6 +99,6 @@ router.post('/create/sub', authMiddleware, authorizeRoles(['admin']), controller
  */
 router.delete('/delete/sub', authMiddleware, authorizeRoles(['admin']), controller.deleteSubDirectory);
 
-router.get('/count/:customer_id', authMiddleware, authorizeRoles(['admin']), controller.getCountDirectoryByCustomerID);
+router.get('/count/:customer_id', authMiddleware, authorizeRoles(['admin', 'seller', 'client']), controller.getCountDirectoryByCustomerID);
 
 module.exports = router;

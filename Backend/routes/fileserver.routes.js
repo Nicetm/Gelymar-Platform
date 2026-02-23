@@ -6,6 +6,7 @@ const path = require('path');
 const multer = require('multer');
 const { container } = require('../config/container');
 const monitoringService = container.resolve('monitoringService');
+const { logger } = require('../utils/logger');
 
 // Configuración de multer para subida de archivos
 const upload = multer({ dest: '/tmp/' });
@@ -72,8 +73,10 @@ router.post('/login', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('[Fileserver] Error en login:', error.message);
-        console.error('[Fileserver] Stack trace:', error.stack);
+        logger.error('[Fileserver] Error en login:', {
+            message: error.message,
+            stack: error.stack
+        });
         res.status(500).json({
             success: false,
             message: 'Error interno del servidor'
@@ -133,7 +136,10 @@ router.get('/files', verifyToken, async (req, res) => {
             files: fileList
         });
     } catch (error) {
-        console.error('Error al obtener archivos:', error);
+        logger.error('[Fileserver] Error al obtener archivos:', {
+            message: error.message,
+            stack: error.stack
+        });
         res.status(500).json({
             success: false,
             message: 'Error al obtener archivos'
@@ -166,7 +172,11 @@ router.get('/download', verifyToken, async (req, res) => {
         await fs.stat(fullPath);
         return res.sendFile(fullPath);
     } catch (error) {
-        console.error('Error al descargar archivo:', error);
+        logger.error('[Fileserver] Error al descargar archivo:', {
+            message: error.message,
+            stack: error.stack,
+            filePath: req.query?.path
+        });
         return res.status(404).json({
             success: false,
             message: 'Archivo no encontrado'
@@ -216,7 +226,11 @@ router.post('/upload', verifyToken, upload.single('file'), async (req, res) => {
             message: 'Archivo subido correctamente'
         });
     } catch (error) {
-        console.error('Error al subir archivo:', error);
+        logger.error('[Fileserver] Error al subir archivo:', {
+            message: error.message,
+            stack: error.stack,
+            fileName: req.file?.originalname
+        });
         res.status(500).json({
             success: false,
             message: 'Error al subir archivo'
@@ -255,7 +269,11 @@ router.post('/mkdir', verifyToken, async (req, res) => {
             message: 'Directorio creado correctamente'
         });
     } catch (error) {
-        console.error('Error al crear directorio:', error);
+        logger.error('[Fileserver] Error al crear directorio:', {
+            message: error.message,
+            stack: error.stack,
+            dirName: req.body?.name
+        });
         res.status(500).json({
             success: false,
             message: 'Error al crear directorio'
@@ -300,7 +318,11 @@ router.delete('/delete', verifyToken, async (req, res) => {
             message: 'Archivo eliminado correctamente'
         });
     } catch (error) {
-        console.error('Error al eliminar archivo:', error);
+        logger.error('[Fileserver] Error al eliminar archivo:', {
+            message: error.message,
+            stack: error.stack,
+            fileName: req.body?.name
+        });
         res.status(500).json({
             success: false,
             message: 'Error al eliminar archivo'

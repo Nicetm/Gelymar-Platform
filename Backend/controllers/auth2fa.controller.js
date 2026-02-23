@@ -1,8 +1,10 @@
 // controllers/auth2fa.controller.js
 const speakeasy = require('speakeasy');
 const qrcode = require('qrcode');
-const pool = require('../config/db').pool;
+const { container } = require('../config/container');
+const auth2faService = container.resolve('auth2faService');
 const { logger } = require('../utils/logger');
+const { t } = require('../i18n');
 
 /**
  * @route POST /api/auth/2fa/generate
@@ -16,15 +18,12 @@ exports.generate2FA = async (req, res) => {
   logger.info(`Generando secreto 2FA para usuario ID: ${userId}`);
 
   try {
-    await pool.query(
-      `UPDATE users SET twoFASecret = ? WHERE id = ?`,
-      [secret.base32, userId]
-    );
+    await auth2faService.update2FASecret(userId, secret.base32);
 
     qrcode.toDataURL(secret.otpauth_url, (err, data_url) => {
       if (err) {
         logger.error(`Error generando QR para usuario ID ${userId}: ${err.message}`);
-        return res.status(500).json({ message: 'Error generando QR' });
+        return res.status(500).json({ message: t('auth.qr_generation_error', req.lang || 'es') });
       }
 
       logger.info(`QR generado correctamente para usuario ID: ${userId}`);
@@ -33,7 +32,7 @@ exports.generate2FA = async (req, res) => {
 
   } catch (error) {
     logger.error(`Error guardando el secreto 2FA para usuario ID ${userId}: ${error.message}`);
-    res.status(500).json({ message: 'Error guardando el secreto en la base de datos' });
+    res.status(500).json({ message: t('auth.2fa_qr_error', req.lang || 'es') });
   }
 };
 
@@ -57,19 +56,16 @@ exports.verify2FA = async (req, res) => {
 
   if (!verified) {
     logger.warn(`Código 2FA inválido para usuario ID: ${userId}`);
-    return res.status(400).json({ message: 'Código inválido' });
+    return res.status(400).json({ message: t('auth.2fa_invalid_code', req.lang || 'es') });
   }
 
   try {
-    await pool.query(
-      'UPDATE users SET twoFAEnabled = ? WHERE id = ?',
-      [true, userId]
-    );
+    await auth2faService.enable2FA(userId);
 
     logger.info(`2FA activado con éxito para usuario ID: ${userId}`);
-    res.json({ success: true, message: '2FA verificado y activado con éxito' });
+    res.json({ success: true, message: t('auth.2fa_verified_success', req.lang || 'es') });
   } catch (error) {
     logger.error(`Error al activar 2FA para usuario ID ${userId}: ${error.message}`);
-    res.status(500).json({ message: 'Error al activar 2FA' });
+    res.status(500).json({ message: t('auth.2fa_activation_error', req.lang || 'es') });
   }
 };

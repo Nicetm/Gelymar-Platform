@@ -96,7 +96,8 @@ class MessageModel {
         body = EncryptionService.decrypt(body);
       }
     } catch (error) {
-      console.error('[MessageModel] Error desencriptando mensaje:', error.message || error);
+      const { logger } = require('../utils/logger');
+      logger.error(`[MessageModel] Error desencriptando mensaje: ${error.message || error}`);
     }
 
     return {

@@ -5,8 +5,20 @@ const crypto = require('crypto');
 const authController = require('../controllers/auth.controller');
 const authMiddleware = require('../middleware/auth.middleware');
 const { container } = require('../config/container');
+const { logger } = require('../utils/logger');
 const userService = container.resolve('userService');
 const { authValidations } = require('../middleware/validation.middleware');
+const rateLimit = require('express-rate-limit');
+
+// Rate limiter estricto para login y 2FA (prevención de fuerza bruta)
+const strictAuthLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 5, // máximo 5 intentos
+  message: { message: 'Demasiados intentos de autenticación. Intente nuevamente en 15 minutos' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true, // No contar requests exitosos
+});
 
 /**
  * @swagger
@@ -31,8 +43,8 @@ const { authValidations } = require('../middleware/validation.middleware');
  *       401:
  *         description: Credenciales inválidas
  */
-router.post('/login', authValidations.login, authController.login);
-router.get('/2fa/setup', authController.setup2FA);
+router.post('/login', strictAuthLimiter, authValidations.login, authController.login);
+router.get('/2fa/setup', strictAuthLimiter, authController.setup2FA);
 router.get('/2fa/status', authController.check2FAStatus);
 router.get('/me', authMiddleware, async (req, res) => {
     try {
@@ -61,7 +73,7 @@ router.get('/me', authMiddleware, async (req, res) => {
             avatar_path: user.avatar_path || null
         });
     } catch (error) {
-        console.error('Error en me:', error);
+        logger.error(`[AuthRoutes] Error en me: ${error.message}`);
         res.status(500).json({ message: 'Error interno' });
     }
 });

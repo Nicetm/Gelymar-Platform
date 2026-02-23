@@ -1,7 +1,7 @@
 ---
 import { loadTranslations, getServerLang } from '@lib/i18n.js';
 
-import { PUBLIC_API_URL, FILE_SERVER_URL } from '../app/constants.ts';
+import { getApiBase, FILE_SERVER_URL } from '../app/constants.ts';
 
 const lang = getServerLang(Astro.cookies);
 let t: any = {};
@@ -14,7 +14,7 @@ try {
   t = {};
 }
 
-const apiBase = PUBLIC_API_URL;       
+const apiBase = getApiBase();       
 const fileServer = FILE_SERVER_URL; 
 
 // Token se manejará en el cliente para evitar problemas de conexión desde Docker

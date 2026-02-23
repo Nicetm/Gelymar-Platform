@@ -211,5 +211,6 @@
   "documentName": "Document Name",
   "noDocs": "No documents available",
   "view": "View",
-  "createDefaultAlreadyExists": "Default files already exist for this order"
+  "createDefaultAlreadyExists": "Default files already exist for this order",
+  "loading": "Loading..."
 }

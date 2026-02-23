@@ -10,7 +10,8 @@ const getConfigByName = async (name) => {
     );
     return rows.length > 0 ? rows[0] : null;
   } catch (error) {
-    console.error('Error obteniendo configuración:', error);
+    const { logger } = require('../utils/logger');
+    logger.error(`[ConfigService] Error obteniendo configuración: ${error.message}`);
     throw error;
   }
 };
@@ -24,7 +25,8 @@ const updateConfig = async (name, params) => {
     `, [JSON.stringify(params), name]);
     return result;
   } catch (error) {
-    console.error('Error actualizando configuración:', error);
+    const { logger } = require('../utils/logger');
+    logger.error(`[ConfigService] Error actualizando configuración: ${error.message}`);
     throw error;
   }
 };

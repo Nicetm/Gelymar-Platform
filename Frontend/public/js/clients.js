@@ -208,6 +208,29 @@ export async function initClientsScript() {
   let itemsPerPage = parseInt(itemsPerPageSelect.value, 10);
   let currentSort = { column: null, direction: 'asc' };
 
+  const getColSpan = () => {
+    const table = tableBody?.closest('table');
+    const headerCount = table?.querySelectorAll('thead th')?.length || 0;
+    return headerCount || 1;
+  };
+
+  const getScrollBodyWidth = () => {
+    const scrollBody = tableBody?.closest('[data-scroll-body]') || tableBody?.closest('.overflow-x-auto');
+    return scrollBody?.clientWidth || 0;
+  };
+
+  const buildCenteredCell = (messageHtml, textClass = 'text-gray-500 dark:text-gray-400') => {
+    const width = getScrollBodyWidth();
+    const widthStyle = width ? `width: ${width}px;` : 'width: 100%;';
+    return `
+      <td colspan="${getColSpan()}" class="px-6 py-8 ${textClass}" style="position: sticky; left: 0;">
+        <div class="flex justify-center text-center" style="${widthStyle}">
+          ${messageHtml}
+        </div>
+      </td>
+    `;
+  };
+
   function setupStickyHeaderScroll() {
     const containers = document.querySelectorAll('[data-scroll-sync]');
     if (!containers.length) return;
@@ -485,6 +508,10 @@ export async function initClientsScript() {
       if (loadingRow) {
         loadingRow.remove();
       }
+      const scrollBody = tableBody?.closest('[data-scroll-body]') || tableBody?.closest('.overflow-x-auto');
+      if (scrollBody) {
+        scrollBody.classList.remove('scrollbar-hidden');
+      }
       
       // Renderizar la tabla
       renderTable();
@@ -496,11 +523,14 @@ export async function initClientsScript() {
       const loadingRow = document.getElementById('loadingRow');
       if (loadingRow) {
         const errorMessage = resolveBackendMessage(error.code, getMessage(messagesClients.loadError));
-        loadingRow.innerHTML = `
-          <td colspan="8" class="px-6 py-8 text-center text-red-500">
-            ${errorMessage} <button onclick="location.reload()" class="text-blue-500 hover:underline">${getMessage(clientes.retry)}</button>
-          </td>
-        `;
+        loadingRow.innerHTML = buildCenteredCell(
+          `${errorMessage} <button onclick="location.reload()" class="text-blue-500 hover:underline">${getMessage(clientes.retry)}</button>`,
+          'text-red-500'
+        );
+      }
+      const scrollBody = tableBody?.closest('[data-scroll-body]') || tableBody?.closest('.overflow-x-auto');
+      if (scrollBody) {
+        scrollBody.classList.remove('scrollbar-hidden');
       }
     }
   }
@@ -561,9 +591,7 @@ export async function initClientsScript() {
     if (pageData.length === 0) {
       tableBody.innerHTML = `
         <tr class="bg-white dark:bg-gray-900">
-          <td colspan="8" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
-            ${getMessage(clientes.noResults)}
-          </td>
+          ${buildCenteredCell(getMessage(clientes.noResults))}
         </tr>
       `;
     }
@@ -795,7 +823,10 @@ export async function initClientsScript() {
 
   // Event listener para filtro de órdenes
   if (filterWithOrders) {
-    filterWithOrders.addEventListener('change', filterCustomers);
+    filterWithOrders.addEventListener('change', () => {
+      localStorage.setItem('clientsOnlyWithOrders', filterWithOrders.checked ? '1' : '0');
+      filterCustomers();
+    });
   }
 
   // Event listeners para ordenamiento
@@ -1740,6 +1771,29 @@ export async function initClientsScript() {
     localStorage.removeItem('clientSearchFilter');
   }
 
+  const loadingRow = document.getElementById('loadingRow');
+  if (loadingRow) {
+    const loadingMarkup = `
+      <div class="flex items-center justify-center">
+        <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        ${getMessage(clientes.loading)}
+      </div>
+    `;
+    loadingRow.innerHTML = buildCenteredCell(loadingMarkup);
+  }
+  const scrollBody = tableBody?.closest('[data-scroll-body]') || tableBody?.closest('.overflow-x-auto');
+  if (loadingRow && scrollBody) {
+    scrollBody.classList.add('scrollbar-hidden');
+  }
+
+  const savedOnlyOrders = localStorage.getItem('clientsOnlyWithOrders') === '1';
+  if (filterWithOrders) {
+    filterWithOrders.checked = savedOnlyOrders;
+  }
+
   // Cargar y renderizar clientes inicialmente
   await loadAndRenderCustomers();
   
@@ -1747,7 +1801,7 @@ export async function initClientsScript() {
   setupAutoRefresh();
   
   // Aplicar filtro automáticamente si hay uno guardado
-  if (savedFilter && searchInput.value) {
+  if ((savedFilter && searchInput.value) || (filterWithOrders && filterWithOrders.checked)) {
     filterCustomers();
   }
 

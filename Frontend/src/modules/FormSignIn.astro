@@ -19,6 +19,21 @@ try {
   console.error('Error loading translations (FormSignIn):', error);
 }
 
+// Obtener configuración de recaptcha desde el backend
+let recaptchaEnabled = true;
+try {
+  const response = await fetch(`${apiBase}/api/config/recaptcha-login`);
+  if (response.ok) {
+    const config = await response.json();
+    recaptchaEnabled = config.enable === 1;
+    console.log('[FormSignIn] Recaptcha config loaded:', config);
+  } else {
+    console.error('[FormSignIn] Failed to load recaptcha config, status:', response.status);
+  }
+} catch (error) {
+  console.error('[FormSignIn] Error loading recaptcha config:', error);
+}
+
 
 const requestUrl = Astro.request?.url ? new URL(Astro.request.url) : null;
 const requestOrigin = requestUrl?.origin ?? '';
@@ -176,7 +191,7 @@ const contextInfo = (() => {
       </label>
     </div>
 
-    {recaptchaSiteKey && (
+    {recaptchaSiteKey && recaptchaEnabled && (
       <div class="flex justify-center">
         <div class="g-recaptcha" data-sitekey={recaptchaSiteKey}></div>
       </div>
@@ -209,7 +224,7 @@ const contextInfo = (() => {
   </form>
 </div>
 
-<script type="module" define:vars={{ apiPublic, apiBase, adminAppUrl, clientAppUrl, sellerAppUrl, appContext: activeAppContext, recaptchaSiteKey, comondTranslations: t?.comond ?? {} }}>
+<script type="module" define:vars={{ apiPublic, apiBase, adminAppUrl, clientAppUrl, sellerAppUrl, appContext: activeAppContext, recaptchaSiteKey, recaptchaEnabled, comondTranslations: t?.comond ?? {} }}>
   import { initSignIn } from '/js/sign-in.js';
 
   initSignIn({
@@ -220,6 +235,7 @@ const contextInfo = (() => {
     sellerAppUrl,
     appContext,
     recaptchaSiteKey,
+    recaptchaEnabled,
     translations: { comond: comondTranslations }
   });
 </script>

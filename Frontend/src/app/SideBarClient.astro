@@ -10,6 +10,7 @@ const lang = getServerLang(Astro.cookies);
 const t: any = {
   sidebar: await loadTranslations(lang, 'sidebar'),
 };
+const isSidebarCollapsed = Astro.cookies?.get('sidebarCollapsed')?.value === '1';
 
 const token =
   Astro.cookies.get('token')?.value ??
@@ -48,14 +49,17 @@ const links = [
 
 <aside
   id="sidebar"
-  class="fixed top-0 left-0 z-20 flex-col flex-shrink-0 hidden w-56 h-full pt-16 font-normal lg:flex transition-width bg-white border-r border-gray-200 dark:bg-gray-800 dark:border-gray-700"
+  class:list={[
+    'fixed top-0 left-0 z-20 flex-col flex-shrink-0 hidden h-full pt-16 font-normal lg:flex transition-width bg-white border-r border-gray-200 dark:bg-gray-800 dark:border-gray-700',
+    isSidebarCollapsed ? 'w-20 sidebar-collapsed' : 'w-56'
+  ]}
   aria-label="Client Sidebar"
   data-api-base={apiBase}
   data-file-server={fileServer}
   data-client-api-base={clientApiBase}
 >
   <div class="flex-1 overflow-y-auto scrollbar scrollbar-w-2 scrollbar-thumb-rounded-md scrollbar-thumb-slate-200 scrollbar-track-gray-400 dark:scrollbar-thumb-slate-900 dark:scrollbar-track-gray-800">
-    <div id="SidebarUserDescription" class="px-4 py-5 border-b border-gray-100 dark:border-gray-700">
+    <div id="SidebarUserDescription" data-sidebar-user class:list={['px-4 py-5 border-b border-gray-100 dark:border-gray-700', isSidebarCollapsed && 'hidden']}>
       <p class="text-xs uppercase text-gray-400 dark:text-gray-500">{t.sidebar.client_role_label}</p>
       <p class="mt-1 text-sm font-semibold text-gray-900 dark:text-gray-100">
         {user?.full_name || t.sidebar.default_client_name}
@@ -80,7 +84,7 @@ const links = [
             <div class="icon-container w-8 h-8 aspect-square rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center flex-shrink-0 transition-all duration-200">
               <i data-lucide={icon} class="w-4 h-4"></i>
         </div>
-            <span class="nav-text font-medium text-sm transition-colors duration-200 w-full">
+            <span data-sidebar-text class:list={['nav-text font-medium text-sm transition-colors duration-200 w-full', isSidebarCollapsed && 'hidden']}>
               {label}
         </span>
       </a>
@@ -89,9 +93,20 @@ const links = [
     </nav>
   </div>
 
+  <div class="flex items-center justify-end px-3 py-2">
+    <button
+      id="toggleSidebarCollapse"
+      type="button"
+      class="p-2 rounded-lg text-gray-500 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+      aria-label="Toggle sidebar collapse"
+    >
+      <i data-lucide="panel-left" class="w-4 h-4"></i>
+    </button>
+  </div>
+
   <!-- Footer: language -->
   <div
-    class="absolute bottom-0 left-0 w-full p-3 bg-white border-t border-gray-200 flex gap-2 dark:bg-gray-800 dark:border-gray-700">
+    class="w-full p-3 bg-white border-t border-gray-200 flex gap-2 dark:bg-gray-800 dark:border-gray-700">
     <!-- Idioma -->
     <div class="relative w-full">
       <button

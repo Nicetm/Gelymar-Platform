@@ -30,6 +30,19 @@ function getApiBaseFallback() {
   return origin.includes(':4321') ? origin.replace(':4321', ':3000') : origin;
 }
 
+function resolveApiBase(base) {
+  if (!base || typeof window === 'undefined') return base || '';
+  try {
+    const parsed = new URL(base, window.location.origin);
+    if (parsed.hostname === 'backend') {
+      return `${window.location.protocol}//${window.location.hostname}:3000`;
+    }
+    return parsed.toString();
+  } catch {
+    return base;
+  }
+}
+
 function createLogoutHandler() {
   return async function logout() {
     try {
@@ -80,6 +93,7 @@ function setupTokenWatcher(apiBase) {
   if (typeof window === 'undefined') return;
 
   const logout = createLogoutHandler();
+  const resolvedApiBase = resolveApiBase(apiBase || window.apiBase || getApiBaseFallback());
 
   function checkTokenExpiration() {
     const token = localStorage.getItem('token');
@@ -111,7 +125,7 @@ function setupTokenWatcher(apiBase) {
 
     const refreshToken = async () => {
       try {
-        const response = await fetch(`${apiBase}/api/auth/refresh`, {
+        const response = await fetch(`${resolvedApiBase}/api/auth/refresh`, {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`,
@@ -157,7 +171,7 @@ export function initLayoutCommon(config = {}) {
   if (typeof window === 'undefined') return;
 
   if (apiBase) {
-    window.apiBase = apiBase;
+    window.apiBase = resolveApiBase(apiBase);
   }
   if (frontendBase) {
     window.frontendBase = frontendBase;
@@ -165,7 +179,7 @@ export function initLayoutCommon(config = {}) {
 
   applyThemePreference();
   setupSocketReadyFlag();
-  setupTokenWatcher(apiBase || window.apiBase || getApiBaseFallback());
+  setupTokenWatcher(resolveApiBase(apiBase || window.apiBase || getApiBaseFallback()));
 
   // no initial spinner
 }

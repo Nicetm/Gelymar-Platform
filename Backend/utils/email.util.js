@@ -16,6 +16,7 @@ const transporter = nodemailer.createTransport({
 });
 
 async function sendEmail({ to, subject, html }) {
+  const { logger } = require('./logger');
   try {
     await transporter.sendMail({
       from: `Gelymar <${process.env.SMTP_USER}>`,
@@ -24,7 +25,7 @@ async function sendEmail({ to, subject, html }) {
       html
     });
   } catch (err) {
-    console.error('❌ Error enviando correo:', err);
+    logger.error(`[EmailUtil] Error enviando correo: ${err.message}`);
     throw new Error('Fallo en envío de correo');
   }
 }

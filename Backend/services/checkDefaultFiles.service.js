@@ -24,9 +24,9 @@ async function generateDefaultFiles(filterPc = null) {
     let totalFilesCreated = 0;
     let totalOrdersProcessed = 0;
     let totalDirectoriesCreated = 0;
+    const { normalizeOcForCompare: normalizeOcKey } = require('../utils/oc.util');
 
-    const normalizeOcKey = (value) =>
-      String(value || '').toUpperCase().replace(/[\s()-]+/g, '');
+    
     const shipmentIncoterms = new Set(['CFR', 'CIF', 'CIP', 'DAP', 'DDP', 'CPT']);
     const availabilityIncoterms = new Set([
       'EWX',
@@ -196,7 +196,7 @@ async function generateDefaultFiles(filterPc = null) {
             totalOrdersProcessed++;
             
           } catch (orderError) {
-            console.error(`Error procesando orden ${order.id}:`, orderError.message);
+            logger.error(`[CheckDefaultFilesService] Error procesando orden ${order.id}: ${orderError.message}`);
           }
         }
       }
@@ -297,7 +297,7 @@ async function createClientDirectory(customerName, pc) {
     const fileServerRoot = process.env.FILE_SERVER_ROOT || '/var/www/html';
     
     if (!fileServerRoot) {
-      console.error('FILE_SERVER_ROOT no está configurado en .env');
+      logger.error('[CheckDefaultFilesService] FILE_SERVER_ROOT no está configurado en .env');
       return null;
     }
 
@@ -320,9 +320,8 @@ async function createClientDirectory(customerName, pc) {
       return directoryPath;
     
   } catch (error) {
-    logger.error(`[checkDefaultFiles] Error creando directorio para cliente ${customerName}, pc=${pc}:`);
-    console.error(`   Error: ${error.message}`);
-    console.error(`   Stack: ${error.stack}`);
+    logger.error(`[CheckDefaultFilesService] Error creando directorio para cliente ${customerName}, pc=${pc}: ${error.message}`);
+    logger.error(`[CheckDefaultFilesService] Stack: ${error.stack}`);
     return null;
   }
 }

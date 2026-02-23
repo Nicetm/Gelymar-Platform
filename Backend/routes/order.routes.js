@@ -58,7 +58,7 @@ router.get('/client/:orderId/documents', authMiddleware, authorizeRoles(['client
  *       200:
  *         description: Lista de órdenes
  */
-router.get('/', authMiddleware, authorizeRoles(['admin', 'client']), orderController.getAllOrders);
+router.get('/', authMiddleware, authorizeRoles(['admin', 'seller', 'client']), orderController.getAllOrders);
 
 /**
  * @swagger
@@ -129,7 +129,7 @@ router.get('/admin/price-analysis', headerPreferredAuth, authorizeRoles(['admin'
  *       404:
  *         description: No encontrada
  */
-router.get('/:id', authMiddleware, authorizeRoles(['admin', 'client']), orderController.getOrderById);
+router.get('/:id', authMiddleware, authorizeRoles(['admin', 'seller', 'client']), orderController.getOrderById);
 
 /**
  * @swagger
@@ -153,10 +153,10 @@ router.get('/:id', authMiddleware, authorizeRoles(['admin', 'client']), orderCon
  *       404:
  *         description: No encontrada
  */
-router.get('/:id/details', authMiddleware, authorizeRoles(['admin', 'client']), orderController.getOrderDetails);
+router.get('/:id/details', authMiddleware, authorizeRoles(['admin', 'seller', 'client']), orderController.getOrderDetails);
 
 
-router.post('/search', authMiddleware, authorizeRoles(['admin', 'client']), orderController.searchOrders);
+router.post('/search', authMiddleware, authorizeRoles(['admin', 'seller', 'client']), orderController.searchOrders);
 
 /**
  * @swagger
@@ -180,8 +180,8 @@ router.post('/search', authMiddleware, authorizeRoles(['admin', 'client']), orde
  *       404:
  *         description: Orden no encontrada
  */
-router.get('/:orderPc/:orderOc/:factura/items', authMiddleware, authorizeRoles(['admin', 'client']), orderController.getOrderItems);
-router.get('/:orderPc/:orderOc/items', authMiddleware, authorizeRoles(['admin', 'client']), orderController.getOrderItemsWithoutFactura);
+router.get('/:orderPc/:orderOc/:factura/items', authMiddleware, authorizeRoles(['admin', 'seller', 'client']), orderController.getOrderItems);
+router.get('/:orderPc/:orderOc/items', authMiddleware, authorizeRoles(['admin', 'seller', 'client']), orderController.getOrderItemsWithoutFactura);
 
 /**
  * @swagger
@@ -205,6 +205,6 @@ router.get('/:orderPc/:orderOc/items', authMiddleware, authorizeRoles(['admin', 
  *       404:
  *         description: Orden no encontrada
  */
-router.get('/:orderId/detail', authMiddleware, authorizeRoles(['admin', 'client']), orderController.getOrderDetail);
+router.get('/:orderId/detail', authMiddleware, authorizeRoles(['admin', 'seller', 'client']), orderController.getOrderDetail);
 
 module.exports = router;

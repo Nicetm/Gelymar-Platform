@@ -6,6 +6,10 @@ const { mapItemRowToOrderItem } = require('../mappers/sqlsoftkey/item.mapper');
 const { logger } = require('../utils/logger');
 const { createOrderService } = require('../services/order.service');
 const { createAdminNotificationSummaryService } = require('../services/adminNotificationSummary.service');
+const { createProjectionService } = require('../services/projection.service');
+const PasswordService = require('../services/password.service');
+const AuthService = require('../services/auth.service');
+const Auth2FAService = require('../services/auth2fa.service');
 const chatService = require('../services/chat.service');
 const checkAvailabilityNoticeService = require('../services/checkAvailabilityNotice.service');
 const checkClientAccessService = require('../services/checkClientAccess.service');
@@ -24,7 +28,6 @@ const folderService = require('../services/folder.service');
 const itemService = require('../services/item.service');
 const messageService = require('../services/message.service');
 const monitoringService = require('../services/monitoring.service');
-const networkMountService = require('../services/networkMount.service');
 const orderDetailService = require('../services/orderDetail.service');
 const orderItemService = require('../services/orderItem.service');
 const userAvatarService = require('../services/user_avatar.service');
@@ -42,6 +45,19 @@ container.register({
   logger: asValue(logger),
   orderService: asFunction((deps) => createOrderService(deps)).singleton(),
   adminNotificationSummaryService: asFunction((deps) => createAdminNotificationSummaryService(deps)).singleton(),
+  projectionService: asFunction((deps) => createProjectionService(deps)).singleton(),
+  passwordService: asFunction(() => new PasswordService({
+    mysqlPoolPromise: container.resolve('mysqlPoolPromise'),
+    logger: container.resolve('logger')
+  })).singleton(),
+  authService: asFunction(() => new AuthService({
+    mysqlPoolPromise: container.resolve('mysqlPoolPromise'),
+    logger: container.resolve('logger')
+  })).singleton(),
+  auth2faService: asFunction(() => new Auth2FAService({
+    mysqlPoolPromise: container.resolve('mysqlPoolPromise'),
+    logger: container.resolve('logger')
+  })).singleton(),
   chatService: asValue(chatService),
   checkAvailabilityNoticeService: asValue(checkAvailabilityNoticeService),
   checkClientAccessService: asValue(checkClientAccessService),
@@ -60,7 +76,6 @@ container.register({
   itemService: asValue(itemService),
   messageService: asValue(messageService),
   monitoringService: asValue(monitoringService),
-  networkMountService: asValue(networkMountService),
   orderDetailService: asValue(orderDetailService),
   orderItemService: asValue(orderItemService),
   userAvatarService: asValue(userAvatarService),

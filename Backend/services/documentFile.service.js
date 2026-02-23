@@ -1,15 +1,8 @@
 const { poolPromise } = require('../config/db');
 const { getSqlPool, sql } = require('../config/sqlserver');
 const { normalizeValue, normalizeDate, normalizeDecimal } = require('../mappers/sqlsoftkey/utils');
-
-function normalizeOcForCompare(value) {
-  return String(value || '').toUpperCase().replace(/[\s()-]+/g, '');
-}
-
-function normalizeRutKey(value) {
-  if (value === null || value === undefined) return '';
-  return String(value).trim().replace(/C$/i, '').toUpperCase();
-}
+const { normalizeRut } = require('../utils/rut.util');
+const { normalizeOcForCompare } = require('../utils/oc.util');
 
 async function getOrderWithCustomerForPdf(pc, oc, factura = null, idNroOvMasFactura = null) {
   if (!pc) return null;
@@ -42,6 +35,8 @@ async function getOrderWithCustomerForPdf(pc, oc, factura = null, idNroOvMasFact
     FROM jor_imp_HDR_90_softkey h
     LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
     WHERE h.Nro = @pc
+      AND ISNULL(LTRIM(RTRIM(UPPER(h.EstadoOV))), '') <> 'CANCELADO'
+      AND ISNULL(LTRIM(RTRIM(UPPER(h.EstadoOV))), '') <> 'CANCELADO'
       ${oc ? "AND REPLACE(REPLACE(REPLACE(REPLACE(UPPER(h.OC), ' ', ''), '(', ''), ')', ''), '-', '') = @oc" : ''}
       ${normalizedFactura ? 'AND h.Factura = @factura' : ''}
       ${normalizedId ? 'AND h.IDNroOvMasFactura = @idNroOvMasFactura' : ''}
@@ -105,6 +100,8 @@ async function getOrderDetailForPdf(pc, oc, factura = null, idNroOvMasFactura = 
       h.Nave AS nave
     FROM jor_imp_HDR_90_softkey h
     WHERE h.Nro = @pc
+      AND ISNULL(LTRIM(RTRIM(UPPER(h.EstadoOV))), '') <> 'CANCELADO'
+      AND ISNULL(LTRIM(RTRIM(UPPER(h.EstadoOV))), '') <> 'CANCELADO'
       ${oc ? "AND REPLACE(REPLACE(REPLACE(REPLACE(UPPER(h.OC), ' ', ''), '(', ''), ')', ''), '-', '') = @oc" : ''}
       ${normalizedFactura ? 'AND h.Factura = @factura' : ''}
       ${normalizedId ? 'AND h.IDNroOvMasFactura = @idNroOvMasFactura' : ''}
@@ -204,6 +201,7 @@ async function getOrderPcOcById(orderId) {
       OC AS oc
     FROM jor_imp_HDR_90_softkey
     WHERE Nro = @pc
+      AND ISNULL(LTRIM(RTRIM(UPPER(EstadoOV))), '') <> 'CANCELADO'
     ORDER BY ISNULL(Fecha, Fecha_factura) DESC
   `);
   const row = result.recordset?.[0];
@@ -223,6 +221,7 @@ async function getOrderByPcOc(pc, oc) {
         OC AS oc
       FROM jor_imp_HDR_90_softkey
       WHERE Nro = @pc
+        AND ISNULL(LTRIM(RTRIM(UPPER(EstadoOV))), '') <> 'CANCELADO'
         AND REPLACE(REPLACE(UPPER(OC), ' ', ''), '-', '') = @oc
     `);
 
@@ -241,6 +240,7 @@ async function getOrderByPc(pc) {
         OC AS oc
       FROM jor_imp_HDR_90_softkey
       WHERE Nro = @pc
+        AND ISNULL(LTRIM(RTRIM(UPPER(EstadoOV))), '') <> 'CANCELADO'
     `);
 
   const row = result.recordset?.[0];
@@ -284,12 +284,13 @@ async function getCustomerCheckForViewFile(fileId, userId) {
     SELECT TOP 1 Rut
     FROM jor_imp_HDR_90_softkey
     WHERE Nro = @pc
+      AND ISNULL(LTRIM(RTRIM(UPPER(EstadoOV))), '') <> 'CANCELADO'
       AND REPLACE(REPLACE(UPPER(OC), ' ', ''), '-', '') = @oc
   `);
   const row = sqlResult.recordset?.[0];
   if (!row?.Rut) return null;
-  const sqlRut = normalizeRutKey(row.Rut);
-  const userRut = normalizeRutKey(userRow.rut);
+  const sqlRut = normalizeRut(row.Rut);
+  const userRut = normalizeRut(userRow.rut);
   return sqlRut && userRut && sqlRut === userRut ? { rut: row.Rut } : null;
 }
 
@@ -318,12 +319,13 @@ async function getFileCustomerCheck(fileId, customerRut) {
     SELECT TOP 1 Rut
     FROM jor_imp_HDR_90_softkey
     WHERE Nro = @pc
+      AND ISNULL(LTRIM(RTRIM(UPPER(EstadoOV))), '') <> 'CANCELADO'
       AND REPLACE(REPLACE(UPPER(OC), ' ', ''), '-', '') = @oc
   `);
   const row = sqlResult.recordset?.[0];
   if (!row?.Rut) return null;
-  const sqlRut = normalizeRutKey(row.Rut);
-  const userRut = normalizeRutKey(customerRut);
+  const sqlRut = normalizeRut(row.Rut);
+  const userRut = normalizeRut(customerRut);
   return sqlRut && userRut && sqlRut === userRut
     ? { pc: fileRow.pc, oc: fileRow.oc }
     : null;
@@ -355,8 +357,8 @@ async function getCustomerCheckForDownload(fileId, userId) {
   `);
   const row = sqlResult.recordset?.[0];
   if (!row?.Rut) return null;
-  const sqlRut = normalizeRutKey(row.Rut);
-  const userRut = normalizeRutKey(userRow.rut);
+  const sqlRut = normalizeRut(row.Rut);
+  const userRut = normalizeRut(userRow.rut);
   return sqlRut && userRut && sqlRut === userRut ? { rut: row.Rut } : null;
 }
 
@@ -394,6 +396,7 @@ async function getOrderWithCustomerForDefaultFiles(orderId, idNroOvMasFactura = 
     FROM jor_imp_HDR_90_softkey h
     LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
     WHERE h.Nro = @pc
+      AND ISNULL(LTRIM(RTRIM(UPPER(h.EstadoOV))), '') <> 'CANCELADO'
       ${normalizedId ? 'AND h.IDNroOvMasFactura = @idNroOvMasFactura' : ''}
     ORDER BY ISNULL(h.Fecha, h.Fecha_factura) DESC
   `);
@@ -426,6 +429,7 @@ async function resolveIdNroOvMasFactura(pc, oc, factura = null) {
       h.IDNroOvMasFactura AS id_nro_ov_mas_factura
     FROM jor_imp_HDR_90_softkey h
     WHERE h.Nro = @pc
+      AND ISNULL(LTRIM(RTRIM(UPPER(h.EstadoOV))), '') <> 'CANCELADO'
       ${oc ? "AND REPLACE(REPLACE(REPLACE(REPLACE(UPPER(h.OC), ' ', ''), '(', ''), ')', ''), '-', '') = @oc" : ''}
       ${normalizedFactura ? 'AND h.Factura = @factura' : "AND (h.Factura IS NULL OR h.Factura = '' OR h.Factura = 0 OR h.Factura = '0')"}
     ORDER BY ISNULL(h.Fecha, h.Fecha_factura) DESC

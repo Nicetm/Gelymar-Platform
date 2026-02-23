@@ -2504,6 +2504,51 @@ export function initFilesScript() {
   const confirmMessageBtn = qs('#confirmMessageBtn');
   const cancelMessageBtn = qs('#cancelMessageBtn');
 
+  const setConfirmLoading = (isLoading) => {
+    if (!confirmMessageBtn) return;
+    const cancelBtn = cancelMessageBtn;
+    const closeBtn = qs('#closeMessageModalBtn');
+    const helpBtn = qs('#messageHelpBtn');
+    const originalLabel = confirmMessageBtn.dataset.originalLabel || confirmMessageBtn.textContent.trim();
+
+    if (!confirmMessageBtn.dataset.originalLabel) {
+      confirmMessageBtn.dataset.originalLabel = originalLabel;
+    }
+
+    confirmMessageBtn.disabled = isLoading;
+    confirmMessageBtn.classList.toggle('opacity-70', isLoading);
+    confirmMessageBtn.classList.toggle('cursor-not-allowed', isLoading);
+    if (cancelBtn) {
+      cancelBtn.disabled = isLoading;
+      cancelBtn.classList.toggle('opacity-70', isLoading);
+      cancelBtn.classList.toggle('cursor-not-allowed', isLoading);
+    }
+    if (closeBtn) {
+      closeBtn.disabled = isLoading;
+      closeBtn.classList.toggle('opacity-70', isLoading);
+      closeBtn.classList.toggle('cursor-not-allowed', isLoading);
+    }
+    if (helpBtn) {
+      helpBtn.disabled = isLoading;
+      helpBtn.classList.toggle('opacity-70', isLoading);
+      helpBtn.classList.toggle('cursor-not-allowed', isLoading);
+    }
+
+    if (isLoading) {
+      confirmMessageBtn.innerHTML = `
+        <span class="inline-flex items-center gap-2">
+          <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+          </svg>
+          <span>${getMessage(comond?.working || comond?.processing || comond?.loading || 'Procesando...')}</span>
+        </span>
+      `;
+    } else {
+      confirmMessageBtn.textContent = confirmMessageBtn.dataset.originalLabel || originalLabel;
+    }
+  };
+
   if (confirmMessageBtn) {
     confirmMessageBtn.addEventListener('click', async () => {
       const messageInput = qs('#customMessage');
@@ -2561,9 +2606,8 @@ export function initFilesScript() {
         return;
       }
 
-      hideModal('#messageModal');
-      
       try {
+        setConfirmLoading(true);
         const ccoRecipients = Array.from(new Set([...getCcoEmailsFromMetadata(), ...ccoFromSelected]));
         const success = await sendDocument(
           window.currentMessageData.fileId,
@@ -2577,14 +2621,15 @@ export function initFilesScript() {
         );
 
         if (!success) {
-          showModal('#messageModal');
           return;
         }
+        hideModal('#messageModal');
         if (window.emailRecipientController?.setValidationMode) {
           window.emailRecipientController.setValidationMode('0');
         }
         window.currentMessageData = null;
       } finally {
+        setConfirmLoading(false);
       }
     });
   }

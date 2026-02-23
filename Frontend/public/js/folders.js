@@ -50,6 +50,7 @@ function formatDateShort(dateString) {
 
 let carpetas = {};
 let messagesFolders = {};
+let foldersAccessDenied = false;
 let backendMessages = {};
 
 const formatMessage = (template, params = {}) => {
@@ -146,6 +147,7 @@ function clearFoldersCache(uuid) {
 
 async function loadFoldersWithCache(uuid, apiBase) {
   try {
+    foldersAccessDenied = false;
     if (isFoldersCacheValid(uuid)) {
       const cachedData = loadFoldersFromCache(uuid);
       if (cachedData) {
@@ -157,13 +159,21 @@ async function loadFoldersWithCache(uuid, apiBase) {
       headers: { Authorization: `Bearer ${token}` }
     });
     if (!response.ok) {
-      throw await buildErrorFromResponse(response);
+      const error = await buildErrorFromResponse(response);
+      if (error?.status === 403) {
+        foldersAccessDenied = true;
+        return [];
+      }
+      throw error;
     }
     const folders = await response.json();
     saveFoldersToCache(uuid, folders);
     return folders;
   } catch (error) {
-    console.error('Error cargando carpetas:', error);
+    if (error?.status === 403) {
+      foldersAccessDenied = true;
+      return [];
+    }
     const cachedData = loadFoldersFromCache(uuid);
     if (cachedData) {
       return cachedData;
@@ -384,9 +394,11 @@ async function openItemsModal(orderPc, orderOc, factura, idOv) {
     const rawGastoAdicional = shouldUseFacturaExpense ? rawGastoAdicionalFactura : normalizedItems[0]?.gasto_adicional_flete;
     const gastoAdicional = parseNumber(rawGastoAdicional);
 
+    const totalValueWithAdditional = totalValueSum + gastoAdicional;
+
     if (totalItems) totalItems.textContent = totalItemsCount;
     if (totalQuantity) totalQuantity.textContent = formatModalQuantity(totalQuantitySum, unit);
-    if (totalValue) totalValue.textContent = formatCurrency(totalValueSum, currency);
+    if (totalValue) totalValue.textContent = formatCurrency(totalValueWithAdditional, currency);
     if (totalGastoAdicional) totalGastoAdicional.textContent = formatCurrency(gastoAdicional, currency);
 
     // Mostrar modal
@@ -436,6 +448,43 @@ export async function initFoldersScript() {
   if (!tableBody || !searchInput || !itemsPerPageSelect || !prevPageBtn || !nextPageBtn || !pageIndicator || !section) {
     console.error('Elementos necesarios no encontrados para el paginador de carpetas');
     return;
+  }
+
+  const getColSpan = () => {
+    const table = tableBody?.closest('table');
+    const headerCount = table?.querySelectorAll('thead th')?.length || 0;
+    return headerCount || 1;
+  };
+
+  const getScrollBodyWidth = () => {
+    const scrollBody = tableBody?.closest('[data-scroll-body]') || tableBody?.closest('.overflow-x-auto');
+    return scrollBody?.clientWidth || 0;
+  };
+
+  const buildCenteredCell = (messageHtml, textClass = 'text-gray-500 dark:text-gray-400') => {
+    const width = getScrollBodyWidth();
+    const widthStyle = width ? `width: ${width}px;` : 'width: 100%;';
+    return `
+      <td colspan="${getColSpan()}" class="px-6 py-8 ${textClass}" style="position: sticky; left: 0;">
+        <div class="flex justify-center text-center" style="${widthStyle}">
+          ${messageHtml}
+        </div>
+      </td>
+    `;
+  };
+
+  const loadingRow = document.getElementById('loadingRow');
+  if (loadingRow) {
+    const loadingMarkup = `
+      <div class="flex items-center justify-center">
+        <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        ${getMessage(carpetas.loading) || getMessage(messagesFolders.loading)}
+      </div>
+    `;
+    loadingRow.innerHTML = buildCenteredCell(loadingMarkup);
   }
 
   let allFolders = [];
@@ -806,10 +855,24 @@ export async function initFoldersScript() {
 
     
     if (pageData.length === 0) {
+      if (foldersAccessDenied) {
+        const scrollBody = tableBody.closest('[data-scroll-body]');
+        const viewportWidth = scrollBody?.clientWidth || 0;
+        tableBody.innerHTML = `
+          <tr class="bg-white dark:bg-gray-900">
+            <td colspan="15" class="px-6 py-8 text-gray-500" style="position: sticky; left: 0;">
+              <div class="flex justify-center text-center" style="width: ${viewportWidth ? `${viewportWidth}px` : '100%'};">
+                ${getMessage(carpetas.customerNotFound)}
+              </div>
+            </td>
+          </tr>
+        `;
+        return;
+      }
       tableBody.innerHTML = `
-        <tr class="bg-white dark:bg-gray-900">
-          <td colspan="15" class="px-6 py-8 text-center text-gray-500">
-            ${getMessage(carpetas.noResults)}
+          <tr class="bg-white dark:bg-gray-900">
+            <td colspan="15" class="px-6 py-8 text-center text-gray-500">
+              ${getMessage(carpetas.noResults)}
           </td>
         </tr>
       `;
@@ -1325,11 +1388,10 @@ export async function initFoldersScript() {
       if (loadingRow) {
         const errorMessage = resolveBackendMessage(error.code, getMessage(messagesFolders.loadError));
         const retryLabel = getMessage(messagesFolders.retry);
-        loadingRow.innerHTML = `
-          <td colspan="15" class="px-6 py-8 text-center text-red-500">
-            ${errorMessage} <button onclick="location.reload()" class="text-blue-500 hover:underline">${retryLabel}</button>
-          </td>
-        `;
+        loadingRow.innerHTML = buildCenteredCell(
+          `${errorMessage} <button onclick="location.reload()" class="text-blue-500 hover:underline">${retryLabel}</button>`,
+          'text-red-500'
+        );
       }
     }
   }

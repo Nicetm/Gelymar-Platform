@@ -97,11 +97,11 @@ try {
 		<div class="relative" data-scroll-sync="folders-table">
 			<div class="sticky top-0 z-30 bg-gray-100 dark:bg-gray-800 hidden" data-scroll-header>
 				<div class="overflow-x-auto scrollbar-hidden" data-scroll-header-track>
-					<table class="min-w-[1800px] divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900" style="width: max-content;"></table>
+					<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900" style="width: max-content;"></table>
 				</div>
 			</div>
 			<div class="overflow-x-auto scrollbar-hidden" style="border-radius: 10px;" data-scroll-body>
-				<table class="min-w-[1800px] divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900" style="width: max-content;">
+				<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900" style="width: max-content;">
 					<thead class="bg-gray-100 dark:bg-gray-800">
 				<tr>
 					<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="pc">
@@ -326,7 +326,7 @@ try {
 
     <!-- Resumen de la orden -->
     <div class="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div>
           <p class="text-sm font-medium text-gray-600 dark:text-gray-400">{t.carpetas.totalItems}</p>
           <p id="totalItems" class="text-lg font-bold text-gray-900 dark:text-gray-100">0</p>
@@ -334,6 +334,10 @@ try {
         <div>
           <p class="text-sm font-medium text-gray-600 dark:text-gray-400">{t.carpetas.totalQuantity}</p>
           <p id="totalQuantity" class="text-lg font-bold text-gray-900 dark:text-gray-100">0</p>
+        </div>
+        <div>
+          <p class="text-sm font-medium text-gray-600 dark:text-gray-400">{t.carpetas.gastoAdicional}</p>
+          <p id="totalGastoAdicional" class="text-lg font-bold text-orange-600 dark:text-orange-400">$0</p>
         </div>
         <div>
           <p class="text-sm font-medium text-gray-600 dark:text-gray-400">{t.carpetas.totalValue}</p>

@@ -17,11 +17,12 @@ const STYLES = {
 };
 
 async function generatePDF(filePath, templateName, data) {
+    const { logger } = require('../utils/logger');
     if (fs.existsSync(filePath)) {
       try {
         fs.unlinkSync(filePath);
       } catch (error) {
-        console.error(`Error al eliminar archivo existente: ${error.message}`);
+        logger.error(`[PDFGenerator] Error al eliminar archivo existente: ${error.message}`);
       }
     }
     

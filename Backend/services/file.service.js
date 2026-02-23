@@ -6,17 +6,8 @@ const fs = require('fs').promises;
 const path = require('path');
 const { cleanDirectoryName } = require('../utils/directoryUtils');
 const { createOrderService } = require('./order.service');
+const { normalizeOc, normalizeOcForCompare } = require('../utils/oc.util');
 const { getOrderByIdSimple, getOrderByPc, getOrderByPcOc } = createOrderService();
-
-const normalizeOc = (value) => {
-  if (value === null || value === undefined) return '';
-  return String(value).trim().replace(/\s+/g, ' ');
-};
-
-const normalizeOcForCompare = (value) => {
-  if (value === null || value === undefined) return '';
-  return String(value).toUpperCase().replace(/[\s()-]+/g, '');
-};
 
 const getCustomerByRutSql = async (rut) => {
   if (!rut) return null;
@@ -377,6 +368,7 @@ const getAllOrdersGroupedByRut = async () => {
       h.ETA_ENC_FA
     FROM jor_imp_HDR_90_softkey h
     WHERE h.Rut IS NOT NULL AND h.Nro IS NOT NULL AND h.OC IS NOT NULL
+      AND ISNULL(LTRIM(RTRIM(UPPER(h.EstadoOV))), '') <> 'CANCELADO'
     ORDER BY h.Rut, h.Fecha
   `);
 
@@ -452,33 +444,33 @@ const getAllFiles = async () => {
   const getFilesByPc = async (pc, idNroOvMasFactura = null) => {
     const pool = await poolPromise;
     const normalizedId = idNroOvMasFactura ? String(idNroOvMasFactura).trim() : null;
-    const [rows] = await pool.query(
-      normalizedId
-        ? `SELECT 
-            f.*, 
-            os.id AS status_id, 
-            os.name AS status_name,
-            f.fecha_generacion,
-            f.fecha_envio,
-            f.fecha_reenvio
-         FROM order_files f
-         LEFT JOIN order_status os ON f.status_id = os.id
-         WHERE f.pc = ? AND f.id_nro_ov_mas_factura = ?
-         ORDER BY f.created_at DESC`
-        : `SELECT 
-            f.*, 
-            os.id AS status_id, 
-            os.name AS status_name,
-            f.fecha_generacion,
-            f.fecha_envio,
-            f.fecha_reenvio
-         FROM order_files f
-         LEFT JOIN order_status os ON f.status_id = os.id
-         WHERE f.pc = ?
-         ORDER BY f.created_at DESC`,
-      normalizedId ? [pc, normalizedId] : [pc]
+    const queryBase = `
+      SELECT 
+        f.*, 
+        os.id AS status_id, 
+        os.name AS status_name,
+        f.fecha_generacion,
+        f.fecha_envio,
+        f.fecha_reenvio
+      FROM order_files f
+      LEFT JOIN order_status os ON f.status_id = os.id
+    `;
+
+    if (normalizedId) {
+      const [rows] = await pool.query(
+        `${queryBase} WHERE f.pc = ? AND f.id_nro_ov_mas_factura = ? ORDER BY f.created_at DESC`,
+        [pc, normalizedId]
+      );
+      if (rows.length > 0) {
+        return rows.map(row => new File(row));
+      }
+    }
+
+    const [fallbackRows] = await pool.query(
+      `${queryBase} WHERE f.pc = ? ORDER BY f.created_at DESC`,
+      [pc]
     );
-    return rows.map(row => new File(row));
+    return fallbackRows.map(row => new File(row));
   };
 
 /**
@@ -940,6 +932,7 @@ const getOrderDataForPDF = async (orderId) => {
       FROM jor_imp_HDR_90_softkey h
       LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
       WHERE h.Nro = @pc ${oc ? "AND REPLACE(REPLACE(REPLACE(REPLACE(UPPER(h.OC), ' ', ''), '(', ''), ')', ''), '-', '') = @oc" : ''}
+        AND ISNULL(LTRIM(RTRIM(UPPER(h.EstadoOV))), '') <> 'CANCELADO'
       ORDER BY ISNULL(h.Fecha, h.Fecha_factura) DESC
     `);
 

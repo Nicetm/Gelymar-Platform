@@ -1,6 +1,8 @@
 const { container } = require('../config/container');
 const messageService = container.resolve('messageService');
 const { MESSAGE_TYPES } = require('../models/message.model');
+const { logger } = require('../utils/logger');
+const { t } = require('../i18n');
 
 exports.MESSAGE_TYPES = MESSAGE_TYPES;
 
@@ -9,8 +11,8 @@ exports.getSummary = async (req, res) => {
     const summary = await messageService.getSummary({ adminId: req.user.id });
     res.json({ success: true, data: summary });
   } catch (error) {
-    console.error('[messages][getSummary] Error:', error.message);
-    res.status(500).json({ success: false, message: 'Error al obtener el resumen de mensajes' });
+    logger.error(`[MessageController][getSummary] Error: ${error.message}`);
+    res.status(500).json({ success: false, message: t('message.get_summary_error', req.lang || 'es') });
   }
 };
 
@@ -29,8 +31,8 @@ exports.getMessages = async (req, res) => {
 
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('[messages][getMessages] Error:', error.message);
-    res.status(500).json({ success: false, message: 'Error al obtener mensajes' });
+    logger.error(`[MessageController][getMessages] Error: ${error.message}`);
+    res.status(500).json({ success: false, message: t('message.get_messages_error', req.lang || 'es') });
   }
 };
 
@@ -47,7 +49,7 @@ exports.getMessageDetail = async (req, res) => {
 
     res.json({ success: true, data: detail });
   } catch (error) {
-    console.error('[messages][getMessageDetail] Error:', error.message);
-    res.status(500).json({ success: false, message: 'Error al obtener detalle del mensaje' });
+    logger.error(`[MessageController][getMessageDetail] Error: ${error.message}`);
+    res.status(500).json({ success: false, message: t('message.get_message_detail_error', req.lang || 'es') });
   }
 };

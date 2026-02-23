@@ -5,13 +5,60 @@ import SideBarSeller from './SideBarSeller.astro';
 ---
 
 <LayoutCommon authRole="seller">
+  <script is:inline>
+    // Enable transitions only after initial state is applied
+    window.requestAnimationFrame(() => {
+      document.documentElement.classList.add('sidebar-ready');
+    });
+  </script>
+  <style>
+    @media (min-width: 1024px) {
+      #seller-main-content {
+        margin-left: 14rem;
+      }
+      html.sidebar-collapsed #seller-main-content {
+        margin-left: 5rem;
+      }
+    }
+    #sidebar {
+      transition: none;
+    }
+    #seller-main-content {
+      transition: none;
+    }
+    html.sidebar-ready #sidebar,
+    html.sidebar-ready #seller-main-content {
+      transition: all 0.2s ease;
+    }
+    html.sidebar-collapsed #sidebar {
+      width: 5rem;
+    }
+    html.sidebar-collapsed [data-sidebar-text],
+    html.sidebar-collapsed [data-sidebar-user] {
+      display: none;
+    }
+    html.sidebar-collapsed .sidebar-link {
+      justify-content: center;
+      padding-left: 0.75rem;
+      padding-right: 0.75rem;
+      gap: 0;
+    }
+    html.sidebar-collapsed [data-sidebar-footer-row] {
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    html:not(.sidebar-ready) #sidebar,
+    html:not(.sidebar-ready) #seller-main-content {
+      transition: none !important;
+    }
+  </style>
   <NavBarSeller />
   <SideBarSeller />
 
   <main class="flex w-full pt-4 bg-gray-50 dark:bg-gray-900 min-h-screen overflow-hidden">
     <section
       id="seller-main-content"
-      class="relative flex-1 h-full w-full overflow-y-auto transition-all duration-300 lg:ml-56"
+      class="relative flex-1 h-full w-full overflow-y-auto"
     >
       <slot />
     </section>

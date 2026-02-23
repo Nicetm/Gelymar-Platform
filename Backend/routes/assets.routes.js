@@ -5,16 +5,11 @@ const jwt = require('jsonwebtoken');
 const { container } = require('../config/container');
 const { normalizeRole } = require('../utils/role.util');
 const { validateFilePath } = require('../utils/filePermissions');
+const { normalizeRut } = require('../utils/rut.util');
 
 const router = express.Router();
 const userService = container.resolve('userService');
 const fileService = container.resolve('fileService');
-
-const normalizeRut = (value) => {
-  const raw = String(value || '').trim();
-  if (!raw) return '';
-  return raw.toLowerCase().endsWith('c') ? raw.slice(0, -1) : raw;
-};
 
 const assetAuth = async (req, res, next) => {
   try {

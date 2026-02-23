@@ -1,10 +1,8 @@
 const nodemailer = require('nodemailer');
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
 const Handlebars = require('handlebars');
 const { poolPromise } = require('../config/db');
-const { getSqlPool, sql } = require('../config/sqlserver');
 
 // Las variables de entorno ya se cargan automÃ¡ticamente en app.js
 
@@ -18,8 +16,14 @@ const transporter = nodemailer.createTransport({
     pass: process.env.SMTP_PASS
   },
   tls: {
-    ciphers: 'SSLv3'
-  }
+    minVersion: 'TLSv1.2',
+    ciphers: 'HIGH:!aNULL:!MD5'
+  },
+  pool: true,
+  maxConnections: 5,
+  maxMessages: 100,
+  rateDelta: 1000,
+  rateLimit: 5
 });
 
 const DOC_NAME_MAP = {
@@ -28,6 +32,57 @@ const DOC_NAME_MAP = {
   'Order Delivery Notice': 'Aviso de Entrega',
   'Availability Notice': 'Aviso de Disponibilidad de Orden',
 };
+
+// Pre-compiled templates cache
+const compiledTemplates = {};
+const translations = {};
+
+// Load and compile templates on startup
+const loadTemplates = () => {
+  try {
+    const templateDir = path.join(__dirname, '../mail-generator/template');
+    const templateFiles = ['document.hbs', 'chat.hbs', 'notifications-summary.hbs', 'password-reset.hbs'];
+    
+    templateFiles.forEach(file => {
+      const templatePath = path.join(templateDir, file);
+      if (fs.existsSync(templatePath)) {
+        const content = fs.readFileSync(templatePath, 'utf8');
+        const name = file.replace('.hbs', '');
+        compiledTemplates[name] = Handlebars.compile(content);
+      }
+    });
+    
+    const { logger } = require('../utils/logger');
+    logger.info(`[EmailService] Loaded ${Object.keys(compiledTemplates).length} pre-compiled templates`);
+  } catch (error) {
+    const { logger } = require('../utils/logger');
+    logger.error(`[EmailService] Error loading templates: ${error.message}`);
+  }
+};
+
+// Load translations on startup
+const loadTranslations = () => {
+  try {
+    const i18nDir = path.join(__dirname, '../mail-generator/i18n');
+    const langFiles = fs.readdirSync(i18nDir).filter(f => f.endsWith('.json'));
+    
+    langFiles.forEach(file => {
+      const lang = file.replace('.json', '');
+      const content = fs.readFileSync(path.join(i18nDir, file), 'utf8');
+      translations[lang] = JSON.parse(content);
+    });
+    
+    const { logger } = require('../utils/logger');
+    logger.info(`[EmailService] Loaded translations for ${Object.keys(translations).length} languages`);
+  } catch (error) {
+    const { logger } = require('../utils/logger');
+    logger.error(`[EmailService] Error loading translations: ${error.message}`);
+  }
+};
+
+// Initialize templates and translations
+loadTemplates();
+loadTranslations();
 
 async function sendFileToClient(file, options = {}) {
   if (!file) {
@@ -118,7 +173,8 @@ async function sendFileToClient(file, options = {}) {
           : await getOrderByPc(String(file.pc));
         customerRut = header?.rut || header?.customer_uuid || header?.customer_rut || null;
       } catch (lookupError) {
-        console.error('Error obteniendo rut desde SQL por pc/oc:', lookupError);
+        const { logger } = require('../utils/logger');
+        logger.error(`[EmailService] Error obteniendo rut desde SQL por pc/oc: ${lookupError.message}`);
       }
     }
     if (!customerRut && file.customer_id) {
@@ -143,7 +199,8 @@ async function sendFileToClient(file, options = {}) {
             const parsed = JSON.parse(raw);
             return Array.isArray(parsed) ? parsed : [];
           } catch (error) {
-            console.error('Error parseando contact_email JSON:', error);
+            const { logger } = require('../utils/logger');
+            logger.error(`[EmailService] Error parseando contact_email JSON: ${error.message}`);
             return [];
           }
         }
@@ -164,7 +221,8 @@ async function sendFileToClient(file, options = {}) {
       cachedContacts = contacts;
       return cachedContacts;
     } catch (error) {
-      console.error('Error obteniendo contactos del cliente:', error);
+      const { logger } = require('../utils/logger');
+      logger.error(`[EmailService] Error obteniendo contactos del cliente: ${error.message}`);
       throw error;
     }
   };
@@ -248,36 +306,37 @@ async function sendFileToClient(file, options = {}) {
     throw new Error('Archivo no encontrado en el servidor local');
   }
 
-  const translationsPath = path.join(__dirname, '../mail-generator/i18n', `${resolvedLang}.json`);
-  const translations = JSON.parse(fs.readFileSync(translationsPath, 'utf8'));
-
-  const templatePath = path.join(__dirname, '../mail-generator/template/document.hbs');
-  const templateContent = fs.readFileSync(templatePath, 'utf8');
-  const template = Handlebars.compile(templateContent);
+  const t = translations[resolvedLang] || translations.en || {};
+  const template = compiledTemplates.document;
+  
+  if (!template) {
+    throw new Error('Template "document" not found');
+  }
+  
   const filename = resolvedLang === 'en' ? file.name : await translateNameOfDocument(file.name);
 
   const templateData = {
     lang: resolvedLang,
-    dear: translations.mail.dear,
+    dear: t.mail?.dear || 'Dear',
     subject: `📄 Gelymar: ${filename}`,
     title: filename,
     logoUrl: 'https://www.gelymar.com/wp-content/uploads/2014/08/gelymar-logo.jpg',
     customerName: file.customer_name,
-    introMessage: translations.mail.introMessage,
+    introMessage: t.mail?.introMessage || '',
     documentName: filename,
-    logisticsManagement: translations.mail.logisticsManagement,
-    gelymar: translations.mail.gelymar,
-    pleaseFindAttached: translations.mail.pleaseFindAttached,
-    correspondingTo: translations.mail.correspondingTo,
-    documentContains: translations.mail.documentContains,
-    questionsContact: translations.mail.questionsContact,
-    bestRegards: translations.mail.bestRegards,
-    gelymarTeam: translations.mail.gelymarTeam,
-    internationalLogisticsServices: translations.mail.internationalLogisticsServices,
+    logisticsManagement: t.mail?.logisticsManagement || '',
+    gelymar: t.mail?.gelymar || 'Gelymar',
+    pleaseFindAttached: t.mail?.pleaseFindAttached || '',
+    correspondingTo: t.mail?.correspondingTo || '',
+    documentContains: t.mail?.documentContains || '',
+    questionsContact: t.mail?.questionsContact || '',
+    bestRegards: t.mail?.bestRegards || 'Best regards',
+    gelymarTeam: t.mail?.gelymarTeam || 'Gelymar Team',
+    internationalLogisticsServices: t.mail?.internationalLogisticsServices || '',
     contactEmail: 'carla.torres@gelymar.com',
     contactWebsite: 'www.gelymar.com',
     contactPhone: '+56 9 9760 4855',
-    disclaimer: translations.mail.disclaimer
+    disclaimer: t.mail?.disclaimer || ''
   };
 
   const htmlContent = template(templateData);
@@ -309,9 +368,11 @@ async function sendChatNotification({
     throw new Error('No se proporciono email de administrador');
   }
 
-  const templatePath = path.join(__dirname, '../mail-generator/template/chat.hbs');
-  const templateContent = fs.readFileSync(templatePath, 'utf8');
-  const template = Handlebars.compile(templateContent);
+  const template = compiledTemplates.chat;
+  
+  if (!template) {
+    throw new Error('Template "chat" not found');
+  }
 
   const subject = 'Nuevo mensaje de chat - Gelymar';
   const safeMessage = typeof message === 'string' ? message.trim() : '';
@@ -350,9 +411,11 @@ async function sendAdminNotificationSummary({
     throw new Error('No se proporciono email de administrador');
   }
 
-  const templatePath = path.join(__dirname, '../mail-generator/template/notifications-summary.hbs');
-  const templateContent = fs.readFileSync(templatePath, 'utf8');
-  const template = Handlebars.compile(templateContent);
+  const template = compiledTemplates['notifications-summary'];
+  
+  if (!template) {
+    throw new Error('Template "notifications-summary" not found');
+  }
 
   const subject = 'Recordatorio diario de tareas pendientes - Gelymar';
   const summaryHtml = (summaryText || '').replace(/\n/g, '<br />');

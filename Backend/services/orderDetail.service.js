@@ -2,11 +2,7 @@
 const { getSqlPool, sql } = require('../config/sqlserver');
 const { mapHdrRowToOrder } = require('../mappers/sqlsoftkey/hdr.mapper');
 const { logger } = require('../utils/logger');
-
-const normalizeOcForCompare = (value) => {
-  if (value === null || value === undefined) return '';
-  return String(value).toUpperCase().replace(/[\s()-]+/g, '');
-};
+const { normalizeOcForCompare } = require('../utils/oc.util');
 
 const parseOrderKey = (orderId) => {
   if (!orderId) return null;

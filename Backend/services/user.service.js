@@ -50,21 +50,49 @@ async function getSqlCustomerByEmail(email) {
 
 async function getSqlSellerByRut(rut) {
   if (!rut) return null;
-  const pool = await getSqlPool();
-  const request = pool.request();
   const rawRut = String(rut).trim();
+  const pool = await poolPromise;
+  const normalizedRut = rawRut.toLowerCase().replace(/\./g, '').trim();
+  const [sellerRows] = await pool.query(
+    `SELECT codigo
+     FROM sellers
+     WHERE REPLACE(LOWER(TRIM(rut)), '.', '') = ?
+     LIMIT 1`,
+    [normalizedRut]
+  );
+  const sellerCode = sellerRows?.[0]?.codigo ? String(sellerRows[0].codigo).trim() : '';
+
+  const sqlPool = await getSqlPool();
+  const request = sqlPool.request();
+  if (sellerCode) {
+    const isNumericCode = /^[0-9]+$/.test(sellerCode);
+    request.input('slpCode', isNumericCode ? sql.Int : sql.VarChar, isNumericCode ? Number(sellerCode) : sellerCode);
+    const result = await request.query(`
+      SELECT TOP 1
+        Rut,
+        SlpName,
+        SlpCode
+      FROM jor_imp_VEND_90_softkey
+      WHERE SlpCode = @slpCode
+    `);
+    const record = result.recordset?.[0] || null;
+    return record;
+  }
+
   const hasTrailingC = rawRut.toLowerCase().endsWith('c');
   const altRut = hasTrailingC ? rawRut.slice(0, -1) : `${rawRut}C`;
   request.input('rut', sql.VarChar, rawRut);
   request.input('rutAlt', sql.VarChar, altRut);
-  const result = await request.query(`
+  const fallback = await request.query(`
     SELECT TOP 1
       Rut,
-      SlpName
+      SlpName,
+      SlpCode
     FROM jor_imp_VEND_90_softkey
     WHERE Rut = @rut OR Rut = @rutAlt
   `);
-  return result.recordset?.[0] || null;
+  const record = fallback.recordset?.[0] || null;
+  return record;
 }
 
 /**
@@ -332,7 +360,7 @@ async function getUserProfile(userId) {
   
   const [rows] = await pool.query(
     `
-    SELECT u.id, u.rut AS rut,
+    SELECT u.id, u.rut AS rut, u.role_id,
            a.name AS admin_name,
            a.phone AS admin_phone,
            a.country AS admin_country,
@@ -356,10 +384,11 @@ async function getUserProfile(userId) {
   if (!user) return null;
   let sqlCustomer = null;
   let sqlSeller = null;
-  if (user.role_id === 3 && !user.admin_name) {
+  const roleId = Number(user.role_id);
+  if (roleId === 3 && !user.admin_name) {
     sqlSeller = await getSqlSellerByRut(user.rut);
   }
-  if (user.role_id === 2 || (!user.admin_name && !sqlSeller?.SlpName)) {
+  if (roleId === 2 || (!user.admin_name && !sqlSeller?.SlpName)) {
     sqlCustomer = await getSqlCustomerByRut(user.rut);
   }
 

@@ -1,11 +1,6 @@
 const { poolPromise } = require('../config/db');
 const { getSqlPool, sql } = require('../config/sqlserver');
-
-const normalizeRut = (value) => {
-  const raw = String(value || '').trim();
-  if (!raw) return '';
-  return raw.toLowerCase().endsWith('c') ? raw.slice(0, -1) : raw;
-};
+const { normalizeRut } = require('../utils/rut.util');
 
 const fetchCustomerNames = async (ruts = []) => {
   const cleaned = (ruts || [])
@@ -64,7 +59,8 @@ class ChatMessage {
         throw new Error(`Customer con RUT ${customer_id} no existe`);
       }
     } catch (error) {
-      console.error('Error verificando existencia:', error);
+      const { logger } = require('../utils/logger');
+      logger.error(`[ChatMessage] Error verificando existencia: ${error.message}`);
       throw error;
     }
     
@@ -80,7 +76,8 @@ class ChatMessage {
       const [result] = await pool.query(query, [customer_id, message, sender_role, isSecurityMessage]);
       return result.insertId;
     } catch (error) {
-      console.error('Error en create:', error);
+      const { logger } = require('../utils/logger');
+      logger.error(`[ChatMessage] Error en create: ${error.message}`);
       throw error;
     }
   }
@@ -107,7 +104,8 @@ class ChatMessage {
       const [rows] = await pool.query(query, [customerId, limit]);
       return rows;
     } catch (error) {
-      console.error('Error en getMessagesByCustomer:', error);
+      const { logger } = require('../utils/logger');
+      logger.error(`[ChatMessage] Error en getMessagesByCustomer: ${error.message}`);
       throw error;
     }
   }

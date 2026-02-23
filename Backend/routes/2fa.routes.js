@@ -3,6 +3,7 @@ const router = express.Router();
 const speakeasy = require('speakeasy');
 const qrcode = require('qrcode');
 const pool = require('../config/db').pool;
+const { logger } = require('../utils/logger');
 
 // ✅ Generar secreto, guardar en DB y devolver QR
 exports.generate2FA = async (req, res) => {
@@ -21,7 +22,11 @@ exports.generate2FA = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error al guardar secreto 2FA:', error);
+    logger.error('[2FA] Error al guardar secreto 2FA:', {
+      message: error.message,
+      stack: error.stack,
+      userId
+    });
     res.status(500).json({ message: 'Error al guardar 2FA' });
   }
 };
@@ -47,7 +52,11 @@ exports.verify2FA = async (req, res) => {
     );
     res.json({ message: '✅ 2FA verificado y activado con éxito' });
   } catch (err) {
-    console.error('❌ Error activando 2FA:', err);
+    logger.error('[2FA] Error activando 2FA:', {
+      message: err.message,
+      stack: err.stack,
+      userId
+    });
     res.status(500).json({ message: 'Error al activar 2FA' });
   }
 };

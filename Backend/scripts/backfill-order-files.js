@@ -12,10 +12,7 @@ const { poolPromise } = require('../config/db');
 const { getSqlPool, sql } = require('../config/sqlserver');
 const { cleanDirectoryName } = require('../utils/directoryUtils');
 const { logger } = require('../utils/logger');
-
-function normalizeOcForCompare(value) {
-  return String(value || '').toUpperCase().replace(/[\s()-]+/g, '');
-}
+const { normalizeOcForCompare } = require('../utils/oc.util');
 
 function parseArgs() {
   const args = new Set(process.argv.slice(2));

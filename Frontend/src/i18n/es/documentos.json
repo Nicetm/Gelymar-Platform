@@ -1,5 +1,6 @@
 {
   "title": "Documentos",
+  "myDocuments": "Mis Documentos",
   "name": "Nombre archivo",
   "type": "Tipo",
   "created": "Fecha creación",
@@ -208,5 +209,6 @@
   "documentName": "Nombre documento",
   "noDocs": "No hay documentos disponibles",
   "view": "Ver",
-  "createDefaultAlreadyExists": "Los archivos por defecto ya existen para esta orden"
+  "createDefaultAlreadyExists": "Los archivos por defecto ya existen para esta orden",
+  "loading": "Cargando..."
 }

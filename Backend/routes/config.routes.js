@@ -22,4 +22,7 @@ router.get('/sidebar-menu', authMiddleware, authorizeRoles(['admin', 'client']),
 // Visibilidad de opciones del panel de ajustes
 router.get('/admin-settings/visibility', authMiddleware, authorizeRoles(['admin']), configController.getAdminSettingsVisibility);
 
+// Configuración de recaptcha en login (público - sin auth)
+router.get('/recaptcha-login', configController.getRecaptchaLoginConfig);
+
 module.exports = router;

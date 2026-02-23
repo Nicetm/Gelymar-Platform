@@ -14,7 +14,8 @@ class EncryptionService {
       const encrypted = CryptoJS.AES.encrypt(message, ENCRYPTION_KEY).toString();
       return encrypted;
     } catch (error) {
-      console.error('Error encriptando mensaje:', error);
+      const { logger } = require('../utils/logger');
+      logger.error(`[EncryptionService] Error encriptando mensaje: ${error.message}`);
       throw new Error('Error al encriptar el mensaje');
     }
   }
@@ -35,7 +36,8 @@ class EncryptionService {
       
       return message;
     } catch (error) {
-      console.error('Error desencriptando mensaje:', error);
+      const { logger } = require('../utils/logger');
+      logger.error(`[EncryptionService] Error desencriptando mensaje: ${error.message}`);
       throw new Error('Error al desencriptar el mensaje');
     }
   }

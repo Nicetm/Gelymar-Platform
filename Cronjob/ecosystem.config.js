@@ -8,7 +8,9 @@ module.exports = {
         autorestart: true,
         wait_ready: true,
         listen_timeout: 10000,
-        kill_timeout: 5000
+        kill_timeout: 5000,
+        max_memory_restart: '500M',
+        restart_delay: 4000
       },
       {
         name: 'gelymar-order-reception',
@@ -17,7 +19,9 @@ module.exports = {
         autorestart: true,
         wait_ready: true,
         listen_timeout: 10000,
-        kill_timeout: 5000
+        kill_timeout: 5000,
+        max_memory_restart: '300M',
+        restart_delay: 4000
       },
       {
         name: 'gelymar-shipment-notice',
@@ -26,7 +30,9 @@ module.exports = {
         autorestart: true,
         wait_ready: true,
         listen_timeout: 10000,
-        kill_timeout: 5000
+        kill_timeout: 5000,
+        max_memory_restart: '300M',
+        restart_delay: 4000
       },
       {
         name: 'gelymar-order-delivery-notice',
@@ -35,7 +41,9 @@ module.exports = {
         autorestart: true,
         wait_ready: true,
         listen_timeout: 10000,
-        kill_timeout: 5000
+        kill_timeout: 5000,
+        max_memory_restart: '300M',
+        restart_delay: 4000
       },
       {
         name: 'gelymar-availability-notice',
@@ -44,7 +52,9 @@ module.exports = {
         autorestart: true,
         wait_ready: true,
         listen_timeout: 10000,
-        kill_timeout: 5000
+        kill_timeout: 5000,
+        max_memory_restart: '300M',
+        restart_delay: 4000
       },
 
       {
@@ -54,7 +64,9 @@ module.exports = {
         autorestart: true,
         wait_ready: true,
         listen_timeout: 10000,
-        kill_timeout: 5000
+        kill_timeout: 5000,
+        max_memory_restart: '200M',
+        restart_delay: 4000
       },
       {
         name: 'gelymar-admin-notifications',
@@ -63,7 +75,9 @@ module.exports = {
         autorestart: true,
         wait_ready: true,
         listen_timeout: 10000,
-        kill_timeout: 5000
+        kill_timeout: 5000,
+        max_memory_restart: '200M',
+        restart_delay: 4000
       }
     ]
   }; 

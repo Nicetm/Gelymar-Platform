@@ -3,6 +3,8 @@ const { sql, getSqlPool } = require('../config/sqlserver');
 const { mapHdrRowToOrder } = require('../mappers/sqlsoftkey/hdr.mapper');
 const { mapItemRowToOrderItem } = require('../mappers/sqlsoftkey/item.mapper');
 const Order = require('../models/order.model');
+const { normalizeRut } = require('../utils/rut.util');
+const { normalizeOcForCompare } = require('../utils/oc.util');
 
 const formatDateOnly = (date) => {
   const year = date.getFullYear();
@@ -38,11 +40,6 @@ const clampDateRange = (startInput, endInput) => {
 
   return { startDate, endDate };
 };
-
-  const normalizeOcForCompare = (value) => {
-    if (value === null || value === undefined) return '';
-    return String(value).toUpperCase().replace(/[\s()-]+/g, '');
-  };
 
 const subtractDays = (endDate, days) => {
   const base = new Date(`${endDate}T00:00:00`);
@@ -113,7 +110,7 @@ const createOrderService = ({
     LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
   `;
 
-  const conditions = [];
+  const conditions = ['ISNULL(LTRIM(RTRIM(UPPER(h.EstadoOV))), \'\') <> \'CANCELADO\''];
   const request = sqlPool.request();
 
   if (filters.customerRut) {
@@ -215,15 +212,10 @@ const createOrderService = ({
  * @param {string} customerRut - RUT del cliente
  * @returns {Promise<Array>} Array de órdenes formateadas
  */
-  const normalizeRutForCompare = (rut) => {
-    if (!rut) return '';
-    return String(rut).trim().replace(/C$/i, '');
-  };
-
   const getClientDashboardOrders = async (customerRut) => {
     const sqlPool = await getSqlPoolFn();
     const headerRequest = sqlPool.request();
-    const normalizedRut = normalizeRutForCompare(customerRut);
+    const normalizedRut = normalizeRut(customerRut);
     const rutWithC = normalizedRut ? `${normalizedRut}C` : '';
     headerRequest.input('rut', sqlModule.VarChar, normalizedRut || customerRut);
     headerRequest.input('rutWithC', sqlModule.VarChar, rutWithC);
@@ -250,7 +242,8 @@ const createOrderService = ({
         c.Nombre AS customer_name
       FROM jor_imp_HDR_90_softkey h
       LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
-      WHERE h.Rut = @rut OR h.Rut = @rutWithC
+      WHERE (h.Rut = @rut OR h.Rut = @rutWithC)
+        AND ISNULL(LTRIM(RTRIM(UPPER(h.EstadoOV))), '') <> 'CANCELADO'
       ORDER BY CAST(h.Fecha AS date) DESC
     `);
 
@@ -659,7 +652,7 @@ const createOrderService = ({
       const mapped = hdrMapper(row);
 
       if (user.role === 'client' &&
-          normalizeRutForCompare(mapped.rut) !== normalizeRutForCompare(user.rut || user.email)) {
+          normalizeRut(mapped.rut) !== normalizeRut(user.rut || user.email)) {
         return null;
       }
 
@@ -751,7 +744,7 @@ const createOrderService = ({
       const mapped = hdrMapper(row);
 
       if (user.role === 'client' &&
-          normalizeRutForCompare(mapped.rut) !== normalizeRutForCompare(user.rut || user.email)) {
+          normalizeRut(mapped.rut) !== normalizeRut(user.rut || user.email)) {
         return null;
       }
 
@@ -831,7 +824,8 @@ const createOrderService = ({
           h.ETD_OV AS fecha_etd
         FROM jor_imp_HDR_90_softkey h
         LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
-        WHERE CASE
+        WHERE ISNULL(LTRIM(RTRIM(UPPER(h.EstadoOV))), '') <> 'CANCELADO'
+          AND CASE
             WHEN ISDATE(ISNULL(h.Fecha, h.Fecha_factura)) = 1
             THEN CAST(ISNULL(h.Fecha, h.Fecha_factura) AS date)
           END >= @fecha
@@ -1150,6 +1144,8 @@ const createOrderService = ({
           h.Rut,
           h.Factura,
           h.Vendedor,
+          h.GtoAdicFlete,
+          h.GtoAdicFleteFactura,
           c.Nombre AS customer_name
         FROM jor_imp_HDR_90_softkey h
         LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
@@ -1165,7 +1161,7 @@ const createOrderService = ({
       const mappedHeader = hdrMapper(headerRow);
 
       if (user.role === 'client' &&
-          normalizeRutForCompare(mappedHeader.rut) !== normalizeRutForCompare(user.rut || user.email)) {
+          normalizeRut(mappedHeader.rut) !== normalizeRut(user.rut || user.email)) {
         return null;
       }
 
@@ -1200,10 +1196,15 @@ const createOrderService = ({
       const items = (itemsResult.recordset || []).map((row) => itemMapper(row));
       const currency = mappedHeader.currency || '';
       const customerName = headerRow.customer_name?.trim() || '';
+      const gastoAdicionalFlete = headerRow.GtoAdicFlete;
+      const gastoAdicionalFleteFactura = headerRow.GtoAdicFleteFactura;
+      
       return items.map((item) => ({
         ...item,
         currency,
-        customer_name: customerName
+        customer_name: customerName,
+        gasto_adicional_flete: gastoAdicionalFlete,
+        gasto_adicional_flete_factura: gastoAdicionalFleteFactura
       }));
     } catch (error) {
       logger.error('Error en getOrderItems:', error.message);
@@ -1248,7 +1249,7 @@ const createOrderService = ({
       if (!headerRow) return null;
 
       const mappedHeader = hdrMapper(headerRow);
-      if (normalizeRutForCompare(mappedHeader.rut) !== normalizeRutForCompare(customerRut)) {
+      if (normalizeRut(mappedHeader.rut) !== normalizeRut(customerRut)) {
         return null;
       }
 

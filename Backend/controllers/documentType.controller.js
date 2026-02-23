@@ -1,5 +1,6 @@
 const DocumentType = require('../models/documentType.model');
 const { logger } = require('../utils/logger');
+const { t } = require('../i18n');
 
 /**
  * @route GET /api/document-types
@@ -12,7 +13,7 @@ exports.getAllDocumentTypes = async (req, res) => {
     res.json(documentTypes);
   } catch (err) {
     logger.error(`Error al obtener tipos de documentos: ${err.message}`);
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: t('documentType.get_types_error', req.lang || 'es') });
   }
 };
 
@@ -27,12 +28,12 @@ exports.getDocumentTypeById = async (req, res) => {
   try {
     const documentType = await DocumentType.getById(id);
     if (!documentType) {
-      return res.status(404).json({ message: 'Tipo de documento no encontrado' });
+      return res.status(404).json({ message: t('documentType.type_not_found', req.lang || 'es') });
     }
     res.json(documentType);
   } catch (err) {
     logger.error(`Error al obtener tipo de documento: ${err.message}`);
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: t('documentType.get_type_error', req.lang || 'es') });
   }
 };
 
@@ -45,7 +46,7 @@ exports.createDocumentType = async (req, res) => {
   const { name, description } = req.body;
 
   if (!name) {
-    return res.status(400).json({ message: 'El nombre es obligatorio' });
+    return res.status(400).json({ message: t('documentType.name_required', req.lang || 'es') });
   }
 
   try {
@@ -56,7 +57,7 @@ exports.createDocumentType = async (req, res) => {
     res.status(201).json(documentType);
   } catch (err) {
     logger.error(`Error al crear tipo de documento: ${err.message}`);
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: t('documentType.create_type_error', req.lang || 'es') });
   }
 };
 
@@ -70,13 +71,13 @@ exports.updateDocumentType = async (req, res) => {
   const { name, description } = req.body;
 
   if (!name) {
-    return res.status(400).json({ message: 'El nombre es obligatorio' });
+    return res.status(400).json({ message: t('documentType.name_required', req.lang || 'es') });
   }
 
   try {
     const success = await DocumentType.update(id, { name, description });
     if (!success) {
-      return res.status(404).json({ message: 'Tipo de documento no encontrado' });
+      return res.status(404).json({ message: t('documentType.type_not_found', req.lang || 'es') });
     }
 
     const documentType = await DocumentType.getById(id);
@@ -84,7 +85,7 @@ exports.updateDocumentType = async (req, res) => {
     res.json(documentType);
   } catch (err) {
     logger.error(`Error al actualizar tipo de documento: ${err.message}`);
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: t('documentType.update_type_error', req.lang || 'es') });
   }
 };
 
@@ -99,13 +100,13 @@ exports.deleteDocumentType = async (req, res) => {
   try {
     const success = await DocumentType.delete(id);
     if (!success) {
-      return res.status(404).json({ message: 'Tipo de documento no encontrado' });
+      return res.status(404).json({ message: t('documentType.type_not_found', req.lang || 'es') });
     }
 
     logger.info(`Tipo de documento eliminado ID: ${id}`);
-    res.json({ message: 'Tipo de documento eliminado correctamente' });
+    res.json({ message: t('documentType.type_deleted', req.lang || 'es') });
   } catch (err) {
     logger.error(`Error al eliminar tipo de documento: ${err.message}`);
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: t('documentType.delete_type_error', req.lang || 'es') });
   }
 }; 

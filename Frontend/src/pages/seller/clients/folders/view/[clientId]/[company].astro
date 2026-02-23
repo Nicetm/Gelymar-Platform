@@ -1,0 +1,13 @@
+---
+export const prerender = false;
+
+import LayoutSeller from '../../../../../../app/LayoutSeller.astro';
+import Folders from '../../../../../../modules/admin/Folders.astro';
+
+const { clientId = '', company = '' } = Astro.params;
+const decodedCompany = company ? company.replace(/-/g, ' ') : '';
+---
+
+<LayoutSeller>
+  <Folders basePath="/seller" routeClientId={clientId} routeCompany={decodedCompany} />
+</LayoutSeller>

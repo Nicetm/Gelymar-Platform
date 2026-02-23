@@ -211,7 +211,6 @@ export function initSidebarAdmin(config) {
     const rootEl = document.documentElement;
     const collapseBtn = document.getElementById('toggleSidebarCollapse');
     const sidebarUser = document.querySelector('[data-sidebar-user]');
-    const footerRow = document.querySelector('[data-sidebar-footer-row]');
     const sidebarTexts = sidebar ? sidebar.querySelectorAll('[data-sidebar-text]') : [];
     const sidebarLinks = sidebar ? sidebar.querySelectorAll('.sidebar-link') : [];
 
@@ -239,17 +238,31 @@ export function initSidebarAdmin(config) {
         link.classList.toggle('px-3', collapsed);
       });
 
-      if (footerRow) {
-        footerRow.classList.toggle('flex-col', collapsed);
-        footerRow.classList.toggle('gap-3', collapsed);
-        footerRow.classList.toggle('gap-2', !collapsed);
+      // Footer buttons layout
+      const footerContainer = sidebar.querySelector('.w-full.p-3.bg-white.border-t, .w-full.p-3.bg-white.border-t.dark\\:bg-gray-800');
+      if (footerContainer) {
+        if (collapsed) {
+          footerContainer.classList.add('flex-col', 'gap-3');
+          footerContainer.classList.remove('gap-2');
+        } else {
+          footerContainer.classList.remove('flex-col', 'gap-3');
+          footerContainer.classList.add('gap-2');
+        }
       }
     };
 
     if (collapseBtn) {
       const stored = localStorage.getItem('sidebarCollapsed');
-      const initialCollapsed = rootEl?.classList.contains('sidebar-collapsed') || stored === '1';
-      applySidebarCollapsed(initialCollapsed);
+      const storedCollapsed = stored === '1';
+      const domCollapsed = sidebar?.classList.contains('sidebar-collapsed');
+      
+      // Priorizar localStorage sobre el estado del DOM
+      const desiredCollapsed = stored !== null ? storedCollapsed : domCollapsed;
+      
+      // Solo aplicar si el estado actual no coincide con el deseado
+      if (domCollapsed !== desiredCollapsed) {
+        applySidebarCollapsed(desiredCollapsed);
+      }
 
       collapseBtn.addEventListener('click', (e) => {
         e.preventDefault();

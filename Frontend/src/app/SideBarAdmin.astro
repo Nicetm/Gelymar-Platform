@@ -197,8 +197,8 @@ let avatarDarkSrc = user?.avatar
 <aside
   id="sidebar"
   class:list={[
-    'fixed top-0 left-0 z-20 flex-col flex-shrink-0 hidden w-56 h-full pt-16 font-normal lg:flex bg-white border-r border-gray-200 dark:bg-gray-800 dark:border-gray-700',
-    isSidebarCollapsed && 'sidebar-collapsed w-20'
+    'fixed top-0 left-0 z-20 flex-col flex-shrink-0 hidden h-full pt-16 font-normal lg:flex transition-width bg-white border-r border-gray-200 dark:bg-gray-800 dark:border-gray-700',
+    isSidebarCollapsed ? 'w-20 sidebar-collapsed' : 'w-56'
   ]}
   aria-label="Admin Sidebar"
   data-api-base={apiBase}
@@ -253,8 +253,10 @@ let avatarDarkSrc = user?.avatar
 
   <!-- Footer: settings + language -->
   <div
-    class="w-full p-3 bg-white border-t border-gray-200 flex flex-col gap-3 dark:bg-gray-800 dark:border-gray-700">
-    <div data-sidebar-footer-row class="flex gap-2">
+    class:list={[
+      'w-full p-3 bg-white border-t border-gray-200 flex dark:bg-gray-800 dark:border-gray-700',
+      isSidebarCollapsed ? 'flex-col gap-3' : 'gap-2'
+    ]}>
       <!-- Settings dropdown -->
       <div class="relative flex-1">
         <button
@@ -399,9 +401,8 @@ let avatarDarkSrc = user?.avatar
             </a>
           </div>
         </div>
-      </div>    
-    </div>
-
+      </div>
+    </div>  
   </div>
 </aside>
 

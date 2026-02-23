@@ -1,7 +1,8 @@
 const { container } = require('../config/container');
 const vendedorService = container.resolve('vendedorService');
+const passwordService = container.resolve('passwordService');
 const { logger } = require('../utils/logger');
-const bcrypt = require('bcrypt');
+const { t } = require('../i18n');
 
 /**
  * Obtiene todos los vendedores (usuarios con role_id = 3)
@@ -9,7 +10,7 @@ const bcrypt = require('bcrypt');
 exports.getVendedores = async (req, res) => {
   try {
     if (!req.user || Number(req.user.roleId) !== 1) {
-      return res.status(403).json({ message: 'Acceso no autorizado - Solo administradores' });
+      return res.status(403).json({ message: t('vendedor.unauthorized_admin_only', req.lang || 'es') });
     }
 
     const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
@@ -17,15 +18,15 @@ exports.getVendedores = async (req, res) => {
     const vendedores = await vendedorService.getVendedores({ search });
     res.json(vendedores);
   } catch (error) {
-    logger.error(`Error al obtener vendedores: ${error.message}`);
-    res.status(500).json({ message: 'Error al obtener la lista de vendedores' });
+    logger.error(`[getVendedores] Error: ${error.message}`);
+    res.status(500).json({ message: t('vendedor.get_list_error', req.lang || 'es') });
   }
 };
 
 exports.updateVendedor = async (req, res) => {
   try {
     if (!req.user || Number(req.user.roleId) !== 1) {
-      return res.status(403).json({ message: 'Acceso no autorizado - Solo administradores' });
+      return res.status(403).json({ message: t('vendedor.unauthorized_admin_only', req.lang || 'es') });
     }
 
     const rut = String(req.params.rut || '').trim();
@@ -38,21 +39,21 @@ exports.updateVendedor = async (req, res) => {
     } = req.body || {};
 
     if (!rut) {
-      return res.status(400).json({ message: 'RUT requerido' });
+      return res.status(400).json({ message: t('validation.rut_required', req.lang || 'es') });
     }
 
     if (!nextRut || String(nextRut).trim() === '') {
-      return res.status(400).json({ message: 'RUT requerido' });
+      return res.status(400).json({ message: t('validation.rut_required', req.lang || 'es') });
     }
 
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim())) {
-      return res.status(400).json({ message: 'Email inválido' });
+      return res.status(400).json({ message: t('validation.email_invalid', req.lang || 'es') });
     }
 
     if (phone && String(phone).trim().length > 0) {
       const phoneLen = String(phone).trim().length;
       if (phoneLen < 8 || phoneLen > 20) {
-        return res.status(400).json({ message: 'Teléfono debe tener entre 8 y 20 caracteres' });
+        return res.status(400).json({ message: t('vendedor.phone_length_error', req.lang || 'es') });
       }
     }
 
@@ -68,65 +69,58 @@ exports.updateVendedor = async (req, res) => {
     });
 
     if (!updated) {
-      return res.status(404).json({ message: 'Vendedor no encontrado' });
+      return res.status(404).json({ message: t('vendedor.not_found', req.lang || 'es') });
     }
 
     res.json({
-      message: 'Vendedor actualizado correctamente',
+      message: t('vendedor.updated_successfully', req.lang || 'es'),
       seller: updated
     });
   } catch (error) {
     if (error.code === 'RUT_EXISTS') {
-      return res.status(409).json({ message: 'RUT ya existe' });
+      return res.status(409).json({ message: t('vendedor.rut_exists', req.lang || 'es') });
     }
-    logger.error(`Error al actualizar vendedor: ${error.message}`);
-    res.status(500).json({ message: 'Error al actualizar vendedor' });
+    logger.error(`[updateVendedor] Error: ${error.message}`);
+    res.status(500).json({ message: t('vendedor.update_error', req.lang || 'es') });
   }
 };
 
 exports.changeVendedorPassword = async (req, res) => {
   try {
     if (!req.user || Number(req.user.roleId) !== 1) {
-      return res.status(403).json({ message: 'Acceso no autorizado - Solo administradores' });
+      return res.status(403).json({ message: t('vendedor.unauthorized_admin_only', req.lang || 'es') });
     }
 
     const rut = String(req.params.rut || '').trim();
     const { password } = req.body || {};
 
     if (!rut) {
-      return res.status(400).json({ message: 'RUT requerido' });
+      return res.status(400).json({ message: t('validation.rut_required', req.lang || 'es') });
     }
     if (!password) {
-      return res.status(400).json({ message: 'La contraseña es requerida' });
+      return res.status(400).json({ message: t('errors.password_required', req.lang || 'es') });
     }
 
-    const isStrongPassword =
-      password.length >= 8 &&
-      /[A-Z]/.test(password) &&
-      /[a-z]/.test(password) &&
-      /[0-9]/.test(password);
-    if (!isStrongPassword) {
+    const validation = passwordService.validatePasswordStrength(password, req.lang || 'es');
+    if (!validation.valid) {
       return res.status(400).json({
-        message: 'La contraseña debe tener al menos 8 caracteres e incluir mayúscula, minúscula y número'
+        message: validation.message
       });
     }
 
     const userId = await vendedorService.changeSellerPassword(rut, password);
     if (!userId) {
-      return res.status(404).json({ message: 'Usuario vendedor no encontrado' });
+      return res.status(404).json({ message: t('vendedor.user_not_found', req.lang || 'es') });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const { poolPromise } = require('../config/db');
-    const pool = await poolPromise;
-    await pool.query(
-      'UPDATE users SET password = ?, change_pw = 1 WHERE id = ?',
-      [hashedPassword, userId]
-    );
+    const result = await passwordService.resetPassword(userId, password, req.lang || 'es');
+    if (!result.success) {
+      return res.status(400).json({ message: result.message });
+    }
 
-    res.json({ message: 'Contraseña actualizada exitosamente' });
+    res.json({ message: t('vendedor.password_updated', req.lang || 'es') });
   } catch (error) {
-    logger.error(`Error al cambiar contraseña vendedor: ${error.message}`);
-    res.status(500).json({ message: 'Error al cambiar contraseña' });
+    logger.error(`[changeVendedorPassword] Error: ${error.message}`);
+    res.status(500).json({ message: t('vendedor.change_password_error', req.lang || 'es') });
   }
 };

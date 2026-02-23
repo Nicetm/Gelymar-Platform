@@ -23,6 +23,7 @@ const mapItemRowToOrderItem = (row = {}) => ({
   fecha_eta_factura: normalizeDate(row.ETA_ENC_FA),
   kg_facturados: normalizeDecimal(row.KilosFacturados, 4),
   factura: normalizeValue(row.Factura),
+  unidad_medida: normalizeValue(row.Unidad_Medida),
 });
 
 module.exports = {

@@ -1,4 +1,6 @@
 const { container } = require('../config/container');
+const { logger } = require('../utils/logger');
+const { t } = require('../i18n');
 const configService = container.resolve('configService');
 const orderService = container.resolve('orderService');
 
@@ -47,8 +49,8 @@ exports.getSidebarMenuConfig = async (req, res) => {
     const params = await getConfigParamsByName('sidebarMenuPorRol');
     res.json(params || { enable: 0, menu: [] });
   } catch (error) {
-    console.error('[getSidebarMenuConfig] Error:', error.message);
-    res.status(500).json({ message: 'Error al obtener configuraci�n del men� lateral' });
+    logger.error(`[ConfigController][getSidebarMenuConfig] Error: ${error.message}`);
+    res.status(500).json({ message: t('errors.get_config_error', req.lang || 'es') });
   }
 };
 
@@ -126,8 +128,8 @@ exports.getHeaderNotificaciones = async (req, res) => {
     const params = await getConfigParamsByName('headerNotificaciones');
     res.json(params || { enable: 0, role_id: [] });
   } catch (error) {
-    console.error('[getHeaderNotificaciones] Error:', error.message);
-    res.status(500).json({ message: 'Error al obtener configuracion de notificaciones' });
+    logger.error(`[ConfigController][getHeaderNotificaciones] Error: ${error.message}`);
+    res.status(500).json({ message: t('errors.get_notifications_config_error', req.lang || 'es') });
   }
 };
 
@@ -143,8 +145,8 @@ exports.getHeaderOrdenesSinDocumentosConfig = async (req, res) => {
       }
     );
   } catch (error) {
-    console.error('[getHeaderOrdenesSinDocumentosConfig] Error:', error.message);
-    res.status(500).json({ message: 'Error al obtener configuracion de ordenes sin documentos' });
+    logger.error(`[ConfigController][getHeaderOrdenesSinDocumentosConfig] Error: ${error.message}`);
+    res.status(500).json({ message: t('errors.get_orders_config_error', req.lang || 'es') });
   }
 };
 
@@ -159,21 +161,21 @@ exports.getOrdersMissingDocumentsAlert = async (req, res) => {
 
     if (!params) {
       return res.status(404).json({
-        message: 'Configuración headerOrdenesSinDocumentos no encontrada'
+        message: t('config.config_not_found', req.lang || 'es')
       });
     }
 
     const canAccess = isFeatureEnabledForUser(params, req.user?.roleId);
     if (!canAccess) {
       return res.status(403).json({
-        message: 'Acceso a ordenes sin documentos no autorizado'
+        message: t('config.access_not_authorized', req.lang || 'es')
       });
     }
 
     const fechaAlerta = params.fechaAlerta;
     if (!fechaAlerta) {
       return res.status(400).json({
-        message: 'El parámetro fechaAlerta no está configurado'
+        message: t('config.fecha_alerta_not_configured', req.lang || 'es')
       });
     }
 
@@ -189,8 +191,8 @@ exports.getOrdersMissingDocumentsAlert = async (req, res) => {
       orders
     });
   } catch (error) {
-    console.error('[getOrdersMissingDocumentsAlert] Error:', error.message);
-    res.status(500).json({ message: 'Error al obtener alertas de órdenes sin documentos' });
+    logger.error(`[ConfigController][getOrdersMissingDocumentsAlert] Error: ${error.message}`);
+    res.status(500).json({ message: t('errors.get_orders_alert_error', req.lang || 'es') });
   }
 };
 
@@ -226,7 +228,7 @@ exports.updateNotificationEmailList = async (req, res) => {
     if (result.affectedRows === 0) {
       result = await configService.updateConfig('settingEmailNotificación', payload);
       if (result.affectedRows === 0) {
-        return res.status(404).json({ message: 'Configuración settingEmailNotificacion no encontrada' });
+        return res.status(404).json({ message: t('config.config_not_found_generic', req.lang || 'es') });
       }
     }
 
@@ -262,8 +264,8 @@ exports.getAdminSettingsVisibility = async (req, res) => {
       profile: profileParams ? isEnabled(profileParams.enable) : false
     });
   } catch (error) {
-    console.error('[getAdminSettingsVisibility] Error:', error.message);
-    res.status(500).json({ message: 'Error al obtener la visibilidad de ajustes' });
+    logger.error(`[ConfigController][getAdminSettingsVisibility] Error: ${error.message}`);
+    res.status(500).json({ message: t('errors.get_visibility_error', req.lang || 'es') });
   }
 };
 
@@ -272,7 +274,17 @@ exports.getHeaderUsersSinCuenta = async (req, res) => {
     const params = await getConfigParamsByName('headerUsersSinCuenta');
     res.json(params || { enable: 0, role_id: [] });
   } catch (error) {
-    console.error('[getHeaderUsersSinCuenta] Error:', error.message);
-    res.status(500).json({ message: 'Error al obtener configuración de usuarios sin cuenta' });
+    logger.error(`[ConfigController][getHeaderUsersSinCuenta] Error: ${error.message}`);
+    res.status(500).json({ message: t('errors.get_users_config_error', req.lang || 'es') });
+  }
+};
+
+exports.getRecaptchaLoginConfig = async (req, res) => {
+  try {
+    const params = await getConfigParamsByName('setRecapchaLogin');
+    res.json(params || { enable: 0 });
+  } catch (error) {
+    logger.error(`[ConfigController][getRecaptchaLoginConfig] Error: ${error.message}`);
+    res.status(500).json({ message: 'Error obteniendo configuración de recaptcha' });
   }
 };

@@ -1,5 +1,6 @@
 const { container } = require('../config/container');
 const { logger } = require('../utils/logger');
+const { t } = require('../i18n');
 const orderService = container.resolve('orderService');
 
 /**
@@ -29,7 +30,7 @@ exports.getAllOrders = async (req, res) => {
     res.json(data);
   } catch (err) {
     logger.error(`[getAllOrders] Error: ${err.message}`);
-    res.status(500).json({ message: 'Error al obtener órdenes' });
+    res.status(500).json({ message: t('order.get_orders_error', req.lang || 'es') });
   }
 };
 
@@ -56,7 +57,7 @@ exports.searchOrders = async (req, res) => {
     res.json(data);
   } catch (err) {
     logger.error(`[searchOrders] Error: ${err.message}`);
-    res.status(500).json({ message: 'Error interno al buscar órdenes' });
+    res.status(500).json({ message: t('order.search_orders_error', req.lang || 'es') });
   }
 };
 
@@ -70,13 +71,13 @@ exports.getOrderById = async (req, res) => {
     const order = await orderService.getOrderById(id, req.user);
     
     if (!order) {
-      return res.status(404).json({ message: 'Orden no encontrada' });
+      return res.status(404).json({ message: t('order.order_not_found', req.lang || 'es') });
     }
 
     res.json(order);
   } catch (err) {
-    console.error('[getOrderById] Error:', err.message);
-    res.status(500).json({ message: 'Error al obtener orden' });
+    logger.error(`[getOrderById] Error: ${err.message}`);
+    res.status(500).json({ message: t('order.get_order_error', req.lang || 'es') });
   }
 };
 
@@ -90,17 +91,15 @@ exports.getOrderDetails = async (req, res) => {
     const details = await orderService.getOrderDetails(id, req.user);
     
     if (!details) {
-      return res.status(404).json({ message: 'Orden no encontrada' });
+      return res.status(404).json({ message: t('order.order_not_found', req.lang || 'es') });
     }
 
     res.json(details);
   } catch (err) {
-    console.error('[getOrderDetails] Error:', err.message);
-    res.status(500).json({ message: 'Error al obtener detalles de orden' });
+    logger.error(`[getOrderDetails] Error: ${err.message}`);
+    res.status(500).json({ message: t('order.get_order_details_error', req.lang || 'es') });
   }
 };
-
-
 
 /**
  * GET /api/orders/client/dashboard
@@ -112,7 +111,7 @@ exports.getClientDashboardOrders = async (req, res) => {
     // Solo clientes pueden acceder a este endpoint
     if (req.user.role !== 'client') {
       return res.status(403).json({ 
-        message: 'Acceso no autorizado',
+        message: t('errors.access_denied', req.lang || 'es'),
         userRole: req.user.role,
         expectedRole: 'client'
       });
@@ -123,8 +122,8 @@ exports.getClientDashboardOrders = async (req, res) => {
 
     res.json(orders);
   } catch (err) {
-    console.error('[getClientDashboardOrders] Error:', err.message);
-    res.status(500).json({ message: 'Error al obtener órdenes del dashboard' });
+    logger.error(`[getClientDashboardOrders] Error: ${err.message}`);
+    res.status(500).json({ message: t('order.get_dashboard_orders_error', req.lang || 'es') });
   }
 };
 
@@ -140,7 +139,7 @@ exports.getClientOrderDocuments = async (req, res) => {
     // Solo clientes pueden acceder a este endpoint
     if (req.user.role !== 'client') {
       return res.status(403).json({ 
-        message: 'Acceso no autorizado',
+        message: t('errors.access_denied', req.lang || 'es'),
         userRole: req.user.role,
         expectedRole: 'client'
       });
@@ -150,13 +149,13 @@ exports.getClientOrderDocuments = async (req, res) => {
     const documents = await orderService.getClientOrderDocuments(orderId, req.user.rut);
 
     if (!documents) {
-      return res.status(404).json({ message: 'Orden no encontrada o no autorizada' });
+      return res.status(404).json({ message: t('order.order_not_found_or_unauthorized', req.lang || 'es') });
     }
 
     res.json(documents);
   } catch (err) {
-    console.error('[getClientOrderDocuments] Error:', err.message);
-    res.status(500).json({ message: 'Error al obtener documentos de la orden' });
+    logger.error(`[getClientOrderDocuments] Error: ${err.message}`);
+    res.status(500).json({ message: t('order.get_order_documents_error', req.lang || 'es') });
   }
 };
 
@@ -175,13 +174,13 @@ exports.getOrderItems = async (req, res) => {
 
     if (!items) {
       logger.warn(`[getOrderItems] Orden no encontrada pc=${orderPc || 'N/A'} oc=${orderOc || 'N/A'} factura=${factura || 'N/A'}`);
-      return res.status(404).json({ message: 'Orden no encontrada o no autorizada' });
+      return res.status(404).json({ message: t('order.order_not_found_or_unauthorized', req.lang || 'es') });
     }
 
     res.json(items);
   } catch (err) {
-    console.error('[getOrderItems] Error:', err.message);
-    res.status(500).json({ message: 'Error al obtener items de la orden' });
+    logger.error(`[getOrderItems] Error: ${err.message}`);
+    res.status(500).json({ message: t('order.get_order_items_error', req.lang || 'es') });
   }
 };
 
@@ -199,20 +198,16 @@ exports.getOrderItemsWithoutFactura = async (req, res) => {
 
     if (!items) {
       logger.warn(`[getOrderItemsWithoutFactura] Orden no encontrada pc=${orderPc || 'N/A'} oc=${orderOc || 'N/A'}`);
-      return res.status(404).json({ message: 'Orden no encontrada o no autorizada' });
+      return res.status(404).json({ message: t('order.order_not_found_or_unauthorized', req.lang || 'es') });
     }
 
     res.json(items);
   } catch (err) {
-    console.error('[getOrderItemsWithoutFactura] Error:', err.message);
-    res.status(500).json({ message: 'Error al obtener items de la orden' });
+    logger.error(`[getOrderItemsWithoutFactura] Error: ${err.message}`);
+    res.status(500).json({ message: t('order.get_order_items_error', req.lang || 'es') });
   }
 };
 
-/**
- * GET /api/orders/alerts/missing-documents
- * Devuelve las órdenes que requieren alerta por falta de documentos
- */
 /**
  * GET /api/orders/:orderId/detail
  * Devuelve los detalles completos de una orden específica
@@ -226,13 +221,13 @@ exports.getOrderDetail = async (req, res) => {
     const orderDetail = await orderService.getOrderDetails(orderId, req.user);
 
     if (!orderDetail) {
-      return res.status(404).json({ message: 'Orden no encontrada o no autorizada' });
+      return res.status(404).json({ message: t('order.order_not_found_or_unauthorized', req.lang || 'es') });
     }
 
     res.json(orderDetail);
   } catch (err) {
-    console.error('[getOrderDetail] Error:', err.message);
-    res.status(500).json({ message: 'Error al obtener detalles de la orden' });
+    logger.error(`[getOrderDetail] Error: ${err.message}`);
+    res.status(500).json({ message: t('order.get_order_detail_error', req.lang || 'es') });
   }
 };
 
@@ -246,13 +241,13 @@ exports.getOrderByPc = async (req, res) => {
     const order = await orderService.getOrderByPc(pc);
 
     if (!order) {
-      return res.status(404).json({ message: 'Orden no encontrada' });
+      return res.status(404).json({ message: t('order.order_not_found', req.lang || 'es') });
     }
 
     res.json(order);
   } catch (err) {
-    console.error('[getOrderByPc] Error:', err.message);
-    res.status(500).json({ message: 'Error al obtener orden' });
+    logger.error(`[getOrderByPc] Error: ${err.message}`);
+    res.status(500).json({ message: t('order.get_order_error', req.lang || 'es') });
   }
 };
 
@@ -270,8 +265,8 @@ exports.getAdminSalesDashboard = async (req, res) => {
     });
     res.json(data);
   } catch (err) {
-    console.error('[getAdminSalesDashboard] Error:', err.message);
-    res.status(500).json({ message: 'Error al obtener metricas del dashboard' });
+    logger.error(`[getAdminSalesDashboard] Error: ${err.message}`);
+    res.status(500).json({ message: t('order.get_dashboard_metrics_error', req.lang || 'es') });
   }
 };
 
@@ -292,7 +287,8 @@ exports.getAdminPriceAnalysis = async (req, res) => {
     });
     res.json(data);
   } catch (err) {
-    console.error('[getAdminPriceAnalysis] Error:', err.message);
-    res.status(500).json({ message: 'Error al obtener analisis de precios' });
+    logger.error(`[getAdminPriceAnalysis] Error: ${err.message}`);
+    res.status(500).json({ message: t('order.get_price_analysis_error', req.lang || 'es') });
   }
 };
+

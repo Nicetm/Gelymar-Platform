@@ -503,16 +503,16 @@ function renderOrders() {
           <button class="view-items-btn text-gray-900 dark:text-white hover:text-green-500 transition"
                  data-order-pc="${order.pc}" data-order-oc="${order.orderNumber}" data-factura="${order.factura}"
                  data-tooltip="${getMessage(carpetas.tooltipViewItems)}">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+            <svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path class="pointer-events-none" stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
             </svg>
           </button>
           <button class="view-docs-btn text-gray-900 dark:text-white hover:text-blue-500 transition"
                  data-order-id="${order.id}"
-                 data-tooltip="${getMessage(documentos.viewDocuments)}">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M8 4h11a1 1 0 011 1v14a1 1 0 01-1 1H8l-4-4V5a1 1 0 011-1h3z"/>
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 9h8M9 13h6M9 17h4"/>
+                 data-tooltip="${getMessage(carpetas.viewDocuments)}">
+            <svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path class="pointer-events-none" stroke-linecap="round" stroke-linejoin="round" d="M8 4h11a1 1 0 011 1v14a1 1 0 01-1 1H8l-4-4V5a1 1 0 011-1h3z"/>
+              <path class="pointer-events-none" stroke-linecap="round" stroke-linejoin="round" d="M9 9h8M9 13h6M9 17h4"/>
             </svg>
           </button>
         </div>
@@ -577,19 +577,27 @@ async function loadOrderDocumentsFromAPI(orderId) {
     console.log('loadOrderDocumentsFromAPI -> docs length', Array.isArray(data.documents) ? data.documents.length : 'not array');
     
     // Convertir documentos al formato esperado por el frontend
-    documents = data.documents.map(doc => ({
-      id: doc.id,
-      name: doc.filename,
-      type: doc.filetype?.toLowerCase() || 'pdf',
-      size: doc.filesize || 0,
-      status: doc.status || getMessage(documentos.statusUnread),
-      statusColor: doc.statusColor || 'gray',
-      factura: doc.factura,
-      fecha_factura: doc.fecha_factura,
-      created: doc.created,
-      updated: doc.updated,
-      url: doc.filepath || '#'
-    }));
+    documents = data.documents.map(doc => {
+      // Extraer solo el nombre del documento (antes del primer " - ")
+      let displayName = doc.filename;
+      if (displayName && displayName.includes(' - ')) {
+        displayName = displayName.split(' - ')[0].trim();
+      }
+      
+      return {
+        id: doc.id,
+        name: displayName,
+        type: doc.filetype?.toLowerCase() || 'pdf',
+        size: doc.filesize || 0,
+        status: doc.status || getMessage(documentos.statusUnread),
+        statusColor: doc.statusColor || 'gray',
+        factura: doc.factura,
+        fecha_factura: doc.fecha_factura,
+        created: doc.created,
+        updated: doc.updated,
+        url: doc.filepath || '#'
+      };
+    });
     
     // Inicializar filteredDocuments con todos los documentos visibles
     filteredDocuments = [...documents];
@@ -1832,6 +1840,7 @@ async function openItemsModal(orderPc, orderOc, factura) {
   const itemsTableBody = document.getElementById('itemsTableBody');
   const totalItems = document.getElementById('totalItems');
   const totalQuantity = document.getElementById('totalQuantity');
+  const totalGastoAdicional = document.getElementById('totalGastoAdicional');
   const totalValue = document.getElementById('totalValue');
 
   if (!itemsModal || !itemsOrderTitle || !itemsTableBody) return;
@@ -1909,9 +1918,32 @@ async function openItemsModal(orderPc, orderOc, factura) {
 
     const currency = items[0]?.currency || 'CLP';
     const unit = items[0]?.unidad_medida || 'KG';
+    
+    // Calculate additional cost (gasto adicional)
+    const rawGastoAdicionalFactura = items[0]?.gasto_adicional_flete_factura;
+    const shouldUseFacturaExpense = hasFactura && rawGastoAdicionalFactura !== null && rawGastoAdicionalFactura !== undefined && rawGastoAdicionalFactura !== '';
+    const rawGastoAdicional = shouldUseFacturaExpense ? rawGastoAdicionalFactura : items[0]?.gasto_adicional_flete;
+    
+    console.log('[Additional Cost Debug]', {
+      hasFactura,
+      factura: facturaValue,
+      gasto_adicional_flete: items[0]?.gasto_adicional_flete,
+      gasto_adicional_flete_factura: rawGastoAdicionalFactura,
+      shouldUseFacturaExpense,
+      rawGastoAdicional,
+      finalValue: parseFloat(rawGastoAdicional) || 0
+    });
+    
+    const gastoAdicional = parseFloat(rawGastoAdicional) || 0;
+    
+    // Add additional cost to total value
+    const totalValueWithAdditional = totalValueSum + gastoAdicional;
+    
+    // Update totals display
     totalItems.textContent = totalItemsCount;
     totalQuantity.textContent = formatQuantity(totalQuantitySum, unit);
-    totalValue.textContent = formatCurrency(totalValueSum, currency, 2);
+    if (totalGastoAdicional) totalGastoAdicional.textContent = formatCurrency(gastoAdicional, currency, 2);
+    totalValue.textContent = formatCurrency(totalValueWithAdditional, currency, 2);
 
     // Mostrar el modal
     itemsModal.classList.remove('hidden');

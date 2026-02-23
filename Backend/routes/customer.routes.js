@@ -17,7 +17,7 @@ const { authorizeRoles } = require('../middleware/role.middleware');
  *       200:
  *         description: List of customers
  */
-router.get('/', authMiddleware, authorizeRoles(['admin']), customerController.getAllCustomers);
+router.get('/', authMiddleware, authorizeRoles(['admin', 'seller']), customerController.getAllCustomers);
 
 /**
  * @swagger
@@ -35,7 +35,7 @@ router.get('/', authMiddleware, authorizeRoles(['admin']), customerController.ge
  */
 router.get('/without-account', authMiddleware, authorizeRoles(['admin']), customerController.getCustomersWithoutAccount);
 
-router.get('/by-rut/:rut', authMiddleware, authorizeRoles(['admin']), customerController.getCustomerByRut);
+router.get('/by-rut/:rut', authMiddleware, authorizeRoles(['admin', 'seller']), customerController.getCustomerByRut);
 
 router.post('/:customerId/create-account', authMiddleware, authorizeRoles(['admin']), customerController.createCustomerAccount);
 
@@ -61,11 +61,11 @@ router.post('/:customerId/create-account', authMiddleware, authorizeRoles(['admi
  */
 router.get('/:id', authMiddleware, authorizeRoles(['admin']), customerController.getCustomerById);
 
-router.get('/rut/:rut', authMiddleware, authorizeRoles(['admin']), customerController.getCustomerByRut);
+router.get('/rut/:rut', authMiddleware, authorizeRoles(['admin', 'seller']), customerController.getCustomerByRut);
 
 router.post('/contacts', authMiddleware, authorizeRoles(['admin']), customerController.createCustomerContact);
 
-router.get('/:rut/contacts', authMiddleware, authorizeRoles(['admin']), customerController.getCustomerContacts);
+router.get('/:rut/contacts', authMiddleware, authorizeRoles(['admin', 'seller']), customerController.getCustomerContacts);
 
 /**
  * @swagger

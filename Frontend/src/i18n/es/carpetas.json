@@ -99,5 +99,6 @@
   "exportSuccess": "Se exportaron {count} órdenes a Excel"
   ,
   "pageIndicator": "",
-  "pageIndicatorSeparator": "--"
+  "pageIndicatorSeparator": "--",
+  "customerNotFound": "Cliente no encontrado"
 }

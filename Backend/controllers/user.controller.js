@@ -5,6 +5,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { logger } = require('../utils/logger');
+const { t } = require('../i18n');
 
 // Configuración de almacenamiento para Multer - Avatares
 const storage = multer.diskStorage({
@@ -56,8 +57,8 @@ exports.getAllUsers = async (req, res) => {
     const users = await userService.getAllUsers();
     res.json(users);
   } catch (error) {
-    console.error('Error al obtener clientes:', error);
-    res.status(500).json({ message: 'Error al obtener clientes desde la base de datos' });
+    logger.error(`[getAllUsers] Error: ${error.message}`);
+    res.status(500).json({ message: t('user.get_users_error', req.lang || 'es') });
   }
 };
 
@@ -72,13 +73,13 @@ exports.getProfile = async (req, res) => {
     const profile = await userService.getUserProfile(userId);
     
     if (!profile) {
-      return res.status(404).json({ message: 'Usuario no encontrado' });
+      return res.status(404).json({ message: t('user.profile_not_found', req.lang || 'es') });
     }
     
     res.json(profile);
   } catch (error) {
-    logger.error(`Error al obtener perfil: ${error.message}`);
-    res.status(500).json({ message: 'Error interno del servidor' });
+    logger.error(`[getProfile] Error: ${error.message}`);
+    res.status(500).json({ message: t('user.get_profile_error', req.lang || 'es') });
   }
 };
 
@@ -93,7 +94,7 @@ exports.updateProfile = async (req, res) => {
     const { full_name, phone, country, city, address } = req.body;
     
     if (!full_name || !phone) {
-      return res.status(400).json({ message: 'Nombre y teléfono son obligatorios' });
+      return res.status(400).json({ message: t('user.name_phone_required', req.lang || 'es') });
     }
     
     const updated = await userService.updateUserProfile(userId, {
@@ -105,14 +106,14 @@ exports.updateProfile = async (req, res) => {
     });
     
     if (!updated) {
-      return res.status(404).json({ message: 'Usuario no encontrado' });
+      return res.status(404).json({ message: t('user.profile_not_found', req.lang || 'es') });
     }
     
-    logger.info(`Perfil actualizado para usuario ${userId}`);
-    res.json({ message: 'Perfil actualizado correctamente' });
+    logger.info(`[updateProfile] Perfil actualizado userId=${userId}`);
+    res.json({ message: t('user.profile_updated', req.lang || 'es') });
   } catch (error) {
-    logger.error(`Error al actualizar perfil: ${error.message}`);
-    res.status(500).json({ message: 'Error interno del servidor' });
+    logger.error(`[updateProfile] Error: ${error.message}`);
+    res.status(500).json({ message: t('user.update_profile_error', req.lang || 'es') });
   }
 };
 
@@ -127,7 +128,7 @@ exports.handleAvatarUpload = async (req, res) => {
     const file = req.file;
     
     if (!file) {
-      return res.status(400).json({ message: 'No se proporcionó ningún archivo', code: 'AVATAR_MISSING' });
+      return res.status(400).json({ message: t('user.no_file_provided', req.lang || 'es'), code: 'AVATAR_MISSING' });
     }
     
     // Validar archivo
@@ -151,14 +152,14 @@ exports.handleAvatarUpload = async (req, res) => {
     
     await userAvatarService.saveAvatar(avatarData);
     
-    logger.info(`Avatar subido para usuario ${userId}`);
+    logger.info(`[handleAvatarUpload] Avatar subido userId=${userId}`);
     res.json({ 
-      message: 'Avatar subido correctamente',
+      message: t('user.avatar_uploaded', req.lang || 'es'),
       avatar_path: avatarData.file_path
     });
   } catch (error) {
-    logger.error(`Error al subir avatar: ${error.message}`);
-    res.status(500).json({ message: 'Error interno del servidor' });
+    logger.error(`[handleAvatarUpload] Error: ${error.message}`);
+    res.status(500).json({ message: t('user.upload_avatar_error', req.lang || 'es') });
   }
 };
 
@@ -169,8 +170,8 @@ exports.getAdminUsers = async (req, res) => {
     const admins = await userService.getAdminUsers();
     res.json(admins);
   } catch (error) {
-    logger.error(`Error al obtener admins: ${error.message}`);
-    res.status(500).json({ message: 'Error al obtener admins' });
+    logger.error(`[getAdminUsers] Error: ${error.message}`);
+    res.status(500).json({ message: t('user.get_admins_error', req.lang || 'es') });
   }
 };
 
@@ -179,8 +180,8 @@ exports.getAdminPresenceList = async (req, res) => {
     const admins = await userService.getAdminPresenceList();
     res.json(admins);
   } catch (error) {
-    logger.error(`Error al obtener presencia de admins: ${error.message}`);
-    res.status(500).json({ message: 'Error al obtener presencia de admins' });
+    logger.error(`[getAdminPresenceList] Error: ${error.message}`);
+    res.status(500).json({ message: t('user.get_admin_presence_error', req.lang || 'es') });
   }
 };
 
@@ -188,24 +189,24 @@ exports.createAdminUser = async (req, res) => {
   try {
     const { rut, email, full_name, phone, agent, password } = req.body;
     if (!rut || !email || !password) {
-      return res.status(400).json({ message: 'RUT, email y contraseña son requeridos' });
+      return res.status(400).json({ message: t('user.rut_email_password_required', req.lang || 'es') });
     }
     const id = await userService.createAdminUser({ rut, email, full_name, phone, agent, password });
-    res.status(201).json({ id, message: 'Admin creado' });
+    res.status(201).json({ id, message: t('user.admin_created', req.lang || 'es') });
   } catch (error) {
     if (error?.code === 'ER_DUP_ENTRY') {
-      logger.error(`Error al crear admin (duplicado): ${error.message}`);
+      logger.error(`[createAdminUser] Error duplicado: ${error.message}`);
       const dupMessage = error.message || '';
       if (dupMessage.includes('users.rut')) {
-        return res.status(409).json({ message: 'El RUT ya existe. No se pudo crear el administrador.' });
+        return res.status(409).json({ message: t('user.rut_exists', req.lang || 'es') });
       }
       if (dupMessage.includes('admins.email')) {
-        return res.status(409).json({ message: 'El email ya existe. No se pudo crear el administrador.' });
+        return res.status(409).json({ message: t('user.email_exists', req.lang || 'es') });
       }
-      return res.status(409).json({ message: 'Ya existe un administrador con esos datos.' });
+      return res.status(409).json({ message: t('user.admin_exists', req.lang || 'es') });
     }
-    logger.error(`Error al crear admin: ${error.message}`);
-    res.status(500).json({ message: 'Error al crear admin' });
+    logger.error(`[createAdminUser] Error: ${error.message}`);
+    res.status(500).json({ message: t('user.create_admin_error', req.lang || 'es') });
   }
 };
 
@@ -213,29 +214,29 @@ exports.updateAdminUser = async (req, res) => {
   try {
     const { id } = req.params;
     const { rut, email, full_name, phone, agent } = req.body;
-    if (!id) return res.status(400).json({ message: 'ID requerido' });
+    if (!id) return res.status(400).json({ message: t('user.id_required', req.lang || 'es') });
     if (!rut || !email) {
-      return res.status(400).json({ message: 'RUT y email son requeridos' });
+      return res.status(400).json({ message: t('user.rut_email_required', req.lang || 'es') });
     }
     const updated = await userService.updateAdminUser(id, { rut, email, full_name, phone, agent });
-    if (!updated) return res.status(404).json({ message: 'Admin no encontrado' });
-    res.json({ message: 'Admin actualizado' });
+    if (!updated) return res.status(404).json({ message: t('user.admin_not_found', req.lang || 'es') });
+    res.json({ message: t('user.admin_updated', req.lang || 'es') });
   } catch (error) {
-    logger.error(`Error al actualizar admin: ${error.message}`);
-    res.status(500).json({ message: 'Error al actualizar admin' });
+    logger.error(`[updateAdminUser] Error: ${error.message}`);
+    res.status(500).json({ message: t('user.update_admin_error', req.lang || 'es') });
   }
 };
 
 exports.deleteAdminUser = async (req, res) => {
   try {
     const { id } = req.params;
-    if (!id) return res.status(400).json({ message: 'ID requerido' });
+    if (!id) return res.status(400).json({ message: t('user.id_required', req.lang || 'es') });
     const deleted = await userService.deleteUserById(id);
-    if (!deleted) return res.status(404).json({ message: 'Admin no encontrado' });
-    res.json({ message: 'Admin eliminado' });
+    if (!deleted) return res.status(404).json({ message: t('user.admin_not_found', req.lang || 'es') });
+    res.json({ message: t('user.admin_deleted', req.lang || 'es') });
   } catch (error) {
-    logger.error(`Error al eliminar admin: ${error.message}`);
-    res.status(500).json({ message: 'Error al eliminar admin' });
+    logger.error(`[deleteAdminUser] Error: ${error.message}`);
+    res.status(500).json({ message: t('user.delete_admin_error', req.lang || 'es') });
   }
 };
 
@@ -243,12 +244,12 @@ exports.resetAdminPassword = async (req, res) => {
   try {
     const { id } = req.params;
     const { newPassword } = req.body || {};
-    if (!id) return res.status(400).json({ message: 'ID requerido' });
+    if (!id) return res.status(400).json({ message: t('user.id_required', req.lang || 'es') });
     const reset = await userService.resetAdminPassword(id, newPassword || '12345');
-    if (!reset) return res.status(404).json({ message: 'Admin no encontrado' });
-    res.json({ message: 'Contraseña reseteada' });
+    if (!reset) return res.status(404).json({ message: t('user.admin_not_found', req.lang || 'es') });
+    res.json({ message: t('user.password_reset', req.lang || 'es') });
   } catch (error) {
-    logger.error(`Error al resetear contraseña: ${error.message}`);
-    res.status(500).json({ message: 'Error al resetear contraseña' });
+    logger.error(`[resetAdminPassword] Error: ${error.message}`);
+    res.status(500).json({ message: t('user.reset_password_error', req.lang || 'es') });
   }
 };

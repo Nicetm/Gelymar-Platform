@@ -2,6 +2,8 @@ const { container } = require('../config/container');
 const ChatService = container.resolve('chatService');
 const ChatMessage = require('../models/chatMessage.model');
 const EncryptionService = container.resolve('encryptionService');
+const { logger } = require('../utils/logger');
+const { t } = require('../i18n');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -25,7 +27,7 @@ class ChatController {
   static async uploadChatImage(req, res) {
     chatImageUpload.single('image')(req, res, async (err) => {
       if (err) {
-        return res.status(400).json({ message: err.message || 'Error subiendo imagen' });
+        return res.status(400).json({ message: err.message || t('chat.upload_image_error', req.lang || 'es') });
       }
 
       try {
@@ -33,7 +35,7 @@ class ChatController {
         const file = req.file;
 
         if (!customer_id || !file) {
-          return res.status(400).json({ message: 'Faltan datos para subir imagen' });
+          return res.status(400).json({ message: t('chat.missing_data', req.lang || 'es') });
         }
 
         const basePath = process.env.FILE_SERVER_ROOT || '/var/www/html';
@@ -46,7 +48,7 @@ class ChatController {
         const relativePath = path.join('uploads', 'chat', String(customer_id), fileName);
 
         if (!validateFilePath(relativePath, basePath)) {
-          return res.status(400).json({ message: 'Ruta de archivo inválida' });
+          return res.status(400).json({ message: t('chat.invalid_file_path', req.lang || 'es') });
         }
 
         const absolutePath = path.join(basePath, relativePath);
@@ -59,7 +61,7 @@ class ChatController {
 
         return res.status(201).json({ url: publicUrl, path: normalizedPath });
       } catch (uploadError) {
-        return res.status(500).json({ message: 'Error interno al subir imagen' });
+        return res.status(500).json({ message: t('chat.internal_error_upload', req.lang || 'es') });
       }
     });
   }
@@ -71,13 +73,13 @@ class ChatController {
 
       if (!customer_id || !message || !sender_role) {
         return res.status(400).json({ 
-          message: 'Faltan campos requeridos: customer_id, message, sender_role' 
+          message: t('chat.missing_required_fields', req.lang || 'es')
         });
       }
 
       if (!['client', 'admin'].includes(sender_role)) {
         return res.status(400).json({ 
-          message: 'sender_role debe ser "client" o "admin"' 
+          message: t('chat.invalid_sender_role', req.lang || 'es')
         });
       }
 
@@ -108,7 +110,7 @@ class ChatController {
             message: message.trim()
           });
         } catch (emailError) {
-          console.error('Error enviando correo de chat:', emailError.message);
+          logger.error(`[ChatController] Error enviando correo de chat: ${emailError.message}`);
         }
       }
       
@@ -140,14 +142,14 @@ class ChatController {
       
       res.status(201).json({
         success: true,
-        message: 'Mensaje enviado correctamente',
+        message: t('chat.message_sent', req.lang || 'es'),
         data: result
       });
 
     } catch (error) {
-      console.error('Error enviando mensaje:', error);
+      logger.error(`[ChatController] Error enviando mensaje: ${error.message}`);
       res.status(500).json({ 
-        message: 'Error interno del servidor',
+        message: t('chat.send_message_error', req.lang || 'es'),
         error: error.message,
         stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
       });
@@ -162,7 +164,7 @@ class ChatController {
 
       if (!customerId) {
         return res.status(400).json({ 
-          message: 'customerId es requerido' 
+          message: t('chat.customer_id_required', req.lang || 'es')
         });
       }
 
@@ -181,7 +183,7 @@ class ChatController {
           try {
             msg.body = EncryptionService.decrypt(msg.body);
           } catch (error) {
-            console.error('Error desencriptando mensaje:', error);
+            logger.error(`[ChatController] Error desencriptando mensaje: ${error.message}`);
             msg.body = '[Mensaje no disponible]';
           }
         }
@@ -194,9 +196,9 @@ class ChatController {
       });
 
     } catch (error) {
-      console.error('Error obteniendo mensajes:', error);
+      logger.error(`[ChatController] Error obteniendo mensajes: ${error.message}`);
       res.status(500).json({ 
-        message: 'Error interno del servidor',
+        message: t('chat.get_messages_error', req.lang || 'es'),
         error: error.message,
         stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
       });
@@ -210,7 +212,7 @@ class ChatController {
 
       if (!customerId) {
         return res.status(400).json({ 
-          message: 'customerId es requerido' 
+          message: t('chat.customer_id_required', req.lang || 'es')
         });
       }
 
@@ -222,9 +224,9 @@ class ChatController {
       });
 
     } catch (error) {
-      console.error('Error obteniendo conteo de no leídos:', error);
+      logger.error(`[ChatController] Error obteniendo conteo de no leídos: ${error.message}`);
       res.status(500).json({ 
-        message: 'Error interno del servidor' 
+        message: t('chat.get_unread_count_error', req.lang || 'es')
       });
     }
   }
@@ -236,7 +238,7 @@ class ChatController {
 
       if (!customerId) {
         return res.status(400).json({ 
-          message: 'customerId es requerido' 
+          message: t('chat.customer_id_required', req.lang || 'es')
         });
       }
 
@@ -251,14 +253,14 @@ class ChatController {
       
       res.json({
         success: true,
-        message: 'Mensajes marcados como leídos',
+        message: t('chat.messages_marked_read', req.lang || 'es'),
         data: result
       });
 
     } catch (error) {
-      console.error('Error marcando mensajes como leídos:', error);
+      logger.error(`[ChatController] Error marcando mensajes como leídos: ${error.message}`);
       res.status(500).json({ 
-        message: 'Error interno del servidor' 
+        message: t('chat.mark_read_error', req.lang || 'es')
       });
     }
   }
@@ -268,7 +270,7 @@ class ChatController {
     try {
       const adminId = req.user?.id;
       if (!adminId) {
-        return res.status(400).json({ message: 'adminId es requerido' });
+        return res.status(400).json({ message: t('chat.admin_id_required', req.lang || 'es') });
       }
       const chats = await ChatService.getRecentChats(adminId);
       
@@ -278,9 +280,9 @@ class ChatController {
       });
 
     } catch (error) {
-      console.error('Error obteniendo chats recientes:', error);
+      logger.error(`[ChatController] Error obteniendo chats recientes: ${error.message}`);
       res.status(500).json({ 
-        message: 'Error interno del servidor' 
+        message: t('chat.get_recent_chats_error', req.lang || 'es')
       });
     }
   }
@@ -297,9 +299,9 @@ class ChatController {
       });
 
     } catch (error) {
-      console.error('Error obteniendo resumen del chat:', error);
+      logger.error(`[ChatController] Error obteniendo resumen del chat: ${error.message}`);
       res.status(500).json({ 
-        message: 'Error interno del servidor' 
+        message: t('chat.get_chat_summary_error', req.lang || 'es')
       });
     }
   }
@@ -322,8 +324,8 @@ class ChatController {
         data: adminPresence
       });
     } catch (error) {
-      console.error('Error obteniendo estado online del admin:', error);
-      res.status(500).json({ message: 'Error interno del servidor' });
+      logger.error(`[ChatController] Error obteniendo estado online del admin: ${error.message}`);
+      res.status(500).json({ message: t('chat.get_admin_status_error', req.lang || 'es') });
     }
   }
 
@@ -334,14 +336,14 @@ class ChatController {
       
       res.json({
         success: true,
-        message: 'Todos los mensajes marcados como leídos',
+        message: t('chat.all_messages_marked_read', req.lang || 'es'),
         data: result
       });
 
     } catch (error) {
-      console.error('Error marcando todos los mensajes como leídos:', error);
+      logger.error(`[ChatController] Error marcando todos los mensajes como leídos: ${error.message}`);
       res.status(500).json({ 
-        message: 'Error interno del servidor' 
+        message: t('chat.mark_all_read_error', req.lang || 'es')
       });
     }
   }
@@ -354,7 +356,7 @@ class ChatController {
 
       if (!customerId) {
         return res.status(400).json({ 
-          message: 'customerId es requerido' 
+          message: t('chat.customer_id_required', req.lang || 'es')
         });
       }
 
@@ -370,14 +372,14 @@ class ChatController {
       
       res.json({
         success: true,
-        message: 'Mensajes marcados como leídos por admin',
+        message: t('chat.messages_marked_read_by_admin', req.lang || 'es'),
         data: result
       });
 
     } catch (error) {
-      console.error('Error marcando mensajes como leídos por admin:', error);
+      logger.error(`[ChatController] Error marcando mensajes como leídos por admin: ${error.message}`);
       res.status(500).json({ 
-        message: 'Error interno del servidor' 
+        message: t('chat.mark_read_by_admin_error', req.lang || 'es')
       });
     }
   }
@@ -389,7 +391,7 @@ class ChatController {
 
       if (!customerId) {
         return res.status(400).json({ 
-          message: 'customerId es requerido' 
+          message: t('chat.customer_id_required', req.lang || 'es')
         });
       }
 
@@ -403,14 +405,14 @@ class ChatController {
       
       res.json({
         success: true,
-        message: 'Mensajes marcados como leídos por cliente',
+        message: t('chat.messages_marked_read_by_client', req.lang || 'es'),
         data: result
       });
 
     } catch (error) {
-      console.error('Error marcando mensajes como leídos por cliente:', error);
+      logger.error(`[ChatController] Error marcando mensajes como leídos por cliente: ${error.message}`);
       res.status(500).json({ 
-        message: 'Error interno del servidor' 
+        message: t('chat.mark_read_by_client_error', req.lang || 'es')
       });
     }
   }
@@ -428,8 +430,8 @@ class ChatController {
       
       res.json({ success: true });
     } catch (error) {
-      console.error('Error manejando typing:', error);
-      res.status(500).json({ message: 'Error interno del servidor' });
+      logger.error(`[ChatController] Error manejando typing: ${error.message}`);
+      res.status(500).json({ message: t('chat.handle_typing_error', req.lang || 'es') });
     }
   }
 
@@ -446,8 +448,8 @@ class ChatController {
       
       res.json({ success: true });
     } catch (error) {
-      console.error('Error manejando stop typing:', error);
-      res.status(500).json({ message: 'Error interno del servidor' });
+      logger.error(`[ChatController] Error manejando stop typing: ${error.message}`);
+      res.status(500).json({ message: t('chat.handle_stop_typing_error', req.lang || 'es') });
     }
   }
 
@@ -457,8 +459,8 @@ class ChatController {
       const admins = await ChatMessage.getAdmins();
       res.json({ data: admins });
     } catch (error) {
-      console.error('Error obteniendo administradores:', error);
-      res.status(500).json({ message: 'Error interno del servidor' });
+      logger.error(`[ChatController] Error obteniendo administradores: ${error.message}`);
+      res.status(500).json({ message: t('chat.get_admins_error', req.lang || 'es') });
     }
   }
 }

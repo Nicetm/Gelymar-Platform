@@ -71,18 +71,17 @@ const getText = (value: string | undefined, fallback: string) =>
         </div>
         <div>
           <p class="text-sm font-medium text-gray-600 dark:text-gray-400">
-            {getText(orders?.totalValue, 'Total value')}
-          </p>
-          <p id="totalValue" class="text-lg font-bold text-green-600 dark:text-green-400">$0</p>
-        </div>
-        <div>
-          <p class="text-sm font-medium text-gray-600 dark:text-gray-400">
             {getText(orders?.gastoAdicional, 'Additional cost')}
           </p>
           <p id="totalGastoAdicional" class="text-lg font-bold text-orange-600 dark:text-orange-400">$0</p>
+        </div>
+        <div>
+          <p class="text-sm font-medium text-gray-600 dark:text-gray-400">
+            {getText(orders?.totalValue, 'Total value')}
+          </p>
+          <p id="totalValue" class="text-lg font-bold text-green-600 dark:text-green-400">$0</p>
         </div>
       </div>
     </div>
   </div>
 </div>
-

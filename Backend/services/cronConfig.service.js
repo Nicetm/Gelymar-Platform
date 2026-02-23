@@ -1,6 +1,26 @@
 const { poolPromise } = require('../config/db');
 
 /**
+ * Obtener todas las tareas cron con detalles completos
+ * @returns {Promise<Array>} Array de tareas con todos los campos
+ */
+async function getAllCronTasksWithDetails() {
+  try {
+    const pool = await poolPromise;
+    const [rows] = await pool.execute(`
+      SELECT id, task_name, task_description, is_enabled, created_at, updated_at
+      FROM cron_tasks_config
+      ORDER BY task_name
+    `);
+    return rows;
+  } catch (error) {
+    const { logger } = require('../utils/logger');
+    logger.error(`[CronConfigService] Error obteniendo detalles de tareas cron: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
  * Obtener configuración de tareas cron desde la base de datos
  * @returns {Promise<Object>} Configuración de tareas
  */
@@ -16,7 +36,8 @@ async function getCronTasksConfig() {
     
     return config;
   } catch (error) {
-    console.error('Error obteniendo configuración de tareas cron:', error.message);
+    const { logger } = require('../utils/logger');
+    logger.error(`[CronConfigService] Error obteniendo configuración de tareas cron: ${error.message}`);
     throw error;
   }
 }
@@ -36,31 +57,51 @@ async function updateCronTaskConfig(taskName, isEnabled) {
     );
     return true;
   } catch (error) {
-    console.error('Error actualizando configuración de tarea cron:', error.message);
+    const { logger } = require('../utils/logger');
+    logger.error(`[CronConfigService] Error actualizando configuración de tarea cron: ${error.message}`);
     throw error;
   }
 }
 
 /**
- * Actualizar múltiples configuraciones de tareas cron
- * @param {Object} configs - Objeto con configuraciones {taskName: isEnabled}
+ * Actualizar múltiples configuraciones de tareas cron con transacción
+ * @param {Array} tasks - Array de objetos {task_name, is_enabled}
  * @returns {Promise<boolean>} Éxito de la operación
  */
-async function updateMultipleCronTasksConfig(configs) {
+async function updateMultipleCronTasksConfig(tasks) {
+  const pool = await poolPromise;
+  const connection = await pool.getConnection();
+  
   try {
-    const promises = Object.entries(configs).map(([taskName, isEnabled]) => 
-      updateCronTaskConfig(taskName, isEnabled)
-    );
-    
-    await Promise.all(promises);
+    await connection.beginTransaction();
+
+    for (const task of tasks) {
+      const { task_name, is_enabled } = task;
+      
+      if (typeof is_enabled !== 'boolean') {
+        throw new Error(`is_enabled debe ser booleano para ${task_name}`);
+      }
+
+      await connection.query(
+        'UPDATE cron_tasks_config SET is_enabled = ?, updated_at = NOW() WHERE task_name = ?',
+        [is_enabled, task_name]
+      );
+    }
+
+    await connection.commit();
     return true;
   } catch (error) {
-    console.error('Error actualizando múltiples configuraciones de tareas cron:', error.message);
+    await connection.rollback();
+    const { logger } = require('../utils/logger');
+    logger.error(`[CronConfigService] Error actualizando múltiples configuraciones de tareas cron: ${error.message}`);
     throw error;
+  } finally {
+    connection.release();
   }
 }
 
 module.exports = {
+  getAllCronTasksWithDetails,
   getCronTasksConfig,
   updateCronTaskConfig,
   updateMultipleCronTasksConfig

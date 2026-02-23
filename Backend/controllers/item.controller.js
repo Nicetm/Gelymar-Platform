@@ -1,5 +1,7 @@
 const { container } = require('../config/container');
 const itemService = container.resolve('itemService');
+const { logger } = require('../utils/logger');
+const { t } = require('../i18n');
 
 /**
  * GET /api/items/by-order/:orderId
@@ -10,18 +12,18 @@ exports.getItemsByOrder = async (req, res) => {
     const orderId = parseInt(req.params.orderId);
     
     if (isNaN(orderId)) {
-      return res.status(400).json({ message: 'ID de orden inválido' });
+      return res.status(400).json({ message: t('item.invalid_order_id', req.lang || 'es') });
     }
 
     const items = await itemService.getItemsByOrder(orderId, req.user);
     
     if (!items) {
-      return res.status(404).json({ message: 'Orden no encontrada o no autorizada' });
+      return res.status(404).json({ message: t('item.order_not_found_or_unauthorized', req.lang || 'es') });
     }
 
     res.json(items);
   } catch (err) {
-    console.error('[getItemsByOrder] Error:', err.message);
-    res.status(500).json({ message: 'Error al obtener items de la orden' });
+    logger.error(`[ItemController][getItemsByOrder] Error: ${err.message}`);
+    res.status(500).json({ message: t('item.get_items_error', req.lang || 'es') });
   }
 };

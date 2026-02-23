@@ -203,19 +203,47 @@ export async function initSellersScript() {
     return error;
   }
 
+  const getColSpan = (fallback = 1) => {
+    const table = tableBody?.closest('table');
+    const headerCount = table?.querySelectorAll('thead th')?.length || 0;
+    return headerCount || fallback;
+  };
+
+  const getScrollBodyWidth = () => {
+    const scrollBody = tableBody?.closest('[data-scroll-body]') || tableBody?.closest('.overflow-x-auto');
+    return scrollBody?.clientWidth || 0;
+  };
+
+  const buildCenteredCell = (messageHtml, textClass = 'text-gray-500 dark:text-gray-400', colSpanOverride = null) => {
+    const width = getScrollBodyWidth();
+    const widthStyle = width ? `width: ${width}px;` : 'width: 100%;';
+    const colSpan = colSpanOverride || getColSpan(1);
+    return `
+      <td colspan="${colSpan}" class="px-6 py-6 ${textClass}" style="position: sticky; left: 0;">
+        <div class="flex justify-center text-center" style="${widthStyle}">
+          ${messageHtml}
+        </div>
+      </td>
+    `;
+  };
+
   function buildLoadingRow(colspan, message) {
     const safeMessage = message || t.loading;
     return `
       <tr class="bg-white dark:bg-gray-900">
-        <td colspan="${colspan}" class="px-6 py-6 text-center text-gray-500 dark:text-gray-400">
-          <div class="flex items-center justify-center">
-            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            ${safeMessage}
-          </div>
-        </td>
+        ${buildCenteredCell(
+          `
+            <div class="flex items-center justify-center">
+              <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              ${safeMessage}
+            </div>
+          `,
+          'text-gray-500 dark:text-gray-400',
+          colspan
+        )}
       </tr>
     `;
   }
@@ -493,9 +521,7 @@ export async function initSellersScript() {
   function renderEmptyState() {
     tableBody.innerHTML = `
       <tr class="bg-white dark:bg-gray-900">
-        <td colspan="8" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
-          ${t.noResults}
-        </td>
+        ${buildCenteredCell(t.noResults)}
       </tr>
     `;
   }
@@ -626,6 +652,10 @@ export async function initSellersScript() {
 
     try {
       tableBody.innerHTML = buildLoadingRow(8, t.loading);
+      const scrollBody = tableBody?.closest('[data-scroll-body]') || tableBody?.closest('.overflow-x-auto');
+      if (scrollBody) {
+        scrollBody.classList.add('scrollbar-hidden');
+      }
       const response = await fetch(`${apiBase}/api/vendedores`, {
         headers: {
           Authorization: `Bearer ${token}`
@@ -645,6 +675,10 @@ export async function initSellersScript() {
       currentPage = 1;
       sortSellers(currentSort.column, currentSort.direction);
       renderTable();
+      const scrollBody = tableBody?.closest('[data-scroll-body]') || tableBody?.closest('.overflow-x-auto');
+      if (scrollBody) {
+        scrollBody.classList.remove('scrollbar-hidden');
+      }
     } catch (error) {
       console.error('Error loading sellers:', error);
       showError(t.error);
@@ -652,6 +686,10 @@ export async function initSellersScript() {
       filteredSellers = [];
       currentPage = 1;
       renderTable();
+      const scrollBody = tableBody?.closest('[data-scroll-body]') || tableBody?.closest('.overflow-x-auto');
+      if (scrollBody) {
+        scrollBody.classList.remove('scrollbar-hidden');
+      }
     }
   }
 

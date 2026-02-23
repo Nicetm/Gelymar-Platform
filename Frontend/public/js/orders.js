@@ -55,6 +55,43 @@ export async function initOrdersScript() {
   let itemsPerPage = parseInt(itemsPerPageSelect.value, 10);
   let currentSort = { column: 'fecha', direction: 'desc' };
 
+  const getColSpan = () => {
+    const table = tableBody?.closest('table');
+    const headerCount = table?.querySelectorAll('thead th')?.length || 0;
+    return headerCount || 1;
+  };
+
+  const getScrollBodyWidth = () => {
+    const scrollBody = tableBody?.closest('[data-scroll-body]') || tableBody?.closest('.overflow-x-auto');
+    return scrollBody?.clientWidth || 0;
+  };
+
+  const buildCenteredCell = (messageHtml, textClass = 'text-gray-500 dark:text-gray-400') => {
+    const width = getScrollBodyWidth();
+    const widthStyle = width ? `width: ${width}px;` : 'width: 100%;';
+    return `
+      <td colspan="${getColSpan()}" class="px-6 py-8 ${textClass}" style="position: sticky; left: 0;">
+        <div class="flex justify-center text-center" style="${widthStyle}">
+          ${messageHtml}
+        </div>
+      </td>
+    `;
+  };
+
+  const loadingRow = document.getElementById('loadingRow');
+  if (loadingRow) {
+    const loadingMarkup = `
+      <div class="flex items-center justify-center">
+        <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        ${orders.loading || 'Cargando...'}
+      </div>
+    `;
+    loadingRow.innerHTML = buildCenteredCell(loadingMarkup);
+  }
+
   function setupStickyHorizontalScrollbar() {
     const containers = document.querySelectorAll('[data-scroll-sync]');
     if (!containers.length) return;
@@ -443,11 +480,10 @@ export async function initOrdersScript() {
       // Mostrar mensaje de error
       const loadingRow = document.getElementById('loadingRow');
       if (loadingRow) {
-        loadingRow.innerHTML = `
-          <td colspan="11" class="px-6 py-8 text-center text-red-500">
-            ${orders.loadError} <button onclick="location.reload()" class="text-blue-500 hover:underline">${orders.retry}</button>
-          </td>
-        `;
+        loadingRow.innerHTML = buildCenteredCell(
+          `${orders.loadError} <button onclick="location.reload()" class="text-blue-500 hover:underline">${orders.retry}</button>`,
+          'text-red-500'
+        );
       }
     }
   }
@@ -481,9 +517,7 @@ export async function initOrdersScript() {
     if (pageData.length === 0) {
       tableBody.innerHTML = `
         <tr class="bg-white dark:bg-gray-900">
-          <td colspan="11" class="px-6 py-8 text-center text-gray-500">
-            No se encontraron órdenes
-          </td>
+          ${buildCenteredCell(orders.noResults || 'No se encontraron órdenes')}
         </tr>
       `;
     }
@@ -667,7 +701,10 @@ export async function initOrdersScript() {
    */
   const filterOpenOrdersCheckbox = document.getElementById('filterOpenOrders');
   if (filterOpenOrdersCheckbox) {
-    filterOpenOrdersCheckbox.addEventListener('change', filterRows);
+    filterOpenOrdersCheckbox.addEventListener('change', () => {
+      localStorage.setItem('ordersOnlyOpen', filterOpenOrdersCheckbox.checked ? '1' : '0');
+      filterRows();
+    });
   }
 
   /**
@@ -898,8 +935,17 @@ export async function initOrdersScript() {
 
   // Función eliminada - ya no se necesita mostrar estado del cache
   
+  const savedOnlyOpen = localStorage.getItem('ordersOnlyOpen') === '1';
+  if (filterOpenOrdersCheckbox) {
+    filterOpenOrdersCheckbox.checked = savedOnlyOpen;
+  }
+
   // Cargar y renderizar órdenes inicialmente
-  loadAndRenderOrders();
+  loadAndRenderOrders().then(() => {
+    if (filterOpenOrdersCheckbox && filterOpenOrdersCheckbox.checked) {
+      filterRows();
+    }
+  });
   
   // Cache inicializado automáticamente
 
@@ -1205,11 +1251,25 @@ async function openItemsModal(orderPc, orderOc, factura, idOv) {
     const rawGastoAdicionalFactura = normalizedItems[0]?.gasto_adicional_flete_factura;
     const shouldUseFacturaExpense = hasFacturaDisplay && rawGastoAdicionalFactura !== null && rawGastoAdicionalFactura !== undefined && rawGastoAdicionalFactura !== '';
     const rawGastoAdicional = shouldUseFacturaExpense ? rawGastoAdicionalFactura : normalizedItems[0]?.gasto_adicional_flete;
+    
+    console.log('[Additional Cost Debug - Orders]', {
+      hasFacturaDisplay,
+      factura: facturaValue,
+      gasto_adicional_flete: normalizedItems[0]?.gasto_adicional_flete,
+      gasto_adicional_flete_factura: rawGastoAdicionalFactura,
+      shouldUseFacturaExpense,
+      rawGastoAdicional,
+      finalValue: parseNumber(rawGastoAdicional)
+    });
+    
     const gastoAdicional = parseNumber(rawGastoAdicional);
+    
+    // Add additional cost to total value
+    const totalValueWithAdditional = totalValueSum + gastoAdicional;
     
     if (totalItems) totalItems.textContent = totalItemsCount;
     if (totalQuantity) totalQuantity.textContent = formatModalQuantity(totalQuantitySum, unit);
-    if (totalValue) totalValue.textContent = formatCurrency(totalValueSum, currency);
+    if (totalValue) totalValue.textContent = formatCurrency(totalValueWithAdditional, currency);
     if (totalGastoAdicional) totalGastoAdicional.textContent = formatCurrency(gastoAdicional, currency);
 
   } catch (error) {

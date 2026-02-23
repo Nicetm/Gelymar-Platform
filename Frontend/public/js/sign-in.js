@@ -7,6 +7,7 @@ export function initSignIn(config = {}) {
     sellerAppUrl = '',
     appContext = 'both',
     recaptchaSiteKey = '',
+    recaptchaEnabled = true,
   } = config;
 
   let otpShown = false;
@@ -179,7 +180,7 @@ export function initSignIn(config = {}) {
   };
 
   const ensureRecaptchaScript = () => {
-    if (!recaptchaSiteKey) {
+    if (!recaptchaSiteKey || !recaptchaEnabled) {
       return;
     }
 
@@ -209,7 +210,7 @@ export function initSignIn(config = {}) {
       return;
     }
 
-    if (recaptchaSiteKey) {
+    if (recaptchaSiteKey && recaptchaEnabled) {
       if (!window.grecaptcha || typeof window.grecaptcha.getResponse !== 'function') {
         msg.textContent = getText('captcha_not_ready', 'Captcha is not ready yet. Please wait and try again.');
         msg.classList.remove('hidden');
@@ -514,7 +515,7 @@ export function initSignIn(config = {}) {
       submitBtn.classList.remove('inline-flex', 'items-center', 'justify-center', 'gap-2');
       submitBtn.classList.remove('opacity-70', 'cursor-not-allowed');
     }
-      if (recaptchaSiteKey && window.grecaptcha && typeof window.grecaptcha.reset === 'function') {
+      if (recaptchaSiteKey && recaptchaEnabled && window.grecaptcha && typeof window.grecaptcha.reset === 'function') {
         window.grecaptcha.reset();
       }
     }

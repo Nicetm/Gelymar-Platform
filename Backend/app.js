@@ -28,17 +28,17 @@ const isDocker = process.env.DOCKER_ENV === 'true';
 
 // Cargar archivo de configuración según entorno
 if (isDocker) {
-  console.log('[Backend] Entorno detectado: Docker');  
-  console.log('[Backend] MYSQL_DB_HOST cargado:', process.env.MYSQL_DB_HOST);
-  console.log('[Backend] MYSQL_DB_USER cargado:', process.env.MYSQL_DB_USER);
+  logger.info('[Backend] Entorno detectado: Docker');  
+  logger.info(`[Backend] MYSQL_DB_HOST cargado: ${process.env.MYSQL_DB_HOST}`);
+  logger.info(`[Backend] MYSQL_DB_USER cargado: ${process.env.MYSQL_DB_USER}`);
 } else if (isServer) {
   dotenv.config({ path: './env.server' });
-  console.log('[Backend] Entorno detectado: Servidor Ubuntu (172.20.10.151)');
+  logger.info('[Backend] Entorno detectado: Servidor Ubuntu (172.20.10.151)');
 } else {
   dotenv.config({ path: './.env.local' });
-  console.log('[Backend] Entorno detectado: Desarrollo local');
-  console.log('[Backend] MYSQL_DB_HOST cargado:', process.env.MYSQL_DB_HOST);
-  console.log('[Backend] MYSQL_DB_USER cargado:', process.env.MYSQL_DB_USER);
+  logger.info('[Backend] Entorno detectado: Desarrollo local');
+  logger.info(`[Backend] MYSQL_DB_HOST cargado: ${process.env.MYSQL_DB_HOST}`);
+  logger.info(`[Backend] MYSQL_DB_USER cargado: ${process.env.MYSQL_DB_USER}`);
 }
 
 // Middlewares
@@ -71,6 +71,7 @@ const assetsRoutes = require('./routes/assets.routes');
 const configRoutes = require('./routes/config.routes');
 const messageRoutes = require('./routes/message.routes');
 const vendedorRoutes = require('./routes/vendedor.routes');
+const projectionRoutes = require('./routes/projection.routes');
 
 
 // Configuración de rate limiting
@@ -89,6 +90,52 @@ const authSlowDown = slowDown({
     const delayAfter = req.slowDown.limit;
     return (used - delayAfter) * 500;
   },
+});
+
+// Rate limiter estricto para login y 2FA (prevención de fuerza bruta)
+const strictAuthLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 5, // máximo 5 intentos de login
+  message: { message: 'Demasiados intentos de autenticación. Intente nuevamente en 15 minutos' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true, // No contar requests exitosos
+});
+
+// Rate limiter para APIs de escritura (POST, PUT, DELETE)
+const writeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 200, // máximo 200 operaciones de escritura
+  message: { message: 'Demasiadas operaciones de escritura. Intente nuevamente en 15 minutos' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Rate limiter para APIs de lectura (GET)
+const readLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 500, // máximo 500 operaciones de lectura
+  message: { message: 'Demasiadas solicitudes de lectura. Intente nuevamente en 15 minutos' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Rate limiter para file uploads
+const uploadLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hora
+  max: 50, // máximo 50 uploads por hora
+  message: { message: 'Demasiadas subidas de archivos. Intente nuevamente en 1 hora' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Rate limiter para cron endpoints (interno, más permisivo)
+const cronLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hora
+  max: 100, // máximo 100 ejecuciones por hora
+  message: { message: 'Demasiadas ejecuciones de cron. Intente nuevamente en 1 hora' },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 const baseAdminOrigin = process.env.FRONTEND_BASE_URL || 'http://localhost:2121';
@@ -151,14 +198,27 @@ app.use(helmet({
 // Configuración CORS más restrictiva
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
+    // Permitir requests sin origin (como Postman, curl, o requests del mismo servidor)
+    if (!origin) {
+      return callback(null, true);
+    }
+    
+    // Verificar si el origin está en la lista permitida
+    if (allowedOrigins.includes(origin)) {
       return callback(null, origin);
     }
+    
+    // Rechazar cualquier otro origin
+    logger.warn(`[CORS] Origen bloqueado: ${origin}`);
     return callback(new Error('Origen no permitido por CORS'));
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  maxAge: 600, // Cache preflight requests por 10 minutos
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 }));
 
 // Middlewares globales
@@ -183,25 +243,26 @@ app.get('/api-docs', (req, res) => {
 
 // Rutas API públicas
 app.use('/api/auth', authLimiter, authSlowDown, authRoutes);
-app.use('/api/monitoring', monitoringRoutes);
-app.use('/api/fileserver', fileserverRoutes);
-app.use('/api/assets', assetsRoutes);
+app.use('/api/monitoring', readLimiter, monitoringRoutes);
+app.use('/api/fileserver', uploadLimiter, fileserverRoutes);
+app.use('/api/assets', readLimiter, assetsRoutes);
 
 // Rutas protegidas (requieren token + rol adecuado)
-app.use('/api/customers', authMiddleware, authorizeRoles(['admin']), customerRoutes);
-app.use('/api/users', authMiddleware, authorizeRoles(['admin', 'client']), userRoutes);
-app.use('/api/orders', authMiddleware, authorizeRoles(['admin', 'client']), orderRoutes);
-app.use('/api/order-detail', authMiddleware, authorizeRoles(['admin', 'client']), orderDetailRoutes);
-app.use('/api/items', authMiddleware, authorizeRoles(['admin']), itemRoutes);
-app.use('/api/directories', authMiddleware, authorizeRoles(['admin']), documentDirectoryRoutes);
-app.use('/api/vendedores', authMiddleware, authorizeRoles(['admin']), vendedorRoutes);
+app.use('/api/customers', authMiddleware, readLimiter, authorizeRoles(['admin', 'seller']), customerRoutes);
+app.use('/api/users', authMiddleware, readLimiter, authorizeRoles(['admin', 'client']), userRoutes);
+app.use('/api/orders', authMiddleware, readLimiter, authorizeRoles(['admin', 'seller', 'client']), orderRoutes);
+app.use('/api/order-detail', authMiddleware, readLimiter, authorizeRoles(['admin', 'client']), orderDetailRoutes);
+app.use('/api/items', authMiddleware, readLimiter, authorizeRoles(['admin']), itemRoutes);
+app.use('/api/directories', authMiddleware, readLimiter, authorizeRoles(['admin', 'seller', 'client']), documentDirectoryRoutes);
+app.use('/api/vendedores', authMiddleware, writeLimiter, authorizeRoles(['admin']), vendedorRoutes);
 
 // Ruta especial para visualización de archivos (acceso para admin y client)
-app.use('/api/file-view', documentFileRoutes);
+app.use('/api/file-view', readLimiter, documentFileRoutes);
 
-app.use('/api/files', authMiddleware, authorizeRoles(['admin', 'client']), documentFileRoutes);
-app.use('/api/document-types', authMiddleware, authorizeRoles(['admin']), documentTypeRoutes);
-app.use('/api/chat', chatRoutes);
+app.use('/api/files', authMiddleware, uploadLimiter, authorizeRoles(['admin', 'seller', 'client']), documentFileRoutes);
+app.use('/api/document-types', authMiddleware, readLimiter, authorizeRoles(['admin', 'seller']), documentTypeRoutes);
+app.use('/api/chat', authMiddleware, writeLimiter, chatRoutes);
+app.use('/api/projections', authMiddleware, readLimiter, authorizeRoles(['admin', 'seller']), projectionRoutes);
 
 // Ruta especial para procesamiento de órdenes nuevas (sin autenticación para cron)
 const {
@@ -210,20 +271,24 @@ const {
   processOrderDeliveryNotices,
   processAvailabilityNotices
 } = require('./controllers/documentFile.controller');
-app.post('/api/cron/process-new-orders', processNewOrdersAndSendReception);
-app.post('/api/cron/process-shipment-notices', processShipmentNotices);
-app.post('/api/cron/process-order-delivery-notices', processOrderDeliveryNotices);
-app.post('/api/cron/process-availability-notices', processAvailabilityNotices);
+app.post('/api/cron/process-new-orders', cronLimiter, processNewOrdersAndSendReception);
+app.post('/api/cron/process-shipment-notices', cronLimiter, processShipmentNotices);
+app.post('/api/cron/process-order-delivery-notices', cronLimiter, processOrderDeliveryNotices);
+app.post('/api/cron/process-availability-notices', cronLimiter, processAvailabilityNotices);
 
 // Rutas de cron (sin autenticación para acceso interno)
-app.use('/api/cron', cronRoutes);
+app.use('/api/cron', cronLimiter, cronRoutes);
+
+// Ruta pública para configuración de recaptcha (sin autenticación)
+const { getRecaptchaLoginConfig } = require('./controllers/config.controller');
+app.get('/api/config/recaptcha-login', readLimiter, getRecaptchaLoginConfig);
 
 // Rutas de configuración del cron (requieren autenticación de admin)
-app.use('/api/cron-config', cronConfigRoutes);
+app.use('/api/cron-config', authMiddleware, writeLimiter, cronConfigRoutes);
 
 // Rutas de configuración general (requieren autenticación de admin)
-app.use('/api/config', configRoutes);
-app.use('/api/messages', messageRoutes);
+app.use('/api/config', authMiddleware, writeLimiter, configRoutes);
+app.use('/api/messages', authMiddleware, writeLimiter, messageRoutes);
 
 // Respuesta amigable para rutas API inexistentes
 app.use('/api', (req, res) => {
@@ -239,7 +304,7 @@ const pathClient = path.join(__dirname, 'views-protegidas/client/index.html');
 
 app.get('/admin', authFromCookie, (req, res) => {
   if (req.user.role !== 'admin') {
-    console.warn(`Acceso denegado a /admin: usuario ${req.user.rut || req.user.email} con rol ${req.user.role}`);
+    logger.warn(`[Backend] Acceso denegado a /admin: usuario ${req.user.rut || req.user.email} con rol ${req.user.role}`);
     return res.status(403).send('Acceso no autorizado - Solo administradores');
   }
   res.sendFile(pathAdmin);
@@ -247,7 +312,7 @@ app.get('/admin', authFromCookie, (req, res) => {
 
 app.get('/client', authFromCookie, (req, res) => {
   if (req.user.role !== 'client') {
-    console.warn(`Acceso denegado a /client: usuario ${req.user.rut || req.user.email} con rol ${req.user.role}`);
+    logger.warn(`[Backend] Acceso denegado a /client: usuario ${req.user.rut || req.user.email} con rol ${req.user.role}`);
     return res.status(403).send('Acceso no autorizado - Solo clientes');
   }
   res.sendFile(pathClient);
@@ -256,7 +321,7 @@ app.get('/client', authFromCookie, (req, res) => {
 // 🔐 Middleware para proteger rutas de admin y client
 app.use('/admin', authFromCookie, (req, res, next) => {
   if (req.user.role !== 'admin') {
-    console.warn(`Acceso denegado a ${req.path}: usuario ${req.user.rut || req.user.email} con rol ${req.user.role}`);
+    logger.warn(`[Backend] Acceso denegado a ${req.path}: usuario ${req.user.rut || req.user.email} con rol ${req.user.role}`);
     return res.status(403).send('Acceso no autorizado - Solo administradores');
   }
   next();
@@ -264,7 +329,7 @@ app.use('/admin', authFromCookie, (req, res, next) => {
 
 app.use('/client', authFromCookie, (req, res, next) => {
   if (req.user.role !== 'client') {
-    console.warn(`Acceso denegado a ${req.path}: usuario ${req.user.rut || req.user.email} con rol ${req.user.role}`);
+    logger.warn(`[Backend] Acceso denegado a ${req.path}: usuario ${req.user.rut || req.user.email} con rol ${req.user.role}`);
     return res.status(403).send('Acceso no autorizado - Solo clientes');
   }
   next();
@@ -446,12 +511,35 @@ io.on('connection', (socket) => {
 // Exportar io para usar en otros archivos
 app.set('io', io);
 
+// Middleware global de manejo de errores (debe ir al final, antes de server.listen)
+app.use((err, req, res, next) => {
+  // Log del error con detalles completos
+  logger.error(`[Global Error Handler] ${err.message}`, {
+    stack: err.stack,
+    url: req.url,
+    method: req.method,
+    ip: req.ip,
+    user: req.user ? req.user.email : 'anonymous'
+  });
+  
+  // En producción, no exponer detalles del error
+  const message = process.env.NODE_ENV === 'production' 
+    ? 'Error interno del servidor' 
+    : err.message;
+  
+  // Responder con formato estándar
+  res.status(err.status || 500).json({ 
+    success: false, 
+    message 
+  });
+});
+
 // Iniciar servidor
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, async () => {
   try {
     await initializeSecureDirectories();
   } catch (error) {
-    console.error('Error inicializando directorios:', error);
+    logger.error(`[Backend] Error inicializando directorios: ${error.message}`);
   }
 });

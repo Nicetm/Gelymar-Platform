@@ -3,6 +3,7 @@ const { getSqlPool, sql } = require('../config/sqlserver');
 const { sendFileToClient } = require('./email.service');
 const configService = require('./config.service');
 const { logger } = require('../utils/logger');
+const { normalizeOc } = require('../utils/oc.util');
 
 function parseConfigParams(rawParams) {
   if (rawParams == null) {
@@ -123,14 +124,15 @@ async function getOrdersReadyForOrderReceiptNotice(sendFromDate = null, filterPc
         c.Rut AS customer_rut
       FROM jor_imp_HDR_90_softkey h
       JOIN jor_imp_CLI_01_softkey c ON h.Rut = c.Rut
-      WHERE (h.Factura IS NULL OR LTRIM(RTRIM(CAST(h.Factura AS NVARCHAR(50)))) = '' OR h.Factura = 0 OR h.Factura = '0')
+      WHERE ISNULL(LTRIM(RTRIM(UPPER(h.EstadoOV))), '') <> 'CANCELADO'
+        AND (h.Factura IS NULL OR LTRIM(RTRIM(CAST(h.Factura AS NVARCHAR(50)))) = '' OR h.Factura = 0 OR h.Factura = '0')
         ${sendFromFilter}
         ${pcFilter}
         ${facturaFilter}
       ORDER BY h.Nro ASC
     `);
 
-    const normalizeOc = (value) => (value == null ? '' : String(value).trim());
+    
     const orders = (result.recordset || []).map((row) => ({
       ...row,
       oc: normalizeOc(row.oc),
@@ -372,7 +374,8 @@ async function getOrdersWithFacturaAndMissingFiles() {
         c.Rut AS customer_rut
       FROM jor_imp_HDR_90_softkey h
       JOIN jor_imp_CLI_01_softkey c ON h.Rut = c.Rut
-      WHERE h.Factura IS NOT NULL
+      WHERE ISNULL(LTRIM(RTRIM(UPPER(h.EstadoOV))), '') <> 'CANCELADO'
+        AND h.Factura IS NOT NULL
         AND LTRIM(RTRIM(CAST(h.Factura AS NVARCHAR(50)))) <> ''
         AND h.Factura <> 0
         AND h.Factura <> '0'

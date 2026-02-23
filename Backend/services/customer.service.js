@@ -3,6 +3,7 @@ const { poolPromise } = require('../config/db');
 const { getSqlPool, sql } = require('../config/sqlserver');
 const Customer = require('../models/customer.model');
 const { logger } = require('../utils/logger');
+const { normalizeRut } = require('../utils/rut.util');
 
 /**
  * Obtiene todos los clientes con un conteo de carpetas asociadas (folder_count)
@@ -81,9 +82,8 @@ async function getAllCustomers(options = {}) {
 
     if (rows.length === 0) return [];
 
-    const normalizeRutKey = (value) => String(value || '').trim().replace(/C$/i, '');
     const ruts = rows.map((row) => row.Rut).filter(Boolean);
-    const normalizedRuts = ruts.map(normalizeRutKey).filter(Boolean);
+    const normalizedRuts = ruts.map(normalizeRut).filter(Boolean);
     logger.info(`[getAllCustomers] MySQL contacts query start. ruts=${ruts.length}`);
     const mysqlStart = Date.now();
     const [contactRows] = await pool.query(
@@ -98,7 +98,7 @@ async function getAllCustomers(options = {}) {
     logger.info(`[getAllCustomers] MySQL contacts query done in ${Date.now() - mysqlStart}ms rows=${contactRows.length}`);
     const contactMap = new Map();
     contactRows.forEach((row) => {
-      contactMap.set(normalizeRutKey(row.rut), {
+      contactMap.set(normalizeRut(row.rut), {
         primary_email: row.primary_email,
         online: row.online
       });
@@ -112,11 +112,11 @@ async function getAllCustomers(options = {}) {
       : [[]];
     const userOnlineMap = new Map();
     (userRows || []).forEach((row) => {
-      userOnlineMap.set(normalizeRutKey(row.rut), row.online);
+      userOnlineMap.set(normalizeRut(row.rut), row.online);
     });
 
     return rows.map((row) => {
-      const normalizedRut = normalizeRutKey(row.Rut);
+      const normalizedRut = normalizeRut(row.Rut);
       const contact = contactMap.get(normalizedRut) || {};
       const userOnline = userOnlineMap.get(normalizedRut);
       const customer = new Customer({
@@ -246,10 +246,8 @@ async function getCustomerByRut(rut) {
 
     return customer;
   } catch (error) {
-    console.error(`Error buscando cliente por RUT "${rut}":`);
-    console.error(`   Error: ${error.message}`);
-    console.error(`   SQL State: ${error.sqlState}`);
-    console.error(`   Error Code: ${error.errno}`);
+    logger.error(`[CustomerService] Error buscando cliente por RUT "${rut}": ${error.message}`);
+    logger.error(`[CustomerService] SQL State: ${error.sqlState}, Error Code: ${error.errno}`);
     throw error;
   }
 }
@@ -490,16 +488,6 @@ async function createOrUpdatePrimaryContact(customer_rut, primary_email) {
  * Obtiene clientes que no tienen cuenta de usuario
  * @returns {Array<Customer>} Lista de clientes sin cuenta
  */
-
-const normalizeRutKey = (value) => {
-  if (value === null || value === undefined) return '';
-  const cleaned = String(value)
-    .toUpperCase()
-    .replace(/[^0-9K]/g, '')
-    .replace(/C$/i, '');
-  return cleaned.replace(/^0+/, '');
-};
-
 async function getCustomersWithoutAccount() {
   const sqlPool = await getSqlPool();
   const sqlResult = await sqlPool.request().query(`
@@ -524,12 +512,12 @@ async function getCustomersWithoutAccount() {
 
   const pool = await poolPromise;
   const [userRows] = await pool.query('SELECT rut FROM users');
-  const userRuts = new Set(userRows.map((row) => normalizeRutKey(row.rut)));
-  const missing = rows.filter((row) => !userRuts.has(normalizeRutKey(row.Rut)));
+  const userRuts = new Set(userRows.map((row) => normalizeRut(row.rut)));
+  const missing = rows.filter((row) => !userRuts.has(normalizeRut(row.Rut)));
   logger.info(`[getCustomersWithoutAccount] customers=${rows.length} users=${userRows.length} missing=${missing.length}`);
 
   return rows
-    .filter((row) => !userRuts.has(normalizeRutKey(row.Rut)))
+    .filter((row) => !userRuts.has(normalizeRut(row.Rut)))
     .map((row) => new Customer({
       id: null,
       rut: row.Rut?.trim() || null,
@@ -637,6 +625,54 @@ async function updateCustomerContact(customer_rut, contactIdx, contactData) {
   return contacts[contactIndex];
 }
 
+async function sellerHasAccessToCustomerRut(sellerRut, customerRut) {
+  const rawSellerRut = String(sellerRut || '').trim();
+  const rawCustomerRut = String(customerRut || '').trim();
+  if (!rawSellerRut || !rawCustomerRut) {
+    return false;
+  }
+
+  const pool = await poolPromise;
+  const [sellerRows] = await pool.query(
+    'SELECT codigo FROM sellers WHERE rut = ?',
+    [rawSellerRut]
+  );
+  const sellerCodes = sellerRows
+    .map((row) => String(row.codigo || '').trim())
+    .filter((code) => code.length > 0);
+
+  if (!sellerCodes.length) {
+    return false;
+  }
+
+  const normalizedRut = rawCustomerRut.replace(/C$/i, '');
+  const alternateRut = rawCustomerRut.toUpperCase().endsWith('C')
+    ? normalizedRut
+    : `${normalizedRut}C`;
+
+  try {
+    const sqlPool = await getSqlPool();
+    const request = sqlPool.request();
+    request.input('rut1', sql.VarChar, rawCustomerRut);
+    request.input('rut2', sql.VarChar, alternateRut);
+    sellerCodes.forEach((code, idx) => {
+      request.input(`sellerCode${idx}`, sql.VarChar, String(code).trim());
+    });
+    const placeholders = sellerCodes.map((_, idx) => `@sellerCode${idx}`).join(', ');
+    const query = `
+      SELECT TOP 1 h.Rut
+      FROM jor_imp_HDR_90_softkey h
+      WHERE (h.Rut = @rut1 OR h.Rut = @rut2)
+        AND h.Vendedor IN (${placeholders})
+    `;
+    const result = await request.query(query);
+    return (result.recordset || []).length > 0;
+  } catch (error) {
+    logger.error(`[sellerHasAccessToCustomerRut] Error validando acceso seller=${rawSellerRut} rut=${rawCustomerRut}: ${error.message}`);
+    return false;
+  }
+}
+
 module.exports = {
   getAllCustomerRuts,
   getCustomerByRutForUpdate,
@@ -651,6 +687,7 @@ module.exports = {
   deleteCustomerContact,
   updateCustomerContact,
   createOrUpdatePrimaryContact,
-  getCustomersWithoutAccount
+  getCustomersWithoutAccount,
+  sellerHasAccessToCustomerRut
 };
 

@@ -4,11 +4,24 @@ export function initSidebarSeller(config) {
   const { apiBase, clientApiBase, fileServer, t, token, lang } = config;
   
   // Hacer las variables disponibles globalmente
-  window.apiBase = clientApiBase;
+  window.apiBase = apiBase || clientApiBase;
   window.fileServer = fileServer;
   window.lang = lang;
-  const API_BASE = window.apiBase || apiBase;
-  const FILE_SERVER = window.file_server || fileServer;
+  const resolveApiBase = (base) => {
+    if (!base || typeof window === 'undefined') return base || '';
+    try {
+      const parsed = new URL(base, window.location.origin);
+      if (parsed.hostname === 'backend') {
+        return `${window.location.protocol}//${window.location.hostname}:3000`;
+      }
+      return parsed.toString();
+    } catch {
+      return base;
+    }
+  };
+
+  const API_BASE = resolveApiBase(window.apiBase || apiBase);
+  const FILE_SERVER = window.fileServer || fileServer;
   // Función para obtener el token
   function getToken() {
     let storedToken =
@@ -23,8 +36,129 @@ export function initSidebarSeller(config) {
     return storedToken;
   }
 
+  const applySidebarProfile = (profile = {}) => {
+    const nameEl = document.querySelector('#SidebarUserDescription [data-seller-name]');
+    const metaEl = document.querySelector('#SidebarUserDescription [data-seller-meta]');
+    if (!nameEl && !metaEl) return;
+
+    const fullName = profile.fullName || profile.full_name || profile.name || '';
+    const rut = profile.rut || profile.email || '';
+    if (nameEl && fullName) {
+      nameEl.textContent = fullName;
+    }
+    if (metaEl) {
+      metaEl.textContent = rut;
+    }
+  };
+
+  const loadSidebarProfile = async () => {
+    try {
+      const cachedProfileRaw = localStorage.getItem('userProfile');
+      if (cachedProfileRaw) {
+        applySidebarProfile(JSON.parse(cachedProfileRaw));
+      }
+    } catch (error) {
+      console.warn('[SidebarSeller] Error parsing cached profile:', error);
+    }
+
+    const token = getToken();
+    if (!token || !API_BASE) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return;
+      const user = await res.json();
+      const profilePayload = {
+        fullName: user.full_name || '',
+        rut: user.rut || user.email || '',
+      };
+      applySidebarProfile(profilePayload);
+      if (profilePayload.fullName) {
+        try {
+          const cachedProfileRaw = localStorage.getItem('userProfile');
+          const cachedProfile = cachedProfileRaw ? JSON.parse(cachedProfileRaw) : {};
+          localStorage.setItem('userProfile', JSON.stringify({
+            ...cachedProfile,
+            fullName: profilePayload.fullName,
+            rut: profilePayload.rut,
+          }));
+        } catch {
+          localStorage.setItem('userProfile', JSON.stringify(profilePayload));
+        }
+      }
+    } catch (error) {
+      console.warn('[SidebarSeller] Error fetching profile:', error);
+    }
+  };
+
   // Inicialización cuando el DOM está listo
   document.addEventListener("DOMContentLoaded", async () => {
+
+    // Sidebar collapse
+    const sidebar = document.getElementById('sidebar');
+    const rootEl = document.documentElement;
+    const collapseBtn = document.getElementById('toggleSidebarCollapse');
+    const sidebarUser = document.querySelector('[data-sidebar-user]');
+    const footerRow = document.querySelector('[data-sidebar-footer-row]');
+    const sidebarTexts = sidebar ? sidebar.querySelectorAll('[data-sidebar-text]') : [];
+    const sidebarLinks = sidebar ? sidebar.querySelectorAll('.sidebar-link') : [];
+
+    const applySidebarCollapsed = (collapsed) => {
+      if (!sidebar) return;
+      if (rootEl) {
+        rootEl.classList.toggle('sidebar-collapsed', collapsed);
+      }
+      sidebar.classList.toggle('w-20', collapsed);
+      sidebar.classList.toggle('w-56', !collapsed);
+      sidebar.classList.toggle('sidebar-collapsed', collapsed);
+
+      if (sidebarUser) {
+        sidebarUser.classList.toggle('hidden', collapsed);
+      }
+
+      sidebarTexts.forEach((node) => {
+        node.classList.toggle('hidden', collapsed);
+      });
+
+      sidebarLinks.forEach((link) => {
+        link.classList.toggle('justify-center', collapsed);
+        link.classList.toggle('gap-3', !collapsed);
+        link.classList.toggle('px-4', !collapsed);
+        link.classList.toggle('px-3', collapsed);
+      });
+
+      if (footerRow) {
+        footerRow.classList.toggle('flex-col', collapsed);
+        footerRow.classList.toggle('gap-3', collapsed);
+        footerRow.classList.toggle('gap-2', !collapsed);
+      }
+    };
+
+    if (collapseBtn) {
+      const stored = localStorage.getItem('sidebarCollapsed');
+      const storedCollapsed = stored === '1';
+      const domCollapsed = sidebar?.classList.contains('sidebar-collapsed');
+      
+      // Priorizar localStorage sobre el estado del DOM
+      const desiredCollapsed = stored !== null ? storedCollapsed : domCollapsed;
+      
+      // Solo aplicar si el estado actual no coincide con el deseado
+      if (domCollapsed !== desiredCollapsed) {
+        applySidebarCollapsed(desiredCollapsed);
+      }
+
+      collapseBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const isCollapsed = sidebar?.classList.contains('sidebar-collapsed');
+        const next = !isCollapsed;
+        applySidebarCollapsed(next);
+        localStorage.setItem('sidebarCollapsed', next ? '1' : '0');
+        document.cookie = `sidebarCollapsed=${next ? '1' : '0'}; path=/; max-age=31536000`;
+      });
+    }
+
     // Highlight active page in sidebar
     const path = window.location.pathname;
     document.querySelectorAll("#sidebar a[href]").forEach(link => {
@@ -116,5 +250,7 @@ export function initSidebarSeller(config) {
         }
       });
     });
+
+    await loadSidebarProfile();
   });
 }
