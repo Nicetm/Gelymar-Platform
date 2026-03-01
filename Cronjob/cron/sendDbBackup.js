@@ -3,7 +3,17 @@ const path = require('path');
 const cron = require('node-cron');
 const { spawn } = require('child_process');
 const zlib = require('zlib');
-const { logger } = require('../../Backend/utils/logger');
+let logger;
+try {
+  ({ logger } = require('../../Backend/utils/logger'));
+} catch (error) {
+  logger = {
+    info: console.log,
+    warn: console.warn,
+    error: console.error
+  };
+  logger.warn(`[sendDbBackup] Logger backend no disponible, usando consola. error=${error.message}`);
+}
 
 const emitReady = () => {
   if (process.send) {

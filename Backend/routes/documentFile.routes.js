@@ -3,6 +3,7 @@ const router = express.Router();
 const controller = require('../controllers/documentFile.controller');
 const authMiddleware = require('../middleware/auth.middleware');
 const { authorizeRoles } = require('../middleware/role.middleware');
+const { languageMiddleware } = require('../i18n');
 
 
 /**
@@ -39,12 +40,12 @@ const { authorizeRoles } = require('../middleware/role.middleware');
 
 
 // Rutas de visualización/descarga de archivos
-router.get('/view/:id', authMiddleware, controller.viewFile);
-router.get('/temp-view/:token', controller.tempViewFile);
+router.get('/view/:id', languageMiddleware, authMiddleware, controller.viewFile);
+router.get('/temp-view/:token', languageMiddleware, controller.tempViewFile);
 // view-with-token valida el token de query en el controlador; se expone sin auth aquí
-router.get('/view-with-token/:id', controller.viewWithToken);
-router.get('/download/:id', authMiddleware, controller.downloadFile);
-router.get('/:customerRut', authMiddleware, authorizeRoles(['admin', 'seller', 'client']), controller.getFilesByCustomerAndFolder);
+router.get('/view-with-token/:id', languageMiddleware, controller.viewWithToken);
+router.get('/download/:id', languageMiddleware, authMiddleware, controller.downloadFile);
+router.get('/:customerRut', languageMiddleware, authMiddleware, authorizeRoles(['admin', 'seller', 'client']), controller.getFilesByCustomerAndFolder);
 
 /**
  * @swagger
@@ -82,7 +83,7 @@ router.get('/:customerRut', authMiddleware, authorizeRoles(['admin', 'seller', '
  *       500:
  *         description: Error interno
  */
-router.post('/upload', authMiddleware, authorizeRoles(['admin']), controller.uploadFile, controller.handleUpload);
+router.post('/upload', languageMiddleware, authMiddleware, authorizeRoles(['admin']), controller.uploadFile, controller.handleUpload);
 
 /**
  * @swagger
@@ -119,17 +120,17 @@ router.post('/upload', authMiddleware, authorizeRoles(['admin']), controller.upl
  *         description: Datos faltantes
  */
 
-router.post('/generate/:id', authMiddleware, authorizeRoles(['admin']), controller.generateFile);
+router.post('/generate/:id', languageMiddleware, authMiddleware, authorizeRoles(['admin']), controller.generateFile);
 
-router.post('/regenerate/:id', authMiddleware, authorizeRoles(['admin']), controller.regenerateFile);
+router.post('/regenerate/:id', languageMiddleware, authMiddleware, authorizeRoles(['admin']), controller.regenerateFile);
 
-router.post('/send/:id', authMiddleware, authorizeRoles(['admin']), controller.sendFile);
+router.post('/send/:id', languageMiddleware, authMiddleware, authorizeRoles(['admin']), controller.sendFile);
 
-router.post('/resend/:id', authMiddleware, authorizeRoles(['admin']), controller.resendFile);
+router.post('/resend/:id', languageMiddleware, authMiddleware, authorizeRoles(['admin']), controller.resendFile);
 
-router.put('/rename/:id', authMiddleware, authorizeRoles(['admin']), controller.RenameFile);
+router.put('/rename/:id', languageMiddleware, authMiddleware, authorizeRoles(['admin']), controller.RenameFile);
 
-router.delete('/delete/:id', authMiddleware, authorizeRoles(['admin']), controller.deleteFileById);
+router.delete('/delete/:id', languageMiddleware, authMiddleware, authorizeRoles(['admin']), controller.deleteFileById);
 
 /**
  * @swagger
@@ -154,8 +155,8 @@ router.delete('/delete/:id', authMiddleware, authorizeRoles(['admin']), controll
  *       500:
  *         description: Error interno del servidor
  */
-router.post('/create-default', authMiddleware, authorizeRoles(['admin']), controller.createDefaultFiles);
-router.post('/create-default/:orderId', authMiddleware, authorizeRoles(['admin']), controller.createDefaultFiles);
-router.post('/process-new-orders', controller.processNewOrdersAndSendReception);
+router.post('/create-default', languageMiddleware, authMiddleware, authorizeRoles(['admin']), controller.createDefaultFiles);
+router.post('/create-default/:orderId', languageMiddleware, authMiddleware, authorizeRoles(['admin']), controller.createDefaultFiles);
+router.post('/process-new-orders', languageMiddleware, controller.processNewOrdersAndSendReception);
 
 module.exports = router;

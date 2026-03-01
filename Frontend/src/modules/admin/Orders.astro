@@ -61,7 +61,7 @@ try {
 	</div>
 
 	<!-- Búsqueda y filtros -->
-	<div class="mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+	<div class="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
 		<div class="flex flex-col sm:flex-row gap-3 items-center">
 			<div class="relative w-full sm:max-w-xs">
 				<label for="searchInput" class="sr-only">{t.comond.search}</label>
@@ -73,14 +73,6 @@ try {
 				<input id="searchInput" type="text" placeholder={t.comond.search} class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-primary-500" />
 			</div>
 
-			<!-- Checkbox para filtrar solo órdenes abiertas -->
-			<div class="flex items-center gap-2">
-				<label class="relative inline-flex items-center cursor-pointer">
-					<input type="checkbox" id="filterOpenOrders" class="sr-only peer" />
-					<div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-0 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-					<span class="ml-3 text-sm font-medium text-gray-900 dark:text-gray-300 whitespace-nowrap">{t.orders.onlyOpen}</span>
-				</label>
-			</div>
 		</div>
 
 		<!-- Botones de exportar y refresh -->

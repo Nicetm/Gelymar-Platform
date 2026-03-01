@@ -2,6 +2,7 @@ const { createContainer, asValue, asFunction } = require('awilix');
 const { poolPromise } = require('./db');
 const { sql, getSqlPool } = require('./sqlserver');
 const { mapHdrRowToOrder } = require('../mappers/sqlsoftkey/hdr.mapper');
+const { mapFactRowToInvoice } = require('../mappers/sqlsoftkey/fact.mapper');
 const { mapItemRowToOrderItem } = require('../mappers/sqlsoftkey/item.mapper');
 const { logger } = require('../utils/logger');
 const { createOrderService } = require('../services/order.service');
@@ -21,6 +22,7 @@ const configService = require('../services/config.service');
 const cronConfigService = require('../services/cronConfig.service');
 const customerService = require('../services/customer.service');
 const documentFileService = require('../services/documentFile.service');
+const documentEventService = require('../services/documentEvent.service');
 const emailService = require('../services/email.service');
 const encryptionService = require('../services/encryption.service');
 const fileService = require('../services/file.service');
@@ -41,6 +43,7 @@ container.register({
   sqlModule: asValue(sql),
   getSqlPoolFn: asValue(getSqlPool),
   hdrMapper: asValue(mapHdrRowToOrder),
+  factMapper: asValue(mapFactRowToInvoice),
   itemMapper: asValue(mapItemRowToOrderItem),
   logger: asValue(logger),
   orderService: asFunction((deps) => createOrderService(deps)).singleton(),
@@ -69,6 +72,7 @@ container.register({
   cronConfigService: asValue(cronConfigService),
   customerService: asValue(customerService),
   documentFileService: asValue(documentFileService),
+  documentEventService: asValue(documentEventService),
   emailService: asValue(emailService),
   encryptionService: asValue(encryptionService),
   fileService: asValue(fileService),

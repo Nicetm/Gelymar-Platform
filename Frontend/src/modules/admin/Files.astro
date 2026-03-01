@@ -24,6 +24,7 @@ const clientName = url.searchParams.get('c') ?? routeCompany ?? '';
 const decodedClientName = decodeURIComponent(clientName);
 const folderId = url.searchParams.get('f') ?? '';
 const idOv = url.searchParams.get('idov') ?? '';
+const factura = url.searchParams.get('factura') ?? '';
 const pc = url.searchParams.get('pc') ?? routePc ?? '';
 const oc = url.searchParams.get('oc') ?? routeOc ?? '';
 
@@ -62,6 +63,7 @@ const contactEmailMetadata: any[] = [];
   data-folder-id={resolvedFolderId}
   data-pc={orderPc}
   data-id-ov={idOv}
+  data-factura={factura}
   data-base-path={basePath}
   data-clients-path={clientsPath}
   data-folders-path={foldersViewPath}

@@ -7,6 +7,13 @@ const { logger } = require('../utils/logger');
  * Retorna todas las carpetas asociadas a un cliente, incluyendo:
  * - UUID del cliente
  * - Cantidad de archivos por carpeta (fileCount)
+ * 
+ * REFACTORING CHANGES:
+ * - OLD: Queried Vista_HDR which contained invoice fields (had duplicity)
+ * - NEW: LEFT JOIN Vista_HDR with Vista_FACT to get invoice data separately
+ * - REASON: Vista_HDR now has one row per order, invoice data moved to Vista_FACT
+ * - RESULT: Returns one row per order-invoice combination (orders without invoices have NULL invoice fields)
+ * 
  * @param {string} customerRut - RUT del cliente
  * @returns {Array<Folder>} Lista de carpetas con información extendida
  */
@@ -17,33 +24,37 @@ async function getFoldersByCustomerRut(customerRut) {
   logger.info(`[getFoldersByCustomerRut] SQL query start. rut=${customerRut}`);
   let sqlResult;
   try {
+    // REFACTORING NOTE: Vista_HDR no longer contains invoice fields
+    // Invoice data now comes from Vista_FACT via LEFT JOIN
+    // This query returns one row per order-invoice combination
+    // Orders without invoices will have NULL invoice fields
     sqlResult = await sqlPool.request()
       .input('rut', customerRut)
       .query(`
         SELECT
-          hdr.Nro AS pc,
-          hdr.OC AS oc,
-          hdr.Rut AS customer_rut,
-          hdr.Fecha AS fecha,
-          hdr.Fecha_factura AS fecha_factura,
-          hdr.Factura AS factura,
-          hdr.IDNroOvMasFactura AS id_nro_ov_mas_factura,
-          hdr.ETD_OV AS fecha_etd,
-          hdr.ETA_OV AS fecha_eta,
-          hdr.ETD_ENC_FA AS fecha_etd_factura,
-          hdr.ETA_ENC_FA AS fecha_eta_factura,
-          hdr.Job AS currency,
-          hdr.MedioDeEnvioFact AS medio_envio_factura,
-          hdr.MedioDeEnvioOV AS medio_envio_ov,
-          hdr.Clausula AS incoterm,
-          hdr.Puerto_Destino AS puerto_destino,
-          hdr.Certificados AS certificados,
+          h.Nro AS pc,
+          h.OC AS oc,
+          h.Rut AS customer_rut,
+          h.Fecha AS fecha,
+          h.ETD_OV AS fecha_etd,
+          h.ETA_OV AS fecha_eta,
+          h.Job AS currency,
+          h.MedioDeEnvioOV AS medio_envio_ov,
+          h.Clausula AS incoterm,
+          h.Puerto_Destino AS puerto_destino,
+          h.Certificados AS certificados,
+          f.Factura AS factura,
+          f.Fecha_factura AS fecha_factura,
+          f.ETD_ENC_FA AS fecha_etd_factura,
+          f.ETA_ENC_FA AS fecha_eta_factura,
+          f.MedioDeEnvioFact AS medio_envio_factura,
           cli.Nombre AS customer_name
-        FROM jor_imp_HDR_90_softkey hdr
-        LEFT JOIN jor_imp_CLI_01_softkey cli ON cli.Rut = hdr.Rut
-        WHERE hdr.Rut = @rut
-          AND ISNULL(LTRIM(RTRIM(UPPER(hdr.EstadoOV))), '') <> 'CANCELADO'
-        ORDER BY CAST(hdr.Fecha AS date) DESC
+        FROM jor_imp_HDR_90_softkey h
+        LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
+        LEFT JOIN jor_imp_CLI_01_softkey cli ON cli.Rut = h.Rut
+        WHERE h.Rut = @rut
+          AND ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
+        ORDER BY CAST(h.Fecha AS date) DESC, f.Factura ASC
       `);
   } catch (error) {
     logger.error(`[getFoldersByCustomerRut] SQL error: ${error.message}`);
@@ -56,17 +67,19 @@ async function getFoldersByCustomerRut(customerRut) {
   const fileCountMap = {};
   if (pcs.length) {
     logger.info(`[getFoldersByCustomerRut] file counts start. pcCount=${pcs.length}`);
+    // REFACTORING NOTE: File counts now grouped by (pc, oc) only
+    // id_nro_ov_mas_factura field has been removed from order_files table
     const [countRows] = await mysqlPool.query(
       `
-        SELECT pc, oc, id_nro_ov_mas_factura, COUNT(*) AS fileCount
+        SELECT pc, oc, COUNT(*) AS fileCount
         FROM order_files
         WHERE pc IN (?)
-        GROUP BY pc, oc, id_nro_ov_mas_factura
+        GROUP BY pc, oc
       `,
       [pcs]
     );
     countRows.forEach(row => {
-      const key = `${row.pc}|${row.oc || ''}|${row.id_nro_ov_mas_factura || ''}`;
+      const key = `${row.pc}|${row.oc || ''}`;
       fileCountMap[key] = Number(row.fileCount) || 0;
     });
   }
@@ -80,7 +93,6 @@ async function getFoldersByCustomerRut(customerRut) {
       customer_name: r.customer_name,
       customer_rut: r.customer_rut,
       factura: r.factura,
-      id_nro_ov_mas_factura: r.id_nro_ov_mas_factura,
       fecha_factura: r.fecha_factura,
       fecha: r.fecha,
       fecha_etd: r.fecha_etd,
@@ -95,7 +107,7 @@ async function getFoldersByCustomerRut(customerRut) {
       certificados: r.certificados
     });
     folder.customer_uuid = r.customer_rut;
-    const key = `${r.pc}|${r.oc || ''}|${r.id_nro_ov_mas_factura || ''}`;
+    const key = `${r.pc}|${r.oc || ''}`;
     folder.fileCount = fileCountMap[key] || 0;
     folder.document_count = folder.fileCount;
     return folder;
@@ -152,7 +164,7 @@ async function getCountDirectoryByCustomerRut(customerRut) {
       SELECT COUNT(*) AS total
       FROM jor_imp_HDR_90_softkey
       WHERE Rut = @rut
-        AND ISNULL(LTRIM(RTRIM(UPPER(EstadoOV))), '') <> 'CANCELADO'
+        AND ISNULL(LTRIM(RTRIM(LOWER(EstadoOV))), '') <> 'cancelada'
     `);
   return result.recordset?.[0]?.total || 0;
 }

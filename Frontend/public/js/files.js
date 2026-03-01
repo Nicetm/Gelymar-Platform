@@ -133,7 +133,7 @@ function getFilesContext() {
     uuid: dataset.uuid || null,
     folderId: dataset.folderId || null,
     pc: dataset.pc || null,
-    idOv: dataset.idOv || window.orderIdOv || null,
+    factura: dataset.factura || window.orderFactura || null,
   };
 }
 
@@ -393,7 +393,7 @@ export function initFilesScript() {
     uuid,
     folderId,
     pc: pcFromDataset,
-    idOv,
+    factura: facturaFromDataset,
   } = getFilesContext();
 
   const lang = window.lang;
@@ -409,6 +409,8 @@ export function initFilesScript() {
 
   const params = new URLSearchParams(window.location.search);
   const pc = params.get('pc') || pcFromDataset || window.orderPc || '';
+  const facturaFromParams = params.get('factura') || null;
+  const resolvedFactura = facturaFromParams || facturaFromDataset || window.orderFactura || null;
 
   // Validaciones iniciales
   if (!uuid) {
@@ -1042,8 +1044,8 @@ export function initFilesScript() {
   async function refreshFiles() {
     const loadingRow = document.getElementById('loadingRow');
     try {
-      const idQuery = idOv ? `&idov=${encodeURIComponent(idOv)}` : '';
-      const pcQuery = pc ? `?pc=${encodeURIComponent(pc)}${idQuery}` : (idQuery ? `?${idQuery.slice(1)}` : '');
+      const facturaQuery = resolvedFactura ? `&factura=${encodeURIComponent(resolvedFactura)}` : '';
+      const pcQuery = pc ? `?pc=${encodeURIComponent(pc)}${facturaQuery}` : (facturaQuery ? `?${facturaQuery.slice(1)}` : '');
       const res = await fetch(`${apiBase}/api/files/${uuid}${pcQuery}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -2189,8 +2191,7 @@ export function initFilesScript() {
           },
           body: JSON.stringify({
             pc: window.orderPc,
-            oc: window.orderOc,
-            idNroOvMasFactura: window.orderIdOv || null
+            oc: window.orderOc
           })
         });
 
@@ -2286,7 +2287,6 @@ export function initFilesScript() {
       const fileObject = qs('#uploadFileInput')?.files?.[0];
       const orderPc = window.orderPc || pcName || '';
       const orderOc = window.orderOc || '';
-      const orderIdOv = idOv || window.orderIdOv || '';
 
       if (!fileId || !fileName || !fileType || !fileObject) {
         showNotification(getMessage(documentos.uploadFieldsRequired), 'error');
@@ -2326,9 +2326,6 @@ export function initFilesScript() {
         formData.append('subfolder', pcName || orderPc);
         formData.append('pc', orderPc);
         formData.append('oc', orderOc);
-        if (orderIdOv) {
-          formData.append('idNroOvMasFactura', orderIdOv);
-        }
         formData.append('name', fileName);
         formData.append('file_id', fileId);
         formData.append('file', fileObject);

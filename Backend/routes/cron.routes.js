@@ -27,15 +27,20 @@ router.post('/check-client-access', async (req, res) => {
 // Endpoint para generar archivos por defecto
 router.post('/generate-default-files', async (req, res) => {
   try {
-    const { pc } = req.body || {};
-    logger.info(`[cronRoutes] Iniciando generación de archivos por defecto${pc ? ` pc=${pc}` : ''}`);
-    await generateDefaultFiles(pc);
+    const { pc, factura, idNroOvMasFactura } = req.body || {};
+    const parts = [];
+    if (pc) parts.push(`pc=${pc}`);
+    if (idNroOvMasFactura) parts.push(`id=${idNroOvMasFactura}`);
+    if (!idNroOvMasFactura && factura) parts.push(`factura=${factura}`);
+    logger.info(`[cronRoutes] Iniciando generación de archivos por defecto${parts.length ? ` ${parts.join(' ')}` : ''}`);
+    await generateDefaultFiles({ pc, factura, idNroOvMasFactura });
     res.json({ success: true, message: 'Archivos por defecto generados correctamente' });
   } catch (error) {
     logger.error(`[cronRoutes] Error generando archivos por defecto: ${error.message}`);
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
 
 
 // Endpoint para enviar resumen diario de notificaciones admin

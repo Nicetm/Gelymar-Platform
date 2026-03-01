@@ -49,8 +49,18 @@ function t(key, lang = 'es', params = {}) {
  */
 function languageMiddleware(req, res, next) {
   // Prioridad: query param > header > default
-  const lang = req.query.lang || req.headers['accept-language']?.split(',')[0]?.split('-')[0] || 'es';
+  const queryLang = req.query.lang;
+  const headerLang = req.headers['accept-language'];
+  const parsedHeaderLang = headerLang?.split(',')[0]?.split('-')[0];
+  const lang = queryLang || parsedHeaderLang || 'es';
   req.lang = ['es', 'en'].includes(lang) ? lang : 'es';
+  
+  // Debug logging para diagnosticar problemas de idioma
+  if (process.env.LOG_LANGUAGE_DEBUG === 'true') {
+    const { logger } = require('../utils/logger');
+    logger.info(`[languageMiddleware] path=${req.path} queryLang=${queryLang || 'N/A'} headerLang=${headerLang || 'N/A'} parsedHeaderLang=${parsedHeaderLang || 'N/A'} resolved=${req.lang}`);
+  }
+  
   next();
 }
 

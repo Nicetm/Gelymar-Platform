@@ -30,6 +30,30 @@ function getApiBaseFallback() {
   return origin.includes(':4321') ? origin.replace(':4321', ':3000') : origin;
 }
 
+function clearClientStorage() {
+  try {
+    const preserveKeys = new Set(['rememberMe', 'rememberedRut', 'rememberedEmail']);
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && !preserveKeys.has(key)) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+  } catch (error) {
+    console.warn('No se pudo limpiar localStorage:', error);
+  }
+  try {
+    sessionStorage.clear();
+  } catch (error) {
+    console.warn('No se pudo limpiar sessionStorage:', error);
+  }
+  if (typeof document !== 'undefined') {
+    document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+  }
+}
+
 function resolveApiBase(base) {
   if (!base || typeof window === 'undefined') return base || '';
   try {
@@ -66,14 +90,11 @@ function createLogoutHandler() {
         }
       }
 
-      localStorage.removeItem('token');
-      localStorage.removeItem('userRole');
-      localStorage.removeItem('userEmail');
-      localStorage.removeItem('userRut');
-      document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+      clearClientStorage();
       window.location.href = '/authentication/sign-in';
     } catch (error) {
       console.error('Error en logout:', error);
+      clearClientStorage();
       window.location.href = '/authentication/sign-in';
     }
   };
@@ -169,6 +190,40 @@ export function initLayoutCommon(config = {}) {
   } = config;
 
   if (typeof window === 'undefined') return;
+
+  try {
+    const shouldClear = sessionStorage.getItem('logout_on_close') === '1';
+    if (shouldClear) {
+      const path = window.location.pathname || '';
+      const isAuthPage = path.startsWith('/authentication');
+      if (isAuthPage) {
+        clearClientStorage();
+      } else {
+        let sameOriginReferrer = false;
+        if (document.referrer) {
+          try {
+            sameOriginReferrer = new URL(document.referrer).origin === window.location.origin;
+          } catch {
+            sameOriginReferrer = false;
+          }
+        }
+        if (!sameOriginReferrer) {
+          clearClientStorage();
+        }
+      }
+      sessionStorage.removeItem('logout_on_close');
+    }
+  } catch (error) {
+    console.warn('No se pudo validar cierre anterior:', error);
+  }
+
+  window.addEventListener('beforeunload', () => {
+    try {
+      sessionStorage.setItem('logout_on_close', '1');
+    } catch (error) {
+      console.warn('No se pudo marcar cierre:', error);
+    }
+  });
 
   if (apiBase) {
     window.apiBase = resolveApiBase(apiBase);

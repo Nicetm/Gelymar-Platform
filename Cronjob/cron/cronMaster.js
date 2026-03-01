@@ -3,7 +3,17 @@ const cron = require('node-cron');
 const dotenv = require('dotenv');
 const os = require('os');
 const fs = require('fs');
-const { logger } = require('../../Backend/utils/logger');
+let logger;
+try {
+  ({ logger } = require('../../Backend/utils/logger'));
+} catch (error) {
+  logger = {
+    info: console.log,
+    warn: console.warn,
+    error: console.error
+  };
+  logger.warn(`[cronMaster] Logger backend no disponible, usando consola. error=${error.message}`);
+}
 // mysql ya no se necesita, se usa endpoint del backend
 // El cron llama a endpoints del backend para procesar datos
 
@@ -188,10 +198,10 @@ if (arg === 'execute-now') {
   })();
 } else {
   // Solo levantar el proceso, NO ejecutar nada automáticamente
-  logger.info('[cronMaster] Cron Master iniciado - esperando horario programado (7:00 AM)...');
+  logger.info('[cronMaster] Cron Master iniciado - esperando horario programado (07:00)...');
   emitReady();
 
-  // Programar ejecución diaria a las 7:00 AM
+  // Programar ejecución diaria a las 14:27
   cron.schedule('0 7 * * *', async () => {
     logger.info('[cronMaster] Iniciando secuencia programada...');
     try {

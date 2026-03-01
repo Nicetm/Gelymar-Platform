@@ -675,9 +675,9 @@ export async function initSellersScript() {
       currentPage = 1;
       sortSellers(currentSort.column, currentSort.direction);
       renderTable();
-      const scrollBody = tableBody?.closest('[data-scroll-body]') || tableBody?.closest('.overflow-x-auto');
-      if (scrollBody) {
-        scrollBody.classList.remove('scrollbar-hidden');
+      const scrollBodyAfter = tableBody?.closest('[data-scroll-body]') || tableBody?.closest('.overflow-x-auto');
+      if (scrollBodyAfter) {
+        scrollBodyAfter.classList.remove('scrollbar-hidden');
       }
     } catch (error) {
       console.error('Error loading sellers:', error);
@@ -686,9 +686,9 @@ export async function initSellersScript() {
       filteredSellers = [];
       currentPage = 1;
       renderTable();
-      const scrollBody = tableBody?.closest('[data-scroll-body]') || tableBody?.closest('.overflow-x-auto');
-      if (scrollBody) {
-        scrollBody.classList.remove('scrollbar-hidden');
+      const scrollBodyAfter = tableBody?.closest('[data-scroll-body]') || tableBody?.closest('.overflow-x-auto');
+      if (scrollBodyAfter) {
+        scrollBodyAfter.classList.remove('scrollbar-hidden');
       }
     }
   }

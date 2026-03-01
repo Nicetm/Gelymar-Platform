@@ -22,9 +22,18 @@ const checkOrderReceptionService = container.resolve('checkOrderReceptionService
 const checkShipmentNoticeService = container.resolve('checkShipmentNoticeService');
 const checkOrderDeliveryNoticeService = container.resolve('checkOrderDeliveryNoticeService');
 const checkAvailabilityNoticeService = container.resolve('checkAvailabilityNoticeService');
+const documentEventService = container.resolve('documentEventService');
 const { normalizeRut } = require('../utils/rut.util');
 const { cleanDirectoryName } = require('../utils/directoryUtils');
 const { validateFilePath, setSecureFilePermissions } = require('../utils/filePermissions');
+
+const logDocEvent = async (payload) => {
+  try {
+    await documentEventService.logDocumentEvent(payload);
+  } catch (error) {
+    logger.error(`[documentEvent] ${error.message}`);
+  }
+};
 
 
 const DOC_NAME_MAP_ES = {
@@ -121,17 +130,16 @@ function getDocumentGenerator(documentName) {
  * @returns {Object} Datos formateados para el template
  */
 async function getPDFData(file, lang = 'es') {
+  // REFACTORING: Removed id_nro_ov_mas_factura parameter - no longer needed
   const order = await documentFileService.getOrderWithCustomerForPdf(
     file.pc,
     file.oc,
-    file.factura,
-    file.id_nro_ov_mas_factura
+    file.factura
   );
   const orderDetail = await documentFileService.getOrderDetailForPdf(
     file.pc,
     file.oc,
-    file.factura,
-    file.id_nro_ov_mas_factura
+    file.factura
   );
   const documentName = resolveDocumentName(file);
 
@@ -156,28 +164,19 @@ async function getPDFData(file, lang = 'es') {
     }
   }
 
-  let resolvedId = file?.id_nro_ov_mas_factura || null;
-  if (!resolvedId && resolvedOrder?.pc) {
-    resolvedId = await documentFileService.resolveIdNroOvMasFactura(
+  // REFACTORING: Removed resolveIdNroOvMasFactura call - id_nro_ov_mas_factura no longer exists
+  let orderItems = [];
+  if (resolvedOrder?.pc) {
+    orderItems = await documentFileService.getOrderItemsByPcOcFactura(
       resolvedOrder.pc,
       resolvedOrder.oc,
       resolvedOrder.factura
     );
   }
 
-  let orderItems = [];
-  if (resolvedOrder?.pc) {
-    orderItems = await documentFileService.getOrderItemsByPcOcFactura(
-      resolvedOrder.pc,
-      resolvedOrder.oc,
-      resolvedOrder.factura,
-      resolvedId
-    );
-  }
-
   if (process.env.LOG_PDF_DATA === 'true') {
     logger.info(
-      `[getPDFData] doc=${documentName || 'N/A'} file_id=${file?.file_id || 'N/A'} file_name=${file?.name || 'N/A'} pc=${resolvedOrder?.pc || file?.pc || 'N/A'} oc=${resolvedOrder?.oc || file?.oc || 'N/A'} factura=${resolvedOrder?.factura ?? file?.factura ?? 'N/A'} id=${resolvedId || 'N/A'} items=${orderItems.length} first=${orderItems[0] ? `sol=${orderItems[0].kg_solicitados ?? 'N/A'} fac=${orderItems[0].kg_facturados ?? 'N/A'}` : 'N/A'}`
+      `[getPDFData] doc=${documentName || 'N/A'} file_id=${file?.file_id || 'N/A'} file_name=${file?.name || 'N/A'} pc=${resolvedOrder?.pc || file?.pc || 'N/A'} oc=${resolvedOrder?.oc || file?.oc || 'N/A'} factura=${resolvedOrder?.factura ?? file?.factura ?? 'N/A'} items=${orderItems.length} first=${orderItems[0] ? `sol=${orderItems[0].kg_solicitados ?? 'N/A'} fac=${orderItems[0].kg_facturados ?? 'N/A'}` : 'N/A'}`
     );
   }
 
@@ -802,6 +801,7 @@ exports.downloadFile = async (req, res) => {
 exports.getFilesByCustomerAndFolder = async (req, res) => {
   const { customerRut } = req.params;
   const pc = req.query.pc;
+  const factura = req.query.factura || null;
   const idNroOvMasFactura = req.query.idov || req.query.idNroOvMasFactura || null;
 
   try {
@@ -831,7 +831,7 @@ exports.getFilesByCustomerAndFolder = async (req, res) => {
       return res.status(400).json({ message: t('documentFile.pc_required', req.lang || 'es') });
     }
 
-    const files = await fileService.getFilesByPc(pc, idNroOvMasFactura);
+    const files = await fileService.getFilesByPc(pc, idNroOvMasFactura, factura);
     res.json(files);
   } catch (err) {
     logger.error(`Error al obtener archivos: ${err.message}`);
@@ -917,7 +917,20 @@ exports.generateFile = async (req, res) => {
 
     await fileService.updateFile(updateData);
 
-    logger.info(`[generateFile] source=manual Archivo generado pc=${file.pc || 'N/A'} oc=${file.oc || 'N/A'} factura=${file.factura ?? 'N/A'} id=${file.id_nro_ov_mas_factura || 'N/A'} name=${fileName}`);
+    logger.info(`[generateFile] source=manual Archivo generado pc=${file.pc || 'N/A'} oc=${file.oc || 'N/A'} factura=${file.factura ?? 'N/A'} name=${fileName}`);
+    await logDocEvent({
+      source: 'manual',
+      action: 'generate_pdf',
+      process: 'generateFile',
+      fileId: file.id,
+      docType: documentName,
+      pc: file.pc,
+      oc: file.oc,
+      factura: file.factura,
+      customerRut: file.customer_rut || file.rut || null,
+      userId: req.user?.id || null,
+      status: 'ok'
+    });
     return res.json({ message: t('documentFile.file_generated', req.lang || 'es'), path: updateData.path });
 
   } catch (error) {
@@ -973,6 +986,19 @@ exports.sendFile = async (req, res) => {
     });
 
     logger.info(`[sendFile] source=manual Archivo enviado pc=${file.pc || 'N/A'} oc=${file.oc || 'N/A'} factura=${file.factura ?? 'N/A'} id=${file.id_nro_ov_mas_factura || 'N/A'} name=${file.name || 'N/A'}`);
+    await logDocEvent({
+      source: 'manual',
+      action: 'send_email',
+      process: 'sendFile',
+      fileId: file.id,
+      docType: file.name,
+      pc: file.pc,
+      oc: file.oc,
+      factura: file.factura,
+      customerRut: file.customer_rut || file.rut || null,
+      userId: req.user?.id || null,
+      status: 'ok'
+    });
     res.json({ message: t('documentFile.document_sent', req.lang || 'es') });
   } catch (err) {
     logger.error(`Error al enviar archivo: ${err.message}`);
@@ -1036,10 +1062,42 @@ exports.deleteFileById = async (req, res) => {
     }
     await fileService.deleteFileById(file.id);
     
-    logger.info(`[deleteFile] Archivo eliminado pc=${file.pc || 'N/A'} oc=${file.oc || 'N/A'} factura=${file.factura ?? 'N/A'} id=${file.id_nro_ov_mas_factura || 'N/A'} name=${file.name || 'N/A'}`);
+    // Registrar evento en document_events
+    await logDocEvent({
+      source: 'manual',
+      action: 'delete_record',
+      process: 'deleteFileById',
+      fileId: file.id,
+      docType: file.name,
+      pc: file.pc,
+      oc: file.oc,
+      factura: file.factura,
+      customerRut: file.customerRut,
+      userId: req.user?.id || null,
+      status: 'ok'
+    });
+    
+    logger.info(`[deleteFile] Archivo eliminado pc=${file.pc || 'N/A'} oc=${file.oc || 'N/A'} factura=${file.factura ?? 'N/A'} name=${file.name || 'N/A'}`);
     res.json({ message: `${t('documentFile.file_deleted', req.lang || 'es')} ${file.name}` });
   } catch (error) {
     logger.error(`Error al eliminar archivo: ${error.message}`);
+    
+    // Registrar evento de error en document_events
+    await logDocEvent({
+      source: 'manual',
+      action: 'delete_record',
+      process: 'deleteFileById',
+      fileId: id,
+      docType: null,
+      pc: null,
+      oc: null,
+      factura: null,
+      customerRut: null,
+      userId: req.user?.id || null,
+      status: 'error',
+      message: error.message
+    });
+    
     res.status(500).json({ message: t('documentFile.delete_file_error', req.lang || 'es'), error: error.message });
   }
 };
@@ -1118,7 +1176,20 @@ exports.regenerateFile = async (req, res) => {
     const newFileId = await fileService.duplicateFile(id, path.relative(FILE_SERVER_ROOT, filePath), recordName);
 
     logger.info(`Archivo regenerado correctamente ID: ${id} - Versión: ${fileName} - Nuevo ID: ${newFileId}`);
-    res.json({ 
+    await logDocEvent({
+      source: 'manual',
+      action: 'regenerate_pdf',
+      process: 'regenerateFile',
+      fileId: newFileId,
+      docType: documentName,
+      pc: file.pc,
+      oc: file.oc,
+      factura: file.factura,
+      customerRut: file.customer_rut || file.rut || null,
+      userId: req.user?.id || null,
+      status: 'ok'
+    });
+    res.json({
       message: t('documentFile.document_regenerated', req.lang || 'es'),
       fileName: fileName,
       filePath: path.relative(FILE_SERVER_ROOT, filePath),
@@ -1170,8 +1241,21 @@ exports.resendFile = async (req, res) => {
       updated_at: new Date()
     });
 
-    logger.info(`Archivo reenviado correctamente ID: ${id}`);
-    res.json({ message: t('documentFile.document_resent', req.lang || 'es') });
+      logger.info(`Archivo reenviado correctamente ID: ${id}`);
+      await logDocEvent({
+        source: 'manual',
+        action: 'resend_email',
+        process: 'resendFile',
+        fileId: file.id,
+        docType: file.name,
+        pc: file.pc,
+        oc: file.oc,
+        factura: file.factura,
+        customerRut: file.customer_rut || file.rut || null,
+        userId: req.user?.id || null,
+        status: 'ok'
+      });
+      res.json({ message: t('documentFile.document_resent', req.lang || 'es') });
   } catch (err) {
     logger.error(`Error al reenviar archivo: ${err.message}`);
     
@@ -1206,6 +1290,8 @@ exports.createDefaultFiles = async (req, res) => {
   const { pc, oc, idNroOvMasFactura } = req.body || {};
   let logPc = pc || 'N/A';
   let logOc = oc || 'N/A';
+  let logFactura = null;
+  let logCustomerRut = null;
 
   try {
     logger.info(`[createDefaultFiles] source=manual params orderId=${orderId || 'N/A'} body pc=${pc || 'N/A'} oc=${oc || 'N/A'} idNroOvMasFactura=${idNroOvMasFactura || 'N/A'}`);
@@ -1233,17 +1319,26 @@ exports.createDefaultFiles = async (req, res) => {
       const incoterm = orderMeta?.incoterm;
       const etd = orderMeta?.fecha_etd_factura;
       const eta = orderMeta?.fecha_eta_factura;
-      return isInList(shipmentIncoterms, incoterm) && !!etd && !!eta;
+      const result = isInList(shipmentIncoterms, incoterm) && !!etd && !!eta;
+      // DEBUG: Log para depurar
+      logger.info(`[canCreateShipment] incoterm="${incoterm}" etd="${etd}" eta="${eta}" result=${result}`);
+      return result;
     };
     const canCreateDelivery = (orderMeta, facturaValue) => {
       if (!hasFacturaValue(facturaValue)) return false;
       const eta = orderMeta?.fecha_eta_factura;
-      return !!eta;
+      const result = !!eta;
+      // DEBUG: Log para depurar
+      logger.info(`[canCreateDelivery] eta="${eta}" result=${result}`);
+      return result;
     };
     const canCreateAvailability = (orderMeta, facturaValue) => {
       if (!hasFacturaValue(facturaValue)) return false;
       const incoterm = orderMeta?.incoterm;
-      return isInList(availabilityIncoterms, incoterm);
+      const result = isInList(availabilityIncoterms, incoterm);
+      // DEBUG: Log para depurar el problema de Availability Notice
+      logger.info(`[canCreateAvailability] incoterm="${incoterm}" isInList=${result} availabilityIncoterms=${Array.from(availabilityIncoterms).join(',')}`);
+      return result;
     };
 
     if (orderId) {
@@ -1257,8 +1352,14 @@ exports.createDefaultFiles = async (req, res) => {
         return res.status(404).json({ message: t('documentFile.order_not_found', req.lang || 'es') });
       }
 
-      const orderMeta = await orderService.getOrderByPcOc(order.pc, order.oc);
+      const orderMeta = idNroOvMasFactura
+        ? await orderService.getOrderByPcId(order.pc, idNroOvMasFactura)
+        : await orderService.getOrderByPcOc(order.pc, order.oc);
       const facturaValue = orderMeta?.factura ?? order.factura;
+      
+      // DEBUG: Log para ver qué incoterm tiene orderMeta
+      logger.info(`[createDefaultFiles] DEBUG orderMeta.incoterm="${orderMeta?.incoterm}" facturaValue="${facturaValue}"`);
+      
       const allowedDocs = [];
       if (!hasFacturaValue(facturaValue)) {
         allowedDocs.push('Order Receipt Notice');
@@ -1267,17 +1368,20 @@ exports.createDefaultFiles = async (req, res) => {
         if (canCreateDelivery(orderMeta, facturaValue)) allowedDocs.push('Order Delivery Notice');
         if (canCreateAvailability(orderMeta, facturaValue)) allowedDocs.push('Availability Notice');
       }
+      
+      logger.info(`[createDefaultFiles] DEBUG allowedDocs=${allowedDocs.join(', ')}`);
 
       result = await fileService.createDefaultFilesForPcOc(
         order.pc,
         order.oc,
         order.customer_name || 'Cliente',
         order.factura,
-        idNroOvMasFactura || order.id_nro_ov_mas_factura || null,
-        allowedDocs
+        allowedDocs  // Pasar allowedDocs correctamente
       );
       logPc = order.pc || logPc;
       logOc = order.oc || logOc;
+      logFactura = order.factura;
+      logCustomerRut = order.customer_rut;
     } else {
       if (!pc) {
         return res.status(400).json({ message: t('documentFile.pc_required', req.lang || 'es') });
@@ -1285,7 +1389,10 @@ exports.createDefaultFiles = async (req, res) => {
 
       let resolvedOc = oc;
       let orderData = null;
-      if (!resolvedOc) {
+      if (idNroOvMasFactura) {
+        orderData = await orderService.getOrderByPcId(pc, idNroOvMasFactura);
+        resolvedOc = orderData?.oc || resolvedOc || '';
+      } else if (!resolvedOc) {
         orderData = await orderService.getOrderByPc(pc);
         resolvedOc = orderData?.oc || '';
       } else {
@@ -1312,25 +1419,72 @@ exports.createDefaultFiles = async (req, res) => {
         orderData.oc,
         orderData.customer_name || 'Cliente',
         orderData.factura,
-        idNroOvMasFactura || orderData.id_nro_ov_mas_factura || null,
-        allowedDocs
+        allowedDocs  // Pasar allowedDocs correctamente
       );
       logPc = orderData.pc || logPc;
       logOc = orderData.oc || logOc;
+      logFactura = orderData.factura;
+      logCustomerRut = orderData.rut;
     }
 
     const createdNames = Array.isArray(result.files)
       ? result.files.map(file => file?.name).filter(Boolean).join(', ')
       : '';
     logger.info(`[createDefaultFiles] source=manual Archivos por defecto creados: orderId=${orderId || 'N/A'} pc=${logPc} oc=${logOc} files=${result.filesCreated}${createdNames ? ` names=${createdNames}` : ''}`);
+    if (Array.isArray(result.files)) {
+      for (const created of result.files) {
+        await logDocEvent({
+          source: 'manual',
+          action: 'create_record',
+          process: 'createDefaultFiles',
+          fileId: created.id,
+          docType: created.name,
+          pc: logPc !== 'N/A' ? logPc : pc,
+          oc: logOc !== 'N/A' ? logOc : oc,
+          factura: logFactura,
+          customerRut: logCustomerRut,
+          userId: req.user?.id || null,
+          status: 'ok'
+        });
+      }
+    }
     res.status(201).json(result);
 
   } catch (error) {
     logger.error(`[createDefaultFiles] Error creando archivos por defecto orderId=${orderId || 'N/A'} pc=${logPc} oc=${logOc} id=${idNroOvMasFactura || 'N/A'}: ${error.message}`);
+    
+    if (error.code === 'NO_DOCUMENTS_ALLOWED') {
+      // Debug logging para diagnosticar problemas de idioma
+      if (process.env.LOG_LANGUAGE_DEBUG === 'true') {
+        logger.info(`[createDefaultFiles] NO_DOCUMENTS_ALLOWED req.lang=${req.lang || 'N/A'} Accept-Language=${req.headers['accept-language'] || 'N/A'}`);
+      }
+      
+      // Registrar evento en document_events
+      await logDocEvent({
+        source: 'manual',
+        action: 'create_record',
+        process: 'createDefaultFiles',
+        fileId: null,
+        docType: 'default_files',
+        pc: logPc !== 'N/A' ? logPc : pc,
+        oc: logOc !== 'N/A' ? logOc : oc,
+        factura: error.details?.factura || logFactura,
+        customerRut: logCustomerRut,
+        userId: req.user?.id || null,
+        status: 'error',
+        message: 'No documents can be created: missing ETD/ETA dates or invalid Incoterm'
+      });
+      
+      return res.status(error.status || 400).json({
+        code: 'NO_DOCUMENTS_ALLOWED',
+        message: t('documentFile.no_documents_allowed', req.lang || 'es')
+      });
+    }
+    
     if (error.code === 'FILES_ALREADY_EXIST') {
       return res.status(error.status || 409).json({
         code: 'FILES_ALREADY_EXIST',
-        message: 'files_already_exist'
+        message: t('documentFile.files_already_exist', req.lang || 'es')
       });
     }
     res.status(500).json({ 
@@ -1383,6 +1537,18 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
               orderRow.id_nro_ov_mas_factura
             );
             logger.info(`[processNewOrdersAndSendReception] Archivo creado automático pc=${orderRow.pc} oc=${orderRow.oc || 'N/A'} factura=${orderRow.factura || 'N/A'} id=${orderRow.id_nro_ov_mas_factura || 'N/A'} doc=Order Receipt Notice`);
+            await logDocEvent({
+              source: 'cron',
+              action: 'create_record',
+              process: 'processNewOrdersAndSendReception',
+              fileId: null,
+              docType: 'Order Receipt Notice',
+              pc: orderRow.pc,
+              oc: orderRow.oc,
+              factura: orderRow.factura,
+              customerRut: orderRow.customer_rut || null,
+              status: 'ok'
+            });
           } catch (fileError) {
             if (fileError.code !== 'FILES_ALREADY_EXIST' && fileError.message !== 'FILES_ALREADY_EXIST') {
               throw fileError;
@@ -1449,10 +1615,39 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
               path: path.relative(FILE_SERVER_ROOT, filePath)
           };
 
-          await fileService.updateFile(updateData);
-          logger.info(`[processNewOrdersAndSendReception] PDF generado pc=${orderRow.pc} oc=${orderRow.oc || 'N/A'} factura=${file.factura || 'N/A'} id=${file.id_nro_ov_mas_factura || 'N/A'} doc=${documentName}`);
-        } catch (pdfError) {
+            await fileService.updateFile(updateData);
+            logger.info(`[processNewOrdersAndSendReception] PDF generado pc=${orderRow.pc} oc=${orderRow.oc || 'N/A'} factura=${file.factura || 'N/A'} id=${file.id_nro_ov_mas_factura || 'N/A'} doc=${documentName}`);
+            await logDocEvent({
+              source: 'cron',
+              action: 'generate_pdf',
+              process: 'processNewOrdersAndSendReception',
+              fileId: file.id,
+              docType: documentName,
+              pc: orderRow.pc,
+              oc: orderRow.oc,
+              factura: file.factura,
+              customerRut: orderRow.customer_rut || null,
+              status: 'ok'
+            });
+          } catch (pdfError) {
           logger.error(`[processNewOrdersAndSendReception] Error generando PDF orden=${orderRow.id}: ${pdfError.message}`);
+          
+          // Registrar evento de error
+          await logDocEvent({
+            source: 'cron',
+            action: 'generate_pdf',
+            process: 'processNewOrdersAndSendReception',
+            fileId: file.id,
+            docType: documentName,
+            pc: orderRow.pc,
+            oc: orderRow.oc,
+            factura: file.factura,
+            customerRut: orderRow.customer_rut || null,
+            userId: null,
+            status: 'error',
+            message: pdfError.message
+          });
+          
           errors++;
           continue;
         }
@@ -1476,13 +1671,55 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
           });
 
           logger.info(`[processNewOrdersAndSendReception] Email enviado pc=${orderRow.pc} oc=${orderRow.oc || 'N/A'} factura=${file.factura || 'N/A'} id=${file.id_nro_ov_mas_factura || 'N/A'} doc=${documentName} recipients=${reportEmails.length}`);
+          await logDocEvent({
+            source: 'cron',
+            action: 'send_email',
+            process: 'processNewOrdersAndSendReception',
+            fileId: file.id,
+            docType: documentName,
+            pc: orderRow.pc,
+            oc: orderRow.oc,
+            factura: file.factura,
+            customerRut: orderRow.customer_rut || null,
+            status: 'ok'
+          });
           processed++;
         } else {
-          logger.info(`[processNewOrdersAndSendReception] Email omitido (deshabilitado) pc=${orderRow.pc} oc=${orderRow.oc || 'N/A'} factura=${file.factura || 'N/A'} id=${file.id_nro_ov_mas_factura || 'N/A'} doc=${documentName}`);
+          logger.info(`[processNewOrdersAndSendReception] Email omitido (deshabilitado) pc=${orderRow.pc} oc=${orderRow.oc || 'N/A'} factura=${file.factura || 'N/A'} doc=${documentName}`);
+          await logDocEvent({
+            source: 'cron',
+            action: 'send_email',
+            process: 'processNewOrdersAndSendReception',
+            fileId: file.id,
+            docType: documentName,
+            pc: orderRow.pc,
+            oc: orderRow.oc,
+            factura: file.factura,
+            customerRut: orderRow.customer_rut || null,
+            status: 'skip',
+            message: 'disabled_config'
+          });
           skipped++;
         }
       } catch (error) {
         logger.error(`[processNewOrdersAndSendReception] Error procesando orden ${orderRow.id}: ${error.message}`);
+        
+        // Registrar evento de error
+        await logDocEvent({
+          source: 'cron',
+          action: 'generate_pdf',
+          process: 'processNewOrdersAndSendReception',
+          fileId: orderRow.receipt_file_id || null,
+          docType: 'Order Receipt Notice',
+          pc: orderRow.pc,
+          oc: orderRow.oc,
+          factura: orderRow.factura,
+          customerRut: orderRow.customer_rut || null,
+          userId: null,
+          status: 'error',
+          message: error.message
+        });
+        
         errors++;
       }
     }
@@ -1557,6 +1794,18 @@ exports.processShipmentNotices = async (req, res) => {
               orderRow.oc
             );
             logger.info(`[processShipmentNotices] Archivo creado automático pc=${orderRow.pc} oc=${orderRow.oc || 'N/A'} doc=Shipment Notice`);
+            await logDocEvent({
+              source: 'cron',
+              action: 'create_record',
+              process: 'processShipmentNotices',
+              fileId: null,
+              docType: 'Shipment Notice',
+              pc: orderRow.pc,
+              oc: orderRow.oc,
+              factura: orderRow.factura,
+              customerRut: orderRow.customer_rut || null,
+              status: 'ok'
+            });
           } catch (fileError) {
             if (fileError.code !== 'FILES_ALREADY_EXIST' && fileError.message !== 'FILES_ALREADY_EXIST') {
               throw fileError;
@@ -1620,7 +1869,37 @@ exports.processShipmentNotices = async (req, res) => {
 
           await fileService.updateFile(updateData);
           logger.info(`[processShipmentNotices] PDF generado pc=${orderRow.pc} oc=${orderRow.oc || 'N/A'} factura=${file.factura || 'N/A'} id=${file.id_nro_ov_mas_factura || 'N/A'} doc=${documentName}`);
+          await logDocEvent({
+            source: 'cron',
+            action: 'generate_pdf',
+            process: 'processShipmentNotices',
+            fileId: file.id,
+            docType: documentName,
+            pc: orderRow.pc,
+            oc: orderRow.oc,
+            factura: file.factura,
+            customerRut: orderRow.customer_rut || null,
+            status: 'ok'
+          });
         } catch (pdfError) {
+          logger.error(`[processShipmentNotices] Error generando PDF pc=${orderRow.pc}: ${pdfError.message}`);
+          
+          // Registrar evento de error
+          await logDocEvent({
+            source: 'cron',
+            action: 'generate_pdf',
+            process: 'processShipmentNotices',
+            fileId: file.id,
+            docType: documentName,
+            pc: orderRow.pc,
+            oc: orderRow.oc,
+            factura: file.factura,
+            customerRut: orderRow.customer_rut || null,
+            userId: null,
+            status: 'error',
+            message: pdfError.message
+          });
+          
           errors++;
           continue;
         }
@@ -1641,15 +1920,58 @@ exports.processShipmentNotices = async (req, res) => {
             fecha_envio: new Date(),
             updated_at: new Date()
           });
-          logger.info(`[processShipmentNotices] Email enviado pc=${orderRow.pc} oc=${orderRow.oc || 'N/A'} factura=${file.factura || 'N/A'} id=${file.id_nro_ov_mas_factura || 'N/A'} doc=${documentName} recipients=${reportEmails.length}`);
+          logger.info(`[processShipmentNotices] Email enviado pc=${orderRow.pc} oc=${orderRow.oc || 'N/A'} factura=${file.factura || 'N/A'} doc=${documentName} recipients=${reportEmails.length}`);
+          await logDocEvent({
+            source: 'cron',
+            action: 'send_email',
+            process: 'processShipmentNotices',
+            fileId: file.id,
+            docType: documentName,
+            pc: orderRow.pc,
+            oc: orderRow.oc,
+            factura: file.factura,
+            idNroOvMasFactura: file.id_nro_ov_mas_factura,
+            customerRut: orderRow.customer_rut || null,
+            status: 'ok'
+          });
           processed++;
         } else {
-          logger.info(`[processShipmentNotices] Email omitido (deshabilitado) pc=${orderRow.pc} oc=${orderRow.oc || 'N/A'} factura=${file.factura || 'N/A'} id=${file.id_nro_ov_mas_factura || 'N/A'} doc=${documentName}`);
+          logger.info(`[processShipmentNotices] Email omitido (deshabilitado) pc=${orderRow.pc} oc=${orderRow.oc || 'N/A'} factura=${file.factura || 'N/A'} doc=${documentName}`);
+          await logDocEvent({
+            source: 'cron',
+            action: 'send_email',
+            process: 'processShipmentNotices',
+            fileId: file.id,
+            docType: documentName,
+            pc: orderRow.pc,
+            oc: orderRow.oc,
+            factura: file.factura,
+            customerRut: orderRow.customer_rut || null,
+            status: 'skip',
+            message: 'disabled_config'
+          });
           skipReasons.disabled_config++;
           skipped++;
         }
       } catch (error) {
         logger.error(`[processShipmentNotices] Error procesando orden ${orderRow.id}: ${error.message}`);
+        
+        // Registrar evento de error
+        await logDocEvent({
+          source: 'cron',
+          action: 'generate_pdf',
+          process: 'processShipmentNotices',
+          fileId: orderRow.shipment_file_id || null,
+          docType: 'Shipment Notice',
+          pc: orderRow.pc,
+          oc: orderRow.oc,
+          factura: orderRow.factura,
+          customerRut: orderRow.customer_rut || null,
+          userId: null,
+          status: 'error',
+          message: error.message
+        });
+        
         errors++;
       }
     }
@@ -1725,6 +2047,18 @@ exports.processOrderDeliveryNotices = async (req, res) => {
               orderRow.oc
             );
             logger.info(`[processOrderDeliveryNotices] Archivo creado automático pc=${orderRow.pc} oc=${orderRow.oc || 'N/A'} doc=Order Delivery Notice`);
+            await logDocEvent({
+              source: 'cron',
+              action: 'create_record',
+              process: 'processOrderDeliveryNotices',
+              fileId: null,
+              docType: 'Order Delivery Notice',
+              pc: orderRow.pc,
+              oc: orderRow.oc,
+              factura: orderRow.factura,
+              customerRut: orderRow.customer_rut || null,
+              status: 'ok'
+            });
           } catch (fileError) {
             if (fileError.code !== 'FILES_ALREADY_EXIST' && fileError.message !== 'FILES_ALREADY_EXIST') {
               throw fileError;
@@ -1790,8 +2124,38 @@ exports.processOrderDeliveryNotices = async (req, res) => {
           };
           await fileService.updateFile(updateData);
           logger.info(`[processOrderDeliveryNotices] PDF generado pc=${orderRow.pc} oc=${orderRow.oc || 'N/A'} factura=${file.factura || 'N/A'} id=${file.id_nro_ov_mas_factura || 'N/A'} doc=${documentName}`);
+          await logDocEvent({
+            source: 'cron',
+            action: 'generate_pdf',
+            process: 'processOrderDeliveryNotices',
+            fileId: file.id,
+            docType: documentName,
+            pc: orderRow.pc,
+            oc: orderRow.oc,
+            factura: file.factura,
+            idNroOvMasFactura: file.id_nro_ov_mas_factura,
+            customerRut: orderRow.customer_rut || null,
+            status: 'ok'
+          });
         } catch (pdfError) {
           logger.error(`[processOrderDeliveryNotices] Error generando PDF orden ${orderRow.id}: ${pdfError.message}`);
+          
+          // Registrar evento de error
+          await logDocEvent({
+            source: 'cron',
+            action: 'generate_pdf',
+            process: 'processOrderDeliveryNotices',
+            fileId: file.id,
+            docType: documentName,
+            pc: orderRow.pc,
+            oc: orderRow.oc,
+            factura: file.factura,
+            customerRut: orderRow.customer_rut || null,
+            userId: null,
+            status: 'error',
+            message: pdfError.message
+          });
+          
           errors++;
           continue;
         }
@@ -1812,12 +2176,54 @@ exports.processOrderDeliveryNotices = async (req, res) => {
             fecha_envio: new Date(),
             updated_at: new Date()
           });
+          await logDocEvent({
+            source: 'cron',
+            action: 'send_email',
+            process: 'processOrderDeliveryNotices',
+            fileId: file.id,
+            docType: documentName,
+            pc: orderRow.pc,
+            oc: orderRow.oc,
+            factura: file.factura,
+            customerRut: orderRow.customer_rut || null,
+            status: 'ok'
+          });
           processed++;
         } else {
+          await logDocEvent({
+            source: 'cron',
+            action: 'send_email',
+            process: 'processOrderDeliveryNotices',
+            fileId: file.id,
+            docType: documentName,
+            pc: orderRow.pc,
+            oc: orderRow.oc,
+            factura: file.factura,
+            customerRut: orderRow.customer_rut || null,
+            status: 'skip',
+            message: 'disabled_config'
+          });
           skipped++;
         }
       } catch (error) {
         logger.error(`[processOrderDeliveryNotices] Error procesando orden ${orderRow.id}: ${error.message}`);
+        
+        // Registrar evento de error
+        await logDocEvent({
+          source: 'cron',
+          action: 'generate_pdf',
+          process: 'processOrderDeliveryNotices',
+          fileId: orderRow.delivery_file_id || null,
+          docType: 'Order Delivery Notice',
+          pc: orderRow.pc,
+          oc: orderRow.oc,
+          factura: orderRow.factura,
+          customerRut: orderRow.customer_rut || null,
+          userId: null,
+          status: 'error',
+          message: error.message
+        });
+        
         errors++;
       }
       }
@@ -1879,6 +2285,18 @@ exports.processAvailabilityNotices = async (req, res) => {
               orderRow.oc
             );
             logger.info(`[processAvailabilityNotices] Archivo creado automático pc=${orderRow.pc} oc=${orderRow.oc || 'N/A'} doc=Availability Notice`);
+            await logDocEvent({
+              source: 'cron',
+              action: 'create_record',
+              process: 'processAvailabilityNotices',
+              fileId: null,
+              docType: 'Availability Notice',
+              pc: orderRow.pc,
+              oc: orderRow.oc,
+              factura: orderRow.factura,
+              customerRut: orderRow.customer_rut || null,
+              status: 'ok'
+            });
           } catch (fileError) {
             if (fileError.code !== 'FILES_ALREADY_EXIST' && fileError.message !== 'FILES_ALREADY_EXIST') {
               throw fileError;
@@ -1943,8 +2361,38 @@ exports.processAvailabilityNotices = async (req, res) => {
           };
           await fileService.updateFile(updateData);
           logger.info(`[processAvailabilityNotices] PDF generado pc=${orderRow.pc} oc=${orderRow.oc || 'N/A'} factura=${file.factura || 'N/A'} id=${file.id_nro_ov_mas_factura || 'N/A'} doc=${documentName}`);
+          await logDocEvent({
+            source: 'cron',
+            action: 'generate_pdf',
+            process: 'processAvailabilityNotices',
+            fileId: file.id,
+            docType: documentName,
+            pc: orderRow.pc,
+            oc: orderRow.oc,
+            factura: file.factura,
+            idNroOvMasFactura: file.id_nro_ov_mas_factura,
+            customerRut: orderRow.customer_rut || null,
+            status: 'ok'
+          });
         } catch (pdfError) {
           logger.error(`[processAvailabilityNotices] Error generando PDF orden ${orderRow.id}: ${pdfError.message}`);
+          
+          // Registrar evento de error
+          await logDocEvent({
+            source: 'cron',
+            action: 'generate_pdf',
+            process: 'processAvailabilityNotices',
+            fileId: file.id,
+            docType: documentName,
+            pc: orderRow.pc,
+            oc: orderRow.oc,
+            factura: file.factura,
+            customerRut: orderRow.customer_rut || null,
+            userId: null,
+            status: 'error',
+            message: pdfError.message
+          });
+          
           errors++;
           continue;
         }
@@ -1965,14 +2413,56 @@ exports.processAvailabilityNotices = async (req, res) => {
             fecha_envio: new Date(),
             updated_at: new Date()
           });
-          logger.info(`[processAvailabilityNotices] Email enviado pc=${orderRow.pc} oc=${orderRow.oc || 'N/A'} factura=${file.factura || 'N/A'} id=${file.id_nro_ov_mas_factura || 'N/A'} doc=${documentName} recipients=${reportEmails.length}`);
+          logger.info(`[processAvailabilityNotices] Email enviado pc=${orderRow.pc} oc=${orderRow.oc || 'N/A'} factura=${file.factura || 'N/A'} doc=${documentName} recipients=${reportEmails.length}`);
+          await logDocEvent({
+            source: 'cron',
+            action: 'send_email',
+            process: 'processAvailabilityNotices',
+            fileId: file.id,
+            docType: documentName,
+            pc: orderRow.pc,
+            oc: orderRow.oc,
+            factura: file.factura,
+            customerRut: orderRow.customer_rut || null,
+            status: 'ok'
+          });
           processed++;
         } else {
           logger.info(`[processAvailabilityNotices] Email omitido (deshabilitado) pc=${orderRow.pc} oc=${orderRow.oc || 'N/A'} factura=${file.factura || 'N/A'} id=${file.id_nro_ov_mas_factura || 'N/A'} doc=${documentName}`);
+          await logDocEvent({
+            source: 'cron',
+            action: 'send_email',
+            process: 'processAvailabilityNotices',
+            fileId: file.id,
+            docType: documentName,
+            pc: orderRow.pc,
+            oc: orderRow.oc,
+            factura: file.factura,
+            customerRut: orderRow.customer_rut || null,
+            status: 'skip',
+            message: 'disabled_config'
+          });
           skipped++;
         }
       } catch (error) {
         logger.error(`[processAvailabilityNotices] Error procesando orden ${orderRow.id}: ${error.message}`);
+        
+        // Registrar evento de error
+        await logDocEvent({
+          source: 'cron',
+          action: 'generate_pdf',
+          process: 'processAvailabilityNotices',
+          fileId: orderRow.availability_file_id || null,
+          docType: 'Availability Notice',
+          pc: orderRow.pc,
+          oc: orderRow.oc,
+          factura: orderRow.factura,
+          customerRut: orderRow.customer_rut || null,
+          userId: null,
+          status: 'error',
+          message: error.message
+        });
+        
         errors++;
       }
     }

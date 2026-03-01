@@ -54,6 +54,26 @@ export async function initOrdersScript() {
   let currentPage = 1;
   let itemsPerPage = parseInt(itemsPerPageSelect.value, 10);
   let currentSort = { column: 'fecha', direction: 'desc' };
+  const pageStorageKey = 'adminOrdersCurrentPage';
+  const getNavigationType = () => {
+    const navEntry = performance.getEntriesByType('navigation')[0];
+    if (navEntry && navEntry.type) return navEntry.type;
+    if (performance.navigation) {
+      return performance.navigation.type === 1 ? 'reload' : 'navigate';
+    }
+    return 'navigate';
+  };
+  const navType = getNavigationType();
+  let restorePage = false;
+  if (navType === 'reload') {
+    sessionStorage.removeItem(pageStorageKey);
+  } else if (navType === 'back_forward') {
+    const storedPage = parseInt(sessionStorage.getItem(pageStorageKey), 10);
+    if (storedPage && storedPage > 1) {
+      currentPage = storedPage;
+      restorePage = true;
+    }
+  }
 
   const getColSpan = () => {
     const table = tableBody?.closest('table');
@@ -227,11 +247,10 @@ export async function initOrdersScript() {
     const pcValue = order.pc || '';
     const ocValue = order.oc || order.orderNumber || '';
     const companyValue = order.customer_name || '';
-    const idOv = order.id_nro_ov_mas_factura || '';
     const isSellerView = basePath.startsWith('/seller');
     const documentUrl = isSellerView
-      ? `${documentsPath}/${encodeURIComponent(customerRut)}?pc=${encodeURIComponent(pcValue)}&oc=${encodeURIComponent(ocValue)}&c=${encodeURIComponent(companyValue)}${idOv ? `&idov=${encodeURIComponent(idOv)}` : ''}`
-      : `${documentsPath}/${encodeURIComponent(customerRut)}/${encodeURIComponent(pcValue)}/${slugifyPath(ocValue)}/${slugifyPath(companyValue)}${idOv ? `?idov=${encodeURIComponent(idOv)}` : ''}`;
+      ? `${documentsPath}/${encodeURIComponent(customerRut)}?pc=${encodeURIComponent(pcValue)}&oc=${encodeURIComponent(ocValue)}&c=${encodeURIComponent(companyValue)}`
+      : `${documentsPath}/${encodeURIComponent(customerRut)}/${encodeURIComponent(pcValue)}/${slugifyPath(ocValue)}/${slugifyPath(companyValue)}`;
     const shippingMethod = (!order.factura || order.factura === 0 || order.factura === '0')
       ? (order.medio_envio_ov || '-')
       : (order.medio_envio_factura || '-');
@@ -277,7 +296,6 @@ export async function initOrdersScript() {
             <div class="relative">
               <a href="#" class="items-list-btn text-gray-900 dark:text-white hover:text-green-500 dark:hover:text-green-400 transition"
                  data-order-pc="${order.pc}" data-order-oc="${order.oc}" data-factura="${order.factura}"
-                 data-id-ov="${idOv}"
                  data-tooltip="${orders.tooltipViewItemsDetailed}"
                  aria-label="${orders.tooltipViewItemsDetailed}">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -290,7 +308,6 @@ export async function initOrdersScript() {
             <div class="relative">
               <a href="#" class="items-detail-modal-btn text-gray-900 dark:text-white hover:text-green-500 dark:hover:text-green-400 transition"
                  data-order-pc="${order.pc}" data-order-oc="${order.oc}" data-factura="${order.factura}"
-                 data-id-ov="${idOv}"
                  data-tooltip="${orders.tooltipViewItems}"
                  aria-label="${orders.tooltipViewItems}">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -468,7 +485,7 @@ export async function initOrdersScript() {
       
       // Aplicar filtro automáticamente si hay valor en el buscador
       if (searchInput && searchInput.value.trim()) {
-        filterRows();
+        filterRows({ preservePage: restorePage });
       }
       
       // Configurar event listeners para los modales
@@ -522,10 +539,16 @@ export async function initOrdersScript() {
       `;
     }
 
-    const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
+    const totalPages = Math.max(1, Math.ceil(filteredOrders.length / itemsPerPage));
+    if (currentPage > totalPages) {
+      currentPage = totalPages;
+    } else if (currentPage < 1) {
+      currentPage = 1;
+    }
+    sessionStorage.setItem(pageStorageKey, String(currentPage));
     // Usar las traducciones inyectadas por Astro
     let pageLabel = (typeof translations !== 'undefined' && translations.pageIndicator) ? translations.pageIndicator : '';
-    let ofLabel = (typeof translations !== 'undefined' && translations.pageIndicatorSeparator) ? translations.pageIndicatorSeparator : ' -- ';
+    let ofLabel = (typeof translations !== 'undefined' && translations.pageIndicatorSeparator) ? translations.pageIndicatorSeparator : ' - ';
     pageIndicator.textContent = `${pageLabel} ${currentPage} ${ofLabel} ${totalPages}`;
 
     setupFloatingTooltips(tableBody);
@@ -650,10 +673,9 @@ export async function initOrdersScript() {
   /**
    * Buscador dinámico: filtra las órdenes según el texto ingresado.
    */
-  function filterRows() {
+  function filterRows(options = {}) {
+    const { preservePage = false } = options;
     const query = searchInput.value.toLowerCase();
-    const filterOpenOrdersCheckbox = document.getElementById('filterOpenOrders');
-    const showOnlyOpen = filterOpenOrdersCheckbox ? filterOpenOrdersCheckbox.checked : false;
     
     filteredOrders = allOrders.filter(order => {
       // Filtro por búsqueda de texto en múltiples campos
@@ -676,10 +698,7 @@ export async function initOrdersScript() {
       
       const matchesSearch = searchableText.includes(query);
       
-      // Filtro por estado abierto
-      const matchesOpenFilter = !showOnlyOpen || (order.estado_ov && order.estado_ov.toLowerCase() === 'abierta');
-      
-      return matchesSearch && matchesOpenFilter;
+      return matchesSearch;
     });
     
     // Aplicar ordenamiento actual si existe
@@ -687,25 +706,18 @@ export async function initOrdersScript() {
       sortRows(currentSort.column, currentSort.direction);
     }
     
-    currentPage = 1;
+    if (!preservePage) {
+      currentPage = 1;
+    }
     renderTable();
   }
 
   /**
    * Buscador dinámico: filtra las filas según el texto ingresado.
    */
-  searchInput.addEventListener('input', filterRows);
+  searchInput.addEventListener('input', () => filterRows({ preservePage: false }));
 
-  /**
-   * Event listener para el filtro de órdenes abiertas
-   */
   const filterOpenOrdersCheckbox = document.getElementById('filterOpenOrders');
-  if (filterOpenOrdersCheckbox) {
-    filterOpenOrdersCheckbox.addEventListener('change', () => {
-      localStorage.setItem('ordersOnlyOpen', filterOpenOrdersCheckbox.checked ? '1' : '0');
-      filterRows();
-    });
-  }
 
   /**
    * Event listeners para ordenamiento de columnas
@@ -916,35 +928,28 @@ export async function initOrdersScript() {
   setupAutoRefresh();
 
   // Event listener para búsqueda
-  searchInput.addEventListener('input', filterRows);
+  searchInput.addEventListener('input', () => filterRows({ preservePage: false }));
   
   // Event listener para navegación (atrás/adelante)
   window.addEventListener('popstate', () => {
     if (searchInput && searchInput.value.trim()) {
-      filterRows();
+      filterRows({ preservePage: true });
     }
   });
   
   // Event listener para recarga de página
   window.addEventListener('pageshow', () => {
     if (searchInput && searchInput.value.trim()) {
-      filterRows();
+      filterRows({ preservePage: true });
     }
   });
 
 
   // Función eliminada - ya no se necesita mostrar estado del cache
   
-  const savedOnlyOpen = localStorage.getItem('ordersOnlyOpen') === '1';
-  if (filterOpenOrdersCheckbox) {
-    filterOpenOrdersCheckbox.checked = savedOnlyOpen;
-  }
-
   // Cargar y renderizar órdenes inicialmente
   loadAndRenderOrders().then(() => {
-    if (filterOpenOrdersCheckbox && filterOpenOrdersCheckbox.checked) {
-      filterRows();
-    }
+    filterRows({ preservePage: restorePage });
   });
   
   // Cache inicializado automáticamente
@@ -986,8 +991,7 @@ export async function initOrdersScript() {
         const orderPc = itemsBtn.dataset.orderPc;
         const orderOc = itemsBtn.dataset.orderOc;
         const factura = itemsBtn.dataset.factura;
-        const idOv = itemsBtn.dataset.idOv;
-        openItemsModal(orderPc, orderOc, factura, idOv);
+        openItemsModal(orderPc, orderOc, factura);
       }
     });
 
@@ -998,8 +1002,7 @@ export async function initOrdersScript() {
         const orderPc = detailBtn.dataset.orderPc;
         const orderOc = detailBtn.dataset.orderOc;
         const factura = detailBtn.dataset.factura;
-        const idOv = detailBtn.dataset.idOv;
-        openItemsDetailModal(orderPc, orderOc, factura, idOv);
+        openItemsDetailModal(orderPc, orderOc, factura);
       }
     });
 
@@ -1086,9 +1089,8 @@ export async function initOrdersScript() {
   }
 
 }
-
 // Función para abrir el modal de items
-async function openItemsModal(orderPc, orderOc, factura, idOv) {
+async function openItemsModal(orderPc, orderOc, factura) {
   const itemsModal = document.getElementById('itemsModal');
   const itemsOrderTitle = document.getElementById('itemsOrderTitle');
   const itemsCustomerName = document.getElementById('itemsCustomerName');
@@ -1141,10 +1143,9 @@ async function openItemsModal(orderPc, orderOc, factura, idOv) {
     }
     
     // Usar endpoint diferente según si tiene factura o no
-    const idQuery = idOv ? `?idov=${encodeURIComponent(idOv)}` : '';
     const url = hasFacturaRequest
-      ? `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/${safeFactura}/items${idQuery}`
-      : `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/items${idQuery}`;
+      ? `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/${safeFactura}/items`
+      : `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/items`;
     
     const response = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` }
@@ -1398,7 +1399,7 @@ function buildLoadingRow(colspan, message) {
   `;
 }
 
-async function openItemsDetailModal(orderPc, orderOc, factura, idOv) {
+async function openItemsDetailModal(orderPc, orderOc, factura) {
   const detailModal = document.getElementById('itemsDetailModal');
   const detailTitle = document.getElementById('itemsDetailTitle');
   const detailCustomerName = document.getElementById('itemsDetailCustomerName');
@@ -1448,10 +1449,9 @@ async function openItemsDetailModal(orderPc, orderOc, factura, idOv) {
     const facturaValue = factura === undefined || factura === null ? '' : String(factura).trim();
     const hasFacturaRequest = facturaValue !== '' && facturaValue !== 'null' && facturaValue !== '0';
     const safeFactura = hasFacturaRequest ? encodeURIComponent(facturaValue) : '';
-    const idQuery = idOv ? `?idov=${encodeURIComponent(idOv)}` : '';
     const url = hasFacturaRequest
-      ? `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/${safeFactura}/items${idQuery}`
-      : `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/items${idQuery}`;
+      ? `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/${safeFactura}/items`
+      : `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/items`;
 
     const response = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` }

@@ -5,7 +5,17 @@ const path = require('path');
 const dotenv = require('dotenv');
 const os = require('os');
 const fs = require('fs');
-const { logger } = require('../Backend/utils/logger');
+let logger;
+try {
+  ({ logger } = require('../Backend/utils/logger'));
+} catch (error) {
+  logger = {
+    info: console.log,
+    warn: console.warn,
+    error: console.error
+  };
+  logger.warn(`[run-simple-sequence] Logger backend no disponible, usando consola. error=${error.message}`);
+}
 
 // Detectar entorno y cargar variables automáticamente
 const networkInterfaces = os.networkInterfaces();

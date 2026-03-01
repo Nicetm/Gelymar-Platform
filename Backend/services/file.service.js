@@ -37,7 +37,6 @@ const insertFile = async ({
   pc,
   oc,
   factura = null,
-  id_nro_ov_mas_factura = null,
   name,
   path,
   file_identifier = null,
@@ -84,12 +83,12 @@ const insertFile = async ({
 
   const [result] = await pool.query(`
     INSERT INTO order_files (
-      pc, oc, factura, id_nro_ov_mas_factura, name, path, file_identifier, file_id,
+      pc, oc, factura, name, path, file_identifier, file_id,
       created_at, updated_at, was_sent, 
       document_type, file_type, status_id, is_generated, is_visible_to_client
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), ?, ?, ?, ?, ?, ?)`,
     [
-      pc, oc, factura || null, id_nro_ov_mas_factura || null, name, path, file_identifier, file_id,
+      pc, oc, factura || null, name, path, file_identifier, file_id,
       was_sent, document_type, file_type, status_id, is_generated, visibleValue
     ]
   );
@@ -334,13 +333,13 @@ const duplicateFile = async (fileId, newPath = null, newName = null) => {
   // Insertar el nuevo registro duplicado
   const [result] = await pool.query(`
     INSERT INTO order_files (
-      pc, oc, factura, id_nro_ov_mas_factura, name, path, file_identifier, file_id,
+      pc, oc, factura, name, path, file_identifier, file_id,
       created_at, updated_at, was_sent, 
       document_type, file_type, status_id, is_visible_to_client,
       fecha_generacion, fecha_envio
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), ?, ?, ?, ?, ?, ?, ?)`,
     [
-      file.pc, file.oc, file.factura || null, file.id_nro_ov_mas_factura || null, nameToUse, pathToUse, file.file_identifier, file.file_id,
+      file.pc, file.oc, file.factura || null, nameToUse, pathToUse, file.file_identifier, file.file_id,
       true, file.document_type, file.file_type, 4, file.is_visible_to_client,
       file.fecha_generacion, file.fecha_envio
     ]
@@ -351,6 +350,7 @@ const duplicateFile = async (fileId, newPath = null, newName = null) => {
 
 /**
  * Obtiene todas las órdenes agrupadas por RUT
+ * REFACTORING NOTE: Updated to use Vista_HDR and Vista_FACT separately
  * @returns {Promise<Object>} Objeto con RUT como clave y array de órdenes como valor
  */
 const getAllOrdersGroupedByRut = async () => {
@@ -360,15 +360,15 @@ const getAllOrdersGroupedByRut = async () => {
       h.Rut,
       h.Nro,
       h.OC,
-      h.Factura,
-      h.IDNroOvMasFactura,
       h.Fecha,
       h.Clausula,
-      h.ETD_ENC_FA,
-      h.ETA_ENC_FA
+      f.Factura,
+      f.ETD_ENC_FA,
+      f.ETA_ENC_FA
     FROM jor_imp_HDR_90_softkey h
+    LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
     WHERE h.Rut IS NOT NULL AND h.Nro IS NOT NULL AND h.OC IS NOT NULL
-      AND ISNULL(LTRIM(RTRIM(UPPER(h.EstadoOV))), '') <> 'CANCELADO'
+      AND ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
     ORDER BY h.Rut, h.Fecha
   `);
 
@@ -386,7 +386,6 @@ const getAllOrdersGroupedByRut = async () => {
       pc: order.Nro,
       oc: order.OC,
       factura: order.Factura,
-      id_nro_ov_mas_factura: order.IDNroOvMasFactura,
       created_at: order.Fecha,
       incoterm: order.Clausula,
       fecha_etd_factura: order.ETD_ENC_FA,
@@ -417,33 +416,30 @@ const getAllFiles = async () => {
  * @param {number} orderId - ID del order
  * @returns {Promise<Array>}
  */
-  const getFilesByPcOc = async (pc, oc, factura = null, idNroOvMasFactura = null) => {
+  const getFilesByPcOc = async (pc, oc, factura = null) => {
     const pool = await poolPromise;
     const normalizedOc = oc ? normalizeOcForCompare(oc) : '';
     const normalizedFactura = factura !== null && factura !== undefined && factura !== '' && factura !== 0 && factura !== '0'
       ? String(factura).trim()
       : null;
-    const normalizedId = idNroOvMasFactura ? String(idNroOvMasFactura).trim() : null;
     const facturaClause = normalizedFactura ? ' AND factura = ?' : '';
-    const idClause = normalizedId ? ' AND id_nro_ov_mas_factura = ?' : '';
     const baseParams = oc
       ? (normalizedFactura ? [pc, normalizedOc, normalizedFactura] : [pc, normalizedOc])
       : (normalizedFactura ? [pc, normalizedFactura] : [pc]);
-    if (normalizedId) {
-      baseParams.push(normalizedId);
-    }
     const [rows] = await pool.query(
       oc
-        ? `SELECT * FROM order_files WHERE pc = ? AND REPLACE(REPLACE(REPLACE(REPLACE(UPPER(COALESCE(oc, '')), ' ', ''), '(', ''), ')', ''), '-', '') = ?${facturaClause}${idClause}`
-        : `SELECT * FROM order_files WHERE pc = ?${facturaClause}${idClause}`,
+        ? `SELECT * FROM order_files WHERE pc = ? AND REPLACE(REPLACE(REPLACE(REPLACE(LOWER(COALESCE(oc, '')), ' ', ''), '(', ''), ')', ''), '-', '') = ?${facturaClause}`
+        : `SELECT * FROM order_files WHERE pc = ?${facturaClause}`,
       baseParams
     );
     return rows;
   };
 
-  const getFilesByPc = async (pc, idNroOvMasFactura = null) => {
+  const getFilesByPc = async (pc, factura = null) => {
     const pool = await poolPromise;
-    const normalizedId = idNroOvMasFactura ? String(idNroOvMasFactura).trim() : null;
+    const normalizedFactura = factura !== null && factura !== undefined && factura !== '' && factura !== 0 && factura !== '0'
+      ? String(factura).trim()
+      : null;
     const queryBase = `
       SELECT 
         f.*, 
@@ -456,14 +452,12 @@ const getAllFiles = async () => {
       LEFT JOIN order_status os ON f.status_id = os.id
     `;
 
-    if (normalizedId) {
+    if (normalizedFactura) {
       const [rows] = await pool.query(
-        `${queryBase} WHERE f.pc = ? AND f.id_nro_ov_mas_factura = ? ORDER BY f.created_at DESC`,
-        [pc, normalizedId]
+        `${queryBase} WHERE f.pc = ? AND f.factura = ? ORDER BY f.created_at DESC`,
+        [pc, normalizedFactura]
       );
-      if (rows.length > 0) {
-        return rows.map(row => new File(row));
-      }
+      return rows.map(row => new File(row));
     }
 
     const [fallbackRows] = await pool.query(
@@ -494,7 +488,6 @@ const createDefaultFilesForOrder = async (orderId, customerName, pc, oc) => {
     const orderData = await getOrderByIdSimple(orderId);
     const hasFactura = orderData && orderData.factura !== null && orderData.factura !== undefined && orderData.factura !== '' && orderData.factura !== 0 && orderData.factura !== '0';
     const factura = orderData?.factura ?? null;
-    const idNroOvMasFactura = orderData?.id_nro_ov_mas_factura ?? null;
 
     const sqlPool = await getSqlPool();
     const request = sqlPool.request();
@@ -506,7 +499,7 @@ const createDefaultFilesForOrder = async (orderId, customerName, pc, oc) => {
       SELECT COUNT(1) AS total, MIN(Fecha) AS min_fecha
       FROM jor_imp_HDR_90_softkey
       WHERE Nro = @pc
-        ${oc ? "AND REPLACE(REPLACE(REPLACE(REPLACE(UPPER(OC), ' ', ''), '(', ''), ')', ''), '-', '') = @oc" : ''}
+        ${oc ? "AND REPLACE(REPLACE(REPLACE(REPLACE(LOWER(OC), ' ', ''), '(', ''), ')', ''), '-', '') = @oc" : ''}
     `;
     const partialResult = await request.query(partialQuery);
     const partialCount = Number(partialResult.recordset?.[0]?.total || 0);
@@ -527,7 +520,7 @@ const createDefaultFilesForOrder = async (orderId, customerName, pc, oc) => {
         SELECT TOP 1 Fecha
         FROM jor_imp_HDR_90_softkey
         WHERE Nro = @pc
-          ${oc ? "AND REPLACE(REPLACE(REPLACE(REPLACE(UPPER(OC), ' ', ''), '(', ''), ')', ''), '-', '') = @oc" : ''}
+          ${oc ? "AND REPLACE(REPLACE(REPLACE(REPLACE(LOWER(OC), ' ', ''), '(', ''), ')', ''), '-', '') = @oc" : ''}
           ${hasFactura ? 'AND Factura = @factura' : "AND (Factura IS NULL OR Factura = '' OR Factura = 0 OR Factura = '0')"}
         ORDER BY Fecha ASC
       `;
@@ -543,7 +536,7 @@ const createDefaultFilesForOrder = async (orderId, customerName, pc, oc) => {
     }
 
     // Verificar si ya existen archivos para esta orden
-      const existingFiles = await getFilesByPcOc(pc, oc, factura, idNroOvMasFactura);
+      const existingFiles = await getFilesByPcOc(pc, oc, factura);
       const existingFileIds = new Set(existingFiles.map(f => f.file_id).filter(Boolean));
 
     // Documentos requeridos según factura/parcialidad
@@ -586,7 +579,6 @@ const createDefaultFilesForOrder = async (orderId, customerName, pc, oc) => {
       pc,
       oc,
       factura,
-      id_nro_ov_mas_factura: idNroOvMasFactura,
       path: directoryPath,
       file_identifier: fileIdentifier,
       file_id: FILE_ID_MAP[name]
@@ -617,8 +609,11 @@ const createDefaultFilesForOrder = async (orderId, customerName, pc, oc) => {
   }
 };
 
-const createDefaultFilesForPcOc = async (pc, oc, customerName, factura, idNroOvMasFactura = null, allowedDocs = null) => {
+const createDefaultFilesForPcOc = async (pc, oc, customerName, factura, allowedDocs = null) => {
   try {
+    // DEBUG: Log para ver qué allowedDocs se recibe
+    logger.info(`[createDefaultFilesForPcOc] DEBUG pc=${pc} oc=${oc} factura=${factura} allowedDocs=${JSON.stringify(allowedDocs)}`);
+    
     const FILE_ID_MAP = {
       'Order Receipt Notice': 9,
       'Shipment Notice': 19,
@@ -630,82 +625,37 @@ const createDefaultFilesForPcOc = async (pc, oc, customerName, factura, idNroOvM
       factura !== null && factura !== undefined && factura !== '' && factura !== 0 && factura !== '0'
         ? String(factura).trim()
         : null;
-    const normalizedId = idNroOvMasFactura ? String(idNroOvMasFactura).trim() : null;
     const sqlPool = await getSqlPool();
     let hasFactura = normalizedFactura !== null;
-    if (normalizedId) {
-      const facturaRequest = sqlPool.request();
-      facturaRequest.input('pc', sql.VarChar, String(pc).trim());
-      if (oc) {
-        facturaRequest.input('oc', sql.VarChar, normalizeOcForCompare(oc));
-      }
-      facturaRequest.input('idNroOvMasFactura', sql.VarChar, normalizedId);
-      const facturaResult = await facturaRequest.query(`
-        SELECT TOP 1 Factura
-        FROM jor_imp_HDR_90_softkey
-        WHERE Nro = @pc
-          ${oc ? "AND REPLACE(REPLACE(REPLACE(REPLACE(UPPER(OC), ' ', ''), '(', ''), ')', ''), '-', '') = @oc" : ''}
-          AND IDNroOvMasFactura = @idNroOvMasFactura
-        ORDER BY ISNULL(Fecha, Fecha_factura) DESC
-      `);
-      const resolvedFactura = facturaResult.recordset?.[0]?.Factura;
-      if (resolvedFactura !== null && resolvedFactura !== undefined && resolvedFactura !== '' && resolvedFactura !== 0 && resolvedFactura !== '0') {
-        normalizedFactura = String(resolvedFactura).trim();
-      } else {
-        normalizedFactura = null;
-      }
-      hasFactura = normalizedFactura !== null;
-    }
+    // REFACTORING NOTE: Removed id_nro_ov_mas_factura logic
+    // Now using only (pc, oc, factura) to identify files
     const request = sqlPool.request();
     request.input('pc', sql.VarChar, String(pc).trim());
     if (oc) {
       request.input('oc', sql.VarChar, normalizeOcForCompare(oc));
     }
+    
+    // Check if there are multiple invoices for this order
     const partialQuery = `
-      SELECT COUNT(1) AS total, MIN(Fecha) AS min_fecha
-      FROM jor_imp_HDR_90_softkey
-      WHERE Nro = @pc
-        ${oc ? "AND REPLACE(REPLACE(REPLACE(REPLACE(UPPER(OC), ' ', ''), '(', ''), ')', ''), '-', '') = @oc" : ''}
+      SELECT COUNT(DISTINCT f.Factura) AS invoice_count
+      FROM jor_imp_FACT_90_softkey f
+      WHERE f.Nro = @pc
+        AND f.Factura IS NOT NULL
+        AND LTRIM(RTRIM(f.Factura)) <> ''
+        AND f.Factura <> 0
     `;
     const partialResult = await request.query(partialQuery);
-    const partialCount = Number(partialResult.recordset?.[0]?.total || 0);
-    const minFecha = partialResult.recordset?.[0]?.min_fecha || null;
-    const hasPartial = partialCount > 1;
+    const invoiceCount = Number(partialResult.recordset?.[0]?.invoice_count || 0);
+    const hasPartial = invoiceCount > 1;
 
     let isParent = !hasPartial;
-    if (hasPartial) {
-      const detailRequest = sqlPool.request();
-      detailRequest.input('pc', sql.VarChar, String(pc).trim());
-      if (oc) {
-        detailRequest.input('oc', sql.VarChar, normalizeOcForCompare(oc));
-      }
-      if (normalizedId) {
-        detailRequest.input('idNroOvMasFactura', sql.VarChar, normalizedId);
-      }
-      if (hasFactura) {
-        detailRequest.input('factura', sql.VarChar, normalizedFactura);
-      }
-      const detailQuery = `
-        SELECT TOP 1 Fecha
-        FROM jor_imp_HDR_90_softkey
-        WHERE Nro = @pc
-          ${oc ? "AND REPLACE(REPLACE(REPLACE(REPLACE(UPPER(OC), ' ', ''), '(', ''), ')', ''), '-', '') = @oc" : ''}
-          ${normalizedId ? 'AND IDNroOvMasFactura = @idNroOvMasFactura' : ''}
-          ${hasFactura ? 'AND Factura = @factura' : "AND (Factura IS NULL OR Factura = '' OR Factura = 0 OR Factura = '0')"}
-        ORDER BY Fecha ASC
-      `;
-      const detailResult = await detailRequest.query(detailQuery);
-      const orderFecha = detailResult.recordset?.[0]?.Fecha || null;
-      if (orderFecha && minFecha) {
-        const orderDate = new Date(orderFecha);
-        const minDate = new Date(minFecha);
-        if (!Number.isNaN(orderDate.getTime()) && !Number.isNaN(minDate.getTime())) {
-          isParent = orderDate.getTime() === minDate.getTime();
-        }
-      }
+    if (hasPartial && !hasFactura) {
+      // If there are multiple invoices and no specific factura provided,
+      // this is the parent order (for ORN documents)
+      isParent = true;
     }
 
-      const existingFiles = await getFilesByPcOc(pc, oc, normalizedFactura, normalizedId);
+      const existingFiles = await getFilesByPcOc(pc, oc, normalizedFactura);
       const existingFileIds = new Set(existingFiles.map(f => f.file_id).filter(Boolean));
 
     let requiredDocs = hasPartial
@@ -719,6 +669,18 @@ const createDefaultFilesForPcOc = async (pc, oc, customerName, factura, idNroOvM
     if (Array.isArray(allowedDocs) && allowedDocs.length) {
       const allowedSet = new Set(allowedDocs);
       requiredDocs = requiredDocs.filter((doc) => allowedSet.has(doc));
+      logger.info(`[createDefaultFilesForPcOc] DEBUG Filtered requiredDocs=${JSON.stringify(requiredDocs)}`);
+    } else if (Array.isArray(allowedDocs) && allowedDocs.length === 0) {
+      // Si allowedDocs es un array vacío, significa que NO se puede crear ningún documento
+      // porque no cumplen las condiciones (falta ETD/ETA, Incoterm incorrecto, etc.)
+      logger.info(`[createDefaultFilesForPcOc] allowedDocs is empty, no documents can be created due to missing requirements`);
+      const err = new Error('NO_DOCUMENTS_ALLOWED');
+      err.code = 'NO_DOCUMENTS_ALLOWED';
+      err.status = 400;
+      err.details = { pc, oc, factura };
+      throw err;
+    } else {
+      logger.info(`[createDefaultFilesForPcOc] DEBUG No allowedDocs filter, using all requiredDocs=${JSON.stringify(requiredDocs)}`);
     }
 
     const missingDocs = requiredDocs.filter(
@@ -750,7 +712,6 @@ const createDefaultFilesForPcOc = async (pc, oc, customerName, factura, idNroOvM
       pc,
       oc,
       factura: normalizedFactura,
-      id_nro_ov_mas_factura: normalizedId,
       path: directoryPath,
       file_identifier: fileIdentifier,
       file_id: FILE_ID_MAP[name]
@@ -775,7 +736,7 @@ const createDefaultFilesForPcOc = async (pc, oc, customerName, factura, idNroOvM
     };
   } catch (error) {
     if (error?.code !== 'FILES_ALREADY_EXIST' && error?.message !== 'FILES_ALREADY_EXIST') {
-      logger.error(`[createDefaultFilesForPcOc] Error creando archivos por defecto pc=${pc || 'N/A'} oc=${oc || 'N/A'} id=${idNroOvMasFactura || 'N/A'}: ${error.message}`);
+      logger.error(`[createDefaultFilesForPcOc] Error creando archivos por defecto pc=${pc || 'N/A'} oc=${oc || 'N/A'} factura=${factura || 'N/A'}: ${error.message}`);
     }
     throw error;
   }
@@ -826,21 +787,19 @@ const insertDefaultFile = async (fileData) => {
   try {
     const query = `
       INSERT INTO order_files (
-        pc, oc, factura, id_nro_ov_mas_factura, name, path, file_identifier, file_id, was_sent, 
+        pc, oc, factura, name, path, file_identifier, file_id, was_sent, 
         document_type, file_type, status_id, is_visible_to_client, 
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, 'PDF', 1, 0, NOW(), NOW())
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, 'PDF', 1, 0, NOW(), NOW())
     `;
 
     const normalizedFactura = fileData.factura !== null && fileData.factura !== undefined && fileData.factura !== '' && fileData.factura !== 0 && fileData.factura !== '0'
       ? String(fileData.factura).trim()
       : null;
-    const normalizedId = fileData.id_nro_ov_mas_factura ? String(fileData.id_nro_ov_mas_factura).trim() : null;
     const params = [
       fileData.pc,
       fileData.oc,
       normalizedFactura,
-      normalizedId,
       fileData.name,
       fileData.path,
       fileData.file_identifier,
@@ -931,8 +890,8 @@ const getOrderDataForPDF = async (orderId) => {
         c.Pais AS customer_country
       FROM jor_imp_HDR_90_softkey h
       LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
-      WHERE h.Nro = @pc ${oc ? "AND REPLACE(REPLACE(REPLACE(REPLACE(UPPER(h.OC), ' ', ''), '(', ''), ')', ''), '-', '') = @oc" : ''}
-        AND ISNULL(LTRIM(RTRIM(UPPER(h.EstadoOV))), '') <> 'CANCELADO'
+      WHERE h.Nro = @pc ${oc ? "AND REPLACE(REPLACE(REPLACE(REPLACE(LOWER(h.OC), ' ', ''), '(', ''), ')', ''), '-', '') = @oc" : ''}
+        AND ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
       ORDER BY ISNULL(h.Fecha, h.Fecha_factura) DESC
     `);
 

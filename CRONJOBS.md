@@ -84,4 +84,3 @@ El backup también soporta:
 ```bash
 node Cronjob/cron/sendDbBackup.js execute-now
 ```
-

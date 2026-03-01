@@ -234,6 +234,8 @@
     "order_not_found": "Order not found",
     "pc_required": "PC required",
     "create_default_files_error": "Error creating default files",
+    "no_documents_allowed": "Cannot create documents: missing invoice ETD/ETA dates or invalid Incoterm for document generation",
+    "files_already_exist": "Files already exist",
     "no_new_orders": "No new orders to process",
     "processing_complete": "New orders processing completed",
     "processing_error": "Error processing new orders",

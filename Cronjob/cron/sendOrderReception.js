@@ -1,6 +1,16 @@
 const axios = require('axios');
 const cron = require('node-cron');
-const { logger } = require('../../Backend/utils/logger');
+let logger;
+try {
+  ({ logger } = require('../../Backend/utils/logger'));
+} catch (error) {
+  logger = {
+    info: console.log,
+    warn: console.warn,
+    error: console.error
+  };
+  logger.warn(`[processNewOrdersAndSendEmails] Logger backend no disponible, usando consola. error=${error.message}`);
+}
 
 // Configuración de la API del backend
 const BACKEND_API_URL = process.env.BACKEND_API_URL || 'http://localhost:3000';

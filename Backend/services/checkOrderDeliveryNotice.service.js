@@ -5,8 +5,7 @@ const { logger } = require('../utils/logger');
 async function getOrdersReadyForOrderDeliveryNotice(
   sendFromDate = null,
   filterPc = null,
-  filterFactura = null,
-  filterId = null
+  filterFactura = null
 ) {
   try {
     const sqlPool = await getSqlPool();
@@ -20,45 +19,35 @@ async function getOrdersReadyForOrderDeliveryNotice(
     if (filterFactura) {
       request.input('factura', sql.VarChar, String(filterFactura).trim());
     }
-    if (filterId) {
-      request.input('idNro', sql.VarChar, String(filterId).trim());
-    }
 
+    // REFACTORING NOTE: Query Vista_FACT as primary table (one document per invoice)
+    // INNER JOIN with Vista_HDR to get OC field and validate order status
+    // OLD: Queried Vista_HDR which had invoice data duplicated
+    // NEW: Query Vista_FACT directly to get one row per invoice
     const sqlResult = await request.query(`
       SELECT
-        h.Nro AS pc,
+        f.Nro AS pc,
         h.OC AS oc,
         h.Rut AS customer_rut,
         c.Nombre AS customer_name,
-        h.Fecha_factura AS fecha_factura,
-        NULLIF(LTRIM(RTRIM(h.ETA_ENC_FA)), '') AS eta,
-        h.Factura AS factura,
-        h.IDNroOvMasFactura AS id_nro_ov_mas_factura
-      FROM jor_imp_HDR_90_softkey h
+        f.Fecha_factura AS fecha_factura,
+        NULLIF(LTRIM(RTRIM(f.ETA_ENC_FA)), '') AS eta,
+        f.Factura AS factura
+      FROM jor_imp_FACT_90_softkey f
+      INNER JOIN jor_imp_HDR_90_softkey h ON h.Nro = f.Nro
       LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
-      WHERE ISNULL(LTRIM(RTRIM(UPPER(h.EstadoOV))), '') <> 'CANCELADO'
-        AND h.Factura IS NOT NULL
-        AND LTRIM(RTRIM(CONVERT(varchar(50), h.Factura))) <> ''
-        AND h.Factura <> 0
-        ${filterPc ? 'AND h.Nro = @pc' : ''}
-        ${filterFactura ? 'AND h.Factura = @factura' : ''}
-        ${filterId ? 'AND h.IDNroOvMasFactura = @idNro' : ''}
-        AND CASE
-              WHEN ISDATE(NULLIF(LTRIM(RTRIM(h.ETA_ENC_FA)), '')) = 1
-              THEN CAST(NULLIF(LTRIM(RTRIM(h.ETA_ENC_FA)), '') AS date)
-            END IS NOT NULL
-        AND DATEADD(
-              day,
-              7,
-              CASE
-                WHEN ISDATE(NULLIF(LTRIM(RTRIM(h.ETA_ENC_FA)), '')) = 1
-                THEN CAST(NULLIF(LTRIM(RTRIM(h.ETA_ENC_FA)), '') AS date)
-              END
-            ) <= CAST(GETDATE() AS date)
+      WHERE ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
+        AND f.Factura IS NOT NULL
+        AND LTRIM(RTRIM(f.Factura)) <> ''
+        AND f.Factura <> 0
+        ${filterPc ? 'AND f.Nro = @pc' : ''}
+        ${filterFactura ? 'AND f.Factura = @factura' : ''}
+        AND ISDATE(NULLIF(LTRIM(RTRIM(f.ETA_ENC_FA)), '')) = 1
+        AND DATEADD(day, 7, CAST(f.ETA_ENC_FA AS date)) <= CAST(GETDATE() AS date)
         ${sendFromDate ? `AND CASE
-              WHEN ISDATE(h.Fecha_factura) = 1 THEN CAST(h.Fecha_factura AS date)
+              WHEN ISDATE(f.Fecha_factura) = 1 THEN CAST(f.Fecha_factura AS date)
             END >= @sendFrom` : ''}
-      ORDER BY h.Nro ASC
+      ORDER BY f.Nro ASC
     `);
 
     const rows = sqlResult.recordset || [];
@@ -70,30 +59,28 @@ async function getOrdersReadyForOrderDeliveryNotice(
           if (filterFactura) {
             debugRequest.input('factura', sql.VarChar, String(filterFactura).trim());
           }
-          if (filterId) {
-            debugRequest.input('idNro', sql.VarChar, String(filterId).trim());
-          }
+          // REFACTORING NOTE: Debug query also uses Vista_FACT as primary table
           const debugResult = await debugRequest.query(`
             SELECT TOP 1
-              h.Nro AS pc,
+              f.Nro AS pc,
               h.OC AS oc,
-              h.Factura AS factura,
-              NULLIF(LTRIM(RTRIM(h.ETA_ENC_FA)), '') AS eta,
+              f.Factura AS factura,
+              NULLIF(LTRIM(RTRIM(f.ETA_ENC_FA)), '') AS eta,
               CASE
-                WHEN ISDATE(NULLIF(LTRIM(RTRIM(h.ETA_ENC_FA)), '')) = 1
-                THEN CAST(NULLIF(LTRIM(RTRIM(h.ETA_ENC_FA)), '') AS date)
+                WHEN ISDATE(NULLIF(LTRIM(RTRIM(f.ETA_ENC_FA)), '')) = 1
+                THEN CAST(NULLIF(LTRIM(RTRIM(f.ETA_ENC_FA)), '') AS date)
               END AS eta_date,
               CASE
-                WHEN ISDATE(NULLIF(LTRIM(RTRIM(h.ETA_ENC_FA)), '')) = 1
-                THEN DATEADD(day, 7, CAST(NULLIF(LTRIM(RTRIM(h.ETA_ENC_FA)), '') AS date))
+                WHEN ISDATE(NULLIF(LTRIM(RTRIM(f.ETA_ENC_FA)), '')) = 1
+                THEN DATEADD(day, 7, CAST(NULLIF(LTRIM(RTRIM(f.ETA_ENC_FA)), '') AS date))
               END AS eta_plus_7,
               CAST(GETDATE() AS date) AS today
-            FROM jor_imp_HDR_90_softkey h
-            WHERE h.Nro = @pc
-              AND ISNULL(LTRIM(RTRIM(UPPER(h.EstadoOV))), '') <> 'CANCELADO'
-              ${filterFactura ? 'AND h.Factura = @factura' : ''}
-              ${filterId ? 'AND h.IDNroOvMasFactura = @idNro' : ''}
-            ORDER BY h.Nro ASC
+            FROM jor_imp_FACT_90_softkey f
+            INNER JOIN jor_imp_HDR_90_softkey h ON h.Nro = f.Nro
+            WHERE f.Nro = @pc
+              AND ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
+              ${filterFactura ? 'AND f.Factura = @factura' : ''}
+            ORDER BY f.Nro ASC
           `);
           const debugRow = debugResult.recordset?.[0];
           if (debugRow) {
@@ -111,7 +98,7 @@ async function getOrdersReadyForOrderDeliveryNotice(
               : false;
             logger.info(`[getOrdersReadyForOrderDeliveryNotice] pc=${debugRow.pc} factura=${debugRow.factura ?? 'N/A'} ETA_ENC_FA=${debugRow.eta ?? 'N/A'} ETA+7=${debugRow.eta_plus_7 ?? 'N/A'} hoy=${debugRow.today ?? 'N/A'} enviar_hoy=${shouldSendToday} faltan_dias=${daysRemaining} tiene_factura=${hasFactura} tiene_eta=${hasEta}`);
           } else {
-            logger.info(`[getOrdersReadyForOrderDeliveryNotice] pc=${filterPc} no encontrado en jor_imp_HDR_90_softkey`);
+            logger.info(`[getOrdersReadyForOrderDeliveryNotice] pc=${filterPc} no encontrado en jor_imp_FACT_90_softkey`);
           }
         } catch (debugError) {
           logger.error(`Error debuggeando Order Delivery Notice pc=${filterPc}: ${debugError.message}`);
@@ -120,15 +107,18 @@ async function getOrdersReadyForOrderDeliveryNotice(
       return [];
     }
 
+    // REFACTORING NOTE: File queries now use (pc, oc, factura) pattern
+    // OLD: Used id_nro_ov_mas_factura
+    // NEW: Use pc, oc, factura to identify invoice-level documents
     const pcs = rows.map((row) => row.pc).filter(Boolean);
     const pool = await poolPromise;
     const [fileRows] = pcs.length
       ? await pool.query(
           `
-            SELECT pc, oc, MAX(id) AS id, MAX(fecha_envio) AS fecha_envio
+            SELECT pc, oc, factura, MAX(id) AS id, MAX(fecha_envio) AS fecha_envio
             FROM order_files
             WHERE file_id = 15 AND pc IN (?)
-            GROUP BY pc, oc
+            GROUP BY pc, oc, factura
           `,
           [pcs]
         )
@@ -136,18 +126,19 @@ async function getOrdersReadyForOrderDeliveryNotice(
 
     const fileMap = new Map();
     for (const fileRow of fileRows) {
-      const key = `${String(fileRow.pc).trim()}|${String(fileRow.oc).trim()}`;
+      const key = `${String(fileRow.pc).trim()}|${String(fileRow.oc).trim()}|${String(fileRow.factura || '').trim()}`;
       fileMap.set(key, fileRow);
     }
 
     return rows
       .map((row) => {
-        const key = `${String(row.pc).trim()}|${String(row.oc).trim()}`;
+        const key = `${String(row.pc).trim()}|${String(row.oc).trim()}|${String(row.factura || '').trim()}`;
         const fileRow = fileMap.get(key);
         return {
-          id: `${row.pc}|${row.oc}`,
+          id: `${row.pc}|${row.oc}|${row.factura}`,
           pc: String(row.pc).trim(),
           oc: String(row.oc).trim(),
+          factura: String(row.factura).trim(),
           customer_name: row.customer_name,
           customer_rut: row.customer_rut,
           fecha_factura: row.fecha_factura,
@@ -163,16 +154,27 @@ async function getOrdersReadyForOrderDeliveryNotice(
   }
 }
 
-async function getOrderDeliveryFile(pc, oc) {
+/**
+ * Get Order Delivery file for a specific invoice
+ * @param {string} pc - Purchase order number
+ * @param {string} oc - Order code
+ * @param {string} factura - Invoice number
+ * @returns {Promise<Object|null>} File record or null
+ * 
+ * REFACTORING CHANGES:
+ * OLD: Used (pc, oc) to identify order-level documents
+ * NEW: Uses (pc, oc, factura) to identify invoice-level documents
+ */
+async function getOrderDeliveryFile(pc, oc, factura) {
   const pool = await poolPromise;
   try {
     const [rows] = await pool.query(
-      `SELECT id, path, fecha_envio FROM order_files WHERE pc = ? AND oc = ? AND file_id = ? ORDER BY id DESC LIMIT 1`,
-      [pc, oc, 15]
+      `SELECT id, path, fecha_envio FROM order_files WHERE pc = ? AND oc = ? AND factura = ? AND file_id = ? ORDER BY id DESC LIMIT 1`,
+      [pc, oc, factura, 15]
     );
     return rows.length > 0 ? rows[0] : null;
   } catch (error) {
-    logger.error(`Error obteniendo Order Delivery Notice para PC/OC ${pc}/${oc}: ${error.message}`);
+    logger.error(`Error obteniendo Order Delivery Notice para PC/OC/Factura ${pc}/${oc}/${factura}: ${error.message}`);
     throw error;
   }
 }

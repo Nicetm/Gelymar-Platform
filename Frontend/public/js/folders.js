@@ -280,7 +280,7 @@ function parseNumber(value, fallback = 0) {
 }
 
 // Función para abrir modal de items (mover fuera de initFoldersScript)
-async function openItemsModal(orderPc, orderOc, factura, idOv) {
+async function openItemsModal(orderPc, orderOc, factura) {
   const itemsModal = document.getElementById('itemsModal');
   const itemsOrderTitle = document.getElementById('itemsOrderTitle');
   const itemsTableBody = document.getElementById('itemsTableBody');
@@ -295,13 +295,12 @@ async function openItemsModal(orderPc, orderOc, factura, idOv) {
 
     const safeOrderOc = orderOc ? encodeURIComponent(orderOc) : '';
     const safeFactura = factura && factura !== 'null' ? encodeURIComponent(factura) : '';
-    
+
     // Usar endpoint diferente según si tiene factura o no
-    const idQuery = idOv ? `?idov=${encodeURIComponent(idOv)}` : '';
-    const url = factura && factura !== 'null' 
-      ? `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/${safeFactura}/items${idQuery}`
-      : `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/items${idQuery}`;
-    
+    const url = factura && factura !== 'null'
+      ? `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/${safeFactura}/items`
+      : `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/items`;
+
     const response = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` }
     });
@@ -311,104 +310,42 @@ async function openItemsModal(orderPc, orderOc, factura, idOv) {
     }
 
     const items = await response.json();
-    const normalizedItems = Array.isArray(items) ? items : [];
-    const hasFactura = factura && factura !== 'null';
-    const formatModalQuantity = (amount, unit = 'KG') => {
-      const unitMap = {
-        'KG': 'kg',
-        'KILOGRAMOS': 'kg',
-        'TON': 'ton',
-        'TONELADAS': 'ton',
-        'LITROS': 'L',
-        'L': 'L',
-        'UNIDADES': 'un',
-        'UN': 'un'
-      };
-      const mappedUnit = typeof unit === 'string' ? (unitMap[unit] || unit.toLowerCase()) : 'kg';
-      const safeAmount = parseNumber(amount);
-      return `${safeAmount.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ${mappedUnit}`;
-    };
-    
-    // Actualizar header del modal
-    document.getElementById('itemsInitials').textContent = 'IT';
-    document.getElementById('itemsOrderTitle').textContent = `${getMessage(carpetas.order)}: ${orderOc}`;
-    document.getElementById('itemsOrderSubtitle').textContent = getMessage(carpetas.itemsList);
-    
-    let currency = 'CLP';
-    // Renderizar tabla de items
-    if (itemsTableBody) {
-      currency = normalizedItems[0]?.currency || 'CLP';
-      if (normalizedItems.length === 0) {
-        itemsTableBody.innerHTML = `
-          <tr>
-            <td colspan="5" class="px-6 py-4 text-center text-xs text-gray-500 dark:text-gray-400">
-              ${getMessage(carpetas.noItemsFound)}
-            </td>
-          </tr>
-        `;
-      } else {
-        itemsTableBody.innerHTML = normalizedItems.map(item => {
-          const rawQuantity = hasFactura ? item.kg_facturados : item.kg_solicitados;
-          const quantity = parseNumber(rawQuantity);
-          const unitPrice = parseNumber(item.unit_price);
-          const total = quantity * unitPrice;
-          const unit = item.unidad_medida || 'KG';
-
-          return `
-            <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition">
-              <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">${item.item_code || 'N/A'}</td>
-              <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">${item.item_name || 'N/A'}</td>
-              <td class="px-6 py-4 text-sm text-center text-gray-900 dark:text-gray-100">${formatModalQuantity(quantity, unit)}</td>
-              <td class="px-6 py-4 text-sm text-center text-gray-900 dark:text-gray-100">${formatUnitPrice(unitPrice)}</td>
-              <td class="px-6 py-4 text-sm text-center font-semibold text-gray-900 dark:text-gray-100">${formatTotal(total)}</td>
-            </tr>
-          `;
-        }).join('');
-      }
-    }
-
-    // Calcular y mostrar totales
-    const totalItems = document.getElementById('totalItems');
-    const totalQuantity = document.getElementById('totalQuantity');
-    const totalValue = document.getElementById('totalValue');
-    const totalGastoAdicional = document.getElementById('totalGastoAdicional');
-
-    const totalItemsCount = normalizedItems.length;
-
-    const totalQuantitySum = normalizedItems.reduce((sum, item) => {
-      const rawQuantity = hasFactura ? item.kg_facturados : item.kg_solicitados;
-      const quantity = parseNumber(rawQuantity);
-      return sum + quantity;
-    }, 0);
-
-    const totalValueSum = normalizedItems.reduce((sum, item) => {
-      const rawQuantity = hasFactura ? item.kg_facturados : item.kg_solicitados;
-      const quantity = parseNumber(rawQuantity);
-      const price = parseNumber(item.unit_price);
-      return sum + (quantity * price);
-    }, 0);
-
-    const unit = normalizedItems[0]?.unidad_medida || 'KG';
-    const rawGastoAdicionalFactura = normalizedItems[0]?.gasto_adicional_flete_factura;
-    const shouldUseFacturaExpense = hasFactura && rawGastoAdicionalFactura !== null && rawGastoAdicionalFactura !== undefined && rawGastoAdicionalFactura !== '';
-    const rawGastoAdicional = shouldUseFacturaExpense ? rawGastoAdicionalFactura : normalizedItems[0]?.gasto_adicional_flete;
-    const gastoAdicional = parseNumber(rawGastoAdicional);
-
-    const totalValueWithAdditional = totalValueSum + gastoAdicional;
-
-    if (totalItems) totalItems.textContent = totalItemsCount;
-    if (totalQuantity) totalQuantity.textContent = formatModalQuantity(totalQuantitySum, unit);
-    if (totalValue) totalValue.textContent = formatCurrency(totalValueWithAdditional, currency);
-    if (totalGastoAdicional) totalGastoAdicional.textContent = formatCurrency(gastoAdicional, currency);
 
     // Mostrar modal
-    showModal('#itemsModal');
-    
+    itemsModal.classList.remove('hidden');
+    itemsModal.classList.add('flex');
+    itemsOrderTitle.textContent = `${carpetas.order}: ${orderOc || '-'}`;
+
+    // Renderizar items
+    if (items && items.length > 0) {
+      itemsTableBody.innerHTML = items.map(item => `
+        <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">${item.item_code || '-'}</td>
+          <td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${item.item_name || '-'}</td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900 dark:text-white">${item.tipo || '-'}</td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900 dark:text-white">${formatNumber(item.kg_solicitados)}</td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900 dark:text-white">${formatNumber(item.kg_despachados)}</td>
+        </tr>
+      `).join('');
+    } else {
+      itemsTableBody.innerHTML = `
+        <tr>
+          <td colspan="5" class="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+            ${carpetas.noItems || 'No hay items disponibles'}
+          </td>
+        </tr>
+      `;
+    }
   } catch (error) {
-    console.error('Error cargando items para modal:', error);
-    // Mostrar notificación de error si está disponible
-    if (typeof showNotification === 'function') {
-      showNotification(getMessage(messagesFolders.itemsLoadError), 'error');
+    console.error('Error al cargar items:', error);
+    if (itemsTableBody) {
+      itemsTableBody.innerHTML = `
+        <tr>
+          <td colspan="5" class="px-6 py-4 text-center text-sm text-red-600 dark:text-red-400">
+            ${error.message || 'Error al cargar los items'}
+          </td>
+        </tr>
+      `;
     }
   }
 }
@@ -755,8 +692,7 @@ export async function initFoldersScript() {
     const pcValue = folder.pc || '';
     const ocValue = folder.oc || '';
     const companyValue = displayCustomerName || '';
-    const idOv = folder.id_nro_ov_mas_factura || '';
-    const documentsUrl = `${documentsPath}/${encodeURIComponent(customerRut)}/${encodeURIComponent(pcValue)}/${slugifyPath(ocValue)}/${slugifyPath(companyValue)}${idOv ? `?idov=${encodeURIComponent(idOv)}` : ''}`;
+    const documentsUrl = `${documentsPath}/${encodeURIComponent(customerRut)}/${encodeURIComponent(pcValue)}/${slugifyPath(ocValue)}/${slugifyPath(companyValue)}`;
     const shippingMethod = (!folder.factura || folder.factura === 0 || folder.factura === '0')
       ? (folder.medio_envio_ov || '-')
       : (folder.medio_envio_factura || '-');
@@ -799,7 +735,6 @@ export async function initFoldersScript() {
             <div class="relative">
               <a href="#" class="items-list-btn text-gray-900 dark:text-white hover:text-green-500 transition"
                  data-order-pc="${safePcAttr}" data-order-oc="${safeOcAttr}" data-factura="${safeFacturaAttr}"
-                 data-id-ov="${idOv}"
                  data-tooltip="${getMessage(carpetas.tooltipViewItemsDetailed)}"
                  aria-label="${getMessage(carpetas.tooltipViewItemsDetailed)}">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -810,7 +745,6 @@ export async function initFoldersScript() {
             <div class="relative">
               <a href="#" class="items-detail-modal-btn text-gray-900 dark:text-white hover:text-green-500 transition"
                  data-order-pc="${safePcAttr}" data-order-oc="${safeOcAttr}" data-factura="${safeFacturaAttr}"
-                 data-id-ov="${idOv}"
                  data-tooltip="${getMessage(carpetas.tooltipViewItems)}"
                  aria-label="${getMessage(carpetas.tooltipViewItems)}">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -924,8 +858,7 @@ export async function initFoldersScript() {
       const pcValue = folder.pc || '';
       const ocValue = folder.oc || '';
       const companyValue = folder.customer_name || clientName || '';
-      const idOv = folder.id_nro_ov_mas_factura || '';
-      const documentsUrl = `${documentsPath}/${encodeURIComponent(customerRut)}/${encodeURIComponent(pcValue)}/${slugifyPath(ocValue)}/${slugifyPath(companyValue)}${idOv ? `?idov=${encodeURIComponent(idOv)}` : ''}`;
+      const documentsUrl = `${documentsPath}/${encodeURIComponent(customerRut)}/${encodeURIComponent(pcValue)}/${slugifyPath(ocValue)}/${slugifyPath(companyValue)}`;
       const shippingMethod = (!folder.factura || folder.factura === 0 || folder.factura === '0')
         ? (folder.medio_envio_ov || '')
         : (folder.medio_envio_factura || '');
@@ -1312,7 +1245,7 @@ export async function initFoldersScript() {
     `;
   }
 
-  async function openItemsDetailModal(orderPc, orderOc, factura, idOv) {
+  async function openItemsDetailModal(orderPc, orderOc, factura) {
     const detailModal = document.getElementById('itemsDetailModal');
     const detailTitle = document.getElementById('itemsDetailTitle');
     const detailContainer = document.getElementById('itemsDetailTableContainer');
@@ -1323,10 +1256,9 @@ export async function initFoldersScript() {
       const apiBase = window.apiBase;
       const safeOrderOc = orderOc ? encodeURIComponent(orderOc) : '';
       const safeFactura = factura && factura !== 'null' ? encodeURIComponent(factura) : '';
-      const idQuery = idOv ? `?idov=${encodeURIComponent(idOv)}` : '';
       const url = factura && factura !== 'null'
-        ? `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/${safeFactura}/items${idQuery}`
-        : `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/items${idQuery}`;
+        ? `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/${safeFactura}/items`
+        : `${apiBase}/api/orders/${orderPc}/${safeOrderOc}/items`;
 
       const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` }
@@ -1436,8 +1368,7 @@ export async function initFoldersScript() {
         const orderPc = itemsBtn.dataset.orderPc;
         const orderOc = itemsBtn.dataset.orderOc;
         const factura = itemsBtn.dataset.factura;
-        const idOv = itemsBtn.dataset.idOv;
-        openItemsModal(orderPc, orderOc, factura, idOv);
+        openItemsModal(orderPc, orderOc, factura);
       }
     });
 
@@ -1448,8 +1379,7 @@ export async function initFoldersScript() {
         const orderPc = detailBtn.dataset.orderPc;
         const orderOc = detailBtn.dataset.orderOc;
         const factura = detailBtn.dataset.factura;
-        const idOv = detailBtn.dataset.idOv;
-        openItemsDetailModal(orderPc, orderOc, factura, idOv);
+        openItemsDetailModal(orderPc, orderOc, factura);
       }
     });
 

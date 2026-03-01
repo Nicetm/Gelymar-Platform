@@ -673,6 +673,113 @@ async function sellerHasAccessToCustomerRut(sellerRut, customerRut) {
   }
 }
 
+/**
+ * Get orders for a customer (with invoice counts)
+ * 
+ * REFACTORING CHANGES:
+ * - NEW: Function created as part of Vista refactoring
+ * - Queries Vista_HDR for orders, LEFT JOIN with Vista_FACT to count invoices
+ * - Uses COUNT(DISTINCT f.Factura) to get accurate invoice count per order
+ * 
+ * @param {string} customerRut - RUT of the customer
+ * @returns {Promise<Array>} Array of orders with invoice counts
+ */
+async function getCustomerOrders(customerRut) {
+  try {
+    if (!customerRut) {
+      return [];
+    }
+
+    const sqlPool = await getSqlPool();
+    const request = sqlPool.request();
+    request.input('customerRut', sql.VarChar, customerRut);
+
+    // REFACTORING NOTE: LEFT JOIN Vista_HDR with Vista_FACT
+    // COUNT(DISTINCT f.Factura) gives accurate invoice count per order
+    // GROUP BY order fields to aggregate invoice counts
+    const result = await request.query(`
+      SELECT 
+        h.Nro AS pc,
+        h.OC AS oc,
+        h.Fecha AS fecha,
+        h.EstadoOV AS estado_ov,
+        h.ETD_OV AS fecha_etd,
+        h.ETA_OV AS fecha_eta,
+        h.Clausula AS incoterm,
+        h.Puerto_Destino AS puerto_destino,
+        COUNT(DISTINCT f.Factura) AS invoice_count
+      FROM jor_imp_HDR_90_softkey h
+      LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
+        AND f.Factura IS NOT NULL
+        AND LTRIM(RTRIM(f.Factura)) <> ''
+        AND f.Factura <> 0
+      WHERE h.Rut = @customerRut
+        AND ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
+      GROUP BY h.Nro, h.OC, h.Fecha, h.EstadoOV, h.ETD_OV, h.ETA_OV, h.Clausula, h.Puerto_Destino
+      ORDER BY CAST(h.Fecha AS date) DESC
+    `);
+
+    return result.recordset || [];
+  } catch (error) {
+    logger.error(`Error obteniendo órdenes del cliente ${customerRut}: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * Get invoices for a customer
+ * 
+ * REFACTORING CHANGES:
+ * - NEW: Function created as part of Vista refactoring
+ * - Queries Vista_FACT as primary table (invoices)
+ * - INNER JOIN with Vista_HDR to get order data (OC, order date)
+ * - Filters for valid invoices only
+ * 
+ * @param {string} customerRut - RUT of the customer
+ * @returns {Promise<Array>} Array of invoices for the customer
+ */
+async function getCustomerInvoices(customerRut) {
+  try {
+    if (!customerRut) {
+      return [];
+    }
+
+    const sqlPool = await getSqlPool();
+    const request = sqlPool.request();
+    request.input('customerRut', sql.VarChar, customerRut);
+
+    // REFACTORING NOTE: Query Vista_FACT as primary table
+    // INNER JOIN with Vista_HDR to get order data
+    // Filter for valid invoices only
+    // NOTE: Clausula (Incoterm) field does NOT exist in Vista_FACT, only in Vista_HDR
+    // Incoterm is an order-level attribute, so we use h.Clausula
+    const result = await request.query(`
+      SELECT 
+        f.Nro AS pc,
+        f.Factura AS factura,
+        f.Fecha_factura AS fecha_factura,
+        f.ETD_ENC_FA AS fecha_etd_factura,
+        f.ETA_ENC_FA AS fecha_eta_factura,
+        h.Clausula AS incoterm,
+        f.MedioDeEnvioFact AS medio_envio_factura,
+        h.OC AS oc,
+        h.Fecha AS order_date
+      FROM jor_imp_FACT_90_softkey f
+      INNER JOIN jor_imp_HDR_90_softkey h ON h.Nro = f.Nro
+      WHERE h.Rut = @customerRut
+        AND f.Factura IS NOT NULL
+        AND LTRIM(RTRIM(f.Factura)) <> ''
+        AND f.Factura <> 0
+      ORDER BY CAST(f.Fecha_factura AS date) DESC
+    `);
+
+    return result.recordset || [];
+  } catch (error) {
+    logger.error(`Error obteniendo facturas del cliente ${customerRut}: ${error.message}`);
+    throw error;
+  }
+}
+
 module.exports = {
   getAllCustomerRuts,
   getCustomerByRutForUpdate,
@@ -688,6 +795,8 @@ module.exports = {
   updateCustomerContact,
   createOrUpdatePrimaryContact,
   getCustomersWithoutAccount,
-  sellerHasAccessToCustomerRut
+  sellerHasAccessToCustomerRut,
+  getCustomerOrders,
+  getCustomerInvoices
 };
 

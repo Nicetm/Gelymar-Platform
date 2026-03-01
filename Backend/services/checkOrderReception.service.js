@@ -109,23 +109,28 @@ async function getOrdersReadyForOrderReceiptNotice(sendFromDate = null, filterPc
     const normalizedFactura = filterFactura ? String(filterFactura).trim() : null;
     let facturaFilter = '';
     if (normalizedFactura) {
-      facturaFilter = ' AND h.Factura = @factura';
+      facturaFilter = ' AND f.Factura = @factura';
       request.input('factura', sql.VarChar, normalizedFactura);
     }
 
+    // REFACTORING NOTE: Changed to use LEFT JOIN with Vista_FACT to find orders without invoices
+    // OLD: Filtered h.Factura IS NULL on Vista_HDR (which had duplicity)
+    // NEW: LEFT JOIN with Vista_FACT and WHERE f.Nro IS NULL (no invoices exist)
     const result = await request.query(`
       SELECT
         h.Nro AS pc,
         h.OC AS oc,
-        h.Factura AS factura,
-        h.IDNroOvMasFactura AS id_nro_ov_mas_factura,
         h.Fecha AS fecha_ingreso,
         c.Nombre AS customer_name,
         c.Rut AS customer_rut
       FROM jor_imp_HDR_90_softkey h
+      LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
+        AND f.Factura IS NOT NULL
+        AND LTRIM(RTRIM(f.Factura)) <> ''
+        AND f.Factura <> 0
       JOIN jor_imp_CLI_01_softkey c ON h.Rut = c.Rut
-      WHERE ISNULL(LTRIM(RTRIM(UPPER(h.EstadoOV))), '') <> 'CANCELADO'
-        AND (h.Factura IS NULL OR LTRIM(RTRIM(CAST(h.Factura AS NVARCHAR(50)))) = '' OR h.Factura = 0 OR h.Factura = '0')
+      WHERE ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
+        AND f.Nro IS NULL
         ${sendFromFilter}
         ${pcFilter}
         ${facturaFilter}
@@ -139,12 +144,14 @@ async function getOrdersReadyForOrderReceiptNotice(sendFromDate = null, filterPc
     }));
     if (!orders.length) return [];
 
+    // REFACTORING NOTE: ORN documents are order-level, not invoice-level
+    // File lookup uses only (pc, oc) without id_nro_ov_mas_factura
     const pool = await poolPromise;
     const pcs = Array.from(new Set(orders.map((o) => String(o.pc)).filter(Boolean)));
     if (!pcs.length) return orders;
 
     const [fileRows] = await pool.query(
-      `SELECT id, pc, oc, id_nro_ov_mas_factura, fecha_envio
+      `SELECT id, pc, oc, fecha_envio
        FROM order_files
        WHERE file_id = 9 AND pc IN (${pcs.map(() => '?').join(',')})`,
       pcs
@@ -152,9 +159,7 @@ async function getOrdersReadyForOrderReceiptNotice(sendFromDate = null, filterPc
 
     const fileMap = new Map();
     fileRows.forEach((row) => {
-      const key = row.id_nro_ov_mas_factura
-        ? `${row.pc}||${normalizeOc(row.oc)}||${row.id_nro_ov_mas_factura}`
-        : `${row.pc}||${normalizeOc(row.oc)}`;
+      const key = `${row.pc}||${normalizeOc(row.oc)}`;
       if (!fileMap.has(key)) {
         fileMap.set(key, row);
       }
@@ -162,9 +167,7 @@ async function getOrdersReadyForOrderReceiptNotice(sendFromDate = null, filterPc
 
     return orders
       .map((order) => {
-        const key = order.id_nro_ov_mas_factura
-          ? `${order.pc}||${normalizeOc(order.oc)}||${order.id_nro_ov_mas_factura}`
-          : `${order.pc}||${normalizeOc(order.oc)}`;
+        const key = `${order.pc}||${normalizeOc(order.oc)}`;
         const file = fileMap.get(key) || null;
         return {
           ...order,
@@ -336,21 +339,16 @@ async function getReportEmailsAndLang(customerRut) {
  * @param {number} orderId - ID de la orden
  * @returns {Promise<Object|null>} Datos del archivo de recepción
  */
-async function getReceptionFile(pc, oc, idNroOvMasFactura = null) {
+async function getReceptionFile(pc, oc) {
   const pool = await poolPromise;
   try {
-    const normalizedId = idNroOvMasFactura ? String(idNroOvMasFactura).trim() : null;
-    const idClause = normalizedId ? 'AND id_nro_ov_mas_factura = ?' : '';
     const [rows] = await pool.query(
-      `SELECT id, path 
-       FROM order_files 
+      `SELECT id, path
+       FROM order_files
        WHERE pc = ? AND file_id = ?
        ${oc ? 'AND oc = ?' : 'AND (oc IS NULL OR oc = \'\')'}
-       ${idClause}
        ORDER BY id DESC LIMIT 1`,
-      oc
-        ? (normalizedId ? [pc, 9, oc, normalizedId] : [pc, 9, oc])
-        : (normalizedId ? [pc, 9, normalizedId] : [pc, 9])
+      oc ? [pc, 9, oc] : [pc, 9]
     );
     return rows.length > 0 ? rows[0] : null;
   } catch (error) {
@@ -358,6 +356,7 @@ async function getReceptionFile(pc, oc, idNroOvMasFactura = null) {
     throw error;
   }
 }
+
 
 /**
  * Obtiene órdenes con factura y documentos faltantes (Shipment/Delivery/Availability)
@@ -374,7 +373,7 @@ async function getOrdersWithFacturaAndMissingFiles() {
         c.Rut AS customer_rut
       FROM jor_imp_HDR_90_softkey h
       JOIN jor_imp_CLI_01_softkey c ON h.Rut = c.Rut
-      WHERE ISNULL(LTRIM(RTRIM(UPPER(h.EstadoOV))), '') <> 'CANCELADO'
+      WHERE ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
         AND h.Factura IS NOT NULL
         AND LTRIM(RTRIM(CAST(h.Factura AS NVARCHAR(50)))) <> ''
         AND h.Factura <> 0

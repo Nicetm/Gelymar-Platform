@@ -57,7 +57,6 @@ async function resolveSqlHeader({ pc, oc, factura }) {
       h.Nro AS pc,
       h.OC AS oc,
       h.Factura AS factura,
-      h.IDNroOvMasFactura AS id_nro_ov_mas_factura,
       c.Nombre AS customer_name
     FROM jor_imp_HDR_90_softkey h
     LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
@@ -102,11 +101,10 @@ async function run() {
   const pool = await poolPromise;
   const [rows] = await pool.query(
     `
-      SELECT id, pc, oc, factura, id_nro_ov_mas_factura, path
+      SELECT id, pc, oc, factura, path
       FROM order_files
       WHERE
         (factura IS NULL OR factura = '' OR factura = 0 OR factura = '0')
-        OR (id_nro_ov_mas_factura IS NULL OR id_nro_ov_mas_factura = '' OR id_nro_ov_mas_factura = 0)
     `
   );
 
@@ -135,33 +133,31 @@ async function run() {
     }
 
     const resolvedFactura = sqlHeader.factura ?? null;
-    const resolvedId = sqlHeader.id_nro_ov_mas_factura ?? null;
 
     const needsFactura = row.factura === null || row.factura === '' || row.factura === 0 || row.factura === '0';
-    const needsId = row.id_nro_ov_mas_factura === null || row.id_nro_ov_mas_factura === '' || row.id_nro_ov_mas_factura === 0;
 
-    if (!needsFactura && !needsId) {
+    if (!needsFactura) {
       skipped++;
       continue;
     }
 
     if (dryRun) {
       updated++;
-      logger.info(`[backfillOrderFiles] DRY_RUN id=${row.id} pc=${pc || 'N/A'} oc=${oc || 'N/A'} factura=${resolvedFactura ?? 'N/A'} id=${resolvedId ?? 'N/A'}`);
+      logger.info(`[backfillOrderFiles] DRY_RUN id=${row.id} pc=${pc || 'N/A'} oc=${oc || 'N/A'} factura=${resolvedFactura ?? 'N/A'}`);
       continue;
     }
 
     await pool.query(
       `
         UPDATE order_files
-        SET factura = ?, id_nro_ov_mas_factura = ?
+        SET factura = ?
         WHERE id = ?
       `,
-      [needsFactura ? resolvedFactura : row.factura, needsId ? resolvedId : row.id_nro_ov_mas_factura, row.id]
+      [resolvedFactura, row.id]
     );
 
     updated++;
-    logger.info(`[backfillOrderFiles] UPDATED id=${row.id} pc=${pc || 'N/A'} oc=${oc || 'N/A'} factura=${resolvedFactura ?? 'N/A'} id=${resolvedId ?? 'N/A'}`);
+    logger.info(`[backfillOrderFiles] UPDATED id=${row.id} pc=${pc || 'N/A'} oc=${oc || 'N/A'} factura=${resolvedFactura ?? 'N/A'}`);
   }
 
   logger.info(`[backfillOrderFiles] done total=${rows.length} updated=${updated} skipped=${skipped} noMatch=${noMatch} mismatch=${mismatch}`);

@@ -5,12 +5,20 @@ const fs = require('fs').promises;
 const path = require('path');
 const { cleanDirectoryName } = require('../utils/directoryUtils');
 const { logger } = require('../utils/logger');
+const { logDocumentEvent } = require('./documentEvent.service');
 // Las variables de entorno ya se cargan automáticamente en app.js
 
-async function generateDefaultFiles(filterPc = null) {
+async function generateDefaultFiles(filters = {}) {
   try {
-    logger.info(`[checkDefaultFiles] Iniciando generación de documentos por defecto${filterPc ? ` pc=${filterPc}` : ''}`);
-    const normalizedFilterPc = filterPc ? String(filterPc).trim() : null;
+    const { pc, factura, idNroOvMasFactura } = filters || {};
+    const normalizedFilterPc = pc ? String(pc).trim() : null;
+    const normalizedFilterId = idNroOvMasFactura ? String(idNroOvMasFactura).trim() : null;
+    const normalizedFilterFactura = !normalizedFilterId && factura ? String(factura).trim() : null;
+    const parts = [];
+    if (normalizedFilterPc) parts.push(`pc=${normalizedFilterPc}`);
+    if (normalizedFilterId) parts.push(`id=${normalizedFilterId}`);
+    if (!normalizedFilterId && normalizedFilterFactura) parts.push(`factura=${normalizedFilterFactura}`);
+    logger.info(`[checkDefaultFiles] Iniciando generación de documentos por defecto${parts.length ? ` ${parts.join(' ')}` : ''}`);
     
     // Obtener todas las órdenes agrupadas por RUT
     const ordersByRut = await getAllOrdersGroupedByRut();
@@ -62,13 +70,25 @@ async function generateDefaultFiles(filterPc = null) {
 
     // Procesar clientes en lotes para evitar problemas de memoria
     let clientEntries = Object.entries(ordersByRut);
-    if (normalizedFilterPc) {
+    if (normalizedFilterPc || normalizedFilterId || normalizedFilterFactura) {
       clientEntries = clientEntries
-        .map(([rut, orders]) => [rut, orders.filter((order) => String(order.pc || '').trim() === normalizedFilterPc)])
+        .map(([rut, orders]) => {
+          const filtered = orders.filter((order) => {
+            if (normalizedFilterPc && String(order.pc || '').trim() !== normalizedFilterPc) return false;
+            if (normalizedFilterId) {
+              return String(order.id_nro_ov_mas_factura || '').trim() === normalizedFilterId;
+            }
+            if (normalizedFilterFactura) {
+              return String(order.factura || '').trim() === normalizedFilterFactura;
+            }
+            return true;
+          });
+          return [rut, filtered];
+        })
         .filter(([, orders]) => orders.length > 0);
     }
     if (clientEntries.length === 0) {
-      logger.info(`[checkDefaultFiles] No hay órdenes para procesar${normalizedFilterPc ? ` para pc=${normalizedFilterPc}` : ''}`);
+      logger.info(`[checkDefaultFiles] No hay órdenes para procesar${parts.length ? ` (${parts.join(' ')})` : ''}`);
       return;
     }
 
@@ -79,7 +99,9 @@ async function generateDefaultFiles(filterPc = null) {
     const partialKeyMinDate = new Map();
     clientEntries.forEach(([, orders]) => {
       orders.forEach((order) => {
-        const key = `${String(order.pc || '').trim()}|${normalizeOcKey(order.oc)}`;
+        const key = order.id_nro_ov_mas_factura
+          ? String(order.id_nro_ov_mas_factura).trim()
+          : `${String(order.pc || '').trim()}|${normalizeOcKey(order.oc)}`;
         partialKeyCount.set(key, (partialKeyCount.get(key) || 0) + 1);
         const orderDate = order.created_at ? new Date(order.created_at) : null;
         if (orderDate && !Number.isNaN(orderDate.getTime())) {
@@ -134,7 +156,9 @@ async function generateDefaultFiles(filterPc = null) {
               'Availability Notice': 6
             };
             const hasFactura = hasFacturaValue(order.factura);
-            const partialKey = `${String(order.pc || '').trim()}|${normalizeOcKey(order.oc)}`;
+            const partialKey = order.id_nro_ov_mas_factura
+              ? String(order.id_nro_ov_mas_factura).trim()
+              : `${String(order.pc || '').trim()}|${normalizeOcKey(order.oc)}`;
             const hasPartial = (partialKeyCount.get(partialKey) || 0) > 1;
             const orderDate = order.created_at ? new Date(order.created_at) : null;
             const minDate = partialKeyMinDate.get(partialKey) || null;
@@ -174,7 +198,8 @@ async function generateDefaultFiles(filterPc = null) {
                 path: directoryPath,
                 file_id: FILE_ID_MAP[name],
                 factura: order.factura,
-                id_nro_ov_mas_factura: order.id_nro_ov_mas_factura
+                id_nro_ov_mas_factura: order.id_nro_ov_mas_factura,
+                customerRut: rut
               }));
 
             // Si no hay documentos por crear, continuar
@@ -277,11 +302,41 @@ async function insertDefaultFile(fileData) {
     ];
 
     const [result] = await pool.query(query, params);
-    logger.info(`[checkDefaultFiles] Archivo por defecto insertado pc=${fileData.pc} oc=${fileData.oc || 'N/A'} factura=${fileData.factura || 'N/A'} id=${fileData.id_nro_ov_mas_factura || 'N/A'} doc=${fileData.name}`);
+    logger.info(`[checkDefaultFiles] Archivo por defecto insertado pc=${fileData.pc} oc=${fileData.oc || 'N/A'} factura=${fileData.factura || 'N/A'} doc=${fileData.name}`);
+    await logDocumentEvent({
+      source: 'cron',
+      action: 'create_record',
+      process: 'checkDefaultFiles',
+      fileId: result.insertId,
+      docType: fileData.name,
+      pc: fileData.pc,
+      oc: fileData.oc,
+      factura: fileData.factura,
+      customerRut: fileData.customerRut || null,
+      userId: null,
+      status: 'ok'
+    });
     return result;
     
   } catch (error) {
     logger.error(`[checkDefaultFiles] Error insertando archivo por defecto ${fileData.name} pc=${fileData.pc}: ${error.message}`);
+    
+    // Registrar evento de error
+    await logDocumentEvent({
+      source: 'cron',
+      action: 'create_record',
+      process: 'checkDefaultFiles',
+      fileId: null,
+      docType: fileData.name,
+      pc: fileData.pc,
+      oc: fileData.oc,
+      factura: fileData.factura,
+      customerRut: fileData.customerRut || null,
+      userId: null,
+      status: 'error',
+      message: error.message
+    });
+    
     throw error;
   }
 }

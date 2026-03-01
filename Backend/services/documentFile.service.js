@@ -4,7 +4,13 @@ const { normalizeValue, normalizeDate, normalizeDecimal } = require('../mappers/
 const { normalizeRut } = require('../utils/rut.util');
 const { normalizeOcForCompare } = require('../utils/oc.util');
 
-async function getOrderWithCustomerForPdf(pc, oc, factura = null, idNroOvMasFactura = null) {
+/**
+ * REFACTORING: Updated to use LEFT JOIN between Vista_HDR and Vista_FACT
+ * - Invoice fields (factura, fecha_factura) now come from Vista_FACT
+ * - Removed id_nro_ov_mas_factura parameter (no longer needed)
+ * - Maintains same public interface (pc, oc, factura)
+ */
+async function getOrderWithCustomerForPdf(pc, oc, factura = null) {
   if (!pc) return null;
   const sqlPool = await getSqlPool();
   const request = sqlPool.request();
@@ -12,10 +18,6 @@ async function getOrderWithCustomerForPdf(pc, oc, factura = null, idNroOvMasFact
   const normalizedFactura = factura !== null && factura !== undefined && factura !== '' && factura !== 0 && factura !== '0'
     ? String(factura).trim()
     : null;
-  const normalizedId = idNroOvMasFactura ? String(idNroOvMasFactura).trim() : null;
-  if (normalizedId) {
-    request.input('idNroOvMasFactura', sql.VarChar, normalizedId);
-  }
   if (normalizedFactura) {
     request.input('factura', sql.VarChar, normalizedFactura);
   }
@@ -27,19 +29,18 @@ async function getOrderWithCustomerForPdf(pc, oc, factura = null, idNroOvMasFact
       h.Nro AS pc,
       h.OC AS oc,
       h.Rut AS customer_rut,
-      h.Factura AS factura,
-      h.Fecha_factura AS fecha_factura,
+      f.Factura AS factura,
+      f.Fecha_factura AS fecha_factura,
       h.Job AS currency,
       c.Nombre AS customer_name,
       c.Correo AS customer_email
     FROM jor_imp_HDR_90_softkey h
+    LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
+      ${normalizedFactura ? 'AND f.Factura = @factura' : ''}
     LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
     WHERE h.Nro = @pc
-      AND ISNULL(LTRIM(RTRIM(UPPER(h.EstadoOV))), '') <> 'CANCELADO'
-      AND ISNULL(LTRIM(RTRIM(UPPER(h.EstadoOV))), '') <> 'CANCELADO'
-      ${oc ? "AND REPLACE(REPLACE(REPLACE(REPLACE(UPPER(h.OC), ' ', ''), '(', ''), ')', ''), '-', '') = @oc" : ''}
-      ${normalizedFactura ? 'AND h.Factura = @factura' : ''}
-      ${normalizedId ? 'AND h.IDNroOvMasFactura = @idNroOvMasFactura' : ''}
+      AND ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
+      ${oc ? "AND REPLACE(REPLACE(REPLACE(REPLACE(LOWER(h.OC), ' ', ''), '(', ''), ')', ''), '-', '') = @oc" : ''}
     ORDER BY h.Nro
   `);
   const row = result.recordset?.[0];
@@ -56,7 +57,13 @@ async function getOrderWithCustomerForPdf(pc, oc, factura = null, idNroOvMasFact
   };
 }
 
-async function getOrderDetailForPdf(pc, oc, factura = null, idNroOvMasFactura = null) {
+/**
+ * REFACTORING: Updated to use LEFT JOIN between Vista_HDR and Vista_FACT
+ * - Invoice fields (fecha_eta_factura, fecha_etd_factura, medio_envio_factura, gasto_adicional_flete_factura) now come from Vista_FACT
+ * - Removed id_nro_ov_mas_factura parameter (no longer needed)
+ * - Maintains same public interface (pc, oc, factura)
+ */
+async function getOrderDetailForPdf(pc, oc, factura = null) {
   if (!pc) return null;
   const sqlPool = await getSqlPool();
   const request = sqlPool.request();
@@ -64,10 +71,6 @@ async function getOrderDetailForPdf(pc, oc, factura = null, idNroOvMasFactura = 
   const normalizedFactura = factura !== null && factura !== undefined && factura !== '' && factura !== 0 && factura !== '0'
     ? String(factura).trim()
     : null;
-  const normalizedId = idNroOvMasFactura ? String(idNroOvMasFactura).trim() : null;
-  if (normalizedId) {
-    request.input('idNroOvMasFactura', sql.VarChar, normalizedId);
-  }
   if (normalizedFactura) {
     request.input('factura', sql.VarChar, normalizedFactura);
   }
@@ -87,24 +90,23 @@ async function getOrderDetailForPdf(pc, oc, factura = null, idNroOvMasFactura = 
       h.Puerto_Embarque AS puerto_embarque,
       h.ETA_OV AS fecha_eta,
       h.ETD_OV AS fecha_etd,
-      h.ETA_ENC_FA AS fecha_eta_factura,
-      h.ETD_ENC_FA AS fecha_etd_factura,
+      f.ETA_ENC_FA AS fecha_eta_factura,
+      f.ETD_ENC_FA AS fecha_etd_factura,
       h.Certificados AS certificados,
       h.EstadoOV AS estado_ov,
-      h.MedioDeEnvioFact AS medio_envio_factura,
+      f.MedioDeEnvioFact AS medio_envio_factura,
       h.MedioDeEnvioOV AS medio_envio_ov,
       h.GtoAdicFlete AS gasto_adicional_flete,
-      h.GtoAdicFleteFactura AS gasto_adicional_flete_factura,
+      f.GtoAdicFleteFactura AS gasto_adicional_flete_factura,
       h.FechaOriginalCompromisoCliente AS fecha_incoterm,
       h.Condicion_venta AS condicion_venta,
       h.Nave AS nave
     FROM jor_imp_HDR_90_softkey h
+    LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
+      ${normalizedFactura ? 'AND f.Factura = @factura' : ''}
     WHERE h.Nro = @pc
-      AND ISNULL(LTRIM(RTRIM(UPPER(h.EstadoOV))), '') <> 'CANCELADO'
-      AND ISNULL(LTRIM(RTRIM(UPPER(h.EstadoOV))), '') <> 'CANCELADO'
-      ${oc ? "AND REPLACE(REPLACE(REPLACE(REPLACE(UPPER(h.OC), ' ', ''), '(', ''), ')', ''), '-', '') = @oc" : ''}
-      ${normalizedFactura ? 'AND h.Factura = @factura' : ''}
-      ${normalizedId ? 'AND h.IDNroOvMasFactura = @idNroOvMasFactura' : ''}
+      AND ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
+      ${oc ? "AND REPLACE(REPLACE(REPLACE(REPLACE(LOWER(h.OC), ' ', ''), '(', ''), ')', ''), '-', '') = @oc" : ''}
     ORDER BY h.Nro
   `;
   const result = await request.query(query);
@@ -136,15 +138,16 @@ async function getOrderDetailForPdf(pc, oc, factura = null, idNroOvMasFactura = 
   };
 }
 
-async function getOrderItemsByPcOcFactura(pc, oc, factura, idNroOvMasFactura = null) {
+/**
+ * REFACTORING: Updated to remove id_nro_ov_mas_factura parameter
+ * - Vista_ITEM query remains unchanged (no JOIN needed)
+ * - Maintains same filtering logic for items with/without invoices
+ */
+async function getOrderItemsByPcOcFactura(pc, oc, factura) {
   if (!pc) return [];
   const sqlPool = await getSqlPool();
   const request = sqlPool.request();
   request.input('pc', sql.VarChar, pc);
-  const normalizedId = idNroOvMasFactura ? String(idNroOvMasFactura).trim() : null;
-  if (normalizedId) {
-    request.input('idNroOvMasFactura', sql.VarChar, normalizedId);
-  }
   if (factura && factura !== 'null') {
     request.input('factura', sql.VarChar, factura);
   }
@@ -168,7 +171,6 @@ async function getOrderItemsByPcOcFactura(pc, oc, factura, idNroOvMasFactura = n
     FROM jor_imp_item_90_softkey i
     WHERE i.Nro = @pc
       ${withFactura ? 'AND i.Factura = @factura' : "AND (i.Factura IS NULL OR i.Factura = '' OR i.Factura = 0 OR i.Factura = '0')"}
-      ${normalizedId ? 'AND i.IDNroOvMasFactura = @idNroOvMasFactura' : ''}
     ORDER BY i.Linea
   `;
   const result = await request.query(query);
@@ -190,6 +192,11 @@ async function getOrderItemsByPcOcFactura(pc, oc, factura, idNroOvMasFactura = n
   }));
 }
 
+/**
+ * REFACTORING: Query Vista_HDR only (no invoice data needed)
+ * - Removed duplicate EstadoOV check
+ * - Simplified ORDER BY clause
+ */
 async function getOrderPcOcById(orderId) {
   if (!orderId) return null;
   const sqlPool = await getSqlPool();
@@ -201,8 +208,8 @@ async function getOrderPcOcById(orderId) {
       OC AS oc
     FROM jor_imp_HDR_90_softkey
     WHERE Nro = @pc
-      AND ISNULL(LTRIM(RTRIM(UPPER(EstadoOV))), '') <> 'CANCELADO'
-    ORDER BY ISNULL(Fecha, Fecha_factura) DESC
+      AND ISNULL(LTRIM(RTRIM(LOWER(EstadoOV))), '') <> 'cancelada'
+    ORDER BY Fecha DESC
   `);
   const row = result.recordset?.[0];
   return row ? { pc: row.pc?.trim(), oc: row.oc?.trim() } : null;
@@ -221,8 +228,8 @@ async function getOrderByPcOc(pc, oc) {
         OC AS oc
       FROM jor_imp_HDR_90_softkey
       WHERE Nro = @pc
-        AND ISNULL(LTRIM(RTRIM(UPPER(EstadoOV))), '') <> 'CANCELADO'
-        AND REPLACE(REPLACE(UPPER(OC), ' ', ''), '-', '') = @oc
+        AND ISNULL(LTRIM(RTRIM(LOWER(EstadoOV))), '') <> 'cancelada'
+        AND REPLACE(REPLACE(LOWER(OC), ' ', ''), '-', '') = @oc
     `);
 
   const row = result.recordset?.[0];
@@ -240,7 +247,7 @@ async function getOrderByPc(pc) {
         OC AS oc
       FROM jor_imp_HDR_90_softkey
       WHERE Nro = @pc
-        AND ISNULL(LTRIM(RTRIM(UPPER(EstadoOV))), '') <> 'CANCELADO'
+        AND ISNULL(LTRIM(RTRIM(LOWER(EstadoOV))), '') <> 'cancelada'
     `);
 
   const row = result.recordset?.[0];
@@ -284,8 +291,8 @@ async function getCustomerCheckForViewFile(fileId, userId) {
     SELECT TOP 1 Rut
     FROM jor_imp_HDR_90_softkey
     WHERE Nro = @pc
-      AND ISNULL(LTRIM(RTRIM(UPPER(EstadoOV))), '') <> 'CANCELADO'
-      AND REPLACE(REPLACE(UPPER(OC), ' ', ''), '-', '') = @oc
+      AND ISNULL(LTRIM(RTRIM(LOWER(EstadoOV))), '') <> 'cancelada'
+      AND REPLACE(REPLACE(LOWER(OC), ' ', ''), '-', '') = @oc
   `);
   const row = sqlResult.recordset?.[0];
   if (!row?.Rut) return null;
@@ -319,8 +326,8 @@ async function getFileCustomerCheck(fileId, customerRut) {
     SELECT TOP 1 Rut
     FROM jor_imp_HDR_90_softkey
     WHERE Nro = @pc
-      AND ISNULL(LTRIM(RTRIM(UPPER(EstadoOV))), '') <> 'CANCELADO'
-      AND REPLACE(REPLACE(UPPER(OC), ' ', ''), '-', '') = @oc
+      AND ISNULL(LTRIM(RTRIM(LOWER(EstadoOV))), '') <> 'cancelada'
+      AND REPLACE(REPLACE(LOWER(OC), ' ', ''), '-', '') = @oc
   `);
   const row = sqlResult.recordset?.[0];
   if (!row?.Rut) return null;
@@ -353,7 +360,7 @@ async function getCustomerCheckForDownload(fileId, userId) {
     SELECT TOP 1 Rut
     FROM jor_imp_HDR_90_softkey
     WHERE Nro = @pc
-      AND REPLACE(REPLACE(UPPER(OC), ' ', ''), '-', '') = @oc
+      AND REPLACE(REPLACE(LOWER(OC), ' ', ''), '-', '') = @oc
   `);
   const row = sqlResult.recordset?.[0];
   if (!row?.Rut) return null;
@@ -377,73 +384,45 @@ async function getCustomerByRut(customerRut) {
   return null;
 }
 
-async function getOrderWithCustomerForDefaultFiles(orderId, idNroOvMasFactura = null) {
+/**
+ * REFACTORING: Updated to use LEFT JOIN between Vista_HDR and Vista_FACT
+ * - Invoice field (factura) now comes from Vista_FACT
+ * - Removed id_nro_ov_mas_factura parameter and field (no longer needed)
+ * - Maintains same public interface (orderId)
+ */
+async function getOrderWithCustomerForDefaultFiles(orderId) {
   if (!orderId) return null;
   const sqlPool = await getSqlPool();
   const request = sqlPool.request();
   request.input('pc', sql.VarChar, String(orderId).trim());
-  const normalizedId = idNroOvMasFactura ? String(idNroOvMasFactura).trim() : null;
-  if (normalizedId) {
-    request.input('idNroOvMasFactura', sql.VarChar, normalizedId);
-  }
   const result = await request.query(`
     SELECT TOP 1
       h.Nro AS pc,
       h.OC AS oc,
-      h.Factura AS factura,
-      h.IDNroOvMasFactura AS id_nro_ov_mas_factura,
+      h.Rut AS customer_rut,
+      f.Factura AS factura,
       c.Nombre AS customer_name
     FROM jor_imp_HDR_90_softkey h
+    LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
     LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
     WHERE h.Nro = @pc
-      AND ISNULL(LTRIM(RTRIM(UPPER(h.EstadoOV))), '') <> 'CANCELADO'
-      ${normalizedId ? 'AND h.IDNroOvMasFactura = @idNroOvMasFactura' : ''}
-    ORDER BY ISNULL(h.Fecha, h.Fecha_factura) DESC
+      AND ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
+    ORDER BY h.Fecha DESC
   `);
   const row = result.recordset?.[0];
   return row ? {
     pc: row.pc?.trim(),
     oc: row.oc?.trim(),
+    customer_rut: row.customer_rut?.trim(),
     customer_name: row.customer_name,
-    factura: row.factura,
-    id_nro_ov_mas_factura: row.id_nro_ov_mas_factura
+    factura: row.factura
   } : null;
-}
-
-async function resolveIdNroOvMasFactura(pc, oc, factura = null) {
-  if (!pc) return null;
-  const sqlPool = await getSqlPool();
-  const request = sqlPool.request();
-  request.input('pc', sql.VarChar, pc);
-  if (oc) {
-    request.input('oc', sql.VarChar, normalizeOcForCompare(oc));
-  }
-  const normalizedFactura = factura !== null && factura !== undefined && factura !== '' && factura !== 0 && factura !== '0'
-    ? String(factura).trim()
-    : null;
-  if (normalizedFactura) {
-    request.input('factura', sql.VarChar, normalizedFactura);
-  }
-  const result = await request.query(`
-    SELECT TOP 1
-      h.IDNroOvMasFactura AS id_nro_ov_mas_factura
-    FROM jor_imp_HDR_90_softkey h
-    WHERE h.Nro = @pc
-      AND ISNULL(LTRIM(RTRIM(UPPER(h.EstadoOV))), '') <> 'CANCELADO'
-      ${oc ? "AND REPLACE(REPLACE(REPLACE(REPLACE(UPPER(h.OC), ' ', ''), '(', ''), ')', ''), '-', '') = @oc" : ''}
-      ${normalizedFactura ? 'AND h.Factura = @factura' : "AND (h.Factura IS NULL OR h.Factura = '' OR h.Factura = 0 OR h.Factura = '0')"}
-    ORDER BY ISNULL(h.Fecha, h.Fecha_factura) DESC
-  `);
-  const row = result.recordset?.[0];
-  const resolved = row?.id_nro_ov_mas_factura ? String(row.id_nro_ov_mas_factura).trim() : null;
-  return resolved || null;
 }
 
 module.exports = {
   getOrderWithCustomerForPdf,
   getOrderDetailForPdf,
   getOrderItemsByPcOcFactura,
-  // getOrderItemsByOrderId eliminado: PDF usa SQL por PC/OC
   getOrderPcOcById,
   getOrderByPcOc,
   getOrderByPc,
@@ -453,6 +432,5 @@ module.exports = {
   getFileCustomerCheck,
   getCustomerCheckForDownload,
   getCustomerByRut,
-  getOrderWithCustomerForDefaultFiles,
-  resolveIdNroOvMasFactura
+  getOrderWithCustomerForDefaultFiles
 };

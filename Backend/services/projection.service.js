@@ -118,10 +118,11 @@ const createProjectionService = ({
     }
 
     const baseWhere = where.filter(Boolean).join(' AND ');
+    // REFACTORING NOTE: Updated to use Vista_HDR with LEFT JOIN to Vista_ITEM
+    // This aggregates all items per order (across all invoices)
     const baseFrom = `
       FROM jor_imp_HDR_90_softkey h
-      JOIN jor_imp_item_90_softkey i
-        ON i.Nro = h.Nro AND i.Factura = h.Factura
+      LEFT JOIN jor_imp_item_90_softkey i ON i.Nro = h.Nro
       LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
       WHERE ${baseWhere}
     `;
@@ -213,11 +214,12 @@ const createProjectionService = ({
     const buildWhere = (request, rangeStart, rangeEnd, currencyFilter) => {
       const where = [
         sellerFilterClause,
-        'h.Factura IS NOT NULL',
-        "LTRIM(RTRIM(CONVERT(varchar(50), h.Factura))) <> ''",
-        'h.Factura <> 0',
-        'h.Fecha_factura IS NOT NULL',
-        'CAST(h.Fecha_factura AS date) BETWEEN @start AND @end'
+        // REFACTORING NOTE: Filter for valid invoices in Vista_FACT
+        'f.Factura IS NOT NULL',
+        "LTRIM(RTRIM(CONVERT(varchar(50), f.Factura))) <> ''",
+        'f.Factura <> 0',
+        'f.Fecha_factura IS NOT NULL',
+        'CAST(f.Fecha_factura AS date) BETWEEN @start AND @end'
       ];
       request.input('start', sqlModule.Date, rangeStart);
       request.input('end', sqlModule.Date, rangeEnd);
@@ -237,53 +239,66 @@ const createProjectionService = ({
       return where.join(' AND ');
     };
 
-    const baseFrom = `
+    // REFACTORING NOTE: Separate query builders for order-level vs invoice-level
+    // Order-level: Vista_HDR with LEFT JOIN to Vista_ITEM (aggregates all items per order)
+    // Invoice-level: Vista_FACT with INNER JOIN to Vista_ITEM (aggregates items per invoice)
+    
+    const buildOrderLevelFrom = () => `
       FROM jor_imp_HDR_90_softkey h
-      JOIN jor_imp_item_90_softkey i
-        ON i.Nro = h.Nro AND i.Factura = h.Factura
+      LEFT JOIN jor_imp_item_90_softkey i ON i.Nro = h.Nro
     `;
+
+    const buildInvoiceLevelFrom = () => `
+      FROM jor_imp_FACT_90_softkey f
+      INNER JOIN jor_imp_HDR_90_softkey h ON h.Nro = f.Nro
+      INNER JOIN jor_imp_item_90_softkey i ON i.Nro = f.Nro AND i.Factura = f.Factura
+    `;
+
+    // For this service, we use invoice-level queries (filtering by Fecha_factura)
+    const baseFrom = buildInvoiceLevelFrom();
 
     const aggregatesQuery = (whereClause) => `
       SELECT
         COALESCE(SUM(ISNULL(i.KilosFacturados, 0)), 0) AS total_kg,
         COALESCE(SUM(${amountExpr}), 0) AS total_amt,
-        COUNT(DISTINCT CONCAT(h.Nro, '-', h.Factura)) AS total_orders,
+        COUNT(DISTINCT CONCAT(f.Nro, '-', f.Factura)) AS total_orders,
         SUM(CASE WHEN i.KilosFacturados IS NULL OR i.Precio_Unit IS NULL THEN 1 ELSE 0 END) AS missing_values
       ${baseFrom}
       WHERE ${whereClause}
     `;
 
     const seriesQuery = (whereClause) => {
+      // REFACTORING NOTE: Using f.Fecha_factura from Vista_FACT for invoice-level aggregation
       if (period === 'annual') {
         return `
           SELECT
-            YEAR(h.Fecha_factura) AS period,
+            YEAR(f.Fecha_factura) AS period,
             COALESCE(SUM(${metricKey === 'kg' ? 'ISNULL(i.KilosFacturados, 0)' : amountExpr}), 0) AS total_value
           ${baseFrom}
           WHERE ${whereClause}
-          GROUP BY YEAR(h.Fecha_factura)
-          ORDER BY YEAR(h.Fecha_factura)
+          GROUP BY YEAR(f.Fecha_factura)
+          ORDER BY YEAR(f.Fecha_factura)
         `;
       }
       if (period === 'quarterly') {
         return `
           SELECT
-            CONCAT(YEAR(h.Fecha_factura), '-Q', DATEPART(QUARTER, h.Fecha_factura)) AS period,
+            CONCAT(YEAR(f.Fecha_factura), '-Q', DATEPART(QUARTER, f.Fecha_factura)) AS period,
             COALESCE(SUM(${metricKey === 'kg' ? 'ISNULL(i.KilosFacturados, 0)' : amountExpr}), 0) AS total_value
           ${baseFrom}
           WHERE ${whereClause}
-          GROUP BY YEAR(h.Fecha_factura), DATEPART(QUARTER, h.Fecha_factura)
-          ORDER BY YEAR(h.Fecha_factura), DATEPART(QUARTER, h.Fecha_factura)
+          GROUP BY YEAR(f.Fecha_factura), DATEPART(QUARTER, f.Fecha_factura)
+          ORDER BY YEAR(f.Fecha_factura), DATEPART(QUARTER, f.Fecha_factura)
         `;
       }
       return `
         SELECT
-          FORMAT(CONVERT(date, h.Fecha_factura), 'yyyy-MM') AS period,
+          FORMAT(CONVERT(date, f.Fecha_factura), 'yyyy-MM') AS period,
           COALESCE(SUM(${metricKey === 'kg' ? 'ISNULL(i.KilosFacturados, 0)' : amountExpr}), 0) AS total_value
         ${baseFrom}
         WHERE ${whereClause}
-        GROUP BY FORMAT(CONVERT(date, h.Fecha_factura), 'yyyy-MM')
-        ORDER BY FORMAT(CONVERT(date, h.Fecha_factura), 'yyyy-MM')
+        GROUP BY FORMAT(CONVERT(date, f.Fecha_factura), 'yyyy-MM')
+        ORDER BY FORMAT(CONVERT(date, f.Fecha_factura), 'yyyy-MM')
       `;
     };
 
@@ -309,6 +324,7 @@ const createProjectionService = ({
 
     const currenciesRequest = buildRequest(sellerCodes);
     const currenciesWhere = buildWhere(currenciesRequest, startOfLastYear, cutoff, null);
+    // REFACTORING NOTE: Query currencies from Vista_FACT (invoice-level)
     const currenciesResult = await currenciesRequest.query(`
       SELECT DISTINCT h.Job AS currency
       ${baseFrom}
@@ -560,8 +576,9 @@ const createProjectionService = ({
 
     const lastOrderRequest = buildRequest(sellerCodes);
     const lastOrderWhere = buildWhere(lastOrderRequest, startOfLastYear, cutoff, currencyFilter);
+    // REFACTORING NOTE: Query last order date from Vista_FACT (invoice-level)
     const lastOrderResult = await lastOrderRequest.query(`
-      SELECT MAX(h.Fecha_factura) AS last_order_date
+      SELECT MAX(f.Fecha_factura) AS last_order_date
       ${baseFrom}
       WHERE ${lastOrderWhere}
     `);

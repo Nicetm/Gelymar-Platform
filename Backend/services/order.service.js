@@ -1,6 +1,7 @@
 const { poolPromise } = require('../config/db');
 const { sql, getSqlPool } = require('../config/sqlserver');
 const { mapHdrRowToOrder } = require('../mappers/sqlsoftkey/hdr.mapper');
+const { mapFactRowToInvoice } = require('../mappers/sqlsoftkey/fact.mapper');
 const { mapItemRowToOrderItem } = require('../mappers/sqlsoftkey/item.mapper');
 const Order = require('../models/order.model');
 const { normalizeRut } = require('../utils/rut.util');
@@ -52,6 +53,7 @@ const createOrderService = ({
   getSqlPoolFn = getSqlPool,
   sqlModule = sql,
   hdrMapper = mapHdrRowToOrder,
+  factMapper = mapFactRowToInvoice,
   itemMapper = mapItemRowToOrderItem,
   logger = console
 } = {}) => {
@@ -84,33 +86,36 @@ const createOrderService = ({
     const pool = await mysqlPoolPromise;
     const sqlPool = await getSqlPoolFn();
 
+  // REFACTORING NOTE: Updated to LEFT JOIN Vista_HDR with Vista_FACT
+  // OLD: Vista_HDR contained duplicate rows per invoice with invoice fields
+  // NEW: Vista_HDR has one row per order, Vista_FACT has invoice data
   let baseQuery = `
     SELECT 
       h.Nro,
       h.OC,
       h.Rut,
       h.Fecha,
-      h.Factura,
-      h.Fecha_factura,
       h.ETD_OV,
       h.ETA_OV,
-      h.ETD_ENC_FA,
-      h.ETA_ENC_FA,
       h.Job,
-      h.MedioDeEnvioFact,
       h.MedioDeEnvioOV,
       h.Clausula,
       h.Puerto_Destino,
       h.Certificados,
       h.EstadoOV,
       h.Vendedor,
-      h.IDNroOvMasFactura,
+      f.Factura,
+      f.Fecha_factura,
+      f.ETD_ENC_FA,
+      f.ETA_ENC_FA,
+      f.MedioDeEnvioFact,
       c.Nombre AS customer_name
     FROM jor_imp_HDR_90_softkey h
+    LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
     LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
   `;
 
-  const conditions = ['ISNULL(LTRIM(RTRIM(UPPER(h.EstadoOV))), \'\') <> \'CANCELADO\''];
+  const conditions = ['ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), \'\') <> \'CANCELADA\''];
   const request = sqlPool.request();
 
   if (filters.customerRut) {
@@ -144,36 +149,41 @@ const createOrderService = ({
     return [];
   }
 
-  const mappedRows = rows.map((row) => ({
-    raw: row,
-    mapped: hdrMapper(row)
-  }));
+  // Map order fields with hdr.mapper and invoice fields with fact.mapper
+  const mappedRows = rows.map((row) => {
+    const orderData = hdrMapper(row);
+    const invoiceData = factMapper(row);
+    return {
+      raw: row,
+      mapped: { ...orderData, ...invoiceData }
+    };
+  });
 
   const orderPairs = mappedRows
-    .map((row) => ({ pc: row.mapped.pc, oc: row.mapped.oc, id: row.mapped.id_nro_ov_mas_factura }))
+    .map((row) => ({ pc: row.mapped.pc, oc: row.mapped.oc }))
     .filter((pair) => pair.pc && pair.oc);
 
   const documentCountMap = new Map();
   if (orderPairs.length) {
-    const pairConditions = orderPairs.map(() => '(pc = ? AND oc = ? AND id_nro_ov_mas_factura = ?)').join(' OR ');
+    const pairConditions = orderPairs.map(() => '(pc = ? AND oc = ?)').join(' OR ');
     const pairParams = [];
     orderPairs.forEach((pair) => {
-      pairParams.push(pair.pc, pair.oc, pair.id || null);
+      pairParams.push(pair.pc, pair.oc);
     });
     const [docRows] = await pool.query(
-      `SELECT pc, oc, id_nro_ov_mas_factura, COUNT(*) AS document_count
+      `SELECT pc, oc, COUNT(*) AS document_count
        FROM order_files
        WHERE ${pairConditions}
-       GROUP BY pc, oc, id_nro_ov_mas_factura`,
+       GROUP BY pc, oc`,
       pairParams
     );
     docRows.forEach((row) => {
-      documentCountMap.set(`${row.pc}|${row.oc}|${row.id_nro_ov_mas_factura || ''}`, row.document_count);
+      documentCountMap.set(`${row.pc}|${row.oc}`, row.document_count);
     });
   }
 
   return mappedRows.map(({ raw, mapped }) => {
-    const docCountKey = `${mapped.pc}|${mapped.oc}|${mapped.id_nro_ov_mas_factura || ''}`;
+    const docCountKey = `${mapped.pc}|${mapped.oc}`;
     const order = new Order({
       id: `${mapped.pc}|${mapped.oc}`,
       rut: mapped.rut,
@@ -199,7 +209,6 @@ const createOrderService = ({
       puerto_destino: mapped.puerto_destino,
       certificados: mapped.certificados,
       estado_ov: mapped.estado_ov,
-      id_nro_ov_mas_factura: mapped.id_nro_ov_mas_factura,
       document_count: documentCountMap.get(docCountKey) || 0
     });
 
@@ -220,30 +229,34 @@ const createOrderService = ({
     headerRequest.input('rut', sqlModule.VarChar, normalizedRut || customerRut);
     headerRequest.input('rutWithC', sqlModule.VarChar, rutWithC);
 
+    // REFACTORING NOTE: Updated to LEFT JOIN Vista_HDR with Vista_FACT
+    // OLD: Vista_HDR contained duplicate rows per invoice
+    // NEW: Vista_HDR has one row per order, Vista_FACT has invoice data
     const headerResult = await headerRequest.query(`
       SELECT
         h.Nro,
         h.OC,
         h.Rut,
         h.Fecha,
-        h.Factura,
-        h.Fecha_factura,
         h.ETD_OV,
         h.ETA_OV,
-        h.ETD_ENC_FA,
-        h.ETA_ENC_FA,
-        h.MedioDeEnvioFact,
         h.MedioDeEnvioOV,
         h.Clausula,
         h.Puerto_Destino,
         h.Certificados,
         h.EstadoOV,
         h.Vendedor,
+        f.Factura,
+        f.Fecha_factura,
+        f.ETD_ENC_FA,
+        f.ETA_ENC_FA,
+        f.MedioDeEnvioFact,
         c.Nombre AS customer_name
       FROM jor_imp_HDR_90_softkey h
+      LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
       LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
       WHERE (h.Rut = @rut OR h.Rut = @rutWithC)
-        AND ISNULL(LTRIM(RTRIM(UPPER(h.EstadoOV))), '') <> 'CANCELADO'
+        AND ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
       ORDER BY CAST(h.Fecha AS date) DESC
     `);
 
@@ -252,7 +265,13 @@ const createOrderService = ({
       return [];
     }
 
-    const mappedRows = rows.map((row) => ({ raw: row, mapped: hdrMapper(row) }));
+    // Map order fields with hdr.mapper and invoice fields with fact.mapper
+    const mappedRows = rows.map((row) => {
+      const orderData = hdrMapper(row);
+      const invoiceData = factMapper(row);
+      return { raw: row, mapped: { ...orderData, ...invoiceData } };
+    });
+    
     const pairs = mappedRows
       .map((r) => ({ pc: r.mapped.pc, oc: r.mapped.oc, factura: r.mapped.factura }))
       .filter((r) => r.pc && r.oc);
@@ -277,6 +296,8 @@ const createOrderService = ({
       });
     }
 
+    // REFACTORING NOTE: Item count aggregation now groups by Nro and Factura
+    // This maintains correct item counts per invoice
     const itemsCountMap = new Map();
     if (pairs.length) {
       const itemsRequest = sqlPool.request();
@@ -348,7 +369,7 @@ const createOrderService = ({
           h.Factura AS factura,
           h.Fecha_factura AS fec_factura
         FROM jor_imp_HDR_90_softkey h
-        WHERE h.Rut = @rut AND UPPER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = UPPER(@oc)
+        WHERE h.Rut = @rut AND LOWER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = LOWER(@oc)
         ORDER BY CAST(h.Fecha AS date) DESC
       `);
 
@@ -375,38 +396,45 @@ const createOrderService = ({
       request.input('pc', sqlModule.VarChar, key.pc);
       request.input('oc', sqlModule.VarChar, normalizeOcForCompare(key.oc));
 
+      // REFACTORING NOTE: Updated to LEFT JOIN Vista_HDR with Vista_FACT
+      // OLD: Vista_HDR contained invoice fields
+      // NEW: Vista_FACT contains invoice fields, LEFT JOIN to include orders without invoices
       const result = await request.query(`
         SELECT TOP 1
           h.Nro,
           h.OC,
           h.Rut,
           h.Fecha,
-          h.Factura,
-          h.Fecha_factura,
           h.ETD_OV,
           h.ETA_OV,
-          h.ETD_ENC_FA,
-          h.ETA_ENC_FA,
           h.Job,
-          h.MedioDeEnvioFact,
           h.MedioDeEnvioOV,
           h.Clausula,
           h.Puerto_Destino,
           h.Certificados,
           h.EstadoOV,
           h.Vendedor,
-          h.IDNroOvMasFactura,
+          f.Factura,
+          f.Fecha_factura,
+          f.ETD_ENC_FA,
+          f.ETA_ENC_FA,
+          f.MedioDeEnvioFact,
           c.Nombre AS customer_name
         FROM jor_imp_HDR_90_softkey h
+        LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
         LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
-        WHERE h.Nro = @pc AND UPPER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = UPPER(@oc)
+        WHERE h.Nro = @pc AND LOWER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = LOWER(@oc)
         ORDER BY CAST(h.Fecha AS date) DESC
       `);
 
       const row = result.recordset?.[0];
       if (!row) return null;
 
-      const mapped = hdrMapper(row);
+      // Map order fields with hdr.mapper and invoice fields with fact.mapper
+      const orderData = hdrMapper(row);
+      const invoiceData = factMapper(row);
+      const mapped = { ...orderData, ...invoiceData };
+      
       return new Order({
         id: `${mapped.pc}|${mapped.oc}`,
         rut: mapped.rut,
@@ -431,8 +459,7 @@ const createOrderService = ({
         incoterm: mapped.incoterm,
         puerto_destino: mapped.puerto_destino,
         certificados: mapped.certificados,
-        estado_ov: mapped.estado_ov,
-        id_nro_ov_mas_factura: mapped.id_nro_ov_mas_factura
+        estado_ov: mapped.estado_ov
       });
     } catch (error) {
       logger.error('Error en getOrderByIdSimple:', error.message);
@@ -459,39 +486,46 @@ const createOrderService = ({
         request.input('pc', sqlModule.VarChar, normalizedPc);
         request.input('oc', sqlModule.VarChar, normalizeOcForCompare(normalizedOc));
 
+        // REFACTORING NOTE: Updated to LEFT JOIN Vista_HDR with Vista_FACT
+        // OLD: Vista_HDR contained invoice fields
+        // NEW: Vista_FACT contains invoice fields, LEFT JOIN to include orders without invoices
         const result = await request.query(`
           SELECT TOP 1
             h.Nro,
             h.OC,
           h.Rut,
           h.Fecha,
-          h.Factura,
-          h.Fecha_factura,
           h.ETD_OV,
           h.ETA_OV,
-          h.ETD_ENC_FA,
-          h.ETA_ENC_FA,
           h.Job,
-          h.MedioDeEnvioFact,
           h.MedioDeEnvioOV,
           h.Clausula,
           h.Puerto_Destino,
           h.Certificados,
           h.EstadoOV,
           h.Vendedor,
-          h.IDNroOvMasFactura,
+          f.Factura,
+          f.Fecha_factura,
+          f.ETD_ENC_FA,
+          f.ETA_ENC_FA,
+          f.MedioDeEnvioFact,
           c.Nombre AS customer_name
           FROM jor_imp_HDR_90_softkey h
+          LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
           LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
           WHERE h.Nro = @pc
-            AND UPPER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = UPPER(@oc)
+            AND LOWER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = LOWER(@oc)
           ORDER BY CAST(h.Fecha AS date) DESC
         `);
 
       const row = result.recordset?.[0];
       if (!row) return null;
 
-      const mapped = hdrMapper(row);
+      // Map order fields with hdr.mapper and invoice fields with fact.mapper
+      const orderData = hdrMapper(row);
+      const invoiceData = factMapper(row);
+      const mapped = { ...orderData, ...invoiceData };
+      
       return new Order({
         id: `${mapped.pc}|${mapped.oc}`,
         rut: mapped.rut,
@@ -516,8 +550,7 @@ const createOrderService = ({
         incoterm: mapped.incoterm,
         puerto_destino: mapped.puerto_destino,
         certificados: mapped.certificados,
-        estado_ov: mapped.estado_ov,
-        id_nro_ov_mas_factura: mapped.id_nro_ov_mas_factura
+        estado_ov: mapped.estado_ov
       });
     } catch (error) {
       logger.error('Error en getOrderByPcOc:', error.message);
@@ -538,28 +571,32 @@ const createOrderService = ({
       const request = sqlPool.request();
       request.input('pc', sqlModule.VarChar, pc);
 
+      // REFACTORING NOTE: Updated to LEFT JOIN Vista_HDR with Vista_FACT
+      // OLD: Vista_HDR contained invoice fields
+      // NEW: Vista_FACT contains invoice fields, LEFT JOIN to include orders without invoices
       const result = await request.query(`
         SELECT TOP 1
           h.Nro,
           h.OC,
           h.Rut,
           h.Fecha,
-          h.Factura,
-          h.Fecha_factura,
           h.ETD_OV,
           h.ETA_OV,
-          h.ETD_ENC_FA,
-          h.ETA_ENC_FA,
           h.Job,
-          h.MedioDeEnvioFact,
           h.MedioDeEnvioOV,
           h.Clausula,
           h.Puerto_Destino,
           h.Certificados,
           h.EstadoOV,
           h.Vendedor,
+          f.Factura,
+          f.Fecha_factura,
+          f.ETD_ENC_FA,
+          f.ETA_ENC_FA,
+          f.MedioDeEnvioFact,
           c.Nombre AS customer_name
         FROM jor_imp_HDR_90_softkey h
+        LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
         LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
         WHERE h.Nro = @pc
         ORDER BY CAST(h.Fecha AS date) DESC
@@ -568,7 +605,11 @@ const createOrderService = ({
       const row = result.recordset?.[0];
       if (!row) return null;
 
-      const mapped = hdrMapper(row);
+      // Map order fields with hdr.mapper and invoice fields with fact.mapper
+      const orderData = hdrMapper(row);
+      const invoiceData = factMapper(row);
+      const mapped = { ...orderData, ...invoiceData };
+      
       return new Order({
         id: `${mapped.pc}|${mapped.oc}`,
         rut: mapped.rut,
@@ -593,8 +634,7 @@ const createOrderService = ({
         incoterm: mapped.incoterm,
         puerto_destino: mapped.puerto_destino,
         certificados: mapped.certificados,
-        estado_ov: mapped.estado_ov,
-        id_nro_ov_mas_factura: mapped.id_nro_ov_mas_factura
+        estado_ov: mapped.estado_ov
       });
     } catch (error) {
       logger.error('Error en getOrderByPc:', error.message);
@@ -602,12 +642,12 @@ const createOrderService = ({
     }
   };
 
-/**
- * Obtiene una orden por ID con validación de permisos
- * @param {number} orderId - ID de la orden
- * @param {object} user - Usuario autenticado
- * @returns {Promise<object|null>} Orden encontrada o null
- */
+  /**
+   * Obtiene una orden por ID con validación de permisos
+   * @param {number} orderId - ID de la orden
+   * @param {object} user - Usuario autenticado
+   * @returns {Promise<object|null>} Orden encontrada o null
+   */
   const getOrderById = async (orderId, user) => {
     try {
       const key = await resolveOrderKey(orderId);
@@ -642,7 +682,7 @@ const createOrderService = ({
           c.Nombre AS customer_name
         FROM jor_imp_HDR_90_softkey h
         LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
-        WHERE h.Nro = @pc AND UPPER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = UPPER(@oc)
+        WHERE h.Nro = @pc AND LOWER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = LOWER(@oc)
         ORDER BY CAST(h.Fecha AS date) DESC
       `);
 
@@ -734,7 +774,7 @@ const createOrderService = ({
           h.EstadoOV,
           h.Vendedor
         FROM jor_imp_HDR_90_softkey h
-        WHERE h.Nro = @pc AND UPPER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = UPPER(@oc)
+        WHERE h.Nro = @pc AND LOWER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = LOWER(@oc)
         ORDER BY CAST(h.Fecha AS date) DESC
       `);
 
@@ -824,7 +864,7 @@ const createOrderService = ({
           h.ETD_OV AS fecha_etd
         FROM jor_imp_HDR_90_softkey h
         LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
-        WHERE ISNULL(LTRIM(RTRIM(UPPER(h.EstadoOV))), '') <> 'CANCELADO'
+        WHERE ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
           AND CASE
             WHEN ISDATE(ISNULL(h.Fecha, h.Fecha_factura)) = 1
             THEN CAST(ISNULL(h.Fecha, h.Fecha_factura) AS date)
@@ -1120,38 +1160,29 @@ const createOrderService = ({
     };
   };
 
-  const getOrderItems = async (orderPc, orderOc, factura, user, idNroOvMasFactura = null) => {
+  const getOrderItems = async (orderPc, orderOc, factura, user) => {
     try {
       const roleId = Number(user.roleId || user.role_id);
       const sqlPool = await getSqlPoolFn();
-      const normalizedId = idNroOvMasFactura ? String(idNroOvMasFactura).trim() : null;
 
       const headerRequest = sqlPool.request();
       headerRequest.input('pc', sqlModule.VarChar, orderPc);
       headerRequest.input('oc', sqlModule.VarChar, normalizeOcForCompare(orderOc));
-      if (factura && factura !== 'null') {
-        headerRequest.input('factura', sqlModule.VarChar, factura);
-      }
-      if (normalizedId) {
-        headerRequest.input('idNroOvMasFactura', sqlModule.VarChar, normalizedId);
-      }
 
+      // REFACTORING NOTE: Updated to query Vista_HDR for order validation
+      // Invoice-specific fields (GtoAdicFleteFactura) now come from Vista_FACT if needed
       const headerResult = await headerRequest.query(`
         SELECT TOP 1
           h.Nro,
           h.OC,
           h.Job,
           h.Rut,
-          h.Factura,
           h.Vendedor,
           h.GtoAdicFlete,
-          h.GtoAdicFleteFactura,
           c.Nombre AS customer_name
         FROM jor_imp_HDR_90_softkey h
         LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
-        WHERE h.Nro = @pc AND UPPER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = UPPER(@oc)
-        ${factura && factura !== 'null' ? 'AND h.Factura = @factura' : ''}
-        ${normalizedId ? 'AND h.IDNroOvMasFactura = @idNroOvMasFactura' : ''}
+        WHERE h.Nro = @pc AND LOWER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = LOWER(@oc)
         ORDER BY CAST(h.Fecha AS date) DESC
       `);
 
@@ -1173,23 +1204,36 @@ const createOrderService = ({
         }
       }
 
+      // Get GtoAdicFleteFactura from Vista_FACT if factura is provided
+      let gastoAdicionalFleteFactura = null;
+      if (factura && factura !== 'null') {
+        const factRequest = sqlPool.request();
+        factRequest.input('pc', sqlModule.VarChar, orderPc);
+        factRequest.input('factura', sqlModule.VarChar, factura);
+        const factResult = await factRequest.query(`
+          SELECT TOP 1 GtoAdicFleteFactura
+          FROM jor_imp_FACT_90_softkey
+          WHERE Nro = @pc AND Factura = @factura
+        `);
+        gastoAdicionalFleteFactura = factResult.recordset?.[0]?.GtoAdicFleteFactura;
+      }
+
       const itemsRequest = sqlPool.request();
       itemsRequest.input('pc', sqlModule.VarChar, orderPc);
       if (factura && factura !== 'null') {
         itemsRequest.input('factura', sqlModule.VarChar, factura);
       }
-      if (normalizedId) {
-        itemsRequest.input('idNroOvMasFactura', sqlModule.VarChar, normalizedId);
-      }
 
+      // REFACTORING NOTE: Updated item filtering logic
+      // If factura provided: filter by exact Factura match
+      // If factura is null: filter items without invoice (Factura IS NULL OR '' OR 0)
       const itemsResult = await itemsRequest.query(`
         SELECT *
         FROM jor_imp_item_90_softkey
         WHERE Nro = @pc
         ${factura && factura !== 'null'
           ? 'AND Factura = @factura'
-          : "AND (Factura IS NULL OR Factura = '' OR Factura = 0 OR Factura = '0')"}
-        ${normalizedId ? 'AND IDNroOvMasFactura = @idNroOvMasFactura' : ''}
+          : "AND (Factura IS NULL OR LTRIM(RTRIM(Factura)) = '' OR Factura = 0)"}
         ORDER BY Linea ASC
       `);
 
@@ -1197,7 +1241,6 @@ const createOrderService = ({
       const currency = mappedHeader.currency || '';
       const customerName = headerRow.customer_name?.trim() || '';
       const gastoAdicionalFlete = headerRow.GtoAdicFlete;
-      const gastoAdicionalFleteFactura = headerRow.GtoAdicFleteFactura;
       
       return items.map((item) => ({
         ...item,
@@ -1241,7 +1284,7 @@ const createOrderService = ({
           c.Nombre AS customer_name
         FROM jor_imp_HDR_90_softkey h
         LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
-        WHERE h.Nro = @pc AND UPPER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = UPPER(@oc)
+        WHERE h.Nro = @pc AND LOWER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = LOWER(@oc)
         ORDER BY CAST(h.Fecha AS date) DESC
       `);
 
