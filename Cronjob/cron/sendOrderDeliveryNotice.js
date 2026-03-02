@@ -62,8 +62,8 @@ if (arg === 'execute-now') {
   emitReady();
 }
 
-// Cron diario - se ejecuta a las 15:45
-cron.schedule('45 15 * * *', async () => {
+// Cron diario - se ejecuta a las 9:30 AM
+cron.schedule('30 9 * * *', async () => {
   try {
     await processOrderDeliveryNotices();
   } catch (error) {

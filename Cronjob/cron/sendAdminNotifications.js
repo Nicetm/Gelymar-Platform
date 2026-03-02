@@ -52,7 +52,7 @@ if (arg === 'execute-now') {
   emitReady();
 }
 
-// Cron diario a las 09:00 AM
-cron.schedule('0 9 * * *', async () => {
+// Cron diario a las 4:00 PM (16:00)
+cron.schedule('0 16 * * *', async () => {
   await sendAdminNotificationSummary();
 });

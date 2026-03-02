@@ -147,11 +147,11 @@ if (arg === 'execute-now') {
   })();
 } else {
   // Solo levantar el proceso, NO ejecutar nada automáticamente
-  logger.info('[generatePDFs] Cron job iniciado - esperando horario programado (16:00)...');
+  logger.info('[generatePDFs] Cron job iniciado - esperando horario programado (7:30 AM)...');
   emitReady();
 
-  // Programar ejecución diaria a las 16:00
-  cron.schedule('0 16 * * *', async () => {
+  // Programar ejecución diaria a las 7:30 AM
+  cron.schedule('30 7 * * *', async () => {
     logger.info('[generatePDFs] Iniciando ejecución programada...');
     try {
       await executeTask();

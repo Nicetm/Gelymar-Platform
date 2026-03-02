@@ -147,11 +147,11 @@ if (arg === 'execute-now') {
   })();
 } else {
   // Solo levantar el proceso, NO ejecutar nada automáticamente
-  logger.info('[checkClientAccess] Cron job iniciado - esperando horario programado (15:47)...');
+  logger.info('[checkClientAccess] Cron job iniciado - esperando horario programado (6:00 AM)...');
   emitReady();
 
-  // Programar ejecución diaria a las 15:47
-  cron.schedule('47 15 * * *', async () => {
+  // Programar ejecución diaria a las 6:00 AM
+  cron.schedule('0 6 * * *', async () => {
     logger.info('[checkClientAccess] Iniciando ejecución programada...');
     try {
       await executeTask();
