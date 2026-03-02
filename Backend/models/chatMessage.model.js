@@ -20,6 +20,7 @@ const fetchCustomerNames = async (ruts = []) => {
     SELECT Rut, Nombre
     FROM jor_imp_CLI_01_softkey
     WHERE Rut IN (${placeholders.join(', ')})
+      AND LTRIM(RTRIM(EstadoCliente)) = 'Activo'
   `);
 
   const map = new Map();
@@ -54,6 +55,7 @@ class ChatMessage {
         SELECT TOP 1 Rut
         FROM jor_imp_CLI_01_softkey
         WHERE Rut = @rut OR Rut = @rutAlt
+          AND LTRIM(RTRIM(EstadoCliente)) = 'Activo'
       `);
       if (!result.recordset?.length) {
         throw new Error(`Customer con RUT ${customer_id} no existe`);

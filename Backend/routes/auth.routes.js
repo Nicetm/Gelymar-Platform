@@ -9,12 +9,15 @@ const { logger } = require('../utils/logger');
 const userService = container.resolve('userService');
 const { authValidations } = require('../middleware/validation.middleware');
 const rateLimit = require('express-rate-limit');
+const { t } = require('../i18n');
 
 // Rate limiter estricto para login y 2FA (prevención de fuerza bruta)
 const strictAuthLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
+  windowMs: 3 * 60 * 1000, // 3 minutos
   max: 5, // máximo 5 intentos
-  message: { message: 'Demasiados intentos de autenticación. Intente nuevamente en 15 minutos' },
+  message: (req) => ({ 
+    message: t('rateLimit.too_many_auth_attempts', req.lang || 'es', { minutes: 3 })
+  }),
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true, // No contar requests exitosos
@@ -94,5 +97,59 @@ router.post('/reset-password', authValidations.resetPassword, authController.res
  *         description: Sesión cerrada correctamente
  */
 router.post('/logout', authMiddleware, authController.logout);
+
+/**
+ * @swagger
+ * /api/auth/generate-token:
+ *   post:
+ *     summary: Genera un token JWT válido con usuario y contraseña
+ *     tags: [Autenticación]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 description: Email del usuario (alternativo a username)
+ *               username:
+ *                 type: string
+ *                 description: Username del usuario (alternativo a email)
+ *               password:
+ *                 type: string
+ *                 description: Contraseña del usuario
+ *             required:
+ *               - password
+ *     responses:
+ *       200:
+ *         description: Token generado exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 token:
+ *                   type: string
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: number
+ *                     rut:
+ *                       type: string
+ *                     username:
+ *                       type: string
+ *                     role:
+ *                       type: string
+ *       401:
+ *         description: Credenciales inválidas
+ *       403:
+ *         description: Cuenta bloqueada
+ */
+router.post('/generate-token', authController.generateToken);
 
 module.exports = router;

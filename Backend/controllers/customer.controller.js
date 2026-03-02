@@ -53,7 +53,8 @@ exports.getCustomerById = async (req, res) => {
  * @access Protegido (requiere JWT)
  */
 exports.getCustomerByRut = async (req, res) => {
-    const rut = req.params.rut || req.params.uuid;
+    const rawRut = req.params.rut || req.params.uuid;
+    const rut = normalizeRut(rawRut);
   
     try {
     const user = req.user || {};
@@ -65,7 +66,7 @@ exports.getCustomerByRut = async (req, res) => {
         return res.status(403).json({ message: t('errors.access_denied', req.lang || 'es') });
       }
     }
-    logger.info(`[getCustomerByRut] request rut=${rut || 'N/A'}`);
+    logger.info(`[getCustomerByRut] request rawRut=${rawRut || 'N/A'} normalizedRut=${rut || 'N/A'}`);
     const customer = await customerService.getCustomerByRutFromSql(rut);
   
       if (!customer) {
@@ -271,12 +272,16 @@ exports.createCustomerAccount = async (req, res) => {
     const { customerId } = req.params;
     const { customerName, customerRut } = req.body;
     const requestedRut = customerId || customerRut;
-    logger.info(`[createCustomerAccount] request paramId=${customerId || 'N/A'} bodyRut=${customerRut || 'N/A'} resolvedRut=${requestedRut || 'N/A'} name=${customerName ? 'Y' : 'N'}`);
     
-    // Obtener datos del cliente por RUT
-    const customer = await customerService.getCustomerByRut(requestedRut);
+    // Normalizar el RUT recibido
+    const normalizedRequestedRut = normalizeRut(requestedRut);
+    
+    logger.info(`[createCustomerAccount] request paramId=${customerId || 'N/A'} bodyRut=${customerRut || 'N/A'} resolvedRut=${requestedRut || 'N/A'} normalizedRut=${normalizedRequestedRut || 'N/A'} name=${customerName ? 'Y' : 'N'}`);
+    
+    // Obtener datos del cliente por RUT (solo activos)
+    const customer = await customerService.getCustomerByRutFromSql(normalizedRequestedRut);
     if (!customer) {
-      logger.warn(`[createCustomerAccount] Cliente no encontrado rut=${requestedRut || 'N/A'}`);
+      logger.warn(`[createCustomerAccount] Cliente no encontrado o inactivo rut=${normalizedRequestedRut || 'N/A'}`);
       return res.status(404).json({ message: t('errors.customer_not_found', req.lang || 'es') });
     }
     
@@ -286,9 +291,10 @@ exports.createCustomerAccount = async (req, res) => {
     const defaultPassword = '123456';
     const hashedPassword = await bcrypt.hash(defaultPassword, 10);
     
-    const normalizedRut = customer?.rut ? normalizeRut(customer.rut) : '';
+    // Normalizar el RUT del cliente obtenido de SQL Server
+    const finalNormalizedRut = normalizeRut(customer.rut);
     const userData = {
-      rut: normalizedRut,
+      rut: finalNormalizedRut,
       password: hashedPassword,
       role_id: 2, // role_id = 2 (cliente)
       full_name: customer.name || 'Cliente',
@@ -305,7 +311,7 @@ exports.createCustomerAccount = async (req, res) => {
       message: t('success.account_created', req.lang || 'es'),
       userId: userId,
       customerName: customer.name,
-      customerRut: customer.rut
+      customerRut: finalNormalizedRut
     });
     
   } catch (error) {

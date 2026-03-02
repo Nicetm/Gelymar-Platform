@@ -44,6 +44,7 @@ if (isDocker) {
 // Middlewares
 const { createAuthMiddleware } = require('./middleware/auth.middleware');
 const { authorizeRoles } = require('./middleware/role.middleware');
+const { t, languageMiddleware } = require('./i18n');
 
 // Crear middlewares de autenticación específicos
 const authMiddleware = createAuthMiddleware();
@@ -76,15 +77,17 @@ const projectionRoutes = require('./routes/projection.routes');
 
 // Configuración de rate limiting
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
+  windowMs: 3 * 60 * 1000, // 3 minutos
   max: 100, // máximo 100 requests por ventana
-  message: { message: 'Demasiadas solicitudes desde esta IP, intente nuevamente en 15 minutos' },
+  message: (req) => ({ 
+    message: t('rateLimit.too_many_requests', req.lang || 'es', { minutes: 3 })
+  }),
   standardHeaders: true,
   legacyHeaders: false,
 });
 
 const authSlowDown = slowDown({
-  windowMs: 15 * 60 * 1000, // 15 minutos
+  windowMs: 3 * 60 * 1000, // 3 minutos
   delayAfter: 50, // permitir 50 requests sin delay
   delayMs: (used, req) => {
     const delayAfter = req.slowDown.limit;
@@ -94,9 +97,11 @@ const authSlowDown = slowDown({
 
 // Rate limiter estricto para login y 2FA (prevención de fuerza bruta)
 const strictAuthLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
+  windowMs: 3 * 60 * 1000, // 3 minutos
   max: 5, // máximo 5 intentos de login
-  message: { message: 'Demasiados intentos de autenticación. Intente nuevamente en 15 minutos' },
+  message: (req) => ({ 
+    message: t('rateLimit.too_many_auth_attempts', req.lang || 'es', { minutes: 3 })
+  }),
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true, // No contar requests exitosos
@@ -104,18 +109,22 @@ const strictAuthLimiter = rateLimit({
 
 // Rate limiter para APIs de escritura (POST, PUT, DELETE)
 const writeLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
+  windowMs: 3 * 60 * 1000, // 3 minutos
   max: 200, // máximo 200 operaciones de escritura
-  message: { message: 'Demasiadas operaciones de escritura. Intente nuevamente en 15 minutos' },
+  message: (req) => ({ 
+    message: t('rateLimit.too_many_write_operations', req.lang || 'es', { minutes: 3 })
+  }),
   standardHeaders: true,
   legacyHeaders: false,
 });
 
 // Rate limiter para APIs de lectura (GET)
 const readLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
+  windowMs: 3 * 60 * 1000, // 3 minutos
   max: 500, // máximo 500 operaciones de lectura
-  message: { message: 'Demasiadas solicitudes de lectura. Intente nuevamente en 15 minutos' },
+  message: (req) => ({ 
+    message: t('rateLimit.too_many_read_requests', req.lang || 'es', { minutes: 3 })
+  }),
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -124,7 +133,9 @@ const readLimiter = rateLimit({
 const uploadLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hora
   max: 50, // máximo 50 uploads por hora
-  message: { message: 'Demasiadas subidas de archivos. Intente nuevamente en 1 hora' },
+  message: (req) => ({ 
+    message: t('rateLimit.too_many_file_uploads', req.lang || 'es', { minutes: 60 })
+  }),
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -133,7 +144,9 @@ const uploadLimiter = rateLimit({
 const cronLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hora
   max: 100, // máximo 100 ejecuciones por hora
-  message: { message: 'Demasiadas ejecuciones de cron. Intente nuevamente en 1 hora' },
+  message: (req) => ({ 
+    message: t('rateLimit.too_many_cron_executions', req.lang || 'es', { minutes: 60 })
+  }),
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -224,6 +237,7 @@ app.use(cors({
 // Middlewares globales
 app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
+app.use(languageMiddleware); // Detectar idioma del request
 
 // Archivos estáticos permitidos
 app.use('/swagger-assets', express.static(path.join(__dirname, 'public/swagger-assets')));

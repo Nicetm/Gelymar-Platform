@@ -4,14 +4,21 @@
  */
 
 /**
- * Normaliza un RUT removiendo el sufijo 'C' si existe
+ * Normaliza un RUT removiendo el sufijo 'C' si existe y normalizando guiones
  * @param {string|number} value - RUT a normalizar
  * @returns {string} RUT normalizado
  */
 const normalizeRut = (value) => {
   const raw = String(value || '').trim();
   if (!raw) return '';
-  return raw.toLowerCase().endsWith('c') ? raw.slice(0, -1) : raw;
+  
+  // Reemplazar todos los tipos de guiones (en dash, em dash, etc.) por guion normal
+  const normalized = raw
+    .replace(/[\u2010-\u2015\u2212]/g, '-') // Reemplaza guiones Unicode por guion ASCII
+    .replace(/\s+/g, ''); // Remueve espacios
+  
+  // Remover sufijo 'C' si existe
+  return normalized.toLowerCase().endsWith('c') ? normalized.slice(0, -1) : normalized;
 };
 
 /**

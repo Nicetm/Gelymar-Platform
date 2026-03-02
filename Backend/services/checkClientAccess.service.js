@@ -24,6 +24,7 @@ async function checkClientAccess() {
         Ciudad
       FROM jor_imp_CLI_01_softkey
       WHERE Rut IS NOT NULL AND LTRIM(RTRIM(Rut)) <> ''
+        AND LTRIM(RTRIM(EstadoCliente)) = 'Activo'
     `);
     const customers = (sqlResult.recordset || []).map((row) => ({
       rut: row.Rut,

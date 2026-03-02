@@ -1790,10 +1790,10 @@ function updateOrdersPagination() {
   if (pageNumbersContainer) {
     pageNumbersContainer.innerHTML = '';
 
-    // Solo mostrar "1 to 19" en lugar de todos los números
+    // Mostrar "Page X of Y"
     const pageInfo = document.createElement('span');
     pageInfo.className = 'px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300';
-    pageInfo.textContent = `${currentOrderPage} to ${totalPages}`;
+    pageInfo.textContent = `Page ${currentOrderPage} of ${totalPages}`;
     
     pageNumbersContainer.appendChild(pageInfo);
   }

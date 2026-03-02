@@ -1,6 +1,9 @@
 {
   "open_menu": "Abrir menú de usuario",
   "sign_out": "Cerrar sesión",
+  "sign_out_title": "Confirmar salida",
+  "sign_out_confirm": "¿Seguro que deseas salir de la sesión?",
+  "signing_out": "Desconectando...",
   "default_user_name": "Usuario",
   "default_user_rut": "00.000.000-0",
   "default_user_role": "Invitado",

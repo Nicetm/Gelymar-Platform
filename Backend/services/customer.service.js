@@ -73,6 +73,9 @@ async function getAllCustomers(options = {}) {
     } else {
       query += ` LEFT JOIN hdr h ON h.Rut = c.Rut`;
     }
+    
+    // Filtrar solo clientes activos (debe ser explícitamente 'Activo', no NULL)
+    query += ` WHERE LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'`;
 
     logger.info(`[getAllCustomers] SQL query start. sellerCodes=${sellerCodes.length}`);
     const sqlStart = Date.now();
@@ -196,6 +199,7 @@ async function getCustomerByRut(rut) {
           Correo
         FROM jor_imp_CLI_01_softkey
         WHERE Rut = @rut
+          AND LTRIM(RTRIM(EstadoCliente)) = 'Activo'
       `);
 
     const row = sqlResult.recordset?.[0];
@@ -259,9 +263,14 @@ async function getCustomerByRut(rut) {
  */
 async function getCustomerByRutFromSql(rut) {
   const pool = await getSqlPool();
+  
+  // Solo normalizar guiones Unicode, NO quitar la 'C'
+  const searchRut = String(rut || '').trim()
+    .replace(/[\u2010-\u2015\u2212]/g, '-'); // Reemplaza guiones Unicode por guion ASCII
+  
   const result = await pool
     .request()
-    .input('rut', sql.VarChar, rut)
+    .input('rut', sql.VarChar, searchRut)
     .query(`
       SELECT TOP 1
         Rut,
@@ -274,13 +283,17 @@ async function getCustomerByRutFromSql(rut) {
         Contacto2,
         Fax,
         Telefono,
-        Correo
+        Correo,
+        EstadoCliente
       FROM jor_imp_CLI_01_softkey
-      WHERE Rut = @rut
+      WHERE LTRIM(RTRIM(Rut)) = @rut
+        AND LTRIM(RTRIM(EstadoCliente)) = 'Activo'
     `);
 
   const row = result.recordset?.[0];
-  if (!row) return null;
+  if (!row) {
+    return null;
+  }
 
   return {
     rut: row.Rut?.trim() || null,
@@ -302,7 +315,9 @@ async function getCustomerByRutFromSql(rut) {
 async function getAllCustomerRuts() {
   const sqlPool = await getSqlPool();
   const result = await sqlPool.request().query(
-    'SELECT Rut FROM jor_imp_CLI_01_softkey WHERE Rut IS NOT NULL'
+    `SELECT Rut FROM jor_imp_CLI_01_softkey 
+     WHERE Rut IS NOT NULL 
+       AND LTRIM(RTRIM(EstadoCliente)) = 'Activo'`
   );
   return (result.recordset || []).map((row) => row.Rut);
 }
@@ -314,8 +329,13 @@ async function getAllCustomerRuts() {
  */
 async function getCustomerByRutForUpdate(rut) {
   const sqlPool = await getSqlPool();
+  
+  // Extraer solo los números del RUT para buscar
+  const rutNumbers = rut.replace(/[^0-9]/g, '');
+  
   const request = sqlPool.request();
-  request.input('rut', sql.VarChar, rut);
+  request.input('rutPattern', sql.VarChar, `%${rutNumbers}%`);
+  
   const result = await request.query(`
     SELECT TOP 1
       Rut,
@@ -330,7 +350,8 @@ async function getCustomerByRutForUpdate(rut) {
       Telefono,
       Correo
     FROM jor_imp_CLI_01_softkey
-    WHERE Rut = @rut
+    WHERE Rut LIKE @rutPattern
+      AND LTRIM(RTRIM(EstadoCliente)) = 'Activo'
   `);
   const row = result.recordset?.[0];
   if (!row) return null;
@@ -502,9 +523,11 @@ async function getCustomersWithoutAccount() {
       Contacto2,
       Fax,
       Telefono,
-      Correo
+      Correo,
+      EstadoCliente
     FROM jor_imp_CLI_01_softkey
     WHERE Rut IS NOT NULL
+      AND LTRIM(RTRIM(EstadoCliente)) = 'Activo'
   `);
 
   const rows = sqlResult.recordset || [];
@@ -514,6 +537,7 @@ async function getCustomersWithoutAccount() {
   const [userRows] = await pool.query('SELECT rut FROM users');
   const userRuts = new Set(userRows.map((row) => normalizeRut(row.rut)));
   const missing = rows.filter((row) => !userRuts.has(normalizeRut(row.Rut)));
+  
   logger.info(`[getCustomersWithoutAccount] customers=${rows.length} users=${userRows.length} missing=${missing.length}`);
 
   return rows

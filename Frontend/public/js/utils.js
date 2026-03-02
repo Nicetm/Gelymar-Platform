@@ -334,7 +334,9 @@ const confirmAction = async (title, message, type = 'warning', options = {}) => 
         const { comond, getMessage } = getCommonTranslations();
         const {
           confirmButtonText = getMessage(comond.confirm),
-          cancelButtonText = getMessage(comond.cancel)
+          cancelButtonText = getMessage(comond.cancel),
+          loadingText = 'Procesando...',
+          onConfirm = null
         } = options || {};
 
         const modal = document.createElement('div');
@@ -368,12 +370,12 @@ const confirmAction = async (title, message, type = 'warning', options = {}) => 
         modal.innerHTML = `
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all duration-300 scale-95 opacity-0" id="confirmModalContent">
                 <div class="p-6">
-                    <div class="flex items-center justify-center mb-4">
+                    <div class="flex items-center justify-center mb-4" id="confirmModalIcon">
                         ${icons[type] || icons.warning}
                     </div>
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white text-center mb-2">${title}</h3>
-                    <p class="text-sm text-gray-600 dark:text-gray-300 text-center mb-6">${message}</p>
-                    <div class="flex flex-col sm:flex-row sm:justify-end gap-3">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white text-center mb-2" id="confirmModalTitle">${title}</h3>
+                    <p class="text-sm text-gray-600 dark:text-gray-300 text-center mb-6" id="confirmModalMessage">${message}</p>
+                    <div class="flex flex-col sm:flex-row sm:justify-end gap-3" id="confirmModalButtons">
                         <button id="confirmCancelBtn" class="text-xs w-full sm:w-auto px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 transition">${cancelButtonText}</button>
                         <button id="confirmAcceptBtn" class="text-xs w-full sm:w-auto px-4 py-2 rounded-lg text-white ${buttonColors[type] || buttonColors.warning} focus:outline-none focus:ring-2 transition">${confirmButtonText}</button>
                     </div>
@@ -391,6 +393,29 @@ const confirmAction = async (title, message, type = 'warning', options = {}) => 
             content.classList.add('scale-100', 'opacity-100');
         }, 10);
         
+        // Función para mostrar estado de loading
+        const showLoading = () => {
+            const iconContainer = document.getElementById('confirmModalIcon');
+            const titleEl = document.getElementById('confirmModalTitle');
+            const messageEl = document.getElementById('confirmModalMessage');
+            const buttonsContainer = document.getElementById('confirmModalButtons');
+            
+            // Cambiar icono a spinner
+            iconContainer.innerHTML = `
+                <svg class="w-12 h-12 text-blue-500 dark:text-blue-400 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+            `;
+            
+            // Actualizar texto
+            titleEl.textContent = loadingText;
+            messageEl.textContent = '';
+            
+            // Ocultar botones
+            buttonsContainer.innerHTML = '';
+        };
+        
         // Event listeners
         const handleCancel = () => {
             animateOut(() => {
@@ -399,11 +424,29 @@ const confirmAction = async (title, message, type = 'warning', options = {}) => 
             });
         };
         
-        const handleAccept = () => {
-            animateOut(() => {
-                document.body.removeChild(modal);
-                resolve(true);
-            });
+        const handleAccept = async () => {
+            // Si hay un callback onConfirm, ejecutarlo y mostrar loading
+            if (onConfirm && typeof onConfirm === 'function') {
+                showLoading();
+                try {
+                    await onConfirm();
+                    animateOut(() => {
+                        document.body.removeChild(modal);
+                        resolve(true);
+                    });
+                } catch (error) {
+                    console.error('Error en onConfirm:', error);
+                    animateOut(() => {
+                        document.body.removeChild(modal);
+                        resolve(true);
+                    });
+                }
+            } else {
+                animateOut(() => {
+                    document.body.removeChild(modal);
+                    resolve(true);
+                });
+            }
         };
         
         const animateOut = (callback) => {

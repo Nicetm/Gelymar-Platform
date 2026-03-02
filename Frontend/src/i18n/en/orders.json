@@ -50,7 +50,8 @@
   "refreshSuccess": "Data refreshed automatically",
   "refreshError": "Error refreshing data",
   "exportEmpty": "No orders available to export",
-  "itemsLoadError": "Error loading order items"
-  ,
-  "perPage": "Orders per page"
+  "itemsLoadError": "Error loading order items",
+  "perPage": "Orders per page",
+  "pageIndicator": "Page",
+  "pageIndicatorSeparator": "of"
 }

@@ -54,6 +54,7 @@ async function getFoldersByCustomerRut(customerRut) {
         LEFT JOIN jor_imp_CLI_01_softkey cli ON cli.Rut = h.Rut
         WHERE h.Rut = @rut
           AND ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
+          AND LTRIM(RTRIM(cli.EstadoCliente)) = 'Activo'
         ORDER BY CAST(h.Fecha AS date) DESC, f.Factura ASC
       `);
   } catch (error) {

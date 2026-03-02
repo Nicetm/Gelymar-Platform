@@ -312,5 +312,13 @@
     "delete_subfolder_error": "Error al eliminar subcarpeta",
     "customer_id_required": "ID de cliente requerido",
     "count_folders_error": "Error al contar carpetas del cliente"
+  },
+  "rateLimit": {
+    "too_many_requests": "Demasiadas solicitudes desde esta IP, intente nuevamente en {{minutes}} minutos",
+    "too_many_auth_attempts": "Demasiados intentos de autenticación. Intente nuevamente en {{minutes}} minutos",
+    "too_many_write_operations": "Demasiadas operaciones de escritura. Intente nuevamente en {{minutes}} minutos",
+    "too_many_read_requests": "Demasiadas solicitudes de lectura. Intente nuevamente en {{minutes}} minutos",
+    "too_many_file_uploads": "Demasiadas subidas de archivos. Intente nuevamente en {{minutes}} minutos",
+    "too_many_cron_executions": "Demasiadas ejecuciones de cron. Intente nuevamente en {{minutes}} minutos"
   }
 }

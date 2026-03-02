@@ -40,6 +40,7 @@ async function getOrderWithCustomerForPdf(pc, oc, factura = null) {
     LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
     WHERE h.Nro = @pc
       AND ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
+      AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
       ${oc ? "AND REPLACE(REPLACE(REPLACE(REPLACE(LOWER(h.OC), ' ', ''), '(', ''), ')', ''), '-', '') = @oc" : ''}
     ORDER BY h.Nro
   `);
@@ -377,6 +378,7 @@ async function getCustomerByRut(customerRut) {
     SELECT TOP 1 Rut
     FROM jor_imp_CLI_01_softkey
     WHERE Rut = @rut
+      AND LTRIM(RTRIM(EstadoCliente)) = 'Activo'
   `);
   if (sqlResult.recordset && sqlResult.recordset.length) {
     return { id: null, rut: customerRut };
@@ -407,6 +409,7 @@ async function getOrderWithCustomerForDefaultFiles(orderId) {
     LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
     WHERE h.Nro = @pc
       AND ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
+      AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
     ORDER BY h.Fecha DESC
   `);
   const row = result.recordset?.[0];

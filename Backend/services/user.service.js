@@ -24,7 +24,8 @@ async function getSqlCustomerByRut(rut) {
       Telefono,
       Correo
     FROM jor_imp_CLI_01_softkey
-    WHERE Rut = @rut OR Rut = @rutAlt
+    WHERE (Rut = @rut OR Rut = @rutAlt)
+      AND LTRIM(RTRIM(EstadoCliente)) = 'Activo'
   `);
   return result.recordset?.[0] || null;
 }
@@ -44,6 +45,7 @@ async function getSqlCustomerByEmail(email) {
       Correo
     FROM jor_imp_CLI_01_softkey
     WHERE LOWER(Correo) = @email
+      AND LTRIM(RTRIM(EstadoCliente)) = 'Activo'
   `);
   return result.recordset?.[0] || null;
 }

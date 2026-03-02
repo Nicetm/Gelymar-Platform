@@ -125,6 +125,7 @@ const createProjectionService = ({
       LEFT JOIN jor_imp_item_90_softkey i ON i.Nro = h.Nro
       LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
       WHERE ${baseWhere}
+        AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
     `;
 
     const customersQuery = `

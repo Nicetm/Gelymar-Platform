@@ -130,6 +130,7 @@ async function getOrdersReadyForOrderReceiptNotice(sendFromDate = null, filterPc
         AND f.Factura <> 0
       JOIN jor_imp_CLI_01_softkey c ON h.Rut = c.Rut
       WHERE ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
+        AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
         AND f.Nro IS NULL
         ${sendFromFilter}
         ${pcFilter}
@@ -314,6 +315,7 @@ async function getReportEmailsAndLang(customerRut) {
         SELECT TOP 1 Pais
         FROM jor_imp_CLI_01_softkey
         WHERE Rut = @rut
+          AND LTRIM(RTRIM(EstadoCliente)) = 'Activo'
       `);
       const country = customerResult.recordset?.[0]?.Pais || null;
       if (country) {
@@ -336,19 +338,21 @@ async function getReportEmailsAndLang(customerRut) {
 
 /**
  * Obtiene el archivo de recepción de orden
- * @param {number} orderId - ID de la orden
+ * @param {number} pc - Número PC
+ * @param {string} oc - Número OC (opcional, no se usa para Order Receipt Notice)
  * @returns {Promise<Object|null>} Datos del archivo de recepción
  */
 async function getReceptionFile(pc, oc) {
   const pool = await poolPromise;
   try {
+    // Order Receipt Notice es a nivel de orden (PC), no requiere OC
+    // Si el registro existe, significa que ya pasó las validaciones
     const [rows] = await pool.query(
       `SELECT id, path
        FROM order_files
        WHERE pc = ? AND file_id = ?
-       ${oc ? 'AND oc = ?' : 'AND (oc IS NULL OR oc = \'\')'}
        ORDER BY id DESC LIMIT 1`,
-      oc ? [pc, 9, oc] : [pc, 9]
+      [pc, 9]
     );
     return rows.length > 0 ? rows[0] : null;
   } catch (error) {
@@ -374,6 +378,7 @@ async function getOrdersWithFacturaAndMissingFiles() {
       FROM jor_imp_HDR_90_softkey h
       JOIN jor_imp_CLI_01_softkey c ON h.Rut = c.Rut
       WHERE ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
+        AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
         AND h.Factura IS NOT NULL
         AND LTRIM(RTRIM(CAST(h.Factura AS NVARCHAR(50)))) <> ''
         AND h.Factura <> 0

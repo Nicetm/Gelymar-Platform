@@ -66,30 +66,6 @@ export function initUserMenu(config = {}) {
   /** @type {HTMLImageElement|null} */
   const avatarEl = document.querySelector('#userAvatar');
 
-  const setLogoutLoading = (isLoading) => {
-    if (!logoutButton) return;
-    const originalLabel = logoutButton.dataset.originalLabel || logoutButton.textContent.trim();
-    if (!logoutButton.dataset.originalLabel) {
-      logoutButton.dataset.originalLabel = originalLabel;
-    }
-    logoutButton.disabled = isLoading;
-    logoutButton.classList.toggle('opacity-70', isLoading);
-    logoutButton.classList.toggle('cursor-not-allowed', isLoading);
-    if (isLoading) {
-      logoutButton.innerHTML = `
-        <span class="inline-flex items-center gap-2">
-          <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
-          </svg>
-          <span>Desconectando...</span>
-        </span>
-      `;
-    } else {
-      logoutButton.textContent = logoutButton.dataset.originalLabel || originalLabel;
-    }
-  };
-
   if (logoutButton) {
     logoutButton.addEventListener('click', async () => {
       const translations = window.translations || {};
@@ -102,45 +78,57 @@ export function initUserMenu(config = {}) {
         ? usermenu.sign_out_confirm
         : '¿Seguro que deseas salir de la sesión?';
 
-      const confirmed = await confirmAction(title, message, 'warning', {
+      await confirmAction(title, message, 'warning', {
         confirmButtonText: comond.confirm || 'Confirmar',
         cancelButtonText: comond.cancel || 'Cancelar',
-      });
+        loadingText: usermenu?.signing_out || 'Desconectando...',
+        onConfirm: async () => {
+          const token = localStorage.getItem('token');
 
-      if (!confirmed) {
-        return;
-      }
-
-      setLogoutLoading(true);
-      try {
-        const token = localStorage.getItem('token');
-
-        if (token) {
-          try {
-            await fetch(`${API_BASE}/api/auth/logout`, {
-              method: 'POST',
-              headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json',
-              },
-            });
-          } catch (error) {
-            console.error('Error calling logout endpoint:', error);
+          if (token) {
+            try {
+              await fetch(`${API_BASE}/api/auth/logout`, {
+                method: 'POST',
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                },
+              });
+            } catch (error) {
+              console.error('Error calling logout endpoint:', error);
+            }
           }
-        }
 
-        localStorage.removeItem('token');
-        localStorage.removeItem('userRole');
-        localStorage.removeItem('userRut');
-        localStorage.removeItem('userEmail');
-        document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-        window.location.href = '/authentication/sign-in';
-      } catch (err) {
-        console.error('Error logging out:', err);
-        window.location.href = '/authentication/sign-in';
-      } finally {
-        setLogoutLoading(false);
-      }
+          localStorage.removeItem('token');
+          localStorage.removeItem('userRole');
+          localStorage.removeItem('userRut');
+          localStorage.removeItem('userEmail');
+          localStorage.removeItem('userProfile');
+          
+          // Limpiar cachés de datos
+          localStorage.removeItem('orders_cache');
+          localStorage.removeItem('customers_cache');
+          localStorage.removeItem('orders_cache_timestamp');
+          localStorage.removeItem('customers_cache_timestamp');
+          localStorage.removeItem('customersWithoutAccount');
+          localStorage.removeItem('clientSearchFilter');
+          
+          // Limpiar cachés de notificaciones
+          localStorage.removeItem('adminNotificationsCache');
+          localStorage.removeItem('adminNotificationsCacheTs');
+          localStorage.removeItem('adminNotificationsCacheToken');
+          
+          // Limpiar todos los cachés de folders (patrón folders_cache_*)
+          Object.keys(localStorage).forEach(key => {
+            if (key.startsWith('folders_cache_')) {
+              localStorage.removeItem(key);
+            }
+          });
+          
+          document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+          window.location.href = '/authentication/sign-in';
+        }
+      });
     });
   }
 

@@ -75,8 +75,8 @@ if (arg === 'execute-now') {
   emitReady();
 }
 
-// Cron independiente - se ejecuta diariamente a las 8 AM
-cron.schedule('0 10 * * *', async () => { 
+// Cron independiente - se ejecuta diariamente a las 16:15
+cron.schedule('15 16 * * *', async () => { 
   try {
     await processNewOrdersAndSendEmails();
   } catch (error) {

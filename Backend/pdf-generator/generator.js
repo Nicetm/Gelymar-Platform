@@ -26,97 +26,110 @@ async function generatePDF(filePath, templateName, data) {
       }
     }
     
-    const doc = new PDFDocument({ 
-      margin: 60,
-      size: 'A4',
-      bufferPages: true,
-      info: {
-        Title: data.title,
-        Author: 'Gelymar S.A.',
-        Subject: `${templateName.toUpperCase()} - ${data.orderNumber}`
-      }
-    });
-    
-    doc.pipe(fs.createWriteStream(filePath));
-    
-    const logoPath = path.join(__dirname, 'assets', 'logo.png');
-    
-    const templatePath = path.join(__dirname, 'templates', `${templateName}.hbs`);
-    if (fs.existsSync(templatePath)) {
-      const templateContent = fs.readFileSync(templatePath, 'utf8');
-      const template = Handlebars.compile(templateContent);
-      const finalText = template(data);
-  
-      const textWidth = 450;
-      const textX = (doc.page.width - textWidth) / 2;
-      const lines = finalText.split('\n');
-      
-      lines.forEach((line) => {
-        if (doc.y > doc.page.height - 150) {
-          doc.addPage();
-        }
-        
-        const trimmed = line.trim();
-        
-        if (/^#HEADER#/.test(trimmed)) {
-          drawHeader(doc, logoPath, data);
-        }
-        else if (/^#INTRODUCCION#/.test(trimmed)) {
-          const introText = data.introduction || '';
-          if (introText) {
-            doc.fontSize(11).font(STYLES.font).fillColor(STYLES.textPrimary)
-              .text(introText, textX, doc.y, { width: textWidth, align: 'justify', lineGap: 3 });
-          }
-        }
-        else if (/^#INFO_SECTION#/.test(trimmed)) {
-          if (templateName === 'aviso-embarque') {
-            drawInfoSectionEmbarque(doc, data);
-          } else if (templateName === 'aviso-entrega') {
-            drawInfoSectionEntrega(doc, data);
-          } else if (templateName === 'aviso-disponibilidad') {
-            drawInfoSectionDisponibilidad(doc, data);
-          } else {
-            drawInfoSectionReception(doc, data);
-          }
-        }
-         else if (/^#ITEMS_TABLE#/.test(trimmed)) {
-           if (data.items && data.items.length > 0) {
-             if (doc.y > doc.page.height - 200) {
-               doc.addPage();
-             }
-             if (templateName === 'aviso-embarque') {
-               generateEmbarqueTable(doc, data.items, data);
-             } else if (templateName === 'aviso-entrega') {
-               generateEntregaTable(doc, data.items, data);
-             } else if (templateName === 'aviso-disponibilidad') {
-               generateDisponibilidadTable(doc, data.items, data);
-             } else {
-               generateModernTable(doc, data.items, data);
-             }
-           }
-         }
-        else if (/^#SIGNATURE#/.test(trimmed)) {
-          if (doc.y > doc.page.height - 120) {
-            doc.addPage();
-          }
-          drawSignatureSection(doc, data);
-        }
-        else if (trimmed.length > 0) {
-          doc.fontSize(11).font(STYLES.font).fillColor(STYLES.textPrimary)
-            .text(trimmed, textX, doc.y, { width: textWidth, align: 'justify', lineGap: 3 });
-        } else {
-          doc.moveDown(0.5);
+    return new Promise((resolve, reject) => {
+      const doc = new PDFDocument({ 
+        margin: 60,
+        size: 'A4',
+        bufferPages: true,
+        info: {
+          Title: data.title,
+          Author: 'Gelymar S.A.',
+          Subject: `${templateName.toUpperCase()} - ${data.orderNumber}`
         }
       });
-    }
+      
+      const stream = fs.createWriteStream(filePath);
+      doc.pipe(stream);
+      
+      stream.on('finish', () => {
+        logger.info(`[PDFGenerator] PDF escrito exitosamente: ${filePath}`);
+        resolve();
+      });
+      
+      stream.on('error', (error) => {
+        logger.error(`[PDFGenerator] Error escribiendo PDF: ${error.message}`);
+        reject(error);
+      });
+      
+      const logoPath = path.join(__dirname, 'assets', 'logo.png');
     
-    const pageCount = doc.bufferedPageRange().count;
-    for (let i = 0; i < pageCount; i++) {
-      doc.switchToPage(i);
-      drawFooter(doc, i + 1, pageCount, data);
-    }
-  
-    doc.end();
+      const templatePath = path.join(__dirname, 'templates', `${templateName}.hbs`);
+      if (fs.existsSync(templatePath)) {
+        const templateContent = fs.readFileSync(templatePath, 'utf8');
+        const template = Handlebars.compile(templateContent);
+        const finalText = template(data);
+    
+        const textWidth = 450;
+        const textX = (doc.page.width - textWidth) / 2;
+        const lines = finalText.split('\n');
+        
+        lines.forEach((line) => {
+          if (doc.y > doc.page.height - 150) {
+            doc.addPage();
+          }
+          
+          const trimmed = line.trim();
+          
+          if (/^#HEADER#/.test(trimmed)) {
+            drawHeader(doc, logoPath, data);
+          }
+          else if (/^#INTRODUCCION#/.test(trimmed)) {
+            const introText = data.introduction || '';
+            if (introText) {
+              doc.fontSize(11).font(STYLES.font).fillColor(STYLES.textPrimary)
+                .text(introText, textX, doc.y, { width: textWidth, align: 'justify', lineGap: 3 });
+            }
+          }
+          else if (/^#INFO_SECTION#/.test(trimmed)) {
+            if (templateName === 'aviso-embarque') {
+              drawInfoSectionEmbarque(doc, data);
+            } else if (templateName === 'aviso-entrega') {
+              drawInfoSectionEntrega(doc, data);
+            } else if (templateName === 'aviso-disponibilidad') {
+              drawInfoSectionDisponibilidad(doc, data);
+            } else {
+              drawInfoSectionReception(doc, data);
+            }
+          }
+           else if (/^#ITEMS_TABLE#/.test(trimmed)) {
+             if (data.items && data.items.length > 0) {
+               if (doc.y > doc.page.height - 200) {
+                 doc.addPage();
+               }
+               if (templateName === 'aviso-embarque') {
+                 generateEmbarqueTable(doc, data.items, data);
+               } else if (templateName === 'aviso-entrega') {
+                 generateEntregaTable(doc, data.items, data);
+               } else if (templateName === 'aviso-disponibilidad') {
+                 generateDisponibilidadTable(doc, data.items, data);
+               } else {
+                 generateModernTable(doc, data.items, data);
+               }
+             }
+           }
+          else if (/^#SIGNATURE#/.test(trimmed)) {
+            if (doc.y > doc.page.height - 120) {
+              doc.addPage();
+            }
+            drawSignatureSection(doc, data);
+          }
+          else if (trimmed.length > 0) {
+            doc.fontSize(11).font(STYLES.font).fillColor(STYLES.textPrimary)
+              .text(trimmed, textX, doc.y, { width: textWidth, align: 'justify', lineGap: 3 });
+          } else {
+            doc.moveDown(0.5);
+          }
+        });
+      }
+      
+      const pageCount = doc.bufferedPageRange().count;
+      for (let i = 0; i < pageCount; i++) {
+        doc.switchToPage(i);
+        drawFooter(doc, i + 1, pageCount, data);
+      }
+    
+      doc.end();
+    });
   }
 
 function drawHeader(doc, logoPath, data) {

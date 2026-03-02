@@ -96,9 +96,8 @@
  "documents": "Documents",
  "onlyOpen": "Open Only",
  "exportEmpty": "No orders available to export",
-  "exportSuccess": "{count} orders exported to Excel"
-  ,
-  "pageIndicator": "",
-  "pageIndicatorSeparator": "--",
+  "exportSuccess": "{count} orders exported to Excel",
+  "pageIndicator": "Page",
+  "pageIndicatorSeparator": "of",
   "customerNotFound": "Customer not found"
 }

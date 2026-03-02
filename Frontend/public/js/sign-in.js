@@ -114,6 +114,20 @@ export function initSignIn(config = {}) {
   localStorage.removeItem('orders_cache_timestamp');
   localStorage.removeItem('customers_cache_timestamp');
   localStorage.removeItem('customersWithoutAccount');
+  localStorage.removeItem('clientSearchFilter');
+  localStorage.removeItem('userProfile');
+  
+  // Limpiar cachés de notificaciones
+  localStorage.removeItem('adminNotificationsCache');
+  localStorage.removeItem('adminNotificationsCacheTs');
+  localStorage.removeItem('adminNotificationsCacheToken');
+  
+  // Limpiar todos los cachés de folders (patrón folders_cache_*)
+  Object.keys(localStorage).forEach(key => {
+    if (key.startsWith('folders_cache_')) {
+      localStorage.removeItem(key);
+    }
+  });
 
   const isAbsoluteUrl = (url) => /^https?:\/\//i.test(url);
 

@@ -1192,15 +1192,24 @@ headers: {
     }
   }
 
+  // Función para normalizar RUT (definida fuera para reutilización)
+  const normalizeRutForAccount = (rut) => {
+    const trimmed = (rut || '').toString().trim();
+    if (!trimmed) return '';
+    
+    // Reemplazar todos los tipos de guiones Unicode por guion ASCII normal
+    const normalized = trimmed
+      .replace(/[\u2010-\u2015\u2212]/g, '-')  // Reemplaza guiones Unicode
+      .replace(/\s+/g, '');  // Remueve espacios
+    
+    // Remover sufijo 'C' si existe
+    return normalized.replace(/c$/i, '');
+  };
+
   // Función para crear cuenta de cliente
   async function createCustomerAccount(customerId, customerName, customerRut, customerEmail) {
 
     const apiBase = window.apiBase;
-    const normalizeRutForAccount = (rut) => {
-      const trimmed = (rut || '').toString().trim();
-      if (!trimmed) return '';
-      return trimmed.replace(/c$/i, '');
-    };
     const normalizedRut = normalizeRutForAccount(customerRut);
 
     if (!customerId) {
@@ -1239,7 +1248,7 @@ headers: {
           return;
         }
 
-        const response = await fetch(`${apiBase}/api/customers/by-rut/${encodeURIComponent(customerRut)}`, {
+        const response = await fetch(`${apiBase}/api/customers/by-rut/${encodeURIComponent(normalizedRut)}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -1252,8 +1261,11 @@ headers: {
 
         const customerData = await response.json();
         
+        // Normalizar el RUT que viene del backend (puede tener guion Unicode)
+        const finalNormalizedRut = normalizeRutForAccount(customerData.rut || normalizedRut);
+        
         // Crear cuenta de usuario
-        const createResponse = await fetch(`${apiBase}/api/customers/${encodeURIComponent(customerRut)}/create-account`, {
+        const createResponse = await fetch(`${apiBase}/api/customers/${encodeURIComponent(finalNormalizedRut)}/create-account`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -1261,7 +1273,7 @@ headers: {
           },
           body: JSON.stringify({
             customerName: customerData.name,
-            customerRut: normalizedRut
+            customerRut: finalNormalizedRut
           })
         });
 

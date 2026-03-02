@@ -115,7 +115,7 @@ const createOrderService = ({
     LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
   `;
 
-  const conditions = ['ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), \'\') <> \'CANCELADA\''];
+  const conditions = ['ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), \'\') <> \'CANCELADA\'', 'LTRIM(RTRIM(c.EstadoCliente)) = \'Activo\''];
   const request = sqlPool.request();
 
   if (filters.customerRut) {
@@ -257,6 +257,7 @@ const createOrderService = ({
       LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
       WHERE (h.Rut = @rut OR h.Rut = @rutWithC)
         AND ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
+        AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
       ORDER BY CAST(h.Fecha AS date) DESC
     `);
 
@@ -515,6 +516,7 @@ const createOrderService = ({
           LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
           WHERE h.Nro = @pc
             AND LOWER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = LOWER(@oc)
+            AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
           ORDER BY CAST(h.Fecha AS date) DESC
         `);
 
@@ -683,6 +685,7 @@ const createOrderService = ({
         FROM jor_imp_HDR_90_softkey h
         LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
         WHERE h.Nro = @pc AND LOWER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = LOWER(@oc)
+          AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
         ORDER BY CAST(h.Fecha AS date) DESC
       `);
 
@@ -865,6 +868,7 @@ const createOrderService = ({
         FROM jor_imp_HDR_90_softkey h
         LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
         WHERE ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
+          AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
           AND CASE
             WHEN ISDATE(ISNULL(h.Fecha, h.Fecha_factura)) = 1
             THEN CAST(ISNULL(h.Fecha, h.Fecha_factura) AS date)
@@ -1065,6 +1069,7 @@ const createOrderService = ({
           ON i.Nro = h.Nro AND i.Factura = h.Factura
         LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
         WHERE ${withCurrency}
+          AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
         GROUP BY c.Nombre
         ORDER BY total_sales DESC
       `;
@@ -1183,6 +1188,7 @@ const createOrderService = ({
         FROM jor_imp_HDR_90_softkey h
         LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
         WHERE h.Nro = @pc AND LOWER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = LOWER(@oc)
+          AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
         ORDER BY CAST(h.Fecha AS date) DESC
       `);
 
@@ -1285,6 +1291,7 @@ const createOrderService = ({
         FROM jor_imp_HDR_90_softkey h
         LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
         WHERE h.Nro = @pc AND LOWER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = LOWER(@oc)
+          AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
         ORDER BY CAST(h.Fecha AS date) DESC
       `);
 
@@ -1389,6 +1396,7 @@ const createOrderService = ({
         ON i.Nro = h.Nro AND i.Factura = h.Factura
       LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
       WHERE ${where.join(' AND ')}
+        AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
     `;
 
     const summaryQuery = `

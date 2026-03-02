@@ -312,5 +312,13 @@
     "delete_subfolder_error": "Error deleting subfolder",
     "customer_id_required": "Customer ID required",
     "count_folders_error": "Error counting customer folders"
+  },
+  "rateLimit": {
+    "too_many_requests": "Too many requests from this IP, please try again in {{minutes}} minutes",
+    "too_many_auth_attempts": "Too many authentication attempts. Please try again in {{minutes}} minutes",
+    "too_many_write_operations": "Too many write operations. Please try again in {{minutes}} minutes",
+    "too_many_read_requests": "Too many read requests. Please try again in {{minutes}} minutes",
+    "too_many_file_uploads": "Too many file uploads. Please try again in {{minutes}} minutes",
+    "too_many_cron_executions": "Too many cron executions. Please try again in {{minutes}} minutes"
   }
 }

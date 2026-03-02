@@ -6,9 +6,17 @@ const path = require('path');
 const { cleanDirectoryName } = require('../utils/directoryUtils');
 const { logger } = require('../utils/logger');
 const { logDocumentEvent } = require('./documentEvent.service');
-// Las variables de entorno ya se cargan automáticamente en app.js
 
-async function generateDefaultFiles(filters = {}) {
+/**
+ * Crea registros en order_files con status_id = 1 para documentos por defecto
+ * Esta función NO genera archivos PDF físicos, solo crea los registros en la base de datos
+ * @param {Object} filters - Filtros opcionales { pc, factura }
+ * @returns {Promise<void>}
+ */
+async function createDefaultRecords(filters = {}) {
+  const startTime = new Date();
+  const startTimeMs = Date.now();
+  
   try {
     const { pc, factura } = filters || {};
     const normalizedFilterPc = pc ? String(pc).trim() : null;
@@ -16,14 +24,45 @@ async function generateDefaultFiles(filters = {}) {
     const parts = [];
     if (normalizedFilterPc) parts.push(`pc=${normalizedFilterPc}`);
     if (normalizedFilterFactura) parts.push(`factura=${normalizedFilterFactura}`);
-    logger.info(`[checkDefaultFiles] Iniciando generación de documentos por defecto${parts.length ? ` ${parts.join(' ')}` : ''}`);
+    logger.info(`[createDefaultRecords] Iniciando creación de registros por defecto - timestamp=${startTime.toISOString()}${parts.length ? ` ${parts.join(' ')}` : ''}`);
     
-    // Obtener todas las órdenes agrupadas por RUT
-    const ordersByRut = await getAllOrdersGroupedByRut();
+    // Obtener configuración desde param_config para obtener sendFrom
+    const pool = await poolPromise;
+    let sendFrom = null;
+    try {
+      const [configRows] = await pool.query(
+        'SELECT params FROM param_config WHERE name = ?',
+        ['checkDefaultFiles']
+      );
+      if (configRows.length > 0 && configRows[0].params) {
+        // Verificar si params ya es un objeto o es un string JSON
+        let params;
+        if (typeof configRows[0].params === 'string') {
+          params = JSON.parse(configRows[0].params);
+        } else if (typeof configRows[0].params === 'object') {
+          params = configRows[0].params;
+        } else {
+          logger.warn(`[createDefaultRecords] Tipo de params inesperado: ${typeof configRows[0].params}`);
+          params = {};
+        }
+        sendFrom = params.sendFrom || null;
+        if (sendFrom) {
+          logger.info(`[createDefaultRecords] Filtrando órdenes desde fecha: ${sendFrom}`);
+        }
+      }
+    } catch (configError) {
+      logger.warn(`[createDefaultRecords] Error obteniendo configuración sendFrom: ${configError.message}`);
+      logger.warn(`[createDefaultRecords] Valor de params: ${JSON.stringify(configRows?.[0]?.params)}`);
+    }
+    
+    // Obtener todas las órdenes agrupadas por RUT (filtradas por sendFrom si está configurado)
+    const ordersByRut = await getAllOrdersGroupedByRut(sendFrom);
     const totalClients = Object.keys(ordersByRut).length;
     
     if (totalClients === 0) {
-      logger.info('[checkDefaultFiles] No hay órdenes para procesar');
+      const endTime = new Date();
+      const duration = ((Date.now() - startTimeMs) / 1000).toFixed(2);
+      logger.info(`[createDefaultRecords] No hay órdenes para procesar - timestamp=${endTime.toISOString()} duration=${duration}s`);
       return;
     }
     
@@ -81,7 +120,9 @@ async function generateDefaultFiles(filters = {}) {
         .filter(([, orders]) => orders.length > 0);
     }
     if (clientEntries.length === 0) {
-      logger.info(`[checkDefaultFiles] No hay órdenes para procesar${parts.length ? ` (${parts.join(' ')})` : ''}`);
+      const endTime = new Date();
+      const duration = ((Date.now() - startTimeMs) / 1000).toFixed(2);
+      logger.info(`[createDefaultRecords] No hay órdenes para procesar - timestamp=${endTime.toISOString()} duration=${duration}s${parts.length ? ` (${parts.join(' ')})` : ''}`);
       return;
     }
 
@@ -132,7 +173,7 @@ async function generateDefaultFiles(filters = {}) {
             if (!directoryPath) {
               directoryPath = await createClientDirectory(customer.name, order.pc);
               if (!directoryPath) {
-                logger.warn(`[checkDefaultFiles] Error creando directorio para orden ${order.id}, omitiendo`);
+                logger.warn(`[createDefaultRecords] Error creando directorio para orden ${order.id}, omitiendo`);
                 continue;
               }
               totalDirectoriesCreated++;
@@ -216,28 +257,40 @@ async function generateDefaultFiles(filters = {}) {
                 await insertDefaultFile(doc);
                 totalFilesCreated++;
               } catch (insertError) {
-                logger.error(`[checkDefaultFiles] Error insertando ${doc.name} pc=${order.pc} oc=${order.oc || 'N/A'} factura=${order.factura || 'N/A'}: ${insertError.message}`);
+                logger.error(`[createDefaultRecords] Error insertando ${doc.name} pc=${order.pc} oc=${order.oc || 'N/A'} factura=${order.factura || 'N/A'}: ${insertError.message}`);
               }
             }
             
             totalOrdersProcessed++;
             
           } catch (orderError) {
-            logger.error(`[CheckDefaultFilesService] Error procesando orden ${order.id}: ${orderError.message}`);
+            logger.error(`[createDefaultRecords] Error procesando orden ${order.id}: ${orderError.message}`);
           }
         }
       }
     }
     
-    logger.info(`[checkDefaultFiles] Documentos generados: files=${totalFilesCreated} orders=${totalOrdersProcessed} dirs=${totalDirectoriesCreated}`);
+    const endTime = new Date();
+    const duration = ((Date.now() - startTimeMs) / 1000).toFixed(2);
+    logger.info(`[createDefaultRecords] Registros creados - timestamp=${endTime.toISOString()} duration=${duration}s files=${totalFilesCreated} orders=${totalOrdersProcessed} dirs=${totalDirectoriesCreated}`);
     
   } catch (error) {
-    logger.error(`[checkDefaultFiles] Error en generación de documentos por defecto: ${error.message}`);
-    logger.error(`[checkDefaultFiles] Stack: ${error.stack}`);
+    const errorTime = new Date();
+    const duration = ((Date.now() - startTimeMs) / 1000).toFixed(2);
+    logger.error(`[createDefaultRecords] Error en creación de registros por defecto: ${error.message} - timestamp=${errorTime.toISOString()} duration=${duration}s`);
+    logger.error(`[createDefaultRecords] Stack: ${error.stack}`);
     throw error;
   }
 }
 
+/**
+ * Verifica si ya existen archivos para una orden específica
+ * @param {number} orderId - ID de la orden
+ * @param {string} pc - Número PC
+ * @param {string} oc - Número OC
+ * @param {string|null} factura - Número de factura
+ * @returns {Promise<Array>} Array de archivos existentes
+ */
 async function checkExistingFiles(orderId, pc, oc, factura = null) {
   const pool = await poolPromise;
   
@@ -259,13 +312,18 @@ async function checkExistingFiles(orderId, pc, oc, factura = null) {
     return rows;
     
   } catch (error) {
-    logger.error(`[checkDefaultFiles] Error verificando archivos existentes pc=${pc}: ${error.message}`);
-    logger.error(`[checkDefaultFiles] Stack: ${error.stack}`);
+    logger.error(`[createDefaultRecords] Error verificando archivos existentes pc=${pc}: ${error.message}`);
+    logger.error(`[createDefaultRecords] Stack: ${error.stack}`);
     // Si hay error, retornar array vacío para que continúe el proceso
     return [];
   }
 }
 
+/**
+ * Inserta un nuevo registro de archivo en order_files con status_id = 1
+ * @param {Object} fileData - Datos del archivo a insertar
+ * @returns {Promise<Object>} Resultado de la inserción
+ */
 async function insertDefaultFile(fileData) {
   const pool = await poolPromise;
   
@@ -297,11 +355,11 @@ async function insertDefaultFile(fileData) {
     ];
 
     const [result] = await pool.query(query, params);
-    logger.info(`[checkDefaultFiles] Archivo por defecto insertado pc=${fileData.pc} oc=${fileData.oc || 'N/A'} factura=${fileData.factura || 'N/A'} doc=${fileData.name}`);
+    logger.info(`[createDefaultRecords] Registro insertado pc=${fileData.pc} oc=${fileData.oc || 'N/A'} factura=${fileData.factura || 'N/A'} doc=${fileData.name}`);
     await logDocumentEvent({
       source: 'cron',
       action: 'create_record',
-      process: 'checkDefaultFiles',
+      process: 'createDefaultRecords',
       fileId: result.insertId,
       docType: fileData.name,
       pc: fileData.pc,
@@ -314,13 +372,13 @@ async function insertDefaultFile(fileData) {
     return result;
     
   } catch (error) {
-    logger.error(`[checkDefaultFiles] Error insertando archivo por defecto ${fileData.name} pc=${fileData.pc}: ${error.message}`);
+    logger.error(`[createDefaultRecords] Error insertando registro ${fileData.name} pc=${fileData.pc}: ${error.message}`);
     
     // Registrar evento de error
     await logDocumentEvent({
       source: 'cron',
       action: 'create_record',
-      process: 'checkDefaultFiles',
+      process: 'createDefaultRecords',
       fileId: null,
       docType: fileData.name,
       pc: fileData.pc,
@@ -347,33 +405,36 @@ async function createClientDirectory(customerName, pc) {
     const fileServerRoot = process.env.FILE_SERVER_ROOT || '/var/www/html';
     
     if (!fileServerRoot) {
-      logger.error('[CheckDefaultFilesService] FILE_SERVER_ROOT no está configurado en .env');
+      logger.error('[createDefaultRecords] FILE_SERVER_ROOT no está configurado en .env');
       return null;
     }
 
     // Limpiar nombre del cliente para usar como nombre de directorio
     const cleanCustomerName = cleanDirectoryName(customerName);
 
-    // Crear ruta del directorio: /uploads/CLIENTE_NOMBRE/Numero PC
-    const directoryPath = path.join(fileServerRoot, 'uploads', cleanCustomerName, pc);
+    // Crear ruta RELATIVA: uploads/CLIENTE_NOMBRE/Numero PC
+    const relativePath = path.join('uploads', cleanCustomerName, pc);
+    
+    // Crear ruta COMPLETA para verificar/crear el directorio físico
+    const fullPath = path.join(fileServerRoot, relativePath);
     
     // Verificar si el directorio ya existe
     try {
-      await fs.access(directoryPath);
-      return directoryPath;
+      await fs.access(fullPath);
+      return relativePath; // Retornar ruta RELATIVA
     } catch (accessError) {
       // El directorio no existe, crearlo
     }
     
     // Crear directorio y subdirectorios si no existen
-    await fs.mkdir(directoryPath, { recursive: true });
-      return directoryPath;
+    await fs.mkdir(fullPath, { recursive: true });
+    return relativePath; // Retornar ruta RELATIVA
     
   } catch (error) {
-    logger.error(`[CheckDefaultFilesService] Error creando directorio para cliente ${customerName}, pc=${pc}: ${error.message}`);
-    logger.error(`[CheckDefaultFilesService] Stack: ${error.stack}`);
+    logger.error(`[createDefaultRecords] Error creando directorio para cliente ${customerName}, pc=${pc}: ${error.message}`);
+    logger.error(`[createDefaultRecords] Stack: ${error.stack}`);
     return null;
   }
 }
 
-module.exports = { generateDefaultFiles }; 
+module.exports = { createDefaultRecords };

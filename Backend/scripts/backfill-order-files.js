@@ -62,6 +62,7 @@ async function resolveSqlHeader({ pc, oc, factura }) {
     LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
     WHERE h.Nro = @pc
       ${oc ? "AND REPLACE(REPLACE(REPLACE(REPLACE(UPPER(h.OC), ' ', ''), '(', ''), ')', ''), '-', '') = @oc" : ''}
+      AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
   `;
 
   if (normalizedFactura) {

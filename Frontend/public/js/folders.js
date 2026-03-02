@@ -248,23 +248,24 @@ function formatQuantity(amount, unit = 'KG') {
 }
 
 // Función para formatear precio unitario
-function formatUnitPrice(amount) {
+function formatUnitPrice(amount, currency = 'CLP') {
   const numericAmount = Number(typeof amount === 'string' ? amount.replace(',', '.') : amount);
   const safeAmount = Number.isFinite(numericAmount) ? numericAmount : 0;
   const parts = safeAmount.toFixed(4).split('.');
   const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  return `$${integerPart},${parts[1]}`;
+  return `${currency} ${integerPart},${parts[1]}`;
 }
 
+
 // Función para formatear total
-function formatTotal(amount) {
+function formatTotal(amount, currency = 'CLP') {
   const numericAmount = Number(typeof amount === 'string' ? amount.replace(',', '.') : amount);
   const safeAmount = Number.isFinite(numericAmount) ? numericAmount : 0;
   const formattedAmount = safeAmount.toLocaleString('es-CL', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
-  return `$${formattedAmount}`;
+  return `${currency} ${formattedAmount}`;
 }
 
 function parseNumber(value, fallback = 0) {
@@ -279,13 +280,81 @@ function parseNumber(value, fallback = 0) {
   return Number.isFinite(number) ? number : fallback;
 }
 
+// Función para formatear números (usado en itemsModal)
+function formatNumber(value) {
+  const numeric = parseNumber(value, 0);
+  return numeric.toLocaleString('es-CL', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+}
+
 // Función para abrir modal de items (mover fuera de initFoldersScript)
 async function openItemsModal(orderPc, orderOc, factura) {
   const itemsModal = document.getElementById('itemsModal');
   const itemsOrderTitle = document.getElementById('itemsOrderTitle');
   const itemsTableBody = document.getElementById('itemsTableBody');
+  const totalItems = document.getElementById('totalItems');
+  const totalQuantity = document.getElementById('totalQuantity');
+  const totalValue = document.getElementById('totalValue');
+  const totalGastoAdicional = document.getElementById('totalGastoAdicional');
 
   if (!itemsModal || !itemsOrderTitle || !itemsTableBody) return;
+
+  // Funciones de formato
+  const parseNumber = (value, fallback = 0) => {
+    const number = Number(typeof value === 'string' ? value.replace(',', '.') : value);
+    return Number.isFinite(number) ? number : fallback;
+  };
+
+  const formatModalQuantity = (amount, unit = 'KG') => {
+    const unitMap = {
+      'KG': 'kg',
+      'KILOGRAMOS': 'kg',
+      'TON': 'ton',
+      'TONELADAS': 'ton',
+      'LITROS': 'L',
+      'L': 'L',
+      'UNIDADES': 'un',
+      'UN': 'un'
+    };
+    const mappedUnit = typeof unit === 'string' ? (unitMap[unit] || unit.toLowerCase()) : 'kg';
+    const safeAmount = parseNumber(amount);
+    return `${safeAmount.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ${mappedUnit}`;
+  };
+
+  const formatUnitPrice = (amount, currency = 'CLP') => {
+    const numericAmount = parseNumber(amount);
+    const parts = numericAmount.toFixed(4).split('.');
+    const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return `${currency} ${integerPart},${parts[1]}`;
+  };
+
+  const formatTotal = (amount, currency = 'CLP') => {
+    const numericAmount = parseNumber(amount);
+    const formattedAmount = numericAmount.toLocaleString('es-CL', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+    return `${currency} ${formattedAmount}`;
+  };
+
+  const formatCurrency = (amount, currency = 'CLP') => {
+    const currencyMap = {
+      'USD': 'USD',
+      'US': 'USD',
+      'UF': 'CLF',
+      'CLP': 'CLP',
+      'PESO': 'CLP'
+    };
+    const mappedCurrency = currencyMap[currency] || currency;
+    const numericAmount = parseNumber(amount);
+    const formattedAmount = numericAmount.toLocaleString('es-CL', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+    return `${mappedCurrency} ${formattedAmount}`;
+  };
 
   try {
     // Cargar items de la orden
@@ -316,17 +385,85 @@ async function openItemsModal(orderPc, orderOc, factura) {
     itemsModal.classList.add('flex');
     itemsOrderTitle.textContent = `${carpetas.order}: ${orderOc || '-'}`;
 
+    // Normalizar items
+    const hasFacturaDisplay = factura && factura !== 'null';
+    const normalizedItems = items.map(item => ({
+      ...item,
+      kg_solicitados: item.kg_solicitados ?? item.cantidad_solicitada ?? 0,
+      kg_facturados: item.kg_facturados ?? item.cantidad_facturada ?? 0,
+      kg_despachados: item.kg_despachados ?? item.cantidad_despachada ?? 0,
+      unit_price: item.unit_price ?? item.precio_unitario ?? 0,
+      currency: item.currency ?? item.moneda ?? 'CLP',
+      unidad_medida: item.unidad_medida ?? item.unit ?? 'KG'
+    }));
+
+    // Ajustar header de cantidad según tenga factura o no
+    const quantityHeader = itemsModal.querySelector('[data-column="quantity"]');
+    if (quantityHeader) {
+      const qtyHeaderText = hasFacturaDisplay
+        ? (carpetas.quantityInvoiced || 'Quantity Invoiced')
+        : (carpetas.quantityRequested || 'Quantity Requested');
+      quantityHeader.textContent = qtyHeaderText;
+    }
+
     // Renderizar items
     if (items && items.length > 0) {
-      itemsTableBody.innerHTML = items.map(item => `
-        <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition">
-          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">${item.item_code || '-'}</td>
-          <td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${item.item_name || '-'}</td>
-          <td class="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900 dark:text-white">${item.tipo || '-'}</td>
-          <td class="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900 dark:text-white">${formatNumber(item.kg_solicitados)}</td>
-          <td class="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900 dark:text-white">${formatNumber(item.kg_despachados)}</td>
-        </tr>
-      `).join('');
+      const currency = normalizedItems[0]?.currency || 'CLP';
+      
+      itemsTableBody.innerHTML = normalizedItems.map(item => {
+        // Si no hay facturados, usar solicitados como respaldo
+        const rawQuantity = hasFacturaDisplay
+          ? (item.kg_facturados ?? item.kg_solicitados)
+          : (item.kg_solicitados ?? item.kg_facturados);
+        const quantity = parseNumber(rawQuantity);
+        const unitPrice = parseNumber(item.unit_price);
+        const total = quantity * unitPrice;
+        const unit = item.unidad_medida || 'KG';
+        
+        return `
+          <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+            <td class="px-6 py-4 text-xs text-gray-900 dark:text-gray-100">${item.item_code || '-'}</td>
+            <td class="px-6 py-4 text-xs text-gray-900 dark:text-gray-100">${item.item_name || '-'}</td>
+            <td class="px-6 py-4 text-xs text-center text-gray-900 dark:text-gray-100">${formatModalQuantity(quantity, unit)}</td>
+            <td class="px-6 py-4 text-xs text-center text-gray-900 dark:text-gray-100">${formatUnitPrice(unitPrice, currency)}</td>
+            <td class="px-6 py-4 text-xs text-center font-semibold text-gray-900 dark:text-gray-100">${formatTotal(total, currency)}</td>
+          </tr>
+        `;
+      }).join('');
+
+      // Calcular y mostrar totales
+      const totalItemsCount = normalizedItems.length;
+
+      const totalQuantitySum = normalizedItems.reduce((sum, item) => {
+        const rawQuantity = hasFacturaDisplay
+          ? (item.kg_facturados ?? item.kg_solicitados)
+          : (item.kg_solicitados ?? item.kg_facturados);
+        const quantity = parseNumber(rawQuantity);
+        return sum + quantity;
+      }, 0);
+
+      const totalValueSum = normalizedItems.reduce((sum, item) => {
+        const rawQuantity = hasFacturaDisplay
+          ? (item.kg_facturados ?? item.kg_solicitados)
+          : (item.kg_solicitados ?? item.kg_facturados);
+        const quantity = parseNumber(rawQuantity);
+        const price = parseNumber(item.unit_price);
+        return sum + (quantity * price);
+      }, 0);
+
+      const unit = normalizedItems[0]?.unidad_medida || 'KG';
+      const rawGastoAdicionalFactura = normalizedItems[0]?.gasto_adicional_flete_factura;
+      const shouldUseFacturaExpense = hasFacturaDisplay && rawGastoAdicionalFactura !== null && rawGastoAdicionalFactura !== undefined && rawGastoAdicionalFactura !== '';
+      const rawGastoAdicional = shouldUseFacturaExpense ? rawGastoAdicionalFactura : normalizedItems[0]?.gasto_adicional_flete;
+      const gastoAdicional = parseNumber(rawGastoAdicional);
+      
+      // Add additional cost to total value
+      const totalValueWithAdditional = totalValueSum + gastoAdicional;
+      
+      if (totalItems) totalItems.textContent = totalItemsCount;
+      if (totalQuantity) totalQuantity.textContent = formatModalQuantity(totalQuantitySum, unit);
+      if (totalValue) totalValue.textContent = formatCurrency(totalValueWithAdditional, currency);
+      if (totalGastoAdicional) totalGastoAdicional.textContent = formatCurrency(gastoAdicional, currency);
     } else {
       itemsTableBody.innerHTML = `
         <tr>
@@ -335,6 +472,11 @@ async function openItemsModal(orderPc, orderOc, factura) {
           </td>
         </tr>
       `;
+      
+      if (totalItems) totalItems.textContent = '0';
+      if (totalQuantity) totalQuantity.textContent = '-';
+      if (totalValue) totalValue.textContent = '-';
+      if (totalGastoAdicional) totalGastoAdicional.textContent = '-';
     }
   } catch (error) {
     console.error('Error al cargar items:', error);
@@ -1204,6 +1346,7 @@ export async function initFoldersScript() {
   }
 
   function buildItemsDetailTable(items) {
+    const currency = items[0]?.currency || items[0]?.moneda || 'CLP';
     return `
       <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
         <thead class="bg-gray-100 dark:bg-gray-800 sticky top-0 z-10">
@@ -1235,8 +1378,8 @@ export async function initFoldersScript() {
                 <td class="px-6 py-4 text-xs text-center text-gray-900 dark:text-gray-100">${formatQuantity(parseFloat(item.kg_facturados) || 0, 'KG')}</td>
                 <td class="px-6 py-4 text-xs text-center text-gray-900 dark:text-gray-100 whitespace-nowrap">${item.fecha_etd ? new Date(item.fecha_etd).toLocaleDateString('es-CL') : '-'}</td>
                 <td class="px-6 py-4 text-xs text-center text-gray-900 dark:text-gray-100 whitespace-nowrap">${item.fecha_eta ? new Date(item.fecha_eta).toLocaleDateString('es-CL') : '-'}</td>
-                <td class="px-6 py-4 text-xs text-center text-gray-900 dark:text-gray-100">${formatUnitPrice(unitPrice)}</td>
-                <td class="px-6 py-4 text-xs text-center font-semibold text-gray-900 dark:text-gray-100">${formatTotal(total)}</td>
+                <td class="px-6 py-4 text-xs text-center text-gray-900 dark:text-gray-100">${formatUnitPrice(unitPrice, currency)}</td>
+                <td class="px-6 py-4 text-xs text-center font-semibold text-gray-900 dark:text-gray-100">${formatTotal(total, currency)}</td>
               </tr>
             `;
           }).join('')}

@@ -5,6 +5,8 @@ const router = express.Router();
 const { container } = require('../config/container');
 const { checkClientAccess } = container.resolve('checkClientAccessService');
 const { generateDefaultFiles } = container.resolve('checkDefaultFilesService');
+const { createDefaultRecords } = container.resolve('createDefaultRecordsService');
+const { generatePendingPDFs } = container.resolve('generatePendingPDFsService');
 const cronConfigService = container.resolve('cronConfigService');
 const adminNotificationSummaryService = container.resolve('adminNotificationSummaryService');
 const { logger } = require('../utils/logger');
@@ -37,6 +39,54 @@ router.post('/generate-default-files', async (req, res) => {
     res.json({ success: true, message: 'Archivos por defecto generados correctamente' });
   } catch (error) {
     logger.error(`[cronRoutes] Error generando archivos por defecto: ${error.message}`);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
+
+// Endpoint para crear registros por defecto
+router.post('/create-default-records', async (req, res) => {
+  try {
+    logger.info('[cronRoutes] Iniciando creación de registros por defecto');
+    const startTime = Date.now();
+    
+    const result = await createDefaultRecords();
+    
+    const duration = Date.now() - startTime;
+    logger.info(`[cronRoutes] Creación de registros completada en ${duration}ms`);
+    
+    res.status(200).json({ 
+      success: true, 
+      message: 'Registros por defecto creados correctamente',
+      ...result
+    });
+  } catch (error) {
+    logger.error(`[cronRoutes] Error creando registros por defecto: ${error.message}`);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
+
+// Endpoint para generar PDFs pendientes
+router.post('/generate-pending-pdfs', async (req, res) => {
+  try {
+    logger.info('[cronRoutes] Iniciando generación de PDFs pendientes');
+    const startTime = Date.now();
+    
+    const result = await generatePendingPDFs();
+    
+    const duration = Date.now() - startTime;
+    logger.info(`[cronRoutes] Generación de PDFs completada en ${duration}ms`);
+    
+    res.status(200).json({ 
+      success: true, 
+      message: 'PDFs pendientes generados correctamente',
+      ...result
+    });
+  } catch (error) {
+    logger.error(`[cronRoutes] Error generando PDFs pendientes: ${error.message}`);
     res.status(500).json({ success: false, error: error.message });
   }
 });

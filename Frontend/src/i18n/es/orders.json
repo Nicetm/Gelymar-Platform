@@ -50,7 +50,8 @@
   "refreshSuccess": "Datos refrescados automáticamente",
   "refreshError": "Error al refrescar los datos",
   "exportEmpty": "No hay órdenes disponibles para exportar",
-  "itemsLoadError": "Error al cargar los items de la orden"
-  ,
-  "perPage": "Ordenes por página"
+  "itemsLoadError": "Error al cargar los items de la orden",
+  "perPage": "Ordenes por página",
+  "pageIndicator": "Página",
+  "pageIndicatorSeparator": "de"
 }

@@ -37,6 +37,7 @@ async function getOrdersReadyForOrderDeliveryNotice(
       INNER JOIN jor_imp_HDR_90_softkey h ON h.Nro = f.Nro
       LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
       WHERE ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
+        AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
         AND f.Factura IS NOT NULL
         AND LTRIM(RTRIM(f.Factura)) <> ''
         AND f.Factura <> 0
@@ -77,6 +78,7 @@ async function getOrdersReadyForOrderDeliveryNotice(
               CAST(GETDATE() AS date) AS today
             FROM jor_imp_FACT_90_softkey f
             INNER JOIN jor_imp_HDR_90_softkey h ON h.Nro = f.Nro
+            INNER JOIN jor_imp_item_90_softkey i ON i.Nro = f.Nro AND i.Factura = f.Factura
             WHERE f.Nro = @pc
               AND ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
               ${filterFactura ? 'AND f.Factura = @factura' : ''}

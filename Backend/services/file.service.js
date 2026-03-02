@@ -22,6 +22,7 @@ const getCustomerByRutSql = async (rut) => {
       Correo
     FROM jor_imp_CLI_01_softkey
     WHERE Rut = @rut
+      AND LTRIM(RTRIM(EstadoCliente)) = 'Activo'
   `);
   return result.recordset?.[0] || null;
 };
@@ -353,9 +354,10 @@ const duplicateFile = async (fileId, newPath = null, newName = null) => {
  * REFACTORING NOTE: Updated to use Vista_HDR and Vista_FACT separately
  * @returns {Promise<Object>} Objeto con RUT como clave y array de órdenes como valor
  */
-const getAllOrdersGroupedByRut = async () => {
+const getAllOrdersGroupedByRut = async (sendFrom = null) => {
   const sqlPool = await getSqlPool();
-  const result = await sqlPool.request().query(`
+
+  let query = `
     SELECT
       h.Rut,
       h.Nro,
@@ -369,11 +371,19 @@ const getAllOrdersGroupedByRut = async () => {
     LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
     WHERE h.Rut IS NOT NULL AND h.Nro IS NOT NULL AND h.OC IS NOT NULL
       AND ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
-    ORDER BY h.Rut, h.Fecha
-  `);
+  `;
+
+  // Agregar filtro de fecha si se proporciona sendFrom
+  if (sendFrom) {
+    query += ` AND h.Fecha >= '${sendFrom}'`;
+  }
+
+  query += ` ORDER BY h.Rut, h.Fecha`;
+
+  const result = await sqlPool.request().query(query);
 
   const rows = result.recordset || [];
-  
+
   // Agrupar por RUT
   const ordersByRut = {};
   rows.forEach(order => {
@@ -392,9 +402,9 @@ const getAllOrdersGroupedByRut = async () => {
       fecha_eta_factura: order.ETA_ENC_FA
     });
   });
-  
+
   return ordersByRut;
-};
+}
 
 /**
  * Obtiene el siguiente order_id disponible
@@ -892,6 +902,7 @@ const getOrderDataForPDF = async (orderId) => {
       LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
       WHERE h.Nro = @pc ${oc ? "AND REPLACE(REPLACE(REPLACE(REPLACE(LOWER(h.OC), ' ', ''), '(', ''), ')', ''), '-', '') = @oc" : ''}
         AND ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
+        AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
       ORDER BY ISNULL(h.Fecha, h.Fecha_factura) DESC
     `);
 

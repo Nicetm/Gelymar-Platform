@@ -16,6 +16,8 @@ const checkAvailabilityNoticeService = require('../services/checkAvailabilityNot
 const checkClientAccessService = require('../services/checkClientAccess.service');
 const checkDefaultFilesService = require('../services/checkDefaultFiles.service');
 const checkOrderDeliveryNoticeService = require('../services/checkOrderDeliveryNotice.service');
+const createDefaultRecordsService = require('../services/createDefaultRecords.service');
+const generatePendingPDFsService = require('../services/generatePendingPDFs.service');
 const checkOrderReceptionService = require('../services/checkOrderReception.service');
 const checkShipmentNoticeService = require('../services/checkShipmentNotice.service');
 const configService = require('../services/config.service');
@@ -68,6 +70,8 @@ container.register({
   checkOrderDeliveryNoticeService: asValue(checkOrderDeliveryNoticeService),
   checkOrderReceptionService: asValue(checkOrderReceptionService),
   checkShipmentNoticeService: asValue(checkShipmentNoticeService),
+  createDefaultRecordsService: asValue(createDefaultRecordsService),
+  generatePendingPDFsService: asValue(generatePendingPDFsService),
   configService: asValue(configService),
   cronConfigService: asValue(cronConfigService),
   customerService: asValue(customerService),

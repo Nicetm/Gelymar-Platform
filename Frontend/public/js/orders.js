@@ -546,9 +546,9 @@ export async function initOrdersScript() {
       currentPage = 1;
     }
     sessionStorage.setItem(pageStorageKey, String(currentPage));
-    // Usar las traducciones inyectadas por Astro
-    let pageLabel = (typeof translations !== 'undefined' && translations.pageIndicator) ? translations.pageIndicator : '';
-    let ofLabel = (typeof translations !== 'undefined' && translations.pageIndicatorSeparator) ? translations.pageIndicatorSeparator : ' - ';
+    // Usar las traducciones de orders
+    let pageLabel = orders.pageIndicator || 'Page';
+    let ofLabel = orders.pageIndicatorSeparator || 'of';
     pageIndicator.textContent = `${pageLabel} ${currentPage} ${ofLabel} ${totalPages}`;
 
     setupFloatingTooltips(tableBody);

@@ -557,3 +557,71 @@ exports.logout = async (req, res) => {
   logger.info('Sesión cerrada correctamente');
   res.status(200).json({ message: t('auth.logout_success', req.lang || 'es') });
 };
+
+/**
+ * @route POST /api/auth/generate-token
+ * @desc Genera un token JWT válido con usuario y contraseña (sin 2FA)
+ * @access Público
+ */
+exports.generateToken = async (req, res) => {
+  const { email, username, password } = req.body;
+  const identifier = email || username;
+
+  if (!identifier || !password) {
+    return res.status(400).json({ 
+      message: 'Email/username y password son requeridos' 
+    });
+  }
+
+  logger.info(`Generación de token solicitada para: ${identifier}`);
+
+  try {
+    const user = await userService.findUserByEmailOrUsername(identifier);
+    if (!user) {
+      logger.warn(`Usuario no encontrado: ${identifier}`);
+      return res.status(401).json({ message: 'Credenciales inválidas' });
+    }
+
+    if (Number(user.bloqueado) === 1) {
+      logger.warn(`Usuario bloqueado: ${identifier}`);
+      return res.status(403).json({
+        message: 'Cuenta bloqueada',
+        error: 'ACCOUNT_BLOCKED'
+      });
+    }
+
+    const validPassword = await bcrypt.compare(password, user.password);
+    if (!validPassword) {
+      logger.warn(`Contraseña incorrecta para usuario: ${identifier}`);
+      return res.status(401).json({ message: 'Credenciales inválidas' });
+    }
+
+    const normalizedRole = normalizeRole(user.role, user.role_id);
+
+    const token = generateToken({
+      id: user.id,
+      rut: user.rut,
+      username: user.username || null,
+      role: normalizedRole,
+      roleId: user.role_id,
+      cardCode: user.cardCode || null
+    });
+
+    logger.info(`Token generado exitosamente para usuario ${user.rut || user.username}`);
+    
+    res.json({ 
+      success: true,
+      token,
+      user: {
+        id: user.id,
+        rut: user.rut,
+        username: user.username,
+        role: normalizedRole
+      }
+    });
+
+  } catch (err) {
+    logger.error(`Error generando token: ${err.message}`);
+    res.status(500).json({ message: 'Error generando token' });
+  }
+};
