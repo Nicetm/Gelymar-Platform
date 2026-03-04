@@ -1,0 +1,21 @@
+---
+export const prerender = false;
+
+import LayoutSidebar from '../../../../../../../../../app/LayoutSidebarAdmin.astro';
+import Files from '../../../../../../../../../modules/admin/Files.astro';
+
+const { clientId = '', pc = '', oc = '', company = '', factura = '' } = Astro.params;
+
+const decodedOc = oc ? oc.replace(/-/g, ' ') : '';
+const decodedCompany = company ? company.replace(/-/g, ' ') : '';
+---
+
+<LayoutSidebar>
+  <Files
+    routeClientId={clientId}
+    routePc={pc}
+    routeOc={decodedOc}
+    routeCompany={decodedCompany}
+    routeFactura={factura}
+  />
+</LayoutSidebar>

@@ -2183,6 +2183,12 @@ export function initFilesScript() {
       createDefaultFilesBtn.disabled = true;
 
       try {
+        console.log('[CREATE DEFAULT FILES] Sending request with:', {
+          pc: window.orderPc,
+          oc: window.orderOc,
+          factura: resolvedFactura
+        });
+        
         const res = await fetch(`${apiBase}/api/files/create-default`, {
           method: 'POST',
           headers: {
@@ -2191,7 +2197,8 @@ export function initFilesScript() {
           },
           body: JSON.stringify({
             pc: window.orderPc,
-            oc: window.orderOc
+            oc: window.orderOc,
+            factura: resolvedFactura
           })
         });
 

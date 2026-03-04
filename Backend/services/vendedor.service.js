@@ -16,43 +16,37 @@ async function getVendedores({ search } = {}) {
   const normalized = (value) => String(value || '').trim().toLowerCase();
 
   try {
-    const [sellerRows] = await pool.query(
-      `SELECT codigo, rut, activo, bloqueado, phone, email FROM sellers WHERE rut IS NOT NULL AND rut <> '' AND rut <> 0`
-    );
-    logger.info(`[getVendedores] sellers=${sellerRows.length} search=${search || ''}`);
-    if (!sellerRows.length) return [];
+    // 1. Obtener SlpCode y SlpName desde SQL Server
+    const sqlResult = await sqlPool.request().query(`
+      SELECT
+        CAST(SlpCode AS varchar(50)) AS SlpCode,
+        SlpName
+      FROM jor_imp_VEND_90_softkey
+    `);
+    
+    const vendedores = sqlResult.recordset || [];
+    logger.info(`[getVendedores] sqlVendedores=${vendedores.length} search=${search || ''}`);
+    
+    if (!vendedores.length) return [];
 
-    const codes = sellerRows
-      .map((row) => String(row.codigo || '').trim())
+    const codes = vendedores
+      .map((row) => String(row.SlpCode || '').trim())
       .filter(Boolean);
-    const sellerNameMap = new Map();
 
-    if (codes.length) {
-      try {
-        const request = sqlPool.request();
-        const placeholders = codes.map((_, idx) => `@code${idx}`);
-        codes.forEach((code, idx) => {
-          request.input(`code${idx}`, sql.VarChar, code);
-        });
-        const query = `
-          SELECT
-            CAST(SlpCode AS varchar(50)) AS SlpCode,
-            SlpName
-          FROM jor_imp_VEND_90_softkey
-          WHERE CAST(SlpCode AS varchar(50)) IN (${placeholders.join(', ')})
-        `;
-        const result = await request.query(query);
-        (result.recordset || []).forEach((row) => {
-          if (row.SlpCode) {
-            sellerNameMap.set(String(row.SlpCode).trim(), row.SlpName);
-          }
-        });
-        logger.info(`[getVendedores] sqlNames=${sellerNameMap.size}`);
-      } catch (error) {
-        logger.error(`[getVendedores] Error consultando vendedores en SQL: ${error.message}`);
-      }
-    }
+    // 2. Buscar en MySQL sellers por codigo
+    const [sellerRows] = codes.length > 0
+      ? await pool.query(
+          `SELECT codigo, rut, activo, bloqueado, phone, email FROM sellers WHERE codigo IN (?)`,
+          [codes]
+        )
+      : [[]];
 
+    const sellerMap = new Map();
+    sellerRows.forEach((row) => {
+      sellerMap.set(String(row.codigo || '').trim(), row);
+    });
+
+    // 3. Obtener usuarios
     const [userRows] = await pool.query(
       `SELECT id, rut, online, created_at, updated_at FROM users WHERE role_id = 3`
     );
@@ -61,19 +55,22 @@ async function getVendedores({ search } = {}) {
       userMap.set(normalized(row.rut), row);
     });
 
-    let sellers = sellerRows.map((row) => {
-      const user = userMap.get(normalized(row.rut));
-      const name = sellerNameMap.get(String(row.codigo || '').trim()) || row.rut;
+    // 4. Combinar datos
+    let sellers = vendedores.map((vendedor) => {
+      const codigo = String(vendedor.SlpCode || '').trim();
+      const seller = sellerMap.get(codigo);
+      const user = seller ? userMap.get(normalized(seller.rut)) : null;
+      
       return new Vendedor({
         id: user?.id || null,
-        rut: row.rut,
-        email: row.email || row.rut,
-        full_name: name,
-        phone: row.phone || null,
+        rut: seller?.rut || null,
+        email: seller?.email || null,
+        full_name: vendedor.SlpName || null,
+        phone: seller?.phone || null,
         country: null,
         city: null,
-        activo: row.activo ?? 0,
-        bloqueado: row.bloqueado ?? 0,
+        activo: seller?.activo ?? 0,
+        bloqueado: seller?.bloqueado ?? 0,
         role_id: 3,
         online: user?.online ?? 0,
         created_at: user?.created_at || null,

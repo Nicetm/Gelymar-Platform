@@ -834,7 +834,8 @@ export async function initFoldersScript() {
     const pcValue = folder.pc || '';
     const ocValue = folder.oc || '';
     const companyValue = displayCustomerName || '';
-    const documentsUrl = `${documentsPath}/${encodeURIComponent(customerRut)}/${encodeURIComponent(pcValue)}/${slugifyPath(ocValue)}/${slugifyPath(companyValue)}`;
+    const facturaValue = folder.factura ?? '';
+    const documentsUrl = `${documentsPath}/${encodeURIComponent(customerRut)}/${encodeURIComponent(pcValue)}/${slugifyPath(ocValue)}/${slugifyPath(companyValue)}/${encodeURIComponent(facturaValue)}`;
     const shippingMethod = (!folder.factura || folder.factura === 0 || folder.factura === '0')
       ? (folder.medio_envio_ov || '-')
       : (folder.medio_envio_factura || '-');
@@ -1000,7 +1001,8 @@ export async function initFoldersScript() {
       const pcValue = folder.pc || '';
       const ocValue = folder.oc || '';
       const companyValue = folder.customer_name || clientName || '';
-      const documentsUrl = `${documentsPath}/${encodeURIComponent(customerRut)}/${encodeURIComponent(pcValue)}/${slugifyPath(ocValue)}/${slugifyPath(companyValue)}`;
+      const facturaValue = folder.factura ?? '';
+      const documentsUrl = `${documentsPath}/${encodeURIComponent(customerRut)}/${encodeURIComponent(pcValue)}/${slugifyPath(ocValue)}/${slugifyPath(companyValue)}/${encodeURIComponent(facturaValue)}`;
       const shippingMethod = (!folder.factura || folder.factura === 0 || folder.factura === '0')
         ? (folder.medio_envio_ov || '')
         : (folder.medio_envio_factura || '');

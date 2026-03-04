@@ -85,65 +85,94 @@ const createOrderService = ({
   const getOrdersByFilters = async (filters = {}) => {
     const pool = await mysqlPoolPromise;
     const sqlPool = await getSqlPoolFn();
+    const request = sqlPool.request();
+    request.timeout = 120000; // 2 minutos
 
-  // REFACTORING NOTE: Updated to LEFT JOIN Vista_HDR with Vista_FACT
-  // OLD: Vista_HDR contained duplicate rows per invoice with invoice fields
-  // NEW: Vista_HDR has one row per order, Vista_FACT has invoice data
-  let baseQuery = `
-    SELECT 
-      h.Nro,
-      h.OC,
-      h.Rut,
-      h.Fecha,
-      h.ETD_OV,
-      h.ETA_OV,
-      h.Job,
-      h.MedioDeEnvioOV,
-      h.Clausula,
-      h.Puerto_Destino,
-      h.Certificados,
-      h.EstadoOV,
-      h.Vendedor,
-      f.Factura,
-      f.Fecha_factura,
-      f.ETD_ENC_FA,
-      f.ETA_ENC_FA,
-      f.MedioDeEnvioFact,
-      c.Nombre AS customer_name
-    FROM jor_imp_HDR_90_softkey h
-    LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
-    LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
-  `;
-
-  const conditions = ['ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), \'\') <> \'CANCELADA\'', 'LTRIM(RTRIM(c.EstadoCliente)) = \'Activo\''];
-  const request = sqlPool.request();
-
-  if (filters.customerRut) {
-    conditions.push('h.Rut = @customerRut');
-    request.input('customerRut', sqlModule.VarChar, filters.customerRut);
-  }
-
-  let sellerCodes = [];
-  if (filters.salesRut) {
-    sellerCodes = await getSellerCodesByRut(filters.salesRut);
-    if (sellerCodes.length === 0) {
-      return [];
+    let sellerCodes = [];
+    if (filters.salesRut) {
+      sellerCodes = await getSellerCodesByRut(filters.salesRut);
+      if (sellerCodes.length === 0) {
+        return { data: [], total: 0, page: 1, limit: 30 };
+      }
     }
-    const placeholders = sellerCodes.map((_, idx) => `@sellerCode${idx}`);
-    conditions.push(`h.Vendedor IN (${placeholders.join(', ')})`);
-    sellerCodes.forEach((code, idx) => {
-      request.input(`sellerCode${idx}`, sqlModule.VarChar, String(code).trim());
-    });
-  }
 
-  if (conditions.length) {
-    baseQuery += ` WHERE ${conditions.join(' AND ')}`;
-  }
+    // Para vendedores, usar subquery optimizada
+    let baseQuery;
+    if (sellerCodes.length > 0) {
+      const hdrConditions = [];
+      if (sellerCodes.length === 1) {
+        hdrConditions.push('h.Vendedor = @sellerCode');
+        request.input('sellerCode', sqlModule.VarChar, sellerCodes[0].trim());
+      } else {
+        const placeholders = sellerCodes.map((_, idx) => `@sellerCode${idx}`);
+        hdrConditions.push(`h.Vendedor IN (${placeholders.join(', ')})`);
+        sellerCodes.forEach((code, idx) => {
+          request.input(`sellerCode${idx}`, sqlModule.VarChar, String(code).trim());
+        });
+      }
 
-  baseQuery += ' ORDER BY CAST(h.Fecha AS date) DESC';
+      const hdrWhere = hdrConditions.length ? `WHERE ${hdrConditions.join(' AND ')}` : '';
+      
+      baseQuery = `
+        SELECT 
+          h.Nro,
+          h.OC,
+          h.Rut,
+          h.Fecha,
+          h.ETD_OV,
+          h.ETA_OV,
+          h.Job,
+          h.MedioDeEnvioOV,
+          h.Clausula,
+          h.Puerto_Destino,
+          h.Certificados,
+          h.EstadoOV,
+          h.Vendedor,
+          f.Factura,
+          f.Fecha_factura,
+          f.ETD_ENC_FA,
+          f.ETA_ENC_FA,
+          f.MedioDeEnvioFact,
+          c.Nombre AS customer_name
+        FROM jor_imp_HDR_90_softkey h
+        LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
+        LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
+        ${hdrWhere}
+        ORDER BY CAST(h.Fecha AS date) DESC
+      `;
+    } else {
+      // Query para admin sin paginación (como antes)
+      baseQuery = `
+        SELECT 
+          h.Nro,
+          h.OC,
+          h.Rut,
+          h.Fecha,
+          h.ETD_OV,
+          h.ETA_OV,
+          h.Job,
+          h.MedioDeEnvioOV,
+          h.Clausula,
+          h.Puerto_Destino,
+          h.Certificados,
+          h.EstadoOV,
+          h.Vendedor,
+          f.Factura,
+          f.Fecha_factura,
+          f.ETD_ENC_FA,
+          f.ETA_ENC_FA,
+          f.MedioDeEnvioFact,
+          c.Nombre AS customer_name
+        FROM jor_imp_HDR_90_softkey h
+        LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
+        LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
+        WHERE h.EstadoOV <> 'Cancelada'
+        ORDER BY CAST(h.Fecha AS date) DESC
+      `;
+    }
 
-  const result = await request.query(baseQuery);
-  const rows = result.recordset || [];
+    const result = await request.query(baseQuery);
+    const rows = result.recordset || [];
 
   if (rows.length === 0) {
     return [];
@@ -367,9 +396,10 @@ const createOrderService = ({
           h.Nro AS pc,
           h.Rut AS rut,
           h.OC AS oc,
-          h.Factura AS factura,
-          h.Fecha_factura AS fec_factura
+          f.Factura AS factura,
+          f.Fecha_factura AS fec_factura
         FROM jor_imp_HDR_90_softkey h
+        LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
         WHERE h.Rut = @rut AND LOWER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = LOWER(@oc)
         ORDER BY CAST(h.Fecha AS date) DESC
       `);
@@ -667,14 +697,14 @@ const createOrderService = ({
           h.OC,
           h.Rut,
           h.Fecha,
-          h.Factura,
-          h.Fecha_factura,
+          f.Factura,
+          f.Fecha_factura,
           h.ETD_OV,
           h.ETA_OV,
-          h.ETD_ENC_FA,
-          h.ETA_ENC_FA,
+          f.ETD_ENC_FA,
+          f.ETA_ENC_FA,
           h.Job,
-          h.MedioDeEnvioFact,
+          f.MedioDeEnvioFact,
           h.MedioDeEnvioOV,
           h.Clausula,
           h.Puerto_Destino,
@@ -683,6 +713,7 @@ const createOrderService = ({
           h.Vendedor,
           c.Nombre AS customer_name
         FROM jor_imp_HDR_90_softkey h
+        LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
         LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
         WHERE h.Nro = @pc AND LOWER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = LOWER(@oc)
           AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
@@ -763,13 +794,13 @@ const createOrderService = ({
           h.OC,
           h.Rut,
           h.Fecha,
-          h.Factura,
-          h.Fecha_factura,
+          f.Factura,
+          f.Fecha_factura,
           h.ETD_OV,
           h.ETA_OV,
-          h.ETD_ENC_FA,
-          h.ETA_ENC_FA,
-          h.MedioDeEnvioFact,
+          f.ETD_ENC_FA,
+          f.ETA_ENC_FA,
+          f.MedioDeEnvioFact,
           h.MedioDeEnvioOV,
           h.Clausula,
           h.Puerto_Destino,
@@ -777,6 +808,7 @@ const createOrderService = ({
           h.EstadoOV,
           h.Vendedor
         FROM jor_imp_HDR_90_softkey h
+        LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
         WHERE h.Nro = @pc AND LOWER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = LOWER(@oc)
         ORDER BY CAST(h.Fecha AS date) DESC
       `);
@@ -870,8 +902,8 @@ const createOrderService = ({
         WHERE ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
           AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
           AND CASE
-            WHEN ISDATE(ISNULL(h.Fecha, h.Fecha_factura)) = 1
-            THEN CAST(ISNULL(h.Fecha, h.Fecha_factura) AS date)
+            WHEN ISDATE(ISNULL(h.Fecha, f.Fecha_factura)) = 1
+            THEN CAST(ISNULL(h.Fecha, f.Fecha_factura) AS date)
           END >= @fecha
           AND ISDATE(h.ETD_OV) = 1
           AND DATEADD(day, 5, CAST(h.ETD_OV AS date)) <= CAST(GETDATE() AS date)
@@ -931,11 +963,11 @@ const createOrderService = ({
     const amountExpr = `${kgExpr} * ISNULL(i.Precio_Unit, 0)`;
 
     const baseWhere = `
-      h.Fecha_factura IS NOT NULL
-      AND CAST(h.Fecha_factura AS date) BETWEEN @start AND @end
-      AND h.Factura IS NOT NULL
-      AND LTRIM(RTRIM(CONVERT(varchar(50), h.Factura))) <> ''
-      AND h.Factura <> 0
+      f.Fecha_factura IS NOT NULL
+      AND CAST(f.Fecha_factura AS date) BETWEEN @start AND @end
+      AND f.Factura IS NOT NULL
+      AND LTRIM(RTRIM(CONVERT(varchar(50), f.Factura))) <> ''
+      AND f.Factura <> 0
       AND ${kgExpr} > 0
     `;
 
@@ -947,8 +979,9 @@ const createOrderService = ({
         COALESCE(SUM(${kgExpr}), 0) AS total_kg,
         COUNT(DISTINCT CONCAT(h.Nro, '|', h.OC)) AS total_orders
       FROM jor_imp_HDR_90_softkey h
+      INNER JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
       JOIN jor_imp_item_90_softkey i
-        ON i.Nro = h.Nro AND i.Factura = h.Factura
+        ON i.Nro = h.Nro AND i.Factura = f.Factura
       WHERE ${withCurrency}
     `;
 
@@ -1030,8 +1063,8 @@ const createOrderService = ({
       const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24));
       const groupByMonth = diffDays > 90;
       const periodExpr = groupByMonth
-        ? "CONVERT(char(7), h.Fecha_factura, 120)"
-        : 'CAST(h.Fecha_factura AS date)';
+        ? "CONVERT(char(7), f.Fecha_factura, 120)"
+        : 'CAST(f.Fecha_factura AS date)';
 
       const seriesQuery = `
         SELECT
@@ -1039,8 +1072,9 @@ const createOrderService = ({
           COALESCE(SUM(${amountExpr}), 0) AS total_sales,
           COALESCE(SUM(${kgExpr}), 0) AS total_kg
         FROM jor_imp_HDR_90_softkey h
+        INNER JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
         JOIN jor_imp_item_90_softkey i
-          ON i.Nro = h.Nro AND i.Factura = h.Factura
+          ON i.Nro = h.Nro AND i.Factura = f.Factura
         WHERE ${withCurrency}
         GROUP BY ${periodExpr}
         ORDER BY ${periodExpr} ASC
@@ -1052,8 +1086,9 @@ const createOrderService = ({
           COALESCE(SUM(${kgExpr}), 0) AS total_kg,
           COALESCE(SUM(${amountExpr}), 0) AS total_sales
         FROM jor_imp_HDR_90_softkey h
+        INNER JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
         JOIN jor_imp_item_90_softkey i
-          ON i.Nro = h.Nro AND i.Factura = h.Factura
+          ON i.Nro = h.Nro AND i.Factura = f.Factura
         WHERE ${withCurrency}
         GROUP BY COALESCE(NULLIF(i.Descripcion, ''), i.Item, 'Producto')
         ORDER BY total_sales DESC
@@ -1065,8 +1100,9 @@ const createOrderService = ({
           COALESCE(SUM(${kgExpr}), 0) AS total_kg,
           COALESCE(SUM(${amountExpr}), 0) AS total_sales
         FROM jor_imp_HDR_90_softkey h
+        INNER JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
         JOIN jor_imp_item_90_softkey i
-          ON i.Nro = h.Nro AND i.Factura = h.Factura
+          ON i.Nro = h.Nro AND i.Factura = f.Factura
         LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
         WHERE ${withCurrency}
           AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
@@ -1285,10 +1321,11 @@ const createOrderService = ({
           h.Nro,
           h.OC,
           h.Rut,
-          h.Factura,
-          h.Fecha_factura,
+          f.Factura,
+          f.Fecha_factura,
           c.Nombre AS customer_name
         FROM jor_imp_HDR_90_softkey h
+        LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
         LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
         WHERE h.Nro = @pc AND LOWER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = LOWER(@oc)
           AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
@@ -1367,11 +1404,11 @@ const createOrderService = ({
     const normalizedCustomer = customerId ? String(customerId).trim() : null;
 
     const where = [
-      'h.Fecha_factura IS NOT NULL',
-      'CAST(h.Fecha_factura AS date) BETWEEN @start AND @end',
-      'h.Factura IS NOT NULL',
-      "LTRIM(RTRIM(CONVERT(varchar(50), h.Factura))) <> ''",
-      'h.Factura <> 0'
+      'f.Fecha_factura IS NOT NULL',
+      'CAST(f.Fecha_factura AS date) BETWEEN @start AND @end',
+      'f.Factura IS NOT NULL',
+      "LTRIM(RTRIM(CONVERT(varchar(50), f.Factura))) <> ''",
+      'f.Factura <> 0'
     ];
 
     if (normalizedProduct) {
@@ -1392,8 +1429,9 @@ const createOrderService = ({
 
     const baseFrom = `
       FROM jor_imp_HDR_90_softkey h
+      INNER JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
       JOIN jor_imp_item_90_softkey i
-        ON i.Nro = h.Nro AND i.Factura = h.Factura
+        ON i.Nro = h.Nro AND i.Factura = f.Factura
       LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
       WHERE ${where.join(' AND ')}
         AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
@@ -1416,8 +1454,8 @@ const createOrderService = ({
         CONCAT(h.Nro, '|', h.OC) AS order_id,
         h.Nro AS pc,
         h.OC AS oc,
-        h.Factura AS factura,
-        CAST(h.Fecha_factura AS date) AS fecha,
+        f.Factura AS factura,
+        CAST(f.Fecha_factura AS date) AS fecha,
         c.Nombre AS customer_name,
         i.Item AS item_id,
         COALESCE(NULLIF(i.Descripcion, ''), i.Item, 'Producto') AS product_name,

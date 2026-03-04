@@ -565,7 +565,6 @@ async function loadOrderDocumentsFromAPI(orderId) {
       }
     });
 
-    console.log('loadOrderDocumentsFromAPI -> status', response.status, 'orderId', orderId);
     if (!response.ok) {
       const text = await response.text();
       console.warn('loadOrderDocumentsFromAPI -> error body', text);
@@ -573,8 +572,6 @@ async function loadOrderDocumentsFromAPI(orderId) {
     }
 
     const data = await response.json();
-    console.log('loadOrderDocumentsFromAPI -> data', data);
-    console.log('loadOrderDocumentsFromAPI -> docs length', Array.isArray(data.documents) ? data.documents.length : 'not array');
     
     // Convertir documentos al formato esperado por el frontend
     documents = data.documents.map(doc => {
@@ -1923,16 +1920,6 @@ async function openItemsModal(orderPc, orderOc, factura) {
     const rawGastoAdicionalFactura = items[0]?.gasto_adicional_flete_factura;
     const shouldUseFacturaExpense = hasFactura && rawGastoAdicionalFactura !== null && rawGastoAdicionalFactura !== undefined && rawGastoAdicionalFactura !== '';
     const rawGastoAdicional = shouldUseFacturaExpense ? rawGastoAdicionalFactura : items[0]?.gasto_adicional_flete;
-    
-    console.log('[Additional Cost Debug]', {
-      hasFactura,
-      factura: facturaValue,
-      gasto_adicional_flete: items[0]?.gasto_adicional_flete,
-      gasto_adicional_flete_factura: rawGastoAdicionalFactura,
-      shouldUseFacturaExpense,
-      rawGastoAdicional,
-      finalValue: parseFloat(rawGastoAdicional) || 0
-    });
     
     const gastoAdicional = parseFloat(rawGastoAdicional) || 0;
     

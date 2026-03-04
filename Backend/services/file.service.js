@@ -428,20 +428,22 @@ const getAllFiles = async () => {
  */
   const getFilesByPcOc = async (pc, oc, factura = null) => {
     const pool = await poolPromise;
-    const normalizedOc = oc ? normalizeOcForCompare(oc) : '';
     const normalizedFactura = factura !== null && factura !== undefined && factura !== '' && factura !== 0 && factura !== '0'
       ? String(factura).trim()
       : null;
-    const facturaClause = normalizedFactura ? ' AND factura = ?' : '';
-    const baseParams = oc
-      ? (normalizedFactura ? [pc, normalizedOc, normalizedFactura] : [pc, normalizedOc])
-      : (normalizedFactura ? [pc, normalizedFactura] : [pc]);
-    const [rows] = await pool.query(
-      oc
-        ? `SELECT * FROM order_files WHERE pc = ? AND REPLACE(REPLACE(REPLACE(REPLACE(LOWER(COALESCE(oc, '')), ' ', ''), '(', ''), ')', ''), '-', '') = ?${facturaClause}`
-        : `SELECT * FROM order_files WHERE pc = ?${facturaClause}`,
-      baseParams
-    );
+    
+    // Usar PC + Factura como clave única (no OC)
+    const facturaClause = normalizedFactura 
+      ? ' AND factura = ?' 
+      : " AND (factura IS NULL OR factura = '' OR factura = 0 OR factura = '0')";
+    
+    const baseParams = normalizedFactura ? [pc, normalizedFactura] : [pc];
+    
+    const query = `SELECT * FROM order_files WHERE pc = ?${facturaClause}`;
+    logger.info(`[getFilesByPcOc] SQL: ${query} | PARAMS: ${JSON.stringify(baseParams)}`);
+    
+    const [rows] = await pool.query(query, baseParams);
+    logger.info(`[getFilesByPcOc] RESULT: Found ${rows.length} files`);
     return rows;
   };
 
@@ -668,6 +670,8 @@ const createDefaultFilesForPcOc = async (pc, oc, customerName, factura, allowedD
       const existingFiles = await getFilesByPcOc(pc, oc, normalizedFactura);
       const existingFileIds = new Set(existingFiles.map(f => f.file_id).filter(Boolean));
 
+    logger.info(`[createDefaultFilesForPcOc] CHECKING EXISTING FILES: pc=${pc} oc=${oc} factura=${normalizedFactura} existingCount=${existingFiles.length} existingFileIds=${Array.from(existingFileIds).join(',')}`);
+
     let requiredDocs = hasPartial
       ? (isParent && !hasFactura
         ? ['Order Receipt Notice']
@@ -816,7 +820,9 @@ const insertDefaultFile = async (fileData) => {
       fileData.file_id || null
     ];
 
+    logger.info(`[insertDefaultFile] SQL: INSERT INTO order_files (pc, oc, factura, name, path, file_identifier, file_id, ...) VALUES (?, ?, ?, ?, ?, ?, ?, ...) | PARAMS: ${JSON.stringify(params)}`);
     const [result] = await pool.query(query, params);
+    logger.info(`[insertDefaultFile] RESULT: Inserted file with ID ${result.insertId}`);
     return result;
     
   } catch (error) {
@@ -903,7 +909,7 @@ const getOrderDataForPDF = async (orderId) => {
       WHERE h.Nro = @pc ${oc ? "AND REPLACE(REPLACE(REPLACE(REPLACE(LOWER(h.OC), ' ', ''), '(', ''), ')', ''), '-', '') = @oc" : ''}
         AND ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
         AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
-      ORDER BY ISNULL(h.Fecha, h.Fecha_factura) DESC
+      ORDER BY ISNULL(h.Fecha, f.Fecha_factura) DESC
     `);
 
     return result.recordset?.[0] || null;

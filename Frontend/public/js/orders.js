@@ -247,10 +247,11 @@ export async function initOrdersScript() {
     const pcValue = order.pc || '';
     const ocValue = order.oc || order.orderNumber || '';
     const companyValue = order.customer_name || '';
+    const facturaValue = order.factura ?? '';
     const isSellerView = basePath.startsWith('/seller');
     const documentUrl = isSellerView
-      ? `${documentsPath}/${encodeURIComponent(customerRut)}?pc=${encodeURIComponent(pcValue)}&oc=${encodeURIComponent(ocValue)}&c=${encodeURIComponent(companyValue)}`
-      : `${documentsPath}/${encodeURIComponent(customerRut)}/${encodeURIComponent(pcValue)}/${slugifyPath(ocValue)}/${slugifyPath(companyValue)}`;
+      ? `${documentsPath}/${encodeURIComponent(customerRut)}?pc=${encodeURIComponent(pcValue)}&oc=${encodeURIComponent(ocValue)}&c=${encodeURIComponent(companyValue)}&factura=${encodeURIComponent(facturaValue)}`
+      : `${documentsPath}/${encodeURIComponent(customerRut)}/${encodeURIComponent(pcValue)}/${slugifyPath(ocValue)}/${slugifyPath(companyValue)}/${encodeURIComponent(facturaValue)}`;
     const shippingMethod = (!order.factura || order.factura === 0 || order.factura === '0')
       ? (order.medio_envio_ov || '-')
       : (order.medio_envio_factura || '-');

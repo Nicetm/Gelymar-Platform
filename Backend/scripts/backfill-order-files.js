@@ -56,9 +56,10 @@ async function resolveSqlHeader({ pc, oc, factura }) {
     SELECT TOP 1
       h.Nro AS pc,
       h.OC AS oc,
-      h.Factura AS factura,
+      f.Factura AS factura,
       c.Nombre AS customer_name
     FROM jor_imp_HDR_90_softkey h
+    LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
     LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
     WHERE h.Nro = @pc
       ${oc ? "AND REPLACE(REPLACE(REPLACE(REPLACE(UPPER(h.OC), ' ', ''), '(', ''), ')', ''), '-', '') = @oc" : ''}
@@ -69,8 +70,8 @@ async function resolveSqlHeader({ pc, oc, factura }) {
     const request = buildRequest();
     const result = await request.query(`
       ${baseQuery}
-        AND h.Factura = @factura
-      ORDER BY ISNULL(h.Fecha, h.Fecha_factura) DESC
+        AND f.Factura = @factura
+      ORDER BY ISNULL(h.Fecha, f.Fecha_factura) DESC
     `);
     return result.recordset?.[0] || null;
   }
@@ -79,8 +80,8 @@ async function resolveSqlHeader({ pc, oc, factura }) {
   const requestNoFactura = buildRequest();
   const resultNoFactura = await requestNoFactura.query(`
     ${baseQuery}
-      AND (h.Factura IS NULL OR h.Factura = '' OR h.Factura = 0 OR h.Factura = '0')
-    ORDER BY ISNULL(h.Fecha, h.Fecha_factura) DESC
+      AND (f.Factura IS NULL OR f.Factura = '' OR f.Factura = 0 OR f.Factura = '0')
+    ORDER BY ISNULL(h.Fecha, f.Fecha_factura) DESC
   `);
   if (resultNoFactura.recordset?.[0]) {
     return resultNoFactura.recordset[0];
@@ -90,7 +91,7 @@ async function resolveSqlHeader({ pc, oc, factura }) {
   const requestAny = buildRequest();
   const resultAny = await requestAny.query(`
     ${baseQuery}
-    ORDER BY ISNULL(h.Fecha, h.Fecha_factura) DESC
+    ORDER BY ISNULL(h.Fecha, f.Fecha_factura) DESC
   `);
   return resultAny.recordset?.[0] || null;
 }

@@ -4,6 +4,7 @@ const multer = require('multer');
 const { container } = require('../config/container');
 const { logger } = require('../utils/logger');
 const { t } = require('../i18n');
+const { getSqlPool, sql } = require('../config/sqlserver');
 const { 
   generateRecepcionOrden,
   generateAvisoEmbarque,
@@ -831,7 +832,9 @@ exports.getFilesByCustomerAndFolder = async (req, res) => {
       return res.status(400).json({ message: t('documentFile.pc_required', req.lang || 'es') });
     }
 
-    const files = await fileService.getFilesByPc(pc, idNroOvMasFactura, factura);
+    logger.info(`[getFilesByCustomerAndFolder] Fetching files: pc=${pc} factura=${factura || 'NULL'}`);
+    const files = await fileService.getFilesByPc(pc, factura);
+    logger.info(`[getFilesByCustomerAndFolder] Found ${files.length} files`);
     res.json(files);
   } catch (err) {
     logger.error(`Error al obtener archivos: ${err.message}`);
@@ -1287,14 +1290,14 @@ exports.resendFile = async (req, res) => {
  */
 exports.createDefaultFiles = async (req, res) => {
   const { orderId } = req.params;
-  const { pc, oc, idNroOvMasFactura } = req.body || {};
+  const { pc, oc, factura, idNroOvMasFactura } = req.body || {};
   let logPc = pc || 'N/A';
   let logOc = oc || 'N/A';
-  let logFactura = null;
+  let logFactura = factura || null;
   let logCustomerRut = null;
 
   try {
-    logger.info(`[createDefaultFiles] source=manual params orderId=${orderId || 'N/A'} body pc=${pc || 'N/A'} oc=${oc || 'N/A'} idNroOvMasFactura=${idNroOvMasFactura || 'N/A'}`);
+    logger.info(`[createDefaultFiles] source=manual params orderId=${orderId || 'N/A'} body pc=${pc || 'N/A'} oc=${oc || 'N/A'} factura=${factura || 'N/A'} idNroOvMasFactura=${idNroOvMasFactura || 'N/A'}`);
     let result;
     const shipmentIncoterms = new Set(['CFR', 'CIF', 'CIP', 'DAP', 'DDP', 'CPT']);
     const availabilityIncoterms = new Set([
@@ -1389,7 +1392,66 @@ exports.createDefaultFiles = async (req, res) => {
 
       let resolvedOc = oc;
       let orderData = null;
-      if (idNroOvMasFactura) {
+      
+      // Si viene factura en el body, obtener los datos completos de la orden desde SQL Server
+      if (factura !== undefined && factura !== null) {
+        // Normalizar factura para la consulta
+        const normalizedFactura = factura !== null && factura !== undefined && factura !== '' && factura !== 0 && factura !== '0'
+          ? String(factura).trim()
+          : null;
+        
+        // Obtener datos completos de la orden desde SQL Server (incluyendo incoterm, ETD, ETA)
+        const sqlPool = await getSqlPool();
+        const request = sqlPool.request();
+        request.input('pc', sql.VarChar, String(pc).trim());
+        
+        let orderQuery;
+        if (normalizedFactura) {
+          request.input('factura', sql.VarChar, normalizedFactura);
+          orderQuery = `
+            SELECT TOP 1 
+              h.Nro as pc,
+              h.OC as oc,
+              f.Factura as factura,
+              h.Clausula as incoterm,
+              c.Nombre as customer_name,
+              c.Rut as rut,
+              f.ETD_ENC_FA as fecha_etd_factura,
+              f.ETA_ENC_FA as fecha_eta_factura
+            FROM jor_imp_HDR_90_softkey h
+            INNER JOIN jor_imp_CLI_01_softkey c ON h.Rut = c.Rut
+            INNER JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
+            WHERE h.Nro = @pc AND f.Factura = @factura
+          `;
+        } else {
+          orderQuery = `
+            SELECT TOP 1 
+              h.Nro as pc,
+              h.OC as oc,
+              NULL as factura,
+              h.Clausula as incoterm,
+              c.Nombre as customer_name,
+              c.Rut as rut,
+              NULL as fecha_etd_factura,
+              NULL as fecha_eta_factura
+            FROM jor_imp_HDR_90_softkey h
+            INNER JOIN jor_imp_CLI_01_softkey c ON h.Rut = c.Rut
+            WHERE h.Nro = @pc
+          `;
+        }
+        
+        logger.info(`[createDefaultFiles] SQL SERVER QUERY: ${orderQuery.replace(/\s+/g, ' ')} | PARAMS: pc=${pc}, factura=${normalizedFactura || 'NULL'}`);
+        const orderResult = await request.query(orderQuery);
+        orderData = orderResult.recordset?.[0];
+        logger.info(`[createDefaultFiles] SQL SERVER RESULT: ${JSON.stringify(orderData)}`);
+        
+        if (!orderData) {
+          logger.warn(`Orden no encontrada para PC: ${pc}, Factura: ${factura}`);
+          return res.status(404).json({ message: t('documentFile.order_not_found', req.lang || 'es') });
+        }
+        
+        resolvedOc = orderData.oc || oc || '';
+      } else if (idNroOvMasFactura) {
         orderData = await orderService.getOrderByPcId(pc, idNroOvMasFactura);
         resolvedOc = orderData?.oc || resolvedOc || '';
       } else if (!resolvedOc) {
@@ -1404,7 +1466,8 @@ exports.createDefaultFiles = async (req, res) => {
         return res.status(404).json({ message: t('documentFile.order_not_found', req.lang || 'es') });
       }
 
-      const facturaValue = orderData?.factura;
+      // Usar factura del body si se proporciona, sino usar la de orderData
+      const facturaValue = factura !== undefined ? factura : orderData?.factura;
       const allowedDocs = [];
       if (!hasFacturaValue(facturaValue)) {
         allowedDocs.push('Order Receipt Notice');
@@ -1418,12 +1481,12 @@ exports.createDefaultFiles = async (req, res) => {
         orderData.pc,
         orderData.oc,
         orderData.customer_name || 'Cliente',
-        orderData.factura,
+        facturaValue,  // Usar facturaValue en lugar de orderData.factura
         allowedDocs  // Pasar allowedDocs correctamente
       );
       logPc = orderData.pc || logPc;
       logOc = orderData.oc || logOc;
-      logFactura = orderData.factura;
+      logFactura = facturaValue;
       logCustomerRut = orderData.rut;
     }
 
