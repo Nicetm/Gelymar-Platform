@@ -7,7 +7,7 @@
 | 1 | checkDefaultFiles | `/api/cron/create-default-records` | POST | `pc`, `factura` |
 | 2 | generatePDFs | `/api/cron/generate-pending-pdfs` | POST | `pc`, `factura` |
 | 3 | checkClientAccess | `/api/cron/check-client-access` | POST | ❌ Ninguno |
-| 4 | sendOrderReception | `/api/cron/process-new-orders` | POST | ❌ Ninguno |
+| 4 | sendOrderReception | `/api/cron/process-new-orders` | POST | `pc` |
 | 5 | sendShipmentNotice | `/api/cron/process-shipment-notices` | POST | ❌ Ninguno |
 | 6 | sendOrderDeliveryNotice | `/api/cron/process-order-delivery-notices` | POST | ❌ Ninguno |
 | 7 | sendAvailableNotice | `/api/cron/process-availability-notices` | POST | ❌ Ninguno |
@@ -19,7 +19,7 @@
 
 ### 1. checkDefaultFiles
 
-**Descripción**: Crea registros en `order_files` con `status_id = 1` para documentos por defecto
+**Descripción**: Crea registros de documentos por defecto en la tabla `order_files` para las órdenes. NO genera los PDFs físicos, solo crea los registros en la base de datos.
 
 **Endpoint**: `POST /api/cron/create-default-records`
 
@@ -54,11 +54,53 @@ POST http://localhost:3000/api/cron/create-default-records
 }
 ```
 
+**Funcionamiento Detallado**:
+
+1. **Obtiene todas las órdenes** agrupadas por RUT del cliente desde SQL Server
+
+2. **Determina qué documentos crear** según:
+   - Si la orden tiene factura o no
+   - El incoterm de la orden
+   - Si es una orden parcial (múltiples facturas para el mismo PC|OC)
+
+3. **Tipos de documentos que puede crear**:
+   - **Order Receipt Notice** (file_id: 9) - Para órdenes sin factura o la primera de una orden parcial
+   - **Shipment Notice** (file_id: 19) - Para órdenes con factura y incoterms de envío (CFR, CIF, CIP, DAP, DDP, CPT)
+   - **Order Delivery Notice** (file_id: 15) - Para órdenes con factura y fecha ETA
+   - **Availability Notice** (file_id: 6) - Para órdenes con factura y incoterms de disponibilidad (EWX, FCA, FOB, FCA PORT, FCA WAREHOUSE SANTIAGO, FCA AIRPORT, FCAWSTGO)
+
+4. **Lógica de creación de documentos**:
+   - **Orden sin factura**: Crea solo "Order Receipt Notice"
+   - **Orden con factura**: Evalúa el incoterm y fechas para determinar qué documentos crear
+   - **Orden parcial sin factura**: Crea "Order Receipt Notice" solo para la orden padre (la más antigua)
+   - **Orden parcial con factura**: Crea documentos según incoterm para cada factura
+
+5. **Verifica documentos existentes** usando `file_id` para evitar duplicados
+
+6. **Crea el directorio físico** en el servidor de archivos si no existe: `/uploads/CLIENTE_NOMBRE/PC/`
+
+7. **Inserta registros en `order_files`** con:
+   - `pc`, `oc`, `factura` de la orden
+   - `rut` del cliente (obtenido de SQL Server)
+   - `status_id = 1` (Por Generar)
+   - `is_visible_to_client = 0` (No visible para el cliente)
+   - `file_type = 'PDF'`
+   - Sin ruta de archivo físico (solo el directorio base)
+   - `file_identifier` único generado automáticamente
+   - `was_sent = NULL` (No enviado)
+
+**Importante**:
+- NO genera PDFs físicos, solo crea los registros
+- Guarda el RUT del cliente en cada registro para uso posterior
+- Los PDFs se generan después por `generatePDFs`
+- Procesa en lotes de 10 clientes para evitar problemas de memoria
+- Registra eventos en `document_events` para auditoría
+
 ---
 
 ### 2. generatePDFs
 
-**Descripción**: Genera archivos PDF físicos para registros con `status_id = 1`
+**Descripción**: Genera archivos PDF físicos para registros pendientes en `order_files` con `status_id = 1`. Toma los registros creados por `checkDefaultFiles` y genera los documentos PDF reales.
 
 **Endpoint**: `POST /api/cron/generate-pending-pdfs`
 
@@ -92,6 +134,63 @@ POST http://localhost:3000/api/cron/generate-pending-pdfs
   "message": "PDFs pendientes generados correctamente",
   "pdfsGenerated": 5
 }
+```
+
+**Funcionamiento Detallado**:
+
+1. **Busca registros pendientes** en `order_files` con `status_id = 1` (Por Generar)
+
+2. **Aplica filtros:**
+   - Por `pc` específico (opcional)
+   - Por `factura` específica (opcional)
+   - Por fecha `sendFrom` desde configuración (filtra órdenes desde SQL Server por `h.Fecha`)
+
+3. **Para cada registro pendiente:**
+   - Obtiene datos completos de la orden desde SQL Server:
+     - **Header** (jor_imp_HDR_90_softkey): PC, OC, RUT, nombre cliente, país, incoterm, tipo, condición de venta, moneda, medio de envío, puerto destino, fecha incoterm, gasto adicional flete
+     - **Factura** (jor_imp_FACT_90_softkey): Número, fecha, ETD, ETA, medio de envío, gasto adicional flete (si existe)
+     - **Items** (jor_imp_item_90_softkey): Descripción, kg solicitados, kg facturados, precio unitario
+   - Determina el idioma según el país del cliente (consulta `country_lang`)
+   - Obtiene las traducciones correspondientes del documento
+
+4. **Genera el PDF físico:**
+   - Usa el generador correspondiente según `file_id`:
+     - `file_id: 9` → `generateRecepcionOrden()` - Order Receipt Notice
+     - `file_id: 19` → `generateAvisoEmbarque()` - Shipment Notice
+     - `file_id: 15` → `generateAvisoEntrega()` - Order Delivery Notice
+     - `file_id: 6` → `generateAvisoDisponibilidad()` - Availability Notice
+   - Crea el archivo en el servidor de archivos
+   - Formato del nombre: `[Tipo Documento] - [Cliente] - PO [Número].pdf`
+   - Ejemplo: `Order Receipt Notice - ACME CORP - PO LA-001-26.pdf`
+
+5. **Actualiza el registro en `order_files`:**
+   - Cambia `status_id` de 1 a 2 (Generado)
+   - Actualiza `name` con el nombre final del archivo
+   - Actualiza `path` con la ruta completa del archivo (directorio + nombre)
+   - Establece `fecha_generacion = NOW()`
+   - Cambia `is_visible_to_client = 1` (ahora visible para el cliente)
+   - Actualiza `updated_at = NOW()`
+
+6. **Registra eventos** en `document_events` para auditoría (éxito o error)
+
+**Importante**:
+- Solo procesa registros con `status_id = 1`
+- Genera el PDF físico en el servidor de archivos
+- Después de generar, el documento queda visible para el cliente
+- Procesa registros en orden cronológico (por `created_at ASC`)
+- Si el directorio no existe, lo crea automáticamente
+- Verifica que el PDF se creó correctamente antes de actualizar el registro
+- Continúa con el siguiente registro si hay un error (no detiene el proceso completo)
+
+**Flujo de datos:**
+```
+checkDefaultFiles (crea registros) 
+    ↓
+order_files (status_id = 1, sin PDF físico)
+    ↓
+generatePDFs (genera PDFs)
+    ↓
+order_files (status_id = 2, con PDF físico, visible para cliente)
 ```
 
 ---
@@ -131,17 +230,17 @@ POST http://localhost:3000/api/cron/check-client-access
 
 ### 4. sendOrderReception
 
-**Descripción**: Procesa órdenes nuevas y envía correos de recepción
+**Descripción**: Envía correos de recepción de orden para documentos ya generados. NO genera PDFs, solo envía emails de documentos con `status_id = 2`.
 
 **Endpoint**: `POST /api/cron/process-new-orders`
 
-**Servicio**: `checkOrderReceptionService` (varios métodos)
+**Servicio**: `checkOrderReceptionService.getOrdersReadyForOrderReceiptNotice()`
 
 **Parámetro `param_config`**: `sendAutomaticOrderReception`
 ```json
 {
   "enable": 1,
-  "sendFrom": "2025-12-01"
+  "sendFrom": "2026-03-01"
 }
 ```
 
@@ -150,16 +249,89 @@ POST http://localhost:3000/api/cron/check-client-access
 POST http://localhost:3000/api/cron/process-new-orders
 ```
 
-**Parámetros Opcionales**: ❌ Ninguno
+**Parámetros Opcionales** (Body JSON):
+```json
+{
+  "pc": "21511"        // Opcional: Filtrar por PC específico
+}
+```
 
 **Respuesta Exitosa**:
 ```json
 {
   "success": true,
   "processed": 3,
-  "skipped": false
+  "errors": 0,
+  "skipped": 0,
+  "total": 3
 }
 ```
+
+**Funcionamiento Detallado**:
+
+1. **Busca registros listos para enviar** en `order_files`:
+   - `file_id = 9` (Order Receipt Notice)
+   - `status_id = 2` (PDF ya generado)
+   - `was_sent IS NULL OR was_sent = 0` (No enviado)
+   - Aplica filtro `pc` si se proporciona
+
+2. **Obtiene el RUT directamente** de la tabla `order_files`:
+   - Ya no consulta SQL Server para obtener el RUT
+   - El RUT fue guardado por `checkDefaultFiles`
+
+3. **Si hay `sendFromDate`**, valida contra SQL Server:
+   - Filtra solo órdenes cuya fecha (`h.Fecha`) sea >= `sendFrom`
+   - Esto asegura que solo se procesen órdenes recientes
+
+4. **Para cada registro encontrado:**
+   
+   a. **Obtiene emails y idioma del cliente:**
+   - Usa el RUT de `order_files` para buscar en `customer_contacts`
+   - Filtra contactos con `reports = true`
+   - Determina el idioma según el país del cliente
+   
+   b. **Verifica que el PDF esté generado:**
+   - Confirma que `status_id = 2`
+   - Si no está generado, omite el registro
+   
+   c. **Envía el email (si está habilitado):**
+   - Llama a `sendFileToClient()` con los emails de contactos
+   - Adjunta el PDF generado
+   
+   d. **Actualiza el registro SOLO si el email se envió exitosamente:**
+   - Cambia `status_id` de 2 a 3 (Enviado)
+   - Establece `was_sent = 1`
+   - Actualiza `fecha_envio = NOW()`
+
+5. **Si hay error al enviar:**
+   - NO actualiza ningún campo
+   - El registro permanece con `status_id = 2` y `was_sent = NULL/0`
+   - Se reintentará en la próxima ejecución
+
+**Importante**:
+- NO genera PDFs, solo envía emails
+- Solo procesa registros con PDF ya generado (`status_id = 2`)
+- El RUT viene directamente de `order_files`, no de SQL Server
+- Solo actualiza el estado si el email se envió exitosamente
+- Si falla el envío, el registro se reintenta en la próxima ejecución
+- Registra eventos en `document_events` para auditoría
+
+**Flujo de datos:**
+```
+checkDefaultFiles → Crea registros (status_id=1, was_sent=NULL, rut guardado)
+    ↓
+generatePDFs → Genera PDFs (status_id=2, was_sent=NULL)
+    ↓
+sendOrderReception → Envía emails (status_id=3, was_sent=1)
+```
+
+**Estados de `order_files`:**
+
+| status_id | was_sent | Descripción | Proceso |
+|-----------|----------|-------------|---------|
+| 1 | NULL | Por Generar | `checkDefaultFiles` |
+| 2 | NULL/0 | Generado, no enviado | `generatePDFs` |
+| 3 | 1 | Generado y enviado | `sendOrderReception` |
 
 ---
 
@@ -357,7 +529,8 @@ node Cronjob/cron/sendDbBackup.js execute-now
    - Si no existe o es `null`, procesa todos los registros
 
 4. **Parámetros Opcionales**:
-   - Solo `checkDefaultFiles` y `generatePDFs` aceptan filtros por `pc` y `factura`
+   - `checkDefaultFiles` y `generatePDFs` aceptan filtros por `pc` y `factura`
+   - `sendOrderReception` acepta filtro por `pc`
    - Los demás cron jobs no aceptan parámetros
 
 5. **Respuestas de Error**:

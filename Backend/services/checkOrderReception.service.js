@@ -93,96 +93,94 @@ async function isSendOrderReceptionEnabled() {
 
 async function getOrdersReadyForOrderReceiptNotice(sendFromDate = null, filterPc = null, filterFactura = null) {
   try {
-    const sqlPool = await getSqlPool();
-    const request = sqlPool.request();
-    let sendFromFilter = '';
-    if (sendFromDate) {
-      sendFromFilter = ' AND CONVERT(date, h.Fecha) >= @sendFrom';
-      request.input('sendFrom', sql.Date, sendFromDate);
-    }
-    const normalizedPc = filterPc ? String(filterPc).trim() : null;
-    let pcFilter = '';
-    if (normalizedPc) {
-      pcFilter = ' AND h.Nro = @pc';
-      request.input('pc', sql.VarChar, normalizedPc);
-    }
-    const normalizedFactura = filterFactura ? String(filterFactura).trim() : null;
-    let facturaFilter = '';
-    if (normalizedFactura) {
-      facturaFilter = ' AND f.Factura = @factura';
-      request.input('factura', sql.VarChar, normalizedFactura);
-    }
-
-    // REFACTORING NOTE: Changed to use LEFT JOIN with Vista_FACT to find orders without invoices
-    // OLD: Filtered h.Factura IS NULL on Vista_HDR (which had duplicity)
-    // NEW: LEFT JOIN with Vista_FACT and WHERE f.Nro IS NULL (no invoices exist)
-    const result = await request.query(`
-      SELECT
-        h.Nro AS pc,
-        h.OC AS oc,
-        h.Fecha AS fecha_ingreso,
-        c.Nombre AS customer_name,
-        c.Rut AS customer_rut
-      FROM jor_imp_HDR_90_softkey h
-      LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
-        AND f.Factura IS NOT NULL
-        AND LTRIM(RTRIM(f.Factura)) <> ''
-        AND f.Factura <> 0
-      JOIN jor_imp_CLI_01_softkey c ON h.Rut = c.Rut
-      WHERE ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
-        AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
-        AND f.Nro IS NULL
-        ${sendFromFilter}
-        ${pcFilter}
-        ${facturaFilter}
-      ORDER BY h.Nro ASC
-    `);
-
-    
-    const orders = (result.recordset || []).map((row) => ({
-      ...row,
-      oc: normalizeOc(row.oc),
-    }));
-    if (!orders.length) return [];
-
-    // REFACTORING NOTE: ORN documents are order-level, not invoice-level
-    // File lookup uses only (pc, oc) without id_nro_ov_mas_factura
     const pool = await poolPromise;
-    const pcs = Array.from(new Set(orders.map((o) => String(o.pc)).filter(Boolean)));
-    if (!pcs.length) return orders;
-
-    const [fileRows] = await pool.query(
-      `SELECT id, pc, oc, fecha_envio
-       FROM order_files
-       WHERE file_id = 9 AND pc IN (${pcs.map(() => '?').join(',')})`,
-      pcs
-    );
-
-    const fileMap = new Map();
-    fileRows.forEach((row) => {
-      const key = `${row.pc}||${normalizeOc(row.oc)}`;
-      if (!fileMap.has(key)) {
-        fileMap.set(key, row);
-      }
-    });
-
-    return orders
-      .map((order) => {
-        const key = `${order.pc}||${normalizeOc(order.oc)}`;
-        const file = fileMap.get(key) || null;
-        return {
-          ...order,
-          receipt_file_id: file?.id || null,
-          receipt_fecha_envio: file?.fecha_envio || null
-        };
-      })
-      .filter((order) => !order.receipt_file_id || !order.receipt_fecha_envio);
+    
+    // Construir query para buscar registros en order_files con file_id = 9 y was_sent IS NULL o 0
+    let query = `
+      SELECT 
+        id,
+        pc,
+        oc,
+        factura,
+        rut,
+        path,
+        created_at
+      FROM order_files
+      WHERE file_id = 9
+        AND (was_sent IS NULL OR was_sent = 0)
+        AND status_id = 2
+    `;
+    
+    const params = [];
+    
+    // Aplicar filtros opcionales
+    if (filterPc) {
+      query += ' AND pc = ?';
+      params.push(String(filterPc).trim());
+    }
+    
+    if (filterFactura) {
+      query += ' AND factura = ?';
+      params.push(String(filterFactura).trim());
+    }
+    
+    query += ' ORDER BY created_at ASC';
+    
+    const [fileRows] = await pool.query(query, params);
+    
+    if (!fileRows.length) return [];
+    
+    // Si hay sendFromDate, filtrar por fecha de la orden en SQL Server
+    if (sendFromDate) {
+      const sqlPool = await getSqlPool();
+      const request = sqlPool.request();
+      request.input('sendFrom', sql.Date, sendFromDate);
+      
+      const pcs = Array.from(new Set(fileRows.map(f => String(f.pc)).filter(Boolean)));
+      const pcPlaceholders = pcs.map((_, idx) => `@pc${idx}`);
+      pcs.forEach((pc, idx) => {
+        request.input(`pc${idx}`, sql.VarChar, pc);
+      });
+      
+      const result = await request.query(`
+        SELECT DISTINCT h.Nro AS pc
+        FROM jor_imp_HDR_90_softkey h
+        WHERE h.Nro IN (${pcPlaceholders.join(', ')})
+          AND CONVERT(date, h.Fecha) >= @sendFrom
+      `);
+      
+      const validPcs = new Set(result.recordset.map(row => row.pc));
+      
+      // Filtrar solo los archivos cuyo PC cumple con sendFrom
+      return fileRows
+        .filter(file => validPcs.has(file.pc))
+        .map(file => ({
+          receipt_file_id: file.id,
+          pc: file.pc,
+          oc: normalizeOc(file.oc),
+          factura: file.factura,
+          customer_rut: file.rut,
+          path: file.path,
+          created_at: file.created_at
+        }));
+    }
+    
+    // Sin filtro de fecha, retornar todos los archivos encontrados
+    return fileRows.map(file => ({
+      receipt_file_id: file.id,
+      pc: file.pc,
+      oc: normalizeOc(file.oc),
+      factura: file.factura,
+      customer_rut: file.rut,
+      path: file.path,
+      created_at: file.created_at
+    }));
+    
   } catch (error) {
     logger.error(`Error obteniendo ordenes para Order Receipt Notice: ${error.message}`);
     throw error;
   }
 }
-
 
 /**
  * Obtiene datos de una orden específica

@@ -306,6 +306,11 @@ const updateFile = async(data) => {
     values.push(data.fecha_reenvio);
   }
   
+  if (data.was_sent !== undefined) {
+    fields.push('was_sent = ?');
+    values.push(data.was_sent);
+  }
+  
   // Siempre establecer file_type como PDF si se está actualizando
   fields.push('file_type = ?');
   values.push('PDF');

@@ -9,7 +9,7 @@ try {
     warn: console.warn,
     error: console.error
   };
-  logger.warn(`[processNewOrdersAndSendEmails] Logger backend no disponible, usando consola. error=${error.message}`);
+  logger.warn(`[processOrderReception] Logger backend no disponible, usando consola. error=${error.message}`);
 }
 
 // Configuración de la API del backend
@@ -23,7 +23,7 @@ const emitReady = () => {
 };
 
 // Función para procesar órdenes nuevas y enviar correos
-async function processNewOrdersAndSendEmails() {
+async function processOrderReception() {
   try {
     
     // Llamar al endpoint del backend que ya tiene toda la lógica
@@ -38,19 +38,19 @@ async function processNewOrdersAndSendEmails() {
     const data = response.data || {};
 
     if (data.skipped) {
-      logger.info('[processNewOrdersAndSendEmails] Envio automatico de recepcion deshabilitado por configuracion');
+      logger.info('[processOrderReception] Envio automatico de recepcion deshabilitado por configuracion');
       return;
     }
 
     if (data.processed === 0) {
-      logger.info('[processNewOrdersAndSendEmails] No se encontraron ordenes nuevas para enviar recepcion');
+      logger.info('[processOrderReception] No se encontraron ordenes nuevas para enviar recepcion');
     } else {
-      logger.info(`[processNewOrdersAndSendEmails] Envio de documentos de recepcion completado. Ordenes procesadas: ${data.processed}`);
+      logger.info(`[processOrderReception] Envio de documentos de recepcion completado. Ordenes procesadas: ${data.processed}`);
     }
   } catch (error) {
-    logger.error(`[processNewOrdersAndSendEmails] Error en procesamiento de órdenes nuevas: ${error.message}`);
+    logger.error(`[processOrderReception] Error en procesamiento de órdenes nuevas: ${error.message}`);
     if (error.response) {
-      logger.error(`[processNewOrdersAndSendEmails] Respuesta del servidor: ${JSON.stringify(error.response.data)}`);
+      logger.error(`[processOrderReception] Respuesta del servidor: ${JSON.stringify(error.response.data)}`);
     }
   }
 }
@@ -58,9 +58,9 @@ async function processNewOrdersAndSendEmails() {
 // Función para ejecutar con manejo de errores
 async function executeWithErrorHandling() {
   try {
-    await processNewOrdersAndSendEmails();
+    await processOrderReception();
   } catch (error) {
-    logger.error(`[processNewOrdersAndSendEmails] Error en procesamiento: ${error.message}`);
+    logger.error(`[processOrderReception] Error en procesamiento: ${error.message}`);
   } finally {
     emitReady();
   }
@@ -78,8 +78,8 @@ if (arg === 'execute-now') {
 // Cron independiente - se ejecuta diariamente a las 8:00 AM
 cron.schedule('0 8 * * *', async () => { 
   try {
-    await processNewOrdersAndSendEmails();
+    await processOrderReception();
   } catch (error) {
-    logger.error(`[processNewOrdersAndSendEmails] Error en procesamiento de órdenes nuevas: ${error.message}`);
+    logger.error(`[processOrderReception] Error en procesamiento de órdenes nuevas: ${error.message}`);
   }
 });
