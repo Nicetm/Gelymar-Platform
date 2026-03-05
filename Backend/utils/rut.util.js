@@ -4,7 +4,8 @@
  */
 
 /**
- * Normaliza un RUT removiendo el sufijo 'C' si existe y normalizando guiones
+ * Normaliza un RUT removiendo espacios y normalizando guiones
+ * IMPORTANTE: NO remueve el sufijo 'C' porque algunos RUTs lo tienen como parte del identificador
  * @param {string|number} value - RUT a normalizar
  * @returns {string} RUT normalizado
  */
@@ -17,8 +18,8 @@ const normalizeRut = (value) => {
     .replace(/[\u2010-\u2015\u2212]/g, '-') // Reemplaza guiones Unicode por guion ASCII
     .replace(/\s+/g, ''); // Remueve espacios
   
-  // Remover sufijo 'C' si existe
-  return normalized.toLowerCase().endsWith('c') ? normalized.slice(0, -1) : normalized;
+  // NO remover sufijo 'C' - algunos RUTs lo tienen como parte del identificador (ej: 34501606-6C)
+  return normalized;
 };
 
 /**

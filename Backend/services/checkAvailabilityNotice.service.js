@@ -2,104 +2,133 @@ const { poolPromise } = require('../config/db');
 const { getSqlPool, sql } = require('../config/sqlserver');
 const { logger } = require('../utils/logger');
 
+/**
+ * Get orders ready for Availability Notice
+ * 
+ * REFACTORING CHANGES:
+ * - NEW: Queries order_files first (file_id=6, status_id=2, was_sent=NULL/0)
+ * - Then validates in SQL Server (Incoterms, Factura)
+ * - Uses rut from order_files (not from SQL Server)
+ * 
+ * @param {string} sendFromDate - Filter orders from this date
+ * @param {string} filterPc - Optional PC filter
+ * @param {string} filterFactura - Optional Factura filter
+ * @returns {Promise<Array>} Orders ready for Availability Notice
+ */
 async function getOrdersReadyForAvailabilityNotice(sendFromDate = null, filterPc = null, filterFactura = null) {
   try {
-    const sqlPool = await getSqlPool();
-    const request = sqlPool.request();
-    if (sendFromDate) {
-      request.input('sendFrom', sql.Date, sendFromDate);
-    }
-    if (filterPc) {
-      request.input('pc', sql.VarChar, String(filterPc).trim());
-    }
-    if (filterFactura) {
-      request.input('factura', sql.VarChar, String(filterFactura).trim());
-    }
-
-    const sqlResult = await request.query(`
-      -- REFACTORING NOTE: Changed from Vista_HDR to Vista_FACT as primary table
-      -- This generates one Availability document per invoice (not per order)
-      -- NOTE: Clausula (Incoterm) field does NOT exist in Vista_FACT, only in Vista_HDR
-      -- Incoterm is an order-level attribute, so we use h.Clausula
-      SELECT
-        f.Nro AS pc,
-        h.OC AS oc,
-        h.Rut AS customer_rut,
-        c.Nombre AS customer_name,
-        f.Factura AS factura,
-        f.Fecha_factura AS fecha_factura,
-        h.Clausula AS incoterm
-      FROM jor_imp_FACT_90_softkey f
-      INNER JOIN jor_imp_HDR_90_softkey h ON h.Nro = f.Nro
-      LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
-      WHERE ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
-        AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
-        AND f.Factura IS NOT NULL
-        AND LTRIM(RTRIM(f.Factura)) <> ''
-        AND f.Factura <> 0
-        ${filterPc ? 'AND f.Nro = @pc' : ''}
-        ${filterFactura ? 'AND f.Factura = @factura' : ''}
-        AND h.Clausula IN (
-          'EWX',
-          'FCA',
-          'FOB',
-          'FCA Port',
-          'FCA Warehouse Santiago',
-          'FCA Airport',
-          'FCAWSTGO'
-        )
-        ${sendFromDate ? `AND CASE
-              WHEN ISDATE(f.Fecha_factura) = 1 THEN CAST(f.Fecha_factura AS date)
-            END >= @sendFrom` : ''}
-      ORDER BY f.Nro ASC
-    `);
-
-    const rows = sqlResult.recordset || [];
-    if (!rows.length) return [];
-
-    // Build list of (pc, oc, factura) tuples for file lookup
-    const fileKeys = rows.map((row) => ({
-      pc: row.pc,
-      oc: row.oc,
-      factura: row.factura
-    })).filter(k => k.pc && k.oc && k.factura);
-
     const pool = await poolPromise;
-    const [fileRows] = fileKeys.length
-      ? await pool.query(
-          `
-            SELECT pc, oc, factura, MAX(id) AS id, MAX(fecha_envio) AS fecha_envio
-            FROM order_files
-            WHERE file_id = 6 AND (pc, oc, factura) IN (?)
-            GROUP BY pc, oc, factura
-          `,
-          [fileKeys.map(k => [k.pc, k.oc, k.factura])]
-        )
-      : [[]];
-
-    const fileMap = new Map();
-    for (const fileRow of fileRows) {
-      const key = `${String(fileRow.pc).trim()}|${String(fileRow.oc).trim()}|${String(fileRow.factura).trim()}`;
-      fileMap.set(key, fileRow);
+    
+    // 1. Buscar en order_files con file_id = 6, status_id = 2, was_sent = NULL/0
+    let query = `
+      SELECT id, pc, oc, factura, rut, path
+      FROM order_files
+      WHERE file_id = 6
+        AND status_id = 2
+        AND (was_sent IS NULL OR was_sent = 0)
+    `;
+    const params = [];
+    
+    if (filterPc) {
+      query += ` AND pc = ?`;
+      params.push(String(filterPc).trim());
     }
-
-    return rows
-      .map((row) => {
-        const key = `${String(row.pc).trim()}|${String(row.oc).trim()}|${String(row.factura).trim()}`;
-        const fileRow = fileMap.get(key);
-        return {
-          id: `${row.pc}|${row.oc}|${row.factura}`,
-          pc: String(row.pc).trim(),
-          oc: String(row.oc).trim(),
-          factura: String(row.factura).trim(),
-          customer_name: row.customer_name,
-          customer_rut: row.customer_rut,
-          fecha_factura: row.fecha_factura,
-          availability_file_id: fileRow?.id || null,
-          availability_fecha_envio: fileRow?.fecha_envio || null
-        };
-      })
-      .filter((row) => !row.availability_file_id || !row.availability_fecha_envio);
+    
+    if (filterFactura) {
+      query += ` AND factura = ?`;
+      params.push(String(filterFactura).trim());
+    }
+    
+    query += ` ORDER BY pc ASC`;
+    
+    const [fileRows] = await pool.query(query, params);
+    
+    if (!fileRows.length) {
+      logger.info(`[getOrdersReadyForAvailabilityNotice] No se encontraron registros en order_files pc=${filterPc || 'N/A'} factura=${filterFactura || 'N/A'}`);
+      return [];
+    }
+    
+    // 2. Para cada registro, validar en SQL Server
+    const sqlPool = await getSqlPool();
+    const validOrders = [];
+    
+    for (const fileRow of fileRows) {
+      try {
+        const request = sqlPool.request();
+        request.input('pc', sql.VarChar, String(fileRow.pc).trim());
+        request.input('factura', sql.VarChar, String(fileRow.factura).trim());
+        
+        if (sendFromDate) {
+          request.input('sendFrom', sql.Date, sendFromDate);
+        }
+        
+        // Validar en SQL Server: Incoterms de disponibilidad y factura válida
+        const sqlResult = await request.query(`
+          SELECT TOP 1
+            f.Nro AS pc,
+            h.OC AS oc,
+            f.Factura AS factura,
+            h.Clausula AS incoterm,
+            f.Fecha_factura AS fecha_factura
+          FROM jor_imp_FACT_90_softkey f
+          INNER JOIN jor_imp_HDR_90_softkey h ON h.Nro = f.Nro
+          WHERE f.Nro = @pc
+            AND f.Factura = @factura
+            AND ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
+            AND f.Factura IS NOT NULL
+            AND LTRIM(RTRIM(f.Factura)) <> ''
+            AND f.Factura <> 0
+            AND h.Clausula IN ('EWX', 'FCA', 'FOB', 'FCA Port', 'FCA Warehouse Santiago', 'FCA Airport', 'FCAWSTGO')
+            ${sendFromDate ? 'AND CASE WHEN ISDATE(f.Fecha_factura) = 1 THEN CAST(f.Fecha_factura AS date) END >= @sendFrom' : ''}
+        `);
+        
+        const sqlRow = sqlResult.recordset?.[0];
+        
+        if (sqlRow) {
+          // Cumple todas las condiciones
+          validOrders.push({
+            id: fileRow.id,
+            pc: String(fileRow.pc).trim(),
+            oc: String(fileRow.oc).trim(),
+            factura: String(fileRow.factura).trim(),
+            rut: fileRow.rut,
+            path: fileRow.path,
+            incoterm: sqlRow.incoterm,
+            fecha_factura: sqlRow.fecha_factura
+          });
+        } else {
+          // Debug: por qué no cumple
+          if (filterPc && fileRow.pc === filterPc) {
+            const debugRequest = sqlPool.request();
+            debugRequest.input('pc', sql.VarChar, String(fileRow.pc).trim());
+            debugRequest.input('factura', sql.VarChar, String(fileRow.factura).trim());
+            
+            const debugResult = await debugRequest.query(`
+              SELECT TOP 1
+                f.Nro AS pc,
+                h.OC AS oc,
+                f.Factura AS factura,
+                h.Clausula AS incoterm,
+                f.Fecha_factura AS fecha_factura
+              FROM jor_imp_FACT_90_softkey f
+              INNER JOIN jor_imp_HDR_90_softkey h ON h.Nro = f.Nro
+              WHERE f.Nro = @pc AND f.Factura = @factura
+            `);
+            
+            const debugRow = debugResult.recordset?.[0];
+            if (debugRow) {
+              const hasValidIncoterm = ['EWX', 'FCA', 'FOB', 'FCA Port', 'FCA Warehouse Santiago', 'FCA Airport', 'FCAWSTGO'].includes(String(debugRow.incoterm || '').trim());
+              const hasValidFactura = debugRow.factura && String(debugRow.factura).trim() !== '' && debugRow.factura !== 0;
+              logger.info(`[getOrdersReadyForAvailabilityNotice] pc=${debugRow.pc} oc=${debugRow.oc || 'N/A'} factura=${debugRow.factura ?? 'N/A'} incoterm=${debugRow.incoterm ?? 'N/A'} valid_incoterm=${hasValidIncoterm} valid_factura=${hasValidFactura} fecha_factura=${debugRow.fecha_factura ?? 'N/A'}`);
+            }
+          }
+        }
+      } catch (sqlError) {
+        logger.error(`[getOrdersReadyForAvailabilityNotice] Error validando SQL pc=${fileRow.pc} factura=${fileRow.factura}: ${sqlError.message}`);
+      }
+    }
+    
+    return validOrders;
   } catch (error) {
     logger.error(`Error obteniendo ordenes para Availability Notice: ${error.message}`);
     throw error;

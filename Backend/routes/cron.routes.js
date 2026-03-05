@@ -48,10 +48,15 @@ router.post('/generate-default-files', async (req, res) => {
 // Endpoint para crear registros por defecto
 router.post('/create-default-records', async (req, res) => {
   try {
-    logger.info('[cronRoutes] Iniciando creación de registros por defecto');
+    const { pc, factura } = req.body;
+    const filters = {};
+    if (pc) filters.pc = pc;
+    if (factura) filters.factura = factura;
+    
+    logger.info(`[cronRoutes] Iniciando creación de registros por defecto pc=${pc || 'todos'} factura=${factura || 'N/A'}`);
     const startTime = Date.now();
     
-    const result = await createDefaultRecords();
+    const result = await createDefaultRecords(filters);
     
     const duration = Date.now() - startTime;
     logger.info(`[cronRoutes] Creación de registros completada en ${duration}ms`);
@@ -72,10 +77,15 @@ router.post('/create-default-records', async (req, res) => {
 // Endpoint para generar PDFs pendientes
 router.post('/generate-pending-pdfs', async (req, res) => {
   try {
-    logger.info('[cronRoutes] Iniciando generación de PDFs pendientes');
+    const { pc, factura } = req.body;
+    const filters = {};
+    if (pc) filters.pc = pc;
+    if (factura) filters.factura = factura;
+    
+    logger.info(`[cronRoutes] Iniciando generación de PDFs pendientes pc=${pc || 'todos'} factura=${factura || 'N/A'}`);
     const startTime = Date.now();
     
-    const result = await generatePendingPDFs();
+    const result = await generatePendingPDFs(filters);
     
     const duration = Date.now() - startTime;
     logger.info(`[cronRoutes] Generación de PDFs completada en ${duration}ms`);

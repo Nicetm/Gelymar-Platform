@@ -480,24 +480,38 @@ exports.handleUpload = async (req, res) => {
     // Establecer permisos seguros para el archivo subido
     await setSecureFilePermissions(physicalFilePath);
 
+    // Obtener el RUT del cliente desde SQL Server
+    let customerRut = null;
+    try {
+      const { createOrderService } = require('../services/order.service');
+      const { getOrderByPcOc, getOrderByPc } = createOrderService();
+      const header = order.oc
+        ? await getOrderByPcOc(String(order.pc), String(order.oc))
+        : await getOrderByPc(String(order.pc));
+      customerRut = header?.rut || header?.customer_uuid || header?.customer_rut || null;
+    } catch (lookupError) {
+      logger.error(`[handleUpload] Error obteniendo rut desde SQL por pc/oc: ${lookupError.message}`);
+    }
+
     const fileData = {
       customer_id,
       pc: order.pc,
       oc: order.oc,
       factura: resolvedFactura,
-      id_nro_ov_mas_factura: resolvedId,
+      rut: customerRut,
       name: name,
       path: filePath,
       file_identifier: fileIdentifier,
       status_id: 2,
       is_visible_to_customer: is_visible_to_customer,
-      is_generated: 0,
+      is_generated: 1,
+      fecha_generacion: new Date(),
       file_id: req.body.file_id || null
     };
 
     await fileService.insertFile(fileData);
     
-    logger.info(`[handleUpload] source=manual Archivo subido pc=${order.pc || 'N/A'} oc=${order.oc || 'N/A'} factura=${resolvedFactura ?? 'N/A'} id=${resolvedId || 'N/A'} name=${file.originalname}`);
+    logger.info(`[handleUpload] source=manual Archivo subido pc=${order.pc || 'N/A'} oc=${order.oc || 'N/A'} factura=${resolvedFactura ?? 'N/A'} rut=${customerRut || 'N/A'} name=${file.originalname}`);
     res.status(201).json({ message: t('documentFile.file_uploaded_success', req.lang || 'es') });
   } catch (err) {
     logger.error(`Error al subir archivo: ${err.message}`);
@@ -1714,16 +1728,13 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
 exports.processShipmentNotices = async (req, res) => {
   try {
     const {
-      getOrdersReadyForShipmentNotice,
-      getShipmentFile
+      getOrdersReadyForShipmentNotice
     } = checkShipmentNoticeService;
     const {
       getReportEmailsAndLang,
       isSendOrderShipmentEnabled,
       getSendFromDate
     } = checkOrderReceptionService;
-    const fs = require('fs');
-    const path = require('path');
 
       const automaticReceptionEnabled = await isSendOrderShipmentEnabled();
       const sendFromDate = await getSendFromDate('sendAutomaticOrderShipment');
@@ -1742,170 +1753,104 @@ exports.processShipmentNotices = async (req, res) => {
     let errors = 0;
     let skipped = 0;
     const skipReasons = {
-      missing_eta: 0,
-      already_sent: 0,
-      disabled_config: 0
+      missing_etd_eta: 0,
+      disabled: 0
     };
 
     for (const orderRow of orders) {
       try {
         if (!orderRow.etd || !orderRow.eta) {
+          logger.warn(`[processShipmentNotices] Omitida: orden id=${orderRow.id} pc=${orderRow.pc} sin ETD/ETA`);
+          skipReasons.missing_etd_eta++;
           skipped++;
           continue;
         }
 
-        if (!orderRow.shipment_file_id) {
-          try {
-            await fileService.createDefaultFilesForOrder(
-              orderRow.id,
-              orderRow.customer_name,
-              orderRow.pc,
-              orderRow.oc
-            );
-            logger.info(`[processShipmentNotices] Archivo creado automático pc=${orderRow.pc} oc=${orderRow.oc || 'N/A'} doc=Shipment Notice`);
-            await logDocEvent({
-              source: 'cron',
-              action: 'create_record',
-              process: 'processShipmentNotices',
-              fileId: null,
-              docType: 'Shipment Notice',
-              pc: orderRow.pc,
-              oc: orderRow.oc,
-              factura: orderRow.factura,
-              customerRut: orderRow.customer_rut || null,
-              status: 'ok'
-            });
-          } catch (fileError) {
-            if (fileError.code !== 'FILES_ALREADY_EXIST' && fileError.message !== 'FILES_ALREADY_EXIST') {
-              throw fileError;
-            }
-          }
-        }
-
-          const shipmentFile = await getShipmentFile(orderRow.pc, orderRow.oc);
-        if (!shipmentFile) {
-          errors++;
-          continue;
-        }
-
-        if (shipmentFile.fecha_envio) {
-          skipped++;
-          continue;
-        }
-
-        const file = await fileService.getFileById(shipmentFile.id);
+        // Obtener el archivo desde order_files
+        const file = await fileService.getFileById(orderRow.id);
         if (!file) {
+          logger.error(`[processShipmentNotices] File no encontrado: order_file id=${orderRow.id}`);
           errors++;
           continue;
         }
 
-        const { reportEmails, customerLang } = await getReportEmailsAndLang(orderRow.customer_rut);
+        // Validar que el archivo tenga status_id = 2 (PDF ya generado)
+        if (file.status_id !== 2) {
+          logger.warn(`[processShipmentNotices] Omitida: archivo id=${orderRow.id} pc=${orderRow.pc} status_id=${file.status_id} (esperado: 2)`);
+          skipped++;
+          continue;
+        }
+
+        // Obtener emails y idioma usando el RUT de order_files
+        const { reportEmails, customerLang } = await getReportEmailsAndLang(orderRow.rut);
         if (reportEmails.length === 0) {
+          logger.warn(`[processShipmentNotices] Sin emails report: rut=${orderRow.rut} pc=${orderRow.pc} orden id=${orderRow.id}`);
           errors++;
           continue;
         }
 
-        const FILE_SERVER_ROOT = process.env.FILE_SERVER_ROOT || '/var/www/html';
-        const cleanCustomerName = cleanDirectoryName(file.customer_name);
-        const cleanFolderName = cleanDirectoryName(file.pc);
-        const folderName = file.file_identifier ? `${cleanFolderName}_${file.file_identifier}` : cleanFolderName;
-        const customerFolder = path.join(FILE_SERVER_ROOT, 'uploads', cleanCustomerName, folderName);
-
-        if (!fs.existsSync(customerFolder)) {
-          fs.mkdirSync(customerFolder, { recursive: true });
-        }
         const documentName = resolveDocumentName(file);
-        const generator = getDocumentGenerator(documentName);
-        const pdfData = await getPDFData(file, customerLang);
-
-        const baseName = buildDocumentFileBaseName(documentName, file, pdfData, customerLang);
-        const fileName = `${baseName}.pdf`;
-        const filePath = path.join(customerFolder, fileName);
-
-        let updateData;
-        try {
-          await generator(filePath, pdfData);
-          updateData = {
-            id: file.id,
-            name: baseName,
-            status_id: 3,
-            is_visible_to_client: 1,
-            updated_at: new Date(),
-            fecha_generacion: new Date(),
-            path: path.relative(FILE_SERVER_ROOT, filePath)
-          };
-
-
-          await fileService.updateFile(updateData);
-          logger.info(`[processShipmentNotices] PDF generado pc=${orderRow.pc} oc=${orderRow.oc || 'N/A'} factura=${file.factura || 'N/A'} id=${file.id_nro_ov_mas_factura || 'N/A'} doc=${documentName}`);
-          await logDocEvent({
-            source: 'cron',
-            action: 'generate_pdf',
-            process: 'processShipmentNotices',
-            fileId: file.id,
-            docType: documentName,
-            pc: orderRow.pc,
-            oc: orderRow.oc,
-            factura: file.factura,
-            customerRut: orderRow.customer_rut || null,
-            status: 'ok'
-          });
-        } catch (pdfError) {
-          logger.error(`[processShipmentNotices] Error generando PDF pc=${orderRow.pc}: ${pdfError.message}`);
-          
-          // Registrar evento de error
-          await logDocEvent({
-            source: 'cron',
-            action: 'generate_pdf',
-            process: 'processShipmentNotices',
-            fileId: file.id,
-            docType: documentName,
-            pc: orderRow.pc,
-            oc: orderRow.oc,
-            factura: file.factura,
-            customerRut: orderRow.customer_rut || null,
-            userId: null,
-            status: 'error',
-            message: pdfError.message
-          });
-          
-          errors++;
-          continue;
-        }
-
         const fileData = {
           id: file.id,
-          name: baseName,
-          path: updateData.path,
+          name: file.name,
+          path: file.path,
           customer_name: file.customer_name,
           customer_id: file.customer_id,
+          rut: orderRow.rut,
           lang: customerLang
         };
 
         if (automaticReceptionEnabled) {
-          await emailService.sendFileToClient(fileData, { recipients: reportEmails });
-          await fileService.updateFile({
-            id: file.id,
-            fecha_envio: new Date(),
-            updated_at: new Date()
-          });
-          logger.info(`[processShipmentNotices] Email enviado pc=${orderRow.pc} oc=${orderRow.oc || 'N/A'} factura=${file.factura || 'N/A'} doc=${documentName} recipients=${reportEmails.length}`);
-          await logDocEvent({
-            source: 'cron',
-            action: 'send_email',
-            process: 'processShipmentNotices',
-            fileId: file.id,
-            docType: documentName,
-            pc: orderRow.pc,
-            oc: orderRow.oc,
-            factura: file.factura,
-            idNroOvMasFactura: file.id_nro_ov_mas_factura,
-            customerRut: orderRow.customer_rut || null,
-            status: 'ok'
-          });
-          processed++;
+          try {
+            await emailService.sendFileToClient(fileData, { recipients: reportEmails });
+            
+            // Solo actualizar si el email se envió exitosamente
+            await fileService.updateFile({
+              id: file.id,
+              was_sent: 1,
+              status_id: 3,
+              fecha_envio: new Date(),
+              updated_at: new Date()
+            });
+            
+            logger.info(`[processShipmentNotices] Email enviado pc=${orderRow.pc} oc=${orderRow.oc} factura=${orderRow.factura || 'N/A'} doc=${documentName} recipients=${reportEmails.length}`);
+            
+            await logDocEvent({
+              source: 'cron',
+              action: 'send_email',
+              process: 'processShipmentNotices',
+              fileId: file.id,
+              docType: documentName,
+              pc: orderRow.pc,
+              oc: orderRow.oc,
+              factura: orderRow.factura,
+              customerRut: orderRow.rut,
+              status: 'ok'
+            });
+            
+            processed++;
+          } catch (emailError) {
+            logger.error(`[processShipmentNotices] Error enviando email orden id=${orderRow.id} pc=${orderRow.pc}: ${emailError.message}`);
+            
+            await logDocEvent({
+              source: 'cron',
+              action: 'send_email',
+              process: 'processShipmentNotices',
+              fileId: file.id,
+              docType: documentName,
+              pc: orderRow.pc,
+              oc: orderRow.oc,
+              factura: orderRow.factura,
+              customerRut: orderRow.rut,
+              userId: null,
+              status: 'error',
+              message: emailError.message
+            });
+            
+            errors++;
+          }
         } else {
-          logger.info(`[processShipmentNotices] Email omitido (deshabilitado) pc=${orderRow.pc} oc=${orderRow.oc || 'N/A'} factura=${file.factura || 'N/A'} doc=${documentName}`);
+          logger.info(`[processShipmentNotices] Omitida: envío deshabilitado pc=${orderRow.pc} enabled=${automaticReceptionEnabled}`);
           await logDocEvent({
             source: 'cron',
             action: 'send_email',
@@ -1914,28 +1859,27 @@ exports.processShipmentNotices = async (req, res) => {
             docType: documentName,
             pc: orderRow.pc,
             oc: orderRow.oc,
-            factura: file.factura,
-            customerRut: orderRow.customer_rut || null,
+            factura: orderRow.factura,
+            customerRut: orderRow.rut,
             status: 'skip',
             message: 'disabled_config'
           });
-          skipReasons.disabled_config++;
+          skipReasons.disabled++;
           skipped++;
         }
       } catch (error) {
-        logger.error(`[processShipmentNotices] Error procesando orden ${orderRow.id}: ${error.message}`);
+        logger.error(`[processShipmentNotices] Error procesando orden id=${orderRow.id} pc=${orderRow.pc || 'N/A'}: ${error.message}`);
         
-        // Registrar evento de error
         await logDocEvent({
           source: 'cron',
-          action: 'generate_pdf',
+          action: 'send_email',
           process: 'processShipmentNotices',
-          fileId: orderRow.shipment_file_id || null,
+          fileId: orderRow.id || null,
           docType: 'Shipment Notice',
           pc: orderRow.pc,
           oc: orderRow.oc,
           factura: orderRow.factura,
-          customerRut: orderRow.customer_rut || null,
+          customerRut: orderRow.rut,
           userId: null,
           status: 'error',
           message: error.message
@@ -1950,7 +1894,9 @@ exports.processShipmentNotices = async (req, res) => {
       message: t('documentFile.shipment_processing_complete', req.lang || 'es'),
       processed,
       skipped,
-      errors
+      errors,
+      automatic_enabled: automaticReceptionEnabled,
+      skip_reasons: skipReasons
     });
   } catch (error) {
     logger.error(`Error en processShipmentNotices: ${error.message}`);
@@ -1961,28 +1907,25 @@ exports.processShipmentNotices = async (req, res) => {
 exports.processOrderDeliveryNotices = async (req, res) => {
   try {
     const {
-      getOrdersReadyForOrderDeliveryNotice,
-      getOrderDeliveryFile
+      getOrdersReadyForOrderDeliveryNotice
     } = checkOrderDeliveryNoticeService;
     const {
       getReportEmailsAndLang,
       isSendOrderDeliveryEnabled,
       getSendFromDate
     } = checkOrderReceptionService;
-    const fs = require('fs');
-    const path = require('path');
 
     const automaticReceptionEnabled = await isSendOrderDeliveryEnabled();
     const sendFromDate = await getSendFromDate('sendAutomaticOrderDelivery');
-    const { pc, factura, idNroOvMasFactura } = req.body || {};
-    logger.info(`[processOrderDeliveryNotices] start enabled=${automaticReceptionEnabled} from=${sendFromDate || 'N/A'} pc=${pc || 'N/A'} factura=${factura || 'N/A'} id=${idNroOvMasFactura || 'N/A'}`);
+    const { pc, factura } = req.body || {};
+    logger.info(`[processOrderDeliveryNotices] start enabled=${automaticReceptionEnabled} from=${sendFromDate || 'N/A'} pc=${pc || 'N/A'} factura=${factura || 'N/A'}`);
 
     const orders = await getOrdersReadyForOrderDeliveryNotice(
       sendFromDate,
       pc,
-      factura,
-      idNroOvMasFactura
+      factura
     );
+    
     if (!orders.length) {
       return res.status(200).json({
         message: t('documentFile.no_orders_ready_delivery', req.lang || 'es'),
@@ -1995,170 +1938,103 @@ exports.processOrderDeliveryNotices = async (req, res) => {
     let skipped = 0;
     const skipReasons = {
       missing_eta: 0,
-      already_sent: 0
+      disabled: 0
     };
 
     for (const orderRow of orders) {
       try {
         if (!orderRow.eta) {
-          logger.warn(`[processOrderDeliveryNotices] Omitida: orden ${orderRow.id} sin ETA`);
+          logger.warn(`[processOrderDeliveryNotices] Omitida: orden id=${orderRow.id} sin ETA`);
           skipReasons.missing_eta++;
           skipped++;
           continue;
         }
 
-        if (!orderRow.delivery_file_id) {
-          try {
-            await fileService.createDefaultFilesForOrder(
-              orderRow.id,
-              orderRow.customer_name,
-              orderRow.pc,
-              orderRow.oc
-            );
-            logger.info(`[processOrderDeliveryNotices] Archivo creado automático pc=${orderRow.pc} oc=${orderRow.oc || 'N/A'} doc=Order Delivery Notice`);
-            await logDocEvent({
-              source: 'cron',
-              action: 'create_record',
-              process: 'processOrderDeliveryNotices',
-              fileId: null,
-              docType: 'Order Delivery Notice',
-              pc: orderRow.pc,
-              oc: orderRow.oc,
-              factura: orderRow.factura,
-              customerRut: orderRow.customer_rut || null,
-              status: 'ok'
-            });
-          } catch (fileError) {
-            if (fileError.code !== 'FILES_ALREADY_EXIST' && fileError.message !== 'FILES_ALREADY_EXIST') {
-              throw fileError;
-            }
-          }
-        }
-
-        const deliveryFile = await getOrderDeliveryFile(orderRow.pc, orderRow.oc);
-        if (!deliveryFile) {
-          logger.error(`[processOrderDeliveryNotices] Sin archivo: orden ${orderRow.id}`);
-          errors++;
-          continue;
-        }
-
-        if (deliveryFile.fecha_envio) {
-            skipReasons.already_sent++;
-            skipped++;
-            continue;
-          }
-
-        const file = await fileService.getFileById(deliveryFile.id);
+        // Obtener el archivo desde order_files
+        const file = await fileService.getFileById(orderRow.id);
         if (!file) {
-          logger.error(`[processOrderDeliveryNotices] File no encontrado: order_file ${deliveryFile.id} orden ${orderRow.id}`);
+          logger.error(`[processOrderDeliveryNotices] File no encontrado: order_file id=${orderRow.id}`);
           errors++;
           continue;
         }
 
-          const { reportEmails, customerLang } = await getReportEmailsAndLang(orderRow.customer_rut);
+        // Validar que el archivo tenga status_id = 2 (PDF ya generado)
+        if (file.status_id !== 2) {
+          logger.warn(`[processOrderDeliveryNotices] Omitida: archivo id=${orderRow.id} pc=${orderRow.pc} factura=${orderRow.factura} status_id=${file.status_id} (esperado: 2)`);
+          skipped++;
+          continue;
+        }
+
+        // Obtener emails y idioma usando el RUT de order_files
+        const { reportEmails, customerLang } = await getReportEmailsAndLang(orderRow.rut);
         if (reportEmails.length === 0) {
-          logger.warn(`[processOrderDeliveryNotices] Sin emails report: cliente ${orderRow.customer_rut} orden ${orderRow.id}`);
+          logger.warn(`[processOrderDeliveryNotices] Sin emails report: rut=${orderRow.rut} pc=${orderRow.pc} factura=${orderRow.factura} orden id=${orderRow.id}`);
           errors++;
           continue;
         }
 
-        const FILE_SERVER_ROOT = process.env.FILE_SERVER_ROOT || '/var/www/html';
-        const cleanCustomerName = cleanDirectoryName(file.customer_name);
-        const cleanFolderName = cleanDirectoryName(file.pc);
-        const folderName = file.file_identifier ? `${cleanFolderName}_${file.file_identifier}` : cleanFolderName;
-        const customerFolder = path.join(FILE_SERVER_ROOT, 'uploads', cleanCustomerName, folderName);
-
-        if (!fs.existsSync(customerFolder)) {
-          fs.mkdirSync(customerFolder, { recursive: true });
-        }
         const documentName = resolveDocumentName(file);
-        const generator = getDocumentGenerator(documentName);
-        const pdfData = await getPDFData(file, customerLang);
-
-        const baseName = buildDocumentFileBaseName(documentName, file, pdfData, customerLang);
-        const fileName = `${baseName}.pdf`;
-        const filePath = path.join(customerFolder, fileName);
-
-        let updateData;
-        try {
-          await generator(filePath, pdfData);
-          updateData = {
-            id: file.id,
-            name: baseName,
-            status_id: 3,
-            is_visible_to_client: 1,
-            updated_at: new Date(),
-            fecha_generacion: new Date(),
-            path: path.relative(FILE_SERVER_ROOT, filePath)
-          };
-          await fileService.updateFile(updateData);
-          logger.info(`[processOrderDeliveryNotices] PDF generado pc=${orderRow.pc} oc=${orderRow.oc || 'N/A'} factura=${file.factura || 'N/A'} id=${file.id_nro_ov_mas_factura || 'N/A'} doc=${documentName}`);
-          await logDocEvent({
-            source: 'cron',
-            action: 'generate_pdf',
-            process: 'processOrderDeliveryNotices',
-            fileId: file.id,
-            docType: documentName,
-            pc: orderRow.pc,
-            oc: orderRow.oc,
-            factura: file.factura,
-            idNroOvMasFactura: file.id_nro_ov_mas_factura,
-            customerRut: orderRow.customer_rut || null,
-            status: 'ok'
-          });
-        } catch (pdfError) {
-          logger.error(`[processOrderDeliveryNotices] Error generando PDF orden ${orderRow.id}: ${pdfError.message}`);
-          
-          // Registrar evento de error
-          await logDocEvent({
-            source: 'cron',
-            action: 'generate_pdf',
-            process: 'processOrderDeliveryNotices',
-            fileId: file.id,
-            docType: documentName,
-            pc: orderRow.pc,
-            oc: orderRow.oc,
-            factura: file.factura,
-            customerRut: orderRow.customer_rut || null,
-            userId: null,
-            status: 'error',
-            message: pdfError.message
-          });
-          
-          errors++;
-          continue;
-        }
-
         const fileData = {
           id: file.id,
-          name: baseName,
-          path: updateData.path,
+          name: file.name,
+          path: file.path,
           customer_name: file.customer_name,
           customer_id: file.customer_id,
+          rut: orderRow.rut,
           lang: customerLang
         };
 
         if (automaticReceptionEnabled) {
-          await emailService.sendFileToClient(fileData, { recipients: reportEmails });
-          await fileService.updateFile({
-            id: file.id,
-            fecha_envio: new Date(),
-            updated_at: new Date()
-          });
-          await logDocEvent({
-            source: 'cron',
-            action: 'send_email',
-            process: 'processOrderDeliveryNotices',
-            fileId: file.id,
-            docType: documentName,
-            pc: orderRow.pc,
-            oc: orderRow.oc,
-            factura: file.factura,
-            customerRut: orderRow.customer_rut || null,
-            status: 'ok'
-          });
-          processed++;
+          try {
+            await emailService.sendFileToClient(fileData, { recipients: reportEmails });
+            
+            // Solo actualizar si el email se envió exitosamente
+            await fileService.updateFile({
+              id: file.id,
+              was_sent: 1,
+              status_id: 3,
+              fecha_envio: new Date(),
+              updated_at: new Date()
+            });
+            
+            logger.info(`[processOrderDeliveryNotices] Email enviado pc=${orderRow.pc} oc=${orderRow.oc} factura=${orderRow.factura} doc=${documentName} recipients=${reportEmails.length}`);
+            
+            await logDocEvent({
+              source: 'cron',
+              action: 'send_email',
+              process: 'processOrderDeliveryNotices',
+              fileId: file.id,
+              docType: documentName,
+              pc: orderRow.pc,
+              oc: orderRow.oc,
+              factura: orderRow.factura,
+              customerRut: orderRow.rut,
+              status: 'ok'
+            });
+            
+            processed++;
+          } catch (emailError) {
+            logger.error(`[processOrderDeliveryNotices] Error enviando email orden id=${orderRow.id} pc=${orderRow.pc} factura=${orderRow.factura}: ${emailError.message}`);
+            
+            await logDocEvent({
+              source: 'cron',
+              action: 'send_email',
+              process: 'processOrderDeliveryNotices',
+              fileId: file.id,
+              docType: documentName,
+              pc: orderRow.pc,
+              oc: orderRow.oc,
+              factura: orderRow.factura,
+              customerRut: orderRow.rut,
+              userId: null,
+              status: 'error',
+              message: emailError.message
+            });
+            
+            errors++;
+          }
         } else {
+          logger.info(`[processOrderDeliveryNotices] Omitida: envío deshabilitado pc=${orderRow.pc} factura=${orderRow.factura} enabled=${automaticReceptionEnabled}`);
           await logDocEvent({
             source: 'cron',
             action: 'send_email',
@@ -2167,27 +2043,27 @@ exports.processOrderDeliveryNotices = async (req, res) => {
             docType: documentName,
             pc: orderRow.pc,
             oc: orderRow.oc,
-            factura: file.factura,
-            customerRut: orderRow.customer_rut || null,
+            factura: orderRow.factura,
+            customerRut: orderRow.rut,
             status: 'skip',
             message: 'disabled_config'
           });
+          skipReasons.disabled++;
           skipped++;
         }
       } catch (error) {
-        logger.error(`[processOrderDeliveryNotices] Error procesando orden ${orderRow.id}: ${error.message}`);
+        logger.error(`[processOrderDeliveryNotices] Error procesando orden id=${orderRow.id} pc=${orderRow.pc || 'N/A'} factura=${orderRow.factura || 'N/A'}: ${error.message}`);
         
-        // Registrar evento de error
         await logDocEvent({
           source: 'cron',
-          action: 'generate_pdf',
+          action: 'send_email',
           process: 'processOrderDeliveryNotices',
-          fileId: orderRow.delivery_file_id || null,
+          fileId: orderRow.id || null,
           docType: 'Order Delivery Notice',
           pc: orderRow.pc,
           oc: orderRow.oc,
           factura: orderRow.factura,
-          customerRut: orderRow.customer_rut || null,
+          customerRut: orderRow.rut,
           userId: null,
           status: 'error',
           message: error.message
@@ -2195,7 +2071,7 @@ exports.processOrderDeliveryNotices = async (req, res) => {
         
         errors++;
       }
-      }
+    }
 
     logger.info(`[processOrderDeliveryNotices] done processed=${processed} skipped=${skipped} errors=${errors}`);
     res.status(200).json({
@@ -2215,16 +2091,13 @@ exports.processOrderDeliveryNotices = async (req, res) => {
 exports.processAvailabilityNotices = async (req, res) => {
   try {
     const {
-      getOrdersReadyForAvailabilityNotice,
-      getAvailabilityFile
+      getOrdersReadyForAvailabilityNotice
     } = checkAvailabilityNoticeService;
     const {
       getReportEmailsAndLang,
       isSendOrderAvailabilityEnabled,
       getSendFromDate
     } = checkOrderReceptionService;
-    const fs = require('fs');
-    const path = require('path');
 
     const automaticReceptionEnabled = await isSendOrderAvailabilityEnabled();
     const sendFromDate = await getSendFromDate('sendAutomaticOrderAvailability');
@@ -2232,6 +2105,7 @@ exports.processAvailabilityNotices = async (req, res) => {
     logger.info(`[processAvailabilityNotices] start enabled=${automaticReceptionEnabled} from=${sendFromDate || 'N/A'} pc=${pc || 'N/A'} factura=${factura || 'N/A'}`);
 
     const orders = await getOrdersReadyForAvailabilityNotice(sendFromDate, pc, factura);
+    
     if (!orders.length) {
       return res.status(200).json({
         message: t('documentFile.no_orders_ready_availability', req.lang || 'es'),
@@ -2242,162 +2116,105 @@ exports.processAvailabilityNotices = async (req, res) => {
     let processed = 0;
     let errors = 0;
     let skipped = 0;
+    const skipReasons = {
+      missing_incoterm: 0,
+      disabled: 0
+    };
 
     for (const orderRow of orders) {
       try {
-        if (!orderRow.availability_file_id) {
-          try {
-            await fileService.createDefaultFilesForOrder(
-              orderRow.id,
-              orderRow.customer_name,
-              orderRow.pc,
-              orderRow.oc
-            );
-            logger.info(`[processAvailabilityNotices] Archivo creado automático pc=${orderRow.pc} oc=${orderRow.oc || 'N/A'} doc=Availability Notice`);
-            await logDocEvent({
-              source: 'cron',
-              action: 'create_record',
-              process: 'processAvailabilityNotices',
-              fileId: null,
-              docType: 'Availability Notice',
-              pc: orderRow.pc,
-              oc: orderRow.oc,
-              factura: orderRow.factura,
-              customerRut: orderRow.customer_rut || null,
-              status: 'ok'
-            });
-          } catch (fileError) {
-            if (fileError.code !== 'FILES_ALREADY_EXIST' && fileError.message !== 'FILES_ALREADY_EXIST') {
-              throw fileError;
-            }
-          }
-        }
-
-        const availabilityFile = await getAvailabilityFile(orderRow.pc, orderRow.oc);
-        if (!availabilityFile) {
-          logger.error(`[processAvailabilityNotices] Sin archivo: orden ${orderRow.id}`);
-          errors++;
-          continue;
-        }
-
-        if (availabilityFile.fecha_envio) {
+        if (!orderRow.incoterm) {
+          logger.warn(`[processAvailabilityNotices] Omitida: orden id=${orderRow.id} pc=${orderRow.pc} sin Incoterm`);
+          skipReasons.missing_incoterm++;
           skipped++;
           continue;
         }
 
-        const file = await fileService.getFileById(availabilityFile.id);
+        // Obtener el archivo desde order_files
+        const file = await fileService.getFileById(orderRow.id);
         if (!file) {
-          logger.error(`[processAvailabilityNotices] File no encontrado: order_file ${availabilityFile.id} orden ${orderRow.id}`);
+          logger.error(`[processAvailabilityNotices] File no encontrado: order_file id=${orderRow.id}`);
           errors++;
           continue;
         }
 
-        const { reportEmails, customerLang } = await getReportEmailsAndLang(orderRow.customer_rut);
+        // Validar que el archivo tenga status_id = 2 (PDF ya generado)
+        if (file.status_id !== 2) {
+          logger.warn(`[processAvailabilityNotices] Omitida: archivo id=${orderRow.id} pc=${orderRow.pc} factura=${orderRow.factura} status_id=${file.status_id} (esperado: 2)`);
+          skipped++;
+          continue;
+        }
+
+        // Obtener emails y idioma usando el RUT de order_files
+        const { reportEmails, customerLang } = await getReportEmailsAndLang(orderRow.rut);
         if (reportEmails.length === 0) {
-          logger.warn(`[processAvailabilityNotices] Sin emails report: cliente ${orderRow.customer_rut} orden ${orderRow.id}`);
+          logger.warn(`[processAvailabilityNotices] Sin emails report: rut=${orderRow.rut} pc=${orderRow.pc} factura=${orderRow.factura} orden id=${orderRow.id}`);
           errors++;
           continue;
         }
 
-        const FILE_SERVER_ROOT = process.env.FILE_SERVER_ROOT || '/var/www/html';
-        const cleanCustomerName = cleanDirectoryName(file.customer_name);
-        const cleanFolderName = cleanDirectoryName(file.pc);
-        const folderName = file.file_identifier ? `${cleanFolderName}_${file.file_identifier}` : cleanFolderName;
-        const customerFolder = path.join(FILE_SERVER_ROOT, 'uploads', cleanCustomerName, folderName);
-
-        if (!fs.existsSync(customerFolder)) {
-          fs.mkdirSync(customerFolder, { recursive: true });
-        }
         const documentName = resolveDocumentName(file);
-        const generator = getDocumentGenerator(documentName);
-        const pdfData = await getPDFData(file, customerLang);
-
-        const baseName = buildDocumentFileBaseName(documentName, file, pdfData, customerLang);
-        const fileName = `${baseName}.pdf`;
-        const filePath = path.join(customerFolder, fileName);
-
-        let updateData;
-        try {
-          await generator(filePath, pdfData);
-          updateData = {
-            id: file.id,
-            name: baseName,
-            status_id: 3,
-            is_visible_to_client: 1,
-            updated_at: new Date(),
-            fecha_generacion: new Date(),
-            path: path.relative(FILE_SERVER_ROOT, filePath)
-          };
-          await fileService.updateFile(updateData);
-          logger.info(`[processAvailabilityNotices] PDF generado pc=${orderRow.pc} oc=${orderRow.oc || 'N/A'} factura=${file.factura || 'N/A'} id=${file.id_nro_ov_mas_factura || 'N/A'} doc=${documentName}`);
-          await logDocEvent({
-            source: 'cron',
-            action: 'generate_pdf',
-            process: 'processAvailabilityNotices',
-            fileId: file.id,
-            docType: documentName,
-            pc: orderRow.pc,
-            oc: orderRow.oc,
-            factura: file.factura,
-            idNroOvMasFactura: file.id_nro_ov_mas_factura,
-            customerRut: orderRow.customer_rut || null,
-            status: 'ok'
-          });
-        } catch (pdfError) {
-          logger.error(`[processAvailabilityNotices] Error generando PDF orden ${orderRow.id}: ${pdfError.message}`);
-          
-          // Registrar evento de error
-          await logDocEvent({
-            source: 'cron',
-            action: 'generate_pdf',
-            process: 'processAvailabilityNotices',
-            fileId: file.id,
-            docType: documentName,
-            pc: orderRow.pc,
-            oc: orderRow.oc,
-            factura: file.factura,
-            customerRut: orderRow.customer_rut || null,
-            userId: null,
-            status: 'error',
-            message: pdfError.message
-          });
-          
-          errors++;
-          continue;
-        }
-
         const fileData = {
           id: file.id,
-          name: baseName,
-          path: updateData.path,
+          name: file.name,
+          path: file.path,
           customer_name: file.customer_name,
           customer_id: file.customer_id,
+          rut: orderRow.rut,
           lang: customerLang
         };
 
         if (automaticReceptionEnabled) {
-          await emailService.sendFileToClient(fileData, { recipients: reportEmails });
-          await fileService.updateFile({
-            id: file.id,
-            fecha_envio: new Date(),
-            updated_at: new Date()
-          });
-          logger.info(`[processAvailabilityNotices] Email enviado pc=${orderRow.pc} oc=${orderRow.oc || 'N/A'} factura=${file.factura || 'N/A'} doc=${documentName} recipients=${reportEmails.length}`);
-          await logDocEvent({
-            source: 'cron',
-            action: 'send_email',
-            process: 'processAvailabilityNotices',
-            fileId: file.id,
-            docType: documentName,
-            pc: orderRow.pc,
-            oc: orderRow.oc,
-            factura: file.factura,
-            customerRut: orderRow.customer_rut || null,
-            status: 'ok'
-          });
-          processed++;
+          try {
+            await emailService.sendFileToClient(fileData, { recipients: reportEmails });
+            
+            // Solo actualizar si el email se envió exitosamente
+            await fileService.updateFile({
+              id: file.id,
+              was_sent: 1,
+              status_id: 3,
+              fecha_envio: new Date(),
+              updated_at: new Date()
+            });
+            
+            logger.info(`[processAvailabilityNotices] Email enviado pc=${orderRow.pc} oc=${orderRow.oc} factura=${orderRow.factura} doc=${documentName} recipients=${reportEmails.length}`);
+            
+            await logDocEvent({
+              source: 'cron',
+              action: 'send_email',
+              process: 'processAvailabilityNotices',
+              fileId: file.id,
+              docType: documentName,
+              pc: orderRow.pc,
+              oc: orderRow.oc,
+              factura: orderRow.factura,
+              customerRut: orderRow.rut,
+              status: 'ok'
+            });
+            
+            processed++;
+          } catch (emailError) {
+            logger.error(`[processAvailabilityNotices] Error enviando email orden id=${orderRow.id} pc=${orderRow.pc} factura=${orderRow.factura}: ${emailError.message}`);
+            
+            await logDocEvent({
+              source: 'cron',
+              action: 'send_email',
+              process: 'processAvailabilityNotices',
+              fileId: file.id,
+              docType: documentName,
+              pc: orderRow.pc,
+              oc: orderRow.oc,
+              factura: orderRow.factura,
+              customerRut: orderRow.rut,
+              userId: null,
+              status: 'error',
+              message: emailError.message
+            });
+            
+            errors++;
+          }
         } else {
-          logger.info(`[processAvailabilityNotices] Email omitido (deshabilitado) pc=${orderRow.pc} oc=${orderRow.oc || 'N/A'} factura=${file.factura || 'N/A'} id=${file.id_nro_ov_mas_factura || 'N/A'} doc=${documentName}`);
+          logger.info(`[processAvailabilityNotices] Omitida: envío deshabilitado pc=${orderRow.pc} factura=${orderRow.factura} enabled=${automaticReceptionEnabled}`);
           await logDocEvent({
             source: 'cron',
             action: 'send_email',
@@ -2406,27 +2223,27 @@ exports.processAvailabilityNotices = async (req, res) => {
             docType: documentName,
             pc: orderRow.pc,
             oc: orderRow.oc,
-            factura: file.factura,
-            customerRut: orderRow.customer_rut || null,
+            factura: orderRow.factura,
+            customerRut: orderRow.rut,
             status: 'skip',
             message: 'disabled_config'
           });
+          skipReasons.disabled++;
           skipped++;
         }
       } catch (error) {
-        logger.error(`[processAvailabilityNotices] Error procesando orden ${orderRow.id}: ${error.message}`);
+        logger.error(`[processAvailabilityNotices] Error procesando orden id=${orderRow.id} pc=${orderRow.pc || 'N/A'} factura=${orderRow.factura || 'N/A'}: ${error.message}`);
         
-        // Registrar evento de error
         await logDocEvent({
           source: 'cron',
-          action: 'generate_pdf',
+          action: 'send_email',
           process: 'processAvailabilityNotices',
-          fileId: orderRow.availability_file_id || null,
+          fileId: orderRow.id || null,
           docType: 'Availability Notice',
           pc: orderRow.pc,
           oc: orderRow.oc,
           factura: orderRow.factura,
-          customerRut: orderRow.customer_rut || null,
+          customerRut: orderRow.rut,
           userId: null,
           status: 'error',
           message: error.message
@@ -2441,7 +2258,9 @@ exports.processAvailabilityNotices = async (req, res) => {
       message: t('documentFile.availability_processing_complete', req.lang || 'es'),
       processed,
       skipped,
-      errors
+      errors,
+      automatic_enabled: automaticReceptionEnabled,
+      skip_reasons: skipReasons
     });
   } catch (error) {
     logger.error(`Error en processAvailabilityNotices: ${error.message}`);

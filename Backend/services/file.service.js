@@ -38,6 +38,7 @@ const insertFile = async ({
   pc,
   oc,
   factura = null,
+  rut = null,
   name,
   path,
   file_identifier = null,
@@ -48,6 +49,7 @@ const insertFile = async ({
   status_id = 1,
   is_generated = 1,
   is_visible_to_customer = null,
+  fecha_generacion = null,
 }) => {
   
   const pool = await poolPromise;
@@ -84,13 +86,13 @@ const insertFile = async ({
 
   const [result] = await pool.query(`
     INSERT INTO order_files (
-      pc, oc, factura, name, path, file_identifier, file_id,
+      pc, oc, factura, rut, name, path, file_identifier, file_id,
       created_at, updated_at, was_sent, 
-      document_type, file_type, status_id, is_generated, is_visible_to_client
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), ?, ?, ?, ?, ?, ?)`,
+      document_type, file_type, status_id, is_generated, is_visible_to_client, fecha_generacion
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), ?, ?, ?, ?, ?, ?, ?)`,
     [
-      pc, oc, factura || null, name, path, file_identifier, file_id,
-      was_sent, document_type, file_type, status_id, is_generated, visibleValue
+      pc, oc, factura || null, rut || null, name, path, file_identifier, file_id,
+      was_sent, document_type, file_type, status_id, is_generated, visibleValue, fecha_generacion
     ]
   );
   return result;
@@ -319,7 +321,10 @@ const updateFile = async(data) => {
   values.push(data.id);
   
   const query = `UPDATE order_files SET ${fields.join(', ')} WHERE id = ?`;
-  await pool.query(query, values);
+  logger.info(`[updateFile] Executing query: ${query} with values: ${JSON.stringify(values)}`);
+  const [result] = await pool.query(query, values);
+  logger.info(`[updateFile] Update result: affectedRows=${result.affectedRows} changedRows=${result.changedRows}`);
+  return result;
 }
 
 const duplicateFile = async (fileId, newPath = null, newName = null) => {
@@ -359,8 +364,9 @@ const duplicateFile = async (fileId, newPath = null, newName = null) => {
  * REFACTORING NOTE: Updated to use Vista_HDR and Vista_FACT separately
  * @returns {Promise<Object>} Objeto con RUT como clave y array de órdenes como valor
  */
-const getAllOrdersGroupedByRut = async (sendFrom = null) => {
+const getAllOrdersGroupedByRut = async (sendFrom = null, filters = {}) => {
   const sqlPool = await getSqlPool();
+  const { pc, factura } = filters;
 
   let query = `
     SELECT
@@ -381,6 +387,16 @@ const getAllOrdersGroupedByRut = async (sendFrom = null) => {
   // Agregar filtro de fecha si se proporciona sendFrom
   if (sendFrom) {
     query += ` AND h.Fecha >= '${sendFrom}'`;
+  }
+
+  // Agregar filtro de PC si se proporciona
+  if (pc) {
+    query += ` AND h.Nro = '${String(pc).trim()}'`;
+  }
+
+  // Agregar filtro de factura si se proporciona
+  if (factura) {
+    query += ` AND f.Factura = '${String(factura).trim()}'`;
   }
 
   query += ` ORDER BY h.Rut, h.Fecha`;

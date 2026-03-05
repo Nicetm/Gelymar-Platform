@@ -8,9 +8,9 @@
 | 2 | generatePDFs | `/api/cron/generate-pending-pdfs` | POST | `pc`, `factura` |
 | 3 | checkClientAccess | `/api/cron/check-client-access` | POST | ❌ Ninguno |
 | 4 | sendOrderReception | `/api/cron/process-new-orders` | POST | `pc` |
-| 5 | sendShipmentNotice | `/api/cron/process-shipment-notices` | POST | ❌ Ninguno |
-| 6 | sendOrderDeliveryNotice | `/api/cron/process-order-delivery-notices` | POST | ❌ Ninguno |
-| 7 | sendAvailableNotice | `/api/cron/process-availability-notices` | POST | ❌ Ninguno |
+| 5 | sendShipmentNotice | `/api/cron/process-shipment-notices` | POST | `pc`, `factura` |
+| 6 | sendOrderDeliveryNotice | `/api/cron/process-order-delivery-notices` | POST | `pc`, `factura` |
+| 7 | sendAvailableNotice | `/api/cron/process-availability-notices` | POST | `pc`, `factura` |
 | 8 | sendAdminNotifications | `/api/cron/send-admin-notification-summary` | POST | ❌ Ninguno |
 
 ---
@@ -75,11 +75,18 @@ POST http://localhost:3000/api/cron/create-default-records
    - **Orden parcial sin factura**: Crea "Order Receipt Notice" solo para la orden padre (la más antigua)
    - **Orden parcial con factura**: Crea documentos según incoterm para cada factura
 
-5. **Verifica documentos existentes** usando `file_id` para evitar duplicados
+5. **Actualización de Order Receipt Notice existente**:
+   - Si una orden inicialmente sin factura ahora tiene factura asignada
+   - ANTES de crear los nuevos documentos (Shipment, Delivery, Availability)
+   - Actualiza el ORN existente que tiene `factura=NULL` para asignarle la factura correspondiente
+   - Esto asegura que todos los documentos de la orden tengan la misma factura
+   - Ejemplo: ORN creado con `factura=NULL` → Orden recibe `factura=1019292` → ORN se actualiza a `factura=1019292`
 
-6. **Crea el directorio físico** en el servidor de archivos si no existe: `/uploads/CLIENTE_NOMBRE/PC/`
+6. **Verifica documentos existentes** usando `file_id` para evitar duplicados
 
-7. **Inserta registros en `order_files`** con:
+7. **Crea el directorio físico** en el servidor de archivos si no existe: `/uploads/CLIENTE_NOMBRE/PC/`
+
+8. **Inserta registros en `order_files`** con:
    - `pc`, `oc`, `factura` de la orden
    - `rut` del cliente (obtenido de SQL Server)
    - `status_id = 1` (Por Generar)
@@ -95,6 +102,7 @@ POST http://localhost:3000/api/cron/create-default-records
 - Los PDFs se generan después por `generatePDFs`
 - Procesa en lotes de 10 clientes para evitar problemas de memoria
 - Registra eventos en `document_events` para auditoría
+- Actualiza automáticamente el ORN cuando una orden recibe factura
 
 ---
 
@@ -337,11 +345,11 @@ sendOrderReception → Envía emails (status_id=3, was_sent=1)
 
 ### 5. sendShipmentNotice
 
-**Descripción**: Genera y envía Shipment Notice cuando corresponde
+**Descripción**: Envía correos de Shipment Notice para documentos ya generados. NO genera PDFs, solo envía emails de documentos con `status_id = 2`.
 
 **Endpoint**: `POST /api/cron/process-shipment-notices`
 
-**Servicio**: `checkShipmentNoticeService`
+**Servicio**: `checkShipmentNoticeService.getOrdersReadyForShipmentNotice()`
 
 **Parámetro `param_config`**: `sendAutomaticOrderShipment`
 ```json
@@ -356,25 +364,102 @@ sendOrderReception → Envía emails (status_id=3, was_sent=1)
 POST http://localhost:3000/api/cron/process-shipment-notices
 ```
 
-**Parámetros Opcionales**: ❌ Ninguno
+**Parámetros Opcionales** (Body JSON):
+```json
+{
+  "pc": "21383",        // Opcional: Filtrar por PC específico
+  "factura": "1019241"  // Opcional: Filtrar por factura específica
+}
+```
 
 **Respuesta Exitosa**:
 ```json
 {
   "success": true,
-  "processed": 2
+  "processed": 2,
+  "errors": 0,
+  "skipped": 0
 }
 ```
+
+**Funcionamiento Detallado**:
+
+1. **Busca registros listos para enviar** en `order_files`:
+   - `file_id = 19` (Shipment Notice)
+   - `status_id = 2` (PDF ya generado)
+   - `was_sent IS NULL OR was_sent = 0` (No enviado)
+   - Aplica filtros `pc` y/o `factura` si se proporcionan
+
+2. **Obtiene el RUT directamente** de la tabla `order_files`:
+   - Ya no consulta SQL Server para obtener el RUT
+   - El RUT fue guardado por `checkDefaultFiles`
+
+3. **Valida en SQL Server** que la orden cumpla condiciones:
+   - Incoterm válido: CFR, CIF, CIP, DAP, DDP, CPT
+   - ETD_ENC_FA y ETA_ENC_FA sean fechas válidas
+   - EstadoOV <> 'cancelada'
+   - Si hay `sendFromDate`, filtra por `h.Fecha >= sendFrom`
+
+4. **Para cada registro que cumple las condiciones:**
+   
+   a. **Obtiene emails y idioma del cliente:**
+   - Usa el RUT de `order_files` para buscar en `customer_contacts`
+   - Filtra contactos con `reports = true`
+   - Determina el idioma según el país del cliente
+   
+   b. **Verifica que el PDF esté generado:**
+   - Confirma que `status_id = 2`
+   - Si no está generado, omite el registro
+   
+   c. **Envía el email (si está habilitado):**
+   - Llama a `sendFileToClient()` con los emails de contactos
+   - Adjunta el PDF generado
+   
+   d. **Actualiza el registro SOLO si el email se envió exitosamente:**
+   - Cambia `status_id` de 2 a 3 (Enviado)
+   - Establece `was_sent = 1`
+   - Actualiza `fecha_envio = NOW()`
+
+5. **Si hay error al enviar:**
+   - NO actualiza ningún campo
+   - El registro permanece con `status_id = 2` y `was_sent = NULL/0`
+   - Se reintentará en la próxima ejecución
+
+**Importante**:
+- NO genera PDFs, solo envía emails
+- Solo procesa registros con PDF ya generado (`status_id = 2`)
+- El RUT viene directamente de `order_files`, no de SQL Server
+- Valida en SQL Server: Incoterms y fechas ETD/ETA válidas
+- Solo actualiza el estado si el email se envió exitosamente
+- Si falla el envío, el registro se reintenta en la próxima ejecución
+- Registra eventos en `document_events` para auditoría
+
+**Flujo de datos:**
+```
+checkDefaultFiles → Crea registros (status_id=1, was_sent=NULL, rut guardado)
+    ↓
+generatePDFs → Genera PDFs (status_id=2, was_sent=NULL)
+    ↓
+sendShipmentNotice → Envía emails (status_id=3, was_sent=1)
+```
+
+**Estados de `order_files`:**
+
+| status_id | was_sent | Descripción | Proceso |
+|-----------|----------|-------------|---------|
+| 1 | NULL | Por Generar | `checkDefaultFiles` |
+| 2 | NULL/0 | Generado, no enviado | `generatePDFs` |
+| 3 | 1 | Generado y enviado | `sendShipmentNotice` |
 
 ---
 
 ### 6. sendOrderDeliveryNotice
 
-**Descripción**: Genera y envía Order Delivery Notice cuando corresponde
+**Descripción**: Envía correos de Order Delivery Notice para documentos ya generados. NO genera PDFs, solo envía emails de documentos con `status_id = 2`.
 
 **Endpoint**: `POST /api/cron/process-order-delivery-notices`
 
-**Servicio**: `checkOrderDeliveryNoticeService`
+**Servicio**: `checkOrderDeliveryNoticeService.getOrdersReadyForOrderDeliveryNotice()`
 
 **Parámetro `param_config`**: `sendAutomaticOrderDelivery`
 ```json
@@ -389,25 +474,103 @@ POST http://localhost:3000/api/cron/process-shipment-notices
 POST http://localhost:3000/api/cron/process-order-delivery-notices
 ```
 
-**Parámetros Opcionales**: ❌ Ninguno
+**Parámetros Opcionales** (Body JSON):
+```json
+{
+  "pc": "21383",        // Opcional: Filtrar por PC específico
+  "factura": "1019241"  // Opcional: Filtrar por factura específica
+}
+```
 
 **Respuesta Exitosa**:
 ```json
 {
   "success": true,
-  "processed": 4
+  "processed": 4,
+  "errors": 0,
+  "skipped": 0
 }
 ```
+
+**Funcionamiento Detallado**:
+
+1. **Busca registros listos para enviar** en `order_files`:
+   - `file_id = 15` (Order Delivery Notice)
+   - `status_id = 2` (PDF ya generado)
+   - `was_sent IS NULL OR was_sent = 0` (No enviado)
+   - Aplica filtros `pc` y/o `factura` si se proporcionan
+
+2. **Obtiene el RUT directamente** de la tabla `order_files`:
+   - Ya no consulta SQL Server para obtener el RUT
+   - El RUT fue guardado por `checkDefaultFiles`
+
+3. **Valida en SQL Server** que la orden cumpla condiciones:
+   - Tiene factura válida
+   - ETA_ENC_FA es una fecha válida
+   - ETA + 7 días <= fecha actual (listo para entrega)
+   - EstadoOV <> 'cancelada'
+   - Si hay `sendFromDate`, filtra por `h.Fecha >= sendFrom`
+
+4. **Para cada registro que cumple las condiciones:**
+   
+   a. **Obtiene emails y idioma del cliente:**
+   - Usa el RUT de `order_files` para buscar en `customer_contacts`
+   - Filtra contactos con `reports = true`
+   - Determina el idioma según el país del cliente
+   
+   b. **Verifica que el PDF esté generado:**
+   - Confirma que `status_id = 2`
+   - Si no está generado, omite el registro
+   
+   c. **Envía el email (si está habilitado):**
+   - Llama a `sendFileToClient()` con los emails de contactos
+   - Adjunta el PDF generado
+   
+   d. **Actualiza el registro SOLO si el email se envió exitosamente:**
+   - Cambia `status_id` de 2 a 3 (Enviado)
+   - Establece `was_sent = 1`
+   - Actualiza `fecha_envio = NOW()`
+
+5. **Si hay error al enviar:**
+   - NO actualiza ningún campo
+   - El registro permanece con `status_id = 2` y `was_sent = NULL/0`
+   - Se reintentará en la próxima ejecución
+
+**Importante**:
+- NO genera PDFs, solo envía emails
+- Solo procesa registros con PDF ya generado (`status_id = 2`)
+- El RUT viene directamente de `order_files`, no de SQL Server
+- Valida en SQL Server: Fecha ETA + 7 días
+- Solo actualiza el estado si el email se envió exitosamente
+- Si falla el envío, el registro se reintenta en la próxima ejecución
+- Registra eventos en `document_events` para auditoría
+
+**Flujo de datos:**
+```
+checkDefaultFiles → Crea registros (status_id=1, was_sent=NULL, rut guardado)
+    ↓
+generatePDFs → Genera PDFs (status_id=2, was_sent=NULL)
+    ↓
+sendOrderDeliveryNotice → Envía emails (status_id=3, was_sent=1)
+```
+
+**Estados de `order_files`:**
+
+| status_id | was_sent | Descripción | Proceso |
+|-----------|----------|-------------|---------|
+| 1 | NULL | Por Generar | `checkDefaultFiles` |
+| 2 | NULL/0 | Generado, no enviado | `generatePDFs` |
+| 3 | 1 | Generado y enviado | `sendOrderDeliveryNotice` |
 
 ---
 
 ### 7. sendAvailableNotice
 
-**Descripción**: Genera y envía Availability Notice cuando corresponde
+**Descripción**: Envía correos de Availability Notice para documentos ya generados. NO genera PDFs, solo envía emails de documentos con `status_id = 2`.
 
 **Endpoint**: `POST /api/cron/process-availability-notices`
 
-**Servicio**: `checkAvailabilityNoticeService`
+**Servicio**: `checkAvailabilityNoticeService.getOrdersReadyForAvailabilityNotice()`
 
 **Parámetro `param_config`**: `sendAutomaticOrderAvailability`
 ```json
@@ -422,15 +585,92 @@ POST http://localhost:3000/api/cron/process-order-delivery-notices
 POST http://localhost:3000/api/cron/process-availability-notices
 ```
 
-**Parámetros Opcionales**: ❌ Ninguno
+**Parámetros Opcionales** (Body JSON):
+```json
+{
+  "pc": "21383",        // Opcional: Filtrar por PC específico
+  "factura": "1019241"  // Opcional: Filtrar por factura específica
+}
+```
 
 **Respuesta Exitosa**:
 ```json
 {
   "success": true,
-  "processed": 1
+  "processed": 1,
+  "errors": 0,
+  "skipped": 0
 }
 ```
+
+**Funcionamiento Detallado**:
+
+1. **Busca registros listos para enviar** en `order_files`:
+   - `file_id = 6` (Availability Notice)
+   - `status_id = 2` (PDF ya generado)
+   - `was_sent IS NULL OR was_sent = 0` (No enviado)
+   - Aplica filtros `pc` y/o `factura` si se proporcionan
+
+2. **Obtiene el RUT directamente** de la tabla `order_files`:
+   - Ya no consulta SQL Server para obtener el RUT
+   - El RUT fue guardado por `checkDefaultFiles`
+
+3. **Valida en SQL Server** que la orden cumpla condiciones:
+   - Tiene factura válida (no NULL, no vacía, no 0)
+   - Incoterm de disponibilidad: EWX, FCA, FOB, FCA Port, FCA Warehouse Santiago, FCA Airport, FCAWSTGO
+   - EstadoOV <> 'cancelada'
+   - Si hay `sendFromDate`, filtra por `f.Fecha_factura >= sendFrom`
+
+4. **Para cada registro que cumple las condiciones:**
+   
+   a. **Obtiene emails y idioma del cliente:**
+   - Usa el RUT de `order_files` para buscar en `customer_contacts`
+   - Filtra contactos con `reports = true`
+   - Determina el idioma según el país del cliente
+   
+   b. **Verifica que el PDF esté generado:**
+   - Confirma que `status_id = 2`
+   - Si no está generado, omite el registro
+   
+   c. **Envía el email (si está habilitado):**
+   - Llama a `sendFileToClient()` con los emails de contactos
+   - Adjunta el PDF generado
+   
+   d. **Actualiza el registro SOLO si el email se envió exitosamente:**
+   - Cambia `status_id` de 2 a 3 (Enviado)
+   - Establece `was_sent = 1`
+   - Actualiza `fecha_envio = NOW()`
+
+5. **Si hay error al enviar:**
+   - NO actualiza ningún campo
+   - El registro permanece con `status_id = 2` y `was_sent = NULL/0`
+   - Se reintentará en la próxima ejecución
+
+**Importante**:
+- NO genera PDFs, solo envía emails
+- Solo procesa registros con PDF ya generado (`status_id = 2`)
+- El RUT viene directamente de `order_files`, no de SQL Server
+- Valida en SQL Server: Incoterms de disponibilidad y factura válida
+- Solo actualiza el estado si el email se envió exitosamente
+- Si falla el envío, el registro se reintenta en la próxima ejecución
+- Registra eventos en `document_events` para auditoría
+
+**Flujo de datos:**
+```
+checkDefaultFiles → Crea registros (status_id=1, was_sent=NULL, rut guardado)
+    ↓
+generatePDFs → Genera PDFs (status_id=2, was_sent=NULL)
+    ↓
+sendAvailableNotice → Envía emails (status_id=3, was_sent=1)
+```
+
+**Estados de `order_files`:**
+
+| status_id | was_sent | Descripción | Proceso |
+|-----------|----------|-------------|---------|
+| 1 | NULL | Por Generar | `checkDefaultFiles` |
+| 2 | NULL/0 | Generado, no enviado | `generatePDFs` |
+| 3 | 1 | Generado y enviado | `sendAvailableNotice` |
 
 ---
 

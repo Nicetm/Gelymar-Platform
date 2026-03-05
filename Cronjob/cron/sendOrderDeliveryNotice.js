@@ -20,10 +20,19 @@ const emitReady = () => {
   }
 };
 
-async function processOrderDeliveryNotices() {
+async function processOrderDeliveryNotices(pc = null, factura = null) {
   try {
     const url = `${BACKEND_API_URL}/api/cron/process-order-delivery-notices`;
-    const response = await axios.post(url, {}, {
+    const body = {};
+    
+    if (pc) {
+      body.pc = pc;
+    }
+    if (factura) {
+      body.factura = factura;
+    }
+    
+    const response = await axios.post(url, body, {
       timeout: 300000,
       headers: {
         'Content-Type': 'application/json'

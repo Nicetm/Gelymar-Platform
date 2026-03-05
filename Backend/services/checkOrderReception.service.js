@@ -190,7 +190,6 @@ async function getOrdersReadyForOrderReceiptNotice(sendFromDate = null, filterPc
 async function isSendOrderDeliveryEnabled() {
   try {
     const config = await configService.getConfigByName('sendAutomaticOrderDelivery');
-    logger.info(`[sendAutomaticOrderDelivery] config: ${JSON.stringify(config)}`);
     if (!config) {
       return false;
     }

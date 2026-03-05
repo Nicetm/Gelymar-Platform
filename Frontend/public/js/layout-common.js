@@ -146,10 +146,13 @@ function setupTokenWatcher(apiBase) {
 
     const refreshToken = async () => {
       try {
-        const response = await fetch(`${resolvedApiBase}/api/auth/refresh`, {
+        const token = localStorage.getItem('token');
+        const apiUrl = `${resolvedApiBase.replace(/\/$/, '')}/api/auth/refresh`;
+        
+        const response = await fetch(apiUrl, {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
+            Authorization: `Bearer ${token}`,
           },
         });
 
@@ -157,14 +160,16 @@ function setupTokenWatcher(apiBase) {
 
         if (response.ok && data.token) {
           localStorage.setItem('token', data.token);
-          // Refrescar cookie para que SSR/fetches que lean cookie sigan autenticados
           document.cookie = `token=${data.token}; path=/; SameSite=Strict; max-age=3600`;
           modal.classList.add('hidden');
         } else {
+          console.error('[extendSession] Error en respuesta:', response.status, data);
+          alert(`Error al renovar sesión: ${data.message || 'Error desconocido'}. Presiona OK para cerrar sesión.`);
           logout();
         }
       } catch (error) {
-        console.error('Error al renovar token:', error);
+        console.error('[extendSession] Error al renovar token:', error);
+        alert(`Error de red al renovar sesión: ${error.message}. Presiona OK para cerrar sesión.`);
         logout();
       }
     };

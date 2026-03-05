@@ -56,7 +56,7 @@ async function createDefaultRecords(filters = {}) {
     }
     
     // Obtener todas las órdenes agrupadas por RUT (filtradas por sendFrom si está configurado)
-    const ordersByRut = await getAllOrdersGroupedByRut(sendFrom);
+    const ordersByRut = await getAllOrdersGroupedByRut(sendFrom, { pc: normalizedFilterPc, factura: normalizedFilterFactura });
     const totalClients = Object.keys(ordersByRut).length;
     
     if (totalClients === 0) {
@@ -225,6 +225,15 @@ async function createDefaultRecords(filters = {}) {
                 }
                 if (canCreateAvailability(order)) {
                   requiredDocs.push('Availability Notice');
+                }
+                
+                // NUEVO: Si la orden ahora tiene factura, actualizar el ORN existente que tiene factura=NULL
+                if (requiredDocs.length > 0) {
+                  try {
+                    await updateOrderReceiptNoticeFactura(order.pc, order.oc, order.factura);
+                  } catch (updateError) {
+                    logger.warn(`[createDefaultRecords] Error actualizando ORN con factura pc=${order.pc} oc=${order.oc || 'N/A'} factura=${order.factura}: ${updateError.message}`);
+                  }
                 }
               } else {
                 requiredDocs = ['Order Receipt Notice'];
@@ -436,6 +445,47 @@ async function createClientDirectory(customerName, pc) {
     logger.error(`[createDefaultRecords] Error creando directorio para cliente ${customerName}, pc=${pc}: ${error.message}`);
     logger.error(`[createDefaultRecords] Stack: ${error.stack}`);
     return null;
+  }
+}
+
+/**
+ * Actualiza la factura de un Order Receipt Notice existente que tiene factura=NULL
+ * Esto ocurre cuando una orden inicialmente sin factura ahora tiene factura asignada
+ * @param {string} pc - Número PC
+ * @param {string} oc - Número OC
+ * @param {string} factura - Número de factura a asignar
+ * @returns {Promise<boolean>} true si se actualizó algún registro
+ */
+async function updateOrderReceiptNoticeFactura(pc, oc, factura) {
+  const pool = await poolPromise;
+  
+  try {
+    const normalizedPc = String(pc).trim();
+    const normalizedOc = oc ? String(oc).trim() : null;
+    const normalizedFactura = String(factura).trim();
+    
+    // Buscar ORN con factura=NULL para este pc y oc
+    const query = `
+      UPDATE order_files 
+      SET factura = ?, updated_at = NOW()
+      WHERE pc = ? 
+        AND oc = ?
+        AND file_id = 9
+        AND (factura IS NULL OR factura = '' OR factura = 0 OR factura = '0')
+    `;
+    
+    const [result] = await pool.query(query, [normalizedFactura, normalizedPc, normalizedOc]);
+    
+    if (result.affectedRows > 0) {
+      logger.info(`[createDefaultRecords] ORN actualizado con factura pc=${normalizedPc} oc=${normalizedOc || 'N/A'} factura=${normalizedFactura} rows=${result.affectedRows}`);
+      return true;
+    }
+    
+    return false;
+    
+  } catch (error) {
+    logger.error(`[createDefaultRecords] Error actualizando ORN con factura pc=${pc} oc=${oc || 'N/A'}: ${error.message}`);
+    throw error;
   }
 }
 
