@@ -88,7 +88,7 @@ async function executeTask() {
   const taskConfig = await getTaskConfig();
   
   // Verificar si la tarea está habilitada
-  if (!taskConfig.check_default_files) {
+  if (!taskConfig.checkDefaultFiles || !taskConfig.checkDefaultFiles.enabled) {
     logger.info('[checkDefaultFiles] Tarea deshabilitada en configuración - saltando ejecución');
     return;
   }
@@ -147,17 +147,32 @@ if (arg === 'execute-now') {
   })();
 } else {
   // Solo levantar el proceso, NO ejecutar nada automáticamente
-  logger.info('[checkDefaultFiles] Cron job iniciado - esperando horario programado (7:00 AM)...');
-  emitReady();
+  (async () => {
+    const taskConfig = await getTaskConfig();
+    const schedule = taskConfig.checkDefaultFiles?.schedule;
+    const cronExpression = schedule ? convertTimeToCron(schedule) : '50 22 * * *';
+    
+    logger.info(`[checkDefaultFiles] Cron job iniciado - horario programado: ${schedule || '22:50'} (${cronExpression})`);
+    emitReady();
 
-  // Programar ejecución diaria a las 7:00 AM
-  cron.schedule('0 7 * * *', async () => {
-    logger.info('[checkDefaultFiles] Iniciando ejecución programada...');
-    try {
-      await executeTask();
-      logger.info('[checkDefaultFiles] Ejecución programada completada exitosamente');
-    } catch (error) {
-      logger.error(`[checkDefaultFiles] Error en ejecución programada: ${error.message}`);
-    }
-  });
+    // Programar ejecución diaria con horario dinámico
+    cron.schedule(cronExpression, async () => {
+      logger.info('[checkDefaultFiles] Iniciando ejecución programada...');
+      try {
+        await executeTask();
+        logger.info('[checkDefaultFiles] Ejecución programada completada exitosamente');
+      } catch (error) {
+        logger.error(`[checkDefaultFiles] Error en ejecución programada: ${error.message}`);
+      }
+    });
+  })();
+}
+
+// Función helper para convertir HH:MM a cron format
+function convertTimeToCron(time) {
+  if (!time || typeof time !== 'string') return null;
+  const match = time.match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  const [, hours, minutes] = match;
+  return `${minutes} ${hours} * * *`;
 }

@@ -368,6 +368,8 @@ const getAllOrdersGroupedByRut = async (sendFrom = null, filters = {}) => {
   const sqlPool = await getSqlPool();
   const { pc, factura } = filters;
 
+  const request = sqlPool.request();
+
   let query = `
     SELECT
       h.Rut,
@@ -386,22 +388,25 @@ const getAllOrdersGroupedByRut = async (sendFrom = null, filters = {}) => {
 
   // Agregar filtro de fecha si se proporciona sendFrom
   if (sendFrom) {
-    query += ` AND h.Fecha >= '${sendFrom}'`;
+    request.input('sendFrom', sql.Date, sendFrom);
+    query += ` AND CAST(h.Fecha AS date) >= @sendFrom`;
   }
 
   // Agregar filtro de PC si se proporciona
   if (pc) {
-    query += ` AND h.Nro = '${String(pc).trim()}'`;
+    request.input('pc', sql.VarChar, String(pc).trim());
+    query += ` AND h.Nro = @pc`;
   }
 
   // Agregar filtro de factura si se proporciona
   if (factura) {
-    query += ` AND f.Factura = '${String(factura).trim()}'`;
+    request.input('factura', sql.VarChar, String(factura).trim());
+    query += ` AND f.Factura = @factura`;
   }
 
   query += ` ORDER BY h.Rut, h.Fecha`;
 
-  const result = await sqlPool.request().query(query);
+  const result = await request.query(query);
 
   const rows = result.recordset || [];
 

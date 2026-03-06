@@ -902,8 +902,8 @@ const createOrderService = ({
         WHERE ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
           AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
           AND CASE
-            WHEN ISDATE(ISNULL(h.Fecha, f.Fecha_factura)) = 1
-            THEN CAST(ISNULL(h.Fecha, f.Fecha_factura) AS date)
+            WHEN ISDATE(h.Fecha) = 1
+            THEN CAST(h.Fecha AS date)
           END >= @fecha
           AND ISDATE(h.ETD_OV) = 1
           AND DATEADD(day, 5, CAST(h.ETD_OV AS date)) <= CAST(GETDATE() AS date)

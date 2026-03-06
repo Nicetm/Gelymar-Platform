@@ -88,7 +88,7 @@ async function executeTask() {
   const taskConfig = await getTaskConfig();
   
   // Verificar si la tarea está habilitada
-  if (!taskConfig.generate_pdfs) {
+  if (!taskConfig.generatePDFs || !taskConfig.generatePDFs.enabled) {
     logger.info('[generatePDFs] Tarea deshabilitada en configuración - saltando ejecución');
     return;
   }
@@ -147,17 +147,30 @@ if (arg === 'execute-now') {
   })();
 } else {
   // Solo levantar el proceso, NO ejecutar nada automáticamente
-  logger.info('[generatePDFs] Cron job iniciado - esperando horario programado (7:30 AM)...');
-  emitReady();
+  (async () => {
+    const taskConfig = await getTaskConfig();
+    const schedule = taskConfig.generatePDFs?.schedule;
+    const cronExpression = schedule ? convertTimeToCron(schedule) : '15 23 * * *';
+    
+    logger.info(`[generatePDFs] Cron job iniciado - horario programado: ${schedule || '23:15'} (${cronExpression})`);
+    emitReady();
 
-  // Programar ejecución diaria a las 7:30 AM
-  cron.schedule('30 7 * * *', async () => {
-    logger.info('[generatePDFs] Iniciando ejecución programada...');
-    try {
-      await executeTask();
-      logger.info('[generatePDFs] Ejecución programada completada exitosamente');
-    } catch (error) {
-      logger.error(`[generatePDFs] Error en ejecución programada: ${error.message}`);
-    }
-  });
+    cron.schedule(cronExpression, async () => {
+      logger.info('[generatePDFs] Iniciando ejecución programada...');
+      try {
+        await executeTask();
+        logger.info('[generatePDFs] Ejecución programada completada exitosamente');
+      } catch (error) {
+        logger.error(`[generatePDFs] Error en ejecución programada: ${error.message}`);
+      }
+    });
+  })();
+}
+
+function convertTimeToCron(time) {
+  if (!time || typeof time !== 'string') return null;
+  const match = time.match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  const [, hours, minutes] = match;
+  return `${minutes} ${hours} * * *`;
 }

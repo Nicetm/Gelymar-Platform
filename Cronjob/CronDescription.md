@@ -1,17 +1,52 @@
 # Cron Jobs - Endpoints y Configuración
 
-## Resumen de Endpoints
+## Configuración de Horarios
 
-| # | Cron Job | Endpoint | Método | Parámetros Opcionales |
-|---|----------|----------|--------|----------------------|
-| 1 | checkDefaultFiles | `/api/cron/create-default-records` | POST | `pc`, `factura` |
-| 2 | generatePDFs | `/api/cron/generate-pending-pdfs` | POST | `pc`, `factura` |
-| 3 | checkClientAccess | `/api/cron/check-client-access` | POST | ❌ Ninguno |
-| 4 | sendOrderReception | `/api/cron/process-new-orders` | POST | `pc` |
-| 5 | sendShipmentNotice | `/api/cron/process-shipment-notices` | POST | `pc`, `factura` |
-| 6 | sendOrderDeliveryNotice | `/api/cron/process-order-delivery-notices` | POST | `pc`, `factura` |
-| 7 | sendAvailableNotice | `/api/cron/process-availability-notices` | POST | `pc`, `factura` |
-| 8 | sendAdminNotifications | `/api/cron/send-admin-notification-summary` | POST | ❌ Ninguno |
+Todos los cron jobs leen su horario de ejecución desde la tabla `param_config` en el campo `schedule`. Esto permite cambiar los horarios sin modificar código.
+
+**Formato del horario**: `HH:MM` (24 horas)
+
+**Ejemplo de configuración en `param_config`**:
+```json
+{
+  "enable": 1,
+  "sendFrom": "2025-12-01",
+  "schedule": "23:15"
+}
+```
+
+**Para cambiar el horario de un cron**:
+```sql
+UPDATE param_config 
+SET params = JSON_SET(params, '$.schedule', '22:00') 
+WHERE name = 'checkDefaultFiles';
+```
+
+Luego reiniciar el proceso PM2:
+```bash
+pm2 restart gelymar-check-default-files
+```
+
+---
+
+## Resumen de Endpoints y Configuración
+
+| # | Cron Job | Endpoint | Método | Parámetro Config | Horario Default | Parámetros Opcionales |
+|---|----------|----------|--------|------------------|-----------------|----------------------|
+| 1 | checkDefaultFiles | `/api/cron/create-default-records` | POST | `checkDefaultFiles` | 22:50 | `pc`, `factura` |
+| 2 | generatePDFs | `/api/cron/generate-pending-pdfs` | POST | `generatePDFs` | 23:15 | `pc`, `factura` |
+| 3 | checkClientAccess | `/api/cron/check-client-access` | POST | `checkClientAccess` | N/A | ❌ Ninguno |
+| 4 | sendOrderReception | `/api/cron/process-new-orders` | POST | `sendAutomaticOrderReception` | 23:20 | `pc` |
+| 5 | sendShipmentNotice | `/api/cron/process-shipment-notices` | POST | `sendAutomaticOrderShipment` | 23:25 | `pc`, `factura` |
+| 6 | sendOrderDeliveryNotice | `/api/cron/process-order-delivery-notices` | POST | `sendAutomaticOrderDelivery` | 23:30 | `pc`, `factura` |
+| 7 | sendAvailableNotice | `/api/cron/process-availability-notices` | POST | `sendAutomaticOrderAvailability` | 23:35 | `pc`, `factura` |
+| 8 | sendAdminNotifications | `/api/cron/send-admin-notification-summary` | POST | N/A | 16:00 | ❌ Ninguno |
+
+**Notas**:
+- Todos los crons verifican si están habilitados (`enable: 1`) antes de ejecutarse
+- El campo `sendFrom` filtra órdenes por fecha (`h.Fecha >= sendFrom`)
+- El campo `schedule` define el horario de ejecución (formato `HH:MM`)
+- Si no hay `schedule` en la BD, se usa el horario default
 
 ---
 
@@ -29,7 +64,8 @@
 ```json
 {
   "enable": 1,
-  "sendFrom": "2025-12-01"
+  "sendFrom": "2025-12-01",
+  "schedule": "22:50"
 }
 ```
 

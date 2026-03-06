@@ -69,7 +69,7 @@ async function getOrdersReadyForAvailabilityNotice(sendFromDate = null, filterPc
             h.OC AS oc,
             f.Factura AS factura,
             h.Clausula AS incoterm,
-            f.Fecha_factura AS fecha_factura
+            h.Fecha AS fecha_orden
           FROM jor_imp_FACT_90_softkey f
           INNER JOIN jor_imp_HDR_90_softkey h ON h.Nro = f.Nro
           WHERE f.Nro = @pc
@@ -79,7 +79,7 @@ async function getOrdersReadyForAvailabilityNotice(sendFromDate = null, filterPc
             AND LTRIM(RTRIM(f.Factura)) <> ''
             AND f.Factura <> 0
             AND h.Clausula IN ('EWX', 'FCA', 'FOB', 'FCA Port', 'FCA Warehouse Santiago', 'FCA Airport', 'FCAWSTGO')
-            ${sendFromDate ? 'AND CASE WHEN ISDATE(f.Fecha_factura) = 1 THEN CAST(f.Fecha_factura AS date) END >= @sendFrom' : ''}
+            ${sendFromDate ? 'AND CAST(h.Fecha AS date) >= @sendFrom' : ''}
         `);
         
         const sqlRow = sqlResult.recordset?.[0];
