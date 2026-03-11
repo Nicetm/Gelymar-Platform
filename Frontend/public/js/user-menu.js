@@ -13,6 +13,12 @@ export function initUserMenu(config = {}) {
     try {
       const parsed = new URL(base, window.location.origin);
       if (parsed.hostname === 'backend') {
+        // En producción (logistic.gelymar.cl), Cloudflare Tunnel maneja el proxy
+        // Solo agregar puerto en desarrollo local
+        const isProduction = window.location.hostname === 'logistic.gelymar.cl';
+        if (isProduction) {
+          return `${window.location.protocol}//${window.location.hostname}`;
+        }
         return `${window.location.protocol}//${window.location.hostname}:3000`;
       }
       return parsed.toString();

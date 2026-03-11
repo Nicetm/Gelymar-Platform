@@ -3,6 +3,16 @@ const { getSqlPool, sql } = require('../config/sqlserver');
 const { normalizeValue, normalizeDate, normalizeDecimal } = require('../mappers/sqlsoftkey/utils');
 const { normalizeRut } = require('../utils/rut.util');
 const { normalizeOcForCompare } = require('../utils/oc.util');
+const { logger } = require('../utils/logger');
+
+/**
+ * Normaliza un RUT quitando la C al final para comparación
+ * MySQL users table stores RUTs without 'C', but SQL Server has them with 'C'
+ */
+const normalizeRutForComparison = (rut) => {
+  const normalized = normalizeRut(rut);
+  return normalized.toUpperCase().endsWith('C') ? normalized.slice(0, -1) : normalized;
+};
 
 /**
  * REFACTORING: Updated to use LEFT JOIN between Vista_HDR and Vista_FACT
@@ -314,26 +324,37 @@ async function getUserCustomerByUserId(userId) {
 async function getFileCustomerCheck(fileId, customerRut) {
   const pool = await poolPromise;
   const [[fileRow]] = await pool.query(
-    `SELECT pc, oc FROM order_files WHERE id = ?`,
+    `SELECT pc, oc, factura FROM order_files WHERE id = ?`,
     [fileId]
   );
-  if (!fileRow) return null;
+  if (!fileRow) {
+    logger.warn(`[getFileCustomerCheck] Archivo no encontrado: fileId=${fileId}`);
+    return null;
+  }
 
   const sqlPool = await getSqlPool();
   const sqlRequest = sqlPool.request();
   sqlRequest.input('pc', sql.VarChar, String(fileRow.pc).trim());
-  sqlRequest.input('oc', sql.VarChar, normalizeOcForCompare(fileRow.oc));
-  const sqlResult = await sqlRequest.query(`
-    SELECT TOP 1 Rut
-    FROM jor_imp_HDR_90_softkey
-    WHERE Nro = @pc
-      AND ISNULL(LTRIM(RTRIM(LOWER(EstadoOV))), '') <> 'cancelada'
-      AND REPLACE(REPLACE(LOWER(OC), ' ', ''), '-', '') = @oc
-  `);
+  
+  // Construir query con o sin factura
+  let query = `SELECT TOP 1 h.Rut FROM jor_imp_HDR_90_softkey h`;
+  
+  if (fileRow.factura) {
+    sqlRequest.input('factura', sql.VarChar, String(fileRow.factura).trim());
+    query += ` INNER JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro WHERE h.Nro = @pc AND f.Factura = @factura`;
+  } else {
+    query += ` WHERE h.Nro = @pc`;
+  }
+  
+  const sqlResult = await sqlRequest.query(query);
   const row = sqlResult.recordset?.[0];
-  if (!row?.Rut) return null;
-  const sqlRut = normalizeRut(row.Rut);
-  const userRut = normalizeRut(customerRut);
+  if (!row?.Rut) {
+    logger.warn(`[getFileCustomerCheck] Orden no encontrada en SQL Server: pc=${fileRow.pc} factura=${fileRow.factura || 'N/A'}`);
+    return null;
+  }
+  const sqlRut = normalizeRutForComparison(row.Rut);
+  const userRut = normalizeRutForComparison(customerRut);
+  logger.info(`[getFileCustomerCheck] Comparando RUTs: sqlRut=${sqlRut} userRut=${userRut} match=${sqlRut === userRut}`);
   return sqlRut && userRut && sqlRut === userRut
     ? { pc: fileRow.pc, oc: fileRow.oc }
     : null;

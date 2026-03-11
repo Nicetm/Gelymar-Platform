@@ -16,7 +16,8 @@ const fileServer = import.meta.env.PUBLIC_FILE_SERVER;
 const { basePath = '/client' } = Astro.props;
 const homeHref = basePath;
 
-let orders = [];
+// No cargar órdenes en el servidor - dejar que el cliente las cargue
+const orders: any[] = [];
 const lang = getServerLang(Astro.cookies) || 'es';
 let t: any = {};
 
@@ -29,30 +30,6 @@ try {
 } catch (error) {
   console.warn('Error cargando traducciones de documentos:', error);
   t = {};
-}
-
-// Fetch orders on the server side
-try {
-  const token = Astro.cookies.get('token')?.value;
-  if (token) {
-    const response = await fetch(`${apiBase}/api/orders/client/dashboard`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    if (response.ok) {
-      orders = await response.json();
-      console.log('[Documents SSR] Loaded', orders.length, 'orders');
-    } else {
-      console.warn('[Documents SSR] Failed to load orders:', response.status);
-    }
-  } else {
-    console.warn('[Documents SSR] No token found');
-  }
-} catch (error) {
-  console.error('[Documents SSR] Error loading orders:', error);
 }
 ---
 
@@ -109,24 +86,16 @@ try {
       <div class="relative w-full" data-scroll-sync="client-orders-table">
         <div class="sticky top-0 z-30 bg-gray-100 dark:bg-gray-800 hidden" data-scroll-header>
           <div class="overflow-x-auto scrollbar-hidden" data-scroll-header-track>
-            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900" style="width: max-content;"></table>
+            <table class="client-orders min-w-full divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900" style="width: max-content;"></table>
           </div>
         </div>
         <div class="overflow-x-auto scrollbar-hidden" style="border-radius: 10px;" data-scroll-body>
-          <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900" style="width: max-content;">
+          <table class="client-orders min-w-full divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900" style="width: max-content;">
             <thead class="bg-gray-100 dark:bg-gray-800 sticky top-0">
               <tr>
                 <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="order">
                   <div class="flex items-center justify-between">
                     <span>{t.documentos?.order || 'Order'}</span>
-                    <svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
-                    </svg>
-                  </div>
-                </th>
-                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="documents">
-                  <div class="flex items-center justify-between">
-                    <span>{t.documentos?.documentsCount || 'Documents'}</span>
                     <svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
                     </svg>
@@ -186,7 +155,7 @@ try {
             <tbody id="orders-grid" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-xs min-h-[600px]">
               <!-- Los datos se cargarán dinámicamente con JavaScript -->
               <tr id="loadingRow" class="bg-white dark:bg-gray-900">
-                <td colspan="9" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                <td colspan="8" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
                   <div class="flex items-center justify-center">
                     <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -347,6 +316,26 @@ try {
 
   <!-- Modal de reporte -->
   <EmailModal />
+
+  <!-- Modal de ayuda para contador de documentos -->
+  <div id="docsCountHelpModal" class="fixed inset-0 hidden justify-center items-center z-50 bg-black/50 flex backdrop-blur-sm">
+    <div class="bg-white/95 dark:bg-gray-800/95 text-gray-900 dark:text-gray-100 rounded-2xl p-6 w-full max-w-md relative shadow-2xl ring-1 ring-gray-200 dark:ring-white/10">
+      <button id="closeDocsCountHelpModalBtn" class="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition text-xs">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+      <h3 class="text-lg font-bold mb-3">{t.documentos?.docsCountHelpTitle || 'Document Counter'}</h3>
+      <div class="my-3 border-t border-gray-200 dark:border-gray-700"></div>
+      <p id="docsCountHelpText" class="text-sm text-gray-700 dark:text-gray-300"></p>
+      <div class="my-4 border-t border-gray-200 dark:border-gray-700"></div>
+      <div class="flex justify-end">
+        <button id="closeDocsCountHelpModalFooterBtn" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white rounded-md text-sm">
+          {t.comond?.close || 'Close'}
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- Configuración para JavaScript -->
   <script define:vars={{ apiBase, apiPublic, orders, fileServer, t, lang }}>

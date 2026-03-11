@@ -999,7 +999,8 @@ exports.sendFile = async (req, res) => {
       status_id: 3,
       updated_at: new Date(),
       fecha_envio: new Date(),
-      path: file.path 
+      path: file.path,
+      is_visible_to_client: 1
     });
 
     logger.info(`[sendFile] source=manual Archivo enviado pc=${file.pc || 'N/A'} oc=${file.oc || 'N/A'} factura=${file.factura ?? 'N/A'} id=${file.id_nro_ov_mas_factura || 'N/A'} name=${file.name || 'N/A'}`);
@@ -1255,7 +1256,8 @@ exports.resendFile = async (req, res) => {
     await fileService.updateFile({
       id: id,
       fecha_reenvio: new Date(),
-      updated_at: new Date()
+      updated_at: new Date(),
+      is_visible_to_client: 1
     });
 
       logger.info(`Archivo reenviado correctamente ID: ${id}`);
@@ -1650,7 +1652,8 @@ exports.processNewOrdersAndSendReception = async (req, res) => {
             status_id: 3,
             was_sent: 1,
             fecha_envio: new Date(),
-            updated_at: new Date()
+            updated_at: new Date(),
+            is_visible_to_client: 1
           });
 
           logger.info(`[processOrderReception] Email enviado pc=${orderRow.pc} oc=${orderRow.oc || 'N/A'} factura=${file.factura || 'N/A'} doc=Order Receipt Notice recipients=${reportEmails.length}`);
@@ -1810,7 +1813,8 @@ exports.processShipmentNotices = async (req, res) => {
               was_sent: 1,
               status_id: 3,
               fecha_envio: new Date(),
-              updated_at: new Date()
+              updated_at: new Date(),
+              is_visible_to_client: 1
             });
             
             logger.info(`[processShipmentNotices] Email enviado pc=${orderRow.pc} oc=${orderRow.oc} factura=${orderRow.factura || 'N/A'} doc=${documentName} recipients=${reportEmails.length}`);
@@ -1994,7 +1998,8 @@ exports.processOrderDeliveryNotices = async (req, res) => {
               was_sent: 1,
               status_id: 3,
               fecha_envio: new Date(),
-              updated_at: new Date()
+              updated_at: new Date(),
+              is_visible_to_client: 1
             });
             
             logger.info(`[processOrderDeliveryNotices] Email enviado pc=${orderRow.pc} oc=${orderRow.oc} factura=${orderRow.factura} doc=${documentName} recipients=${reportEmails.length}`);
@@ -2174,7 +2179,8 @@ exports.processAvailabilityNotices = async (req, res) => {
               was_sent: 1,
               status_id: 3,
               fecha_envio: new Date(),
-              updated_at: new Date()
+              updated_at: new Date(),
+              is_visible_to_client: 1
             });
             
             logger.info(`[processAvailabilityNotices] Email enviado pc=${orderRow.pc} oc=${orderRow.oc} factura=${orderRow.factura} doc=${documentName} recipients=${reportEmails.length}`);

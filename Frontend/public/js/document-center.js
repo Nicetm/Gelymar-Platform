@@ -245,7 +245,7 @@ function showOrdersLoadingRow() {
   const message = getMessage(documentos.loadingOrders);
   ordersGrid.innerHTML = `
     <tr id="loadingRow">
-      <td colspan="9" class="px-6 py-6 text-center text-gray-600 dark:text-gray-300">
+      <td colspan="8" class="px-6 py-6 text-center text-gray-600 dark:text-gray-300">
         <div class="inline-flex items-center gap-2">
           <svg class="w-4 h-4 text-blue-500 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -405,7 +405,6 @@ async function loadOrdersFromAPI() {
       }
     });
 
-    console.log('loadOrdersFromAPI -> status', response.status);
     if (!response.ok) {
       const text = await response.text();
       console.warn('loadOrdersFromAPI -> error body', text);
@@ -413,7 +412,6 @@ async function loadOrdersFromAPI() {
     }
 
     const data = await response.json();
-    console.log('loadOrdersFromAPI -> data length', Array.isArray(data) ? data.length : 'not array');
     window.orders = data;
 
   } catch (error) {
@@ -441,7 +439,7 @@ function renderOrders() {
   if (filteredOrders.length === 0) {
     ordersGrid.innerHTML = `
       <tr>
-        <td colspan="9" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+        <td colspan="8" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
           <div class="flex flex-col items-center">
             <svg class="w-12 h-12 mb-4 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
@@ -465,19 +463,16 @@ function renderOrders() {
     row.dataset.orderId = order.id.toString();
     row.innerHTML = `
       <td class="px-6 py-4 text-xs text-gray-900 dark:text-gray-200">
-        <div class="flex items-center">
-          <div class="ml-3">
-            <button class="view-docs-btn text-xs font-medium text-blue-600 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200 underline"
-                    data-order-id="${order.id}"
-                    data-tooltip="${getMessage(documentos.viewDocuments)}">
-              ${order.orderNumber?.replace(/^GEL\s+/, '') || order.orderNumber}
-            </button>
-          </div>
-        </div>
-      </td>
-      <td class="px-6 py-4 text-xs text-gray-900 dark:text-gray-200">
-        <div class="flex items-center">
-          <span class="text-xs text-gray-900 dark:text-gray-200">${order.documents ?? 0}</span>
+        <div class="flex items-center gap-1">
+          <button class="view-docs-btn text-xs font-medium text-blue-600 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200 underline"
+                  data-order-id="${order.id}"
+                  data-tooltip="${getMessage(documentos.viewDocuments)}">
+            ${order.orderNumber?.replace(/^GEL\s+/, '') || order.orderNumber}
+          </button>
+          <span class="text-xs text-gray-600 dark:text-gray-400">(</span><button class="docs-count-help-btn text-xs font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200 underline transition cursor-pointer"
+                  data-order-number="${order.orderNumber?.replace(/^GEL\s+/, '') || order.orderNumber}"
+                  data-docs-count="${order.documents ?? 0}"
+                  data-tooltip="${getMessage(documentos.docsCountHelpTitle) || 'Click for help'}">${order.documents ?? 0}</button><span class="text-xs text-gray-600 dark:text-gray-400">)</span>
         </div>
       </td>
       <td class="px-6 py-4 text-xs text-gray-900 dark:text-gray-200">
@@ -500,14 +495,14 @@ function renderOrders() {
       </td>
       <td class="px-6 py-4 text-center relative overflow-visible sticky right-0 bg-gray-50 dark:bg-gray-900 z-10 min-w-[120px]">
         <div class="flex items-center justify-center space-x-3">
-          <button class="view-items-btn text-gray-900 dark:text-white hover:text-green-500 transition"
+          <button class="view-items-btn text-gray-900 dark:text-white hover:text-green-500 dark:hover:text-green-400 transition"
                  data-order-pc="${order.pc}" data-order-oc="${order.orderNumber}" data-factura="${order.factura}"
                  data-tooltip="${getMessage(carpetas.tooltipViewItems)}">
             <svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path class="pointer-events-none" stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
             </svg>
           </button>
-          <button class="view-docs-btn text-gray-900 dark:text-white hover:text-blue-500 transition"
+          <button class="view-docs-btn text-gray-900 dark:text-white hover:text-blue-500 dark:hover:text-blue-400 transition"
                  data-order-id="${order.id}"
                  data-tooltip="${getMessage(carpetas.viewDocuments)}">
             <svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -614,6 +609,21 @@ async function loadOrderDocumentsFromAPI(orderId) {
 
 // Función para abrir archivos en modal de forma segura (lado cliente)
 window.downloadFileClient = async (fileId) => {
+  // Encontrar el botón de descarga y mostrar spinner
+  const downloadLink = document.querySelector(`a[data-doc-id="${fileId}"]`);
+  let originalContent = '';
+  
+  if (downloadLink) {
+    originalContent = downloadLink.innerHTML;
+    downloadLink.innerHTML = `
+      <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+      </svg>
+      ${getMessage(documentos.loading) || 'Loading...'}
+    `;
+    downloadLink.classList.add('pointer-events-none', 'opacity-75');
+  }
+  
   try {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -667,6 +677,12 @@ window.downloadFileClient = async (fileId) => {
   } catch (error) {
     console.error('Error cargando archivo:', error);
     showNotification(getMessage(documentos.loadFileNetworkError), 'error');
+  } finally {
+    // Restaurar el contenido original del botón
+    if (downloadLink && originalContent) {
+      downloadLink.innerHTML = originalContent;
+      downloadLink.classList.remove('pointer-events-none', 'opacity-75');
+    }
   }
 };
 
@@ -1057,6 +1073,15 @@ function setupEventListeners() {
       const order = window.orders?.find(o => String(o.id) === String(orderId));
       openDocsModal(order);
     }
+
+    const docsCountHelpBtn = e.target.closest('.docs-count-help-btn');
+    if (docsCountHelpBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const orderNumber = docsCountHelpBtn.dataset.orderNumber;
+      const docsCount = docsCountHelpBtn.dataset.docsCount;
+      openDocsCountHelpModal(orderNumber, docsCount);
+    }
   });
 
   if (closeDocsModalBtn && docsModal) {
@@ -1066,6 +1091,34 @@ function setupEventListeners() {
     docsModal.addEventListener('click', (e) => {
       if (e.target === docsModal) {
         docsModal.classList.add('hidden');
+      }
+    });
+  }
+
+  // Event listeners para modal de ayuda de contador de documentos
+  const docsCountHelpModal = document.getElementById('docsCountHelpModal');
+  const closeDocsCountHelpModalBtn = document.getElementById('closeDocsCountHelpModalBtn');
+  const closeDocsCountHelpModalFooterBtn = document.getElementById('closeDocsCountHelpModalFooterBtn');
+
+  if (closeDocsCountHelpModalBtn && docsCountHelpModal) {
+    closeDocsCountHelpModalBtn.addEventListener('click', () => {
+      docsCountHelpModal.classList.add('hidden');
+      docsCountHelpModal.classList.remove('flex');
+    });
+  }
+
+  if (closeDocsCountHelpModalFooterBtn && docsCountHelpModal) {
+    closeDocsCountHelpModalFooterBtn.addEventListener('click', () => {
+      docsCountHelpModal.classList.add('hidden');
+      docsCountHelpModal.classList.remove('flex');
+    });
+  }
+
+  if (docsCountHelpModal) {
+    docsCountHelpModal.addEventListener('click', (e) => {
+      if (e.target === docsCountHelpModal) {
+        docsCountHelpModal.classList.add('hidden');
+        docsCountHelpModal.classList.remove('flex');
       }
     });
   }
@@ -1842,6 +1895,30 @@ async function openItemsModal(orderPc, orderOc, factura) {
 
   if (!itemsModal || !itemsOrderTitle || !itemsTableBody) return;
 
+  // Abrir modal inmediatamente con loading
+  itemsModal.classList.remove('hidden');
+  itemsModal.classList.add('flex');
+  
+  // Mostrar loading en el modal
+  const docT = documentos;
+  document.getElementById('itemsInitials').textContent = 'IT';
+  document.getElementById('itemsOrderTitle').textContent = `${getMessage(docT.orderItems)}: ${orderOc}`;
+  document.getElementById('itemsOrderSubtitle').textContent = getMessage(docT.itemsList);
+  
+  itemsTableBody.innerHTML = `
+    <tr>
+      <td colspan="5" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+        <div class="flex items-center justify-center">
+          <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          ${getMessage(documentos.loading) || 'Loading...'}
+        </div>
+      </td>
+    </tr>
+  `;
+
   try {
     // Cargar items de la orden
     const token = localStorage.getItem('token');
@@ -1865,11 +1942,6 @@ async function openItemsModal(orderPc, orderOc, factura) {
     const items = await response.json();
     const facturaValue = factura === undefined || factura === null ? '' : String(factura).trim();
     const hasFactura = facturaValue !== '' && facturaValue !== 'null' && facturaValue !== '0';
-    
-    const docT = documentos;
-    document.getElementById('itemsInitials').textContent = 'IT';
-    document.getElementById('itemsOrderTitle').textContent = `${getMessage(docT.orderItems)}: ${orderOc}`;
-    document.getElementById('itemsOrderSubtitle').textContent = getMessage(docT.itemsList);
     
     // Renderizar tabla de items
     if (itemsTableBody) {
@@ -1932,56 +2004,74 @@ async function openItemsModal(orderPc, orderOc, factura) {
     if (totalGastoAdicional) totalGastoAdicional.textContent = formatCurrency(gastoAdicional, currency, 2);
     totalValue.textContent = formatCurrency(totalValueWithAdditional, currency, 2);
 
-    // Mostrar el modal
-    itemsModal.classList.remove('hidden');
-    itemsModal.classList.add('flex');
-
   } catch (error) {
     console.error('Error loading order items:', error);
     showNotification(getMessage(documentos.itemsLoadError), 'error');
+    // Cerrar modal en caso de error
+    itemsModal.classList.add('hidden');
+    itemsModal.classList.remove('flex');
   }
 }
 
 // Función para abrir el modal de documentos
 async function openDocsModal(order) {
   if (!order || !docsModal || !docsListBody) return;
-  try {
-    await loadOrderDocumentsFromAPI(order.id);
-  } catch (error) {
-    console.error('Error loading documents for modal:', error);
-    showNotification(getMessage(documentos.documentsLoadError), 'error');
-    return;
-  }
-
+  
+  // Abrir modal inmediatamente con loading
+  docsModal.classList.remove('hidden');
+  
   if (docsOrderTitle) {
     docsOrderTitle.textContent = `${getMessage(documentos.order)}: ${order.orderNumber}`;
   }
-
-  docsListBody.innerHTML = documents.length === 0
-    ? `<tr><td colspan="5" class="px-4 py-3 text-center text-sm text-gray-500 dark:text-gray-400">${getMessage(documentos.noDocs)}</td></tr>`
-    : documents.map(doc => {
-        const status = doc.status || getMessage(documentos.statusUnread);
-        return `
-          <tr>
-            <td class="px-4 py-2 text-xs text-gray-900 dark:text-gray-100">${doc.name}</td>
-            <td class="px-4 py-2 text-xs text-gray-900 dark:text-gray-100">${doc.type?.toUpperCase() || '-'}</td>
-            <td class="px-4 py-2 text-xs text-gray-900 dark:text-gray-100">${status}</td>
-            <td class="px-4 py-2 text-xs text-gray-900 dark:text-gray-100">${formatDateOnly(doc.created)}</td>
-            <td class="px-4 py-2 text-center">
-              <a href="#" onclick="downloadFileClient(${doc.id})"
-                 class="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm leading-none"
-                 data-doc-id="${doc.id}" title="${getMessage(documentos.downloadDocument)}">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                </svg>
-                ${getMessage(documentos.downloadDocument)}
-              </a>
-            </td>
-          </tr>
-        `;
-      }).join('');
-
-  docsModal.classList.remove('hidden');
+  
+  // Mostrar loading
+  docsListBody.innerHTML = `
+    <tr>
+      <td colspan="5" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+        <div class="flex items-center justify-center">
+          <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          ${getMessage(documentos.loading) || 'Loading...'}
+        </div>
+      </td>
+    </tr>
+  `;
+  
+  try {
+    await loadOrderDocumentsFromAPI(order.id);
+    
+    // Renderizar documentos
+    docsListBody.innerHTML = documents.length === 0
+      ? `<tr><td colspan="5" class="px-4 py-3 text-center text-sm text-gray-500 dark:text-gray-400">${getMessage(documentos.noDocs)}</td></tr>`
+      : documents.map(doc => {
+          const status = doc.status || getMessage(documentos.statusUnread);
+          return `
+            <tr>
+              <td class="px-4 py-2 text-xs text-gray-900 dark:text-gray-100">${doc.name}</td>
+              <td class="px-4 py-2 text-xs text-gray-900 dark:text-gray-100">${doc.type?.toUpperCase() || '-'}</td>
+              <td class="px-4 py-2 text-xs text-gray-900 dark:text-gray-100">${status}</td>
+              <td class="px-4 py-2 text-xs text-gray-900 dark:text-gray-100">${formatDateOnly(doc.created)}</td>
+              <td class="px-4 py-2 text-center">
+                <a href="#" onclick="downloadFileClient(${doc.id})"
+                   class="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm leading-none"
+                   data-doc-id="${doc.id}" title="${getMessage(documentos.downloadDocument)}">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                  </svg>
+                  ${getMessage(documentos.downloadDocument)}
+                </a>
+              </td>
+            </tr>
+          `;
+        }).join('');
+  } catch (error) {
+    console.error('Error loading documents for modal:', error);
+    showNotification(getMessage(documentos.documentsLoadError), 'error');
+    // Cerrar modal en caso de error
+    docsModal.classList.add('hidden');
+  }
 }
 
 // Funciones de formateo
@@ -2243,3 +2333,21 @@ document.addEventListener('click', (e) => {
 document.addEventListener('DOMContentLoaded', () => {
   initializeOrdersSearch();
 });
+
+
+// Función para abrir el modal de ayuda del contador de documentos
+function openDocsCountHelpModal(orderNumber, docsCount) {
+  const modal = document.getElementById('docsCountHelpModal');
+  const helpText = document.getElementById('docsCountHelpText');
+  
+  if (!modal || !helpText) return;
+  
+  // Actualizar el texto del modal usando i18n con reemplazo de placeholder
+  const helpTextTemplate = getMessage(documentos.docsCountHelpText);
+  const helpTextWithOrder = helpTextTemplate.replace('{orderNumber}', orderNumber);
+  helpText.textContent = helpTextWithOrder;
+  
+  // Mostrar el modal
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+}

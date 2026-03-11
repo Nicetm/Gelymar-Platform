@@ -173,9 +173,9 @@ async function generatePendingPDFs(filters = {}) {
           continue;
         }
         
-        // Actualizar status_id = 2, name, path completo, fecha_generacion, y is_visible_to_client = 1
+        // Actualizar status_id = 2, name, path completo, fecha_generacion (sin cambiar is_visible_to_client)
         await pool.query(
-          'UPDATE order_files SET status_id = 2, name = ?, path = ?, fecha_generacion = NOW(), is_visible_to_client = 1, updated_at = NOW() WHERE id = ?',
+          'UPDATE order_files SET status_id = 2, name = ?, path = ?, fecha_generacion = NOW(), updated_at = NOW() WHERE id = ?',
           [pdfResult.fileName, pdfResult.relativePath, record.id]
         );
         

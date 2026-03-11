@@ -53,6 +53,11 @@ const authAllowExpired = createAuthMiddleware({ allowExpired: true });
 
 const app = express();
 
+// Configurar trust proxy ANTES de cualquier middleware
+// Esto es necesario cuando hay un proxy reverso (nginx, etc.) delante de Express
+// Confiamos en el primer proxy (nginx) que está delante de Express
+app.set('trust proxy', 1);
+
 // Rutas API
 const customerRoutes = require('./routes/customer.routes');
 const userRoutes = require('./routes/user.routes');
@@ -168,6 +173,7 @@ const devOrigins = [
 
 const extraOrigins = [
   'https://logistic.gelymar.cl',
+  'https://logistic.gelymar.cl:3000',
   'https://fileserver.gelymar.cl'
 ];
 
@@ -197,7 +203,9 @@ app.use(helmet({
         "wss://localhost:*", 
         "ws://localhost:3000", 
         "wss://localhost:3000", 
-        "https://logistic.gelymar.cl", 
+        "https://logistic.gelymar.cl",
+        "https://logistic.gelymar.cl:3000",
+        "wss://logistic.gelymar.cl:3000",
         "https://cloudflareinsights.cl",
         "https://fileserver.gelymar.cl",
         "wss://fileserver.gelymar.cl",
@@ -453,7 +461,6 @@ io.use(async (socket, next) => {
 });
 // Manejar conexiones de Socket.io
 io.on('connection', (socket) => {
-  logger.info(`[socket.io] Conectado userId=${socket.user?.id ?? 'N/A'} role=${socket.user?.role ?? 'N/A'} ip=${socket.handshake.address}`);
   if (socket?.user?.id) {
     const current = onlineConnections.get(socket.user.id) || 0;
     onlineConnections.set(socket.user.id, current + 1);
@@ -509,7 +516,6 @@ io.on('connection', (socket) => {
   // Manejar desconexión
   socket.on('disconnect', async () => {
     try {
-      logger.info(`[socket.io] Desconectado userId=${socket.user?.id ?? 'N/A'} role=${socket.user?.role ?? 'N/A'} ip=${socket.handshake.address}`);
       if (socket?.user?.id) {
         const current = (onlineConnections.get(socket.user.id) || 1) - 1;
         onlineConnections.set(socket.user.id, Math.max(current, 0));

@@ -289,7 +289,6 @@ async function findCustomerIdByRut(rut) {
 async function updateUserOnlineStatus(userId, onlineStatus) {
   const pool = await poolPromise;
   const [result] = await pool.query('UPDATE users SET online = ? WHERE id = ?', [onlineStatus, userId]);
-  logger.info(`[updateUserOnlineStatus] userId=${userId} online=${onlineStatus} affectedRows=${result?.affectedRows ?? 'N/A'}`);
 }
 
 // Obtener informaci�n del administrador principal (online/offline y nombre)

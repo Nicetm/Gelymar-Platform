@@ -1,35 +1,17 @@
 ---
 import CopyrightNotice from '../components/CopyrightNotice.astro';
-import { loadTranslations, getServerLang } from '@lib/i18n.js';
-
-const lang = getServerLang(Astro.cookies);
-const t: any = {
-  footer: await loadTranslations(lang, 'footer'),
-};
 ---
 
 <footer
   class="p-4  my-6 mx-4 bg-white rounded-lg shadow md:flex md:items-center md:justify-between md:p-6 xl:p-8 dark:bg-gray-800"
 >
-  <!-- Enlaces legales -->
-  <ul class="flex flex-wrap items-center mb-6 space-y-1 md:mb-0 animate-fade-in-up delay-100">
-    <li>
-      <a
-        href="/admin/info/privacy-policy"
-        class="mr-4 text-sm font-normal text-gray-500 hover:underline md:mr-6 dark:text-gray-400 transition-all duration-300"
-      >
-        {t.footer.privacy_policy}
-      </a>
-    </li>
-  </ul>
-
   <!-- Enlaces sociales -->
-  <div class="flex justify-center gap-6 animate-fade-in-up delay-200">
+  <div class="flex justify-center gap-6 animate-fade-in-up delay-200 w-full md:justify-end">
     <!-- Sitio Web -->
     <a
       href="https://www.gelymar.com"
       target="_blank"
-      aria-label="{t.footer.website_aria}"
+      aria-label="Visit Gelymar website"
       class="text-gray-500 hover:text-gray-700 dark:hover:text-white transition-transform transform hover:scale-110"
     >
       <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -44,7 +26,7 @@ const t: any = {
     <a
       href="https://www.linkedin.com/company/gelymar-sa"
       target="_blank"
-      aria-label="{t.footer.linkedin_aria}"
+      aria-label="Visit Gelymar LinkedIn"
       class="text-gray-500 hover:text-gray-700 dark:hover:text-white transition-transform transform hover:scale-110"
     >
       <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">

@@ -212,5 +212,7 @@
   "noDocs": "No documents available",
   "view": "View",
   "createDefaultAlreadyExists": "Default files already exist for this order",
-  "loading": "Loading..."
+  "loading": "Loading...",
+  "docsCountHelpTitle": "Document Counter",
+  "docsCountHelpText": "Corresponds to the number of documents available to view for order {orderNumber}. To view the documents, you can click directly on the order number or from the Actions column."
 }

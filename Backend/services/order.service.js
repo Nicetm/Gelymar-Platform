@@ -258,9 +258,6 @@ const createOrderService = ({
     headerRequest.input('rut', sqlModule.VarChar, normalizedRut || customerRut);
     headerRequest.input('rutWithC', sqlModule.VarChar, rutWithC);
 
-    // REFACTORING NOTE: Updated to LEFT JOIN Vista_HDR with Vista_FACT
-    // OLD: Vista_HDR contained duplicate rows per invoice
-    // NEW: Vista_HDR has one row per order, Vista_FACT has invoice data
     const headerResult = await headerRequest.query(`
       SELECT
         h.Nro,
@@ -282,11 +279,9 @@ const createOrderService = ({
         f.MedioDeEnvioFact,
         c.Nombre AS customer_name
       FROM jor_imp_HDR_90_softkey h
-      LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
-      LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
+      INNER JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
+      INNER JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
       WHERE (h.Rut = @rut OR h.Rut = @rutWithC)
-        AND ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
-        AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
       ORDER BY CAST(h.Fecha AS date) DESC
     `);
 
@@ -1210,8 +1205,8 @@ const createOrderService = ({
       headerRequest.input('pc', sqlModule.VarChar, orderPc);
       headerRequest.input('oc', sqlModule.VarChar, normalizeOcForCompare(orderOc));
 
-      // REFACTORING NOTE: Updated to query Vista_HDR for order validation
-      // Invoice-specific fields (GtoAdicFleteFactura) now come from Vista_FACT if needed
+      logger.info(`[getOrderItems] Buscando orden pc=${orderPc} oc=${orderOc} factura=${factura || 'N/A'} user=${user.rut || user.email}`);
+
       const headerResult = await headerRequest.query(`
         SELECT TOP 1
           h.Nro,
@@ -1222,19 +1217,30 @@ const createOrderService = ({
           h.GtoAdicFlete,
           c.Nombre AS customer_name
         FROM jor_imp_HDR_90_softkey h
-        LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
+        INNER JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
         WHERE h.Nro = @pc AND LOWER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = LOWER(@oc)
-          AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
         ORDER BY CAST(h.Fecha AS date) DESC
       `);
 
       const headerRow = headerResult.recordset?.[0];
-      if (!headerRow) return null;
+      if (!headerRow) {
+        logger.warn(`[getOrderItems] No se encontró orden en SQL Server pc=${orderPc} oc=${orderOc}`);
+        return null;
+      }
+
+      logger.info(`[getOrderItems] Orden encontrada: Rut=${headerRow.Rut} Cliente=${headerRow.customer_name}`);
 
       const mappedHeader = hdrMapper(headerRow);
 
+      // Normalizar RUTs quitando la C al final para comparación
+      const normalizeRutForComparison = (rut) => {
+        const normalized = normalizeRut(rut);
+        return normalized.toUpperCase().endsWith('C') ? normalized.slice(0, -1) : normalized;
+      };
+
       if (user.role === 'client' &&
-          normalizeRut(mappedHeader.rut) !== normalizeRut(user.rut || user.email)) {
+          normalizeRutForComparison(mappedHeader.rut) !== normalizeRutForComparison(user.rut || user.email)) {
+        logger.warn(`[getOrderItems] RUT no coincide: orden=${normalizeRutForComparison(mappedHeader.rut)} user=${normalizeRutForComparison(user.rut || user.email)}`);
         return null;
       }
 
@@ -1325,10 +1331,9 @@ const createOrderService = ({
           f.Fecha_factura,
           c.Nombre AS customer_name
         FROM jor_imp_HDR_90_softkey h
-        LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
-        LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
+        INNER JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
+        INNER JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
         WHERE h.Nro = @pc AND LOWER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = LOWER(@oc)
-          AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
         ORDER BY CAST(h.Fecha AS date) DESC
       `);
 
@@ -1336,7 +1341,14 @@ const createOrderService = ({
       if (!headerRow) return null;
 
       const mappedHeader = hdrMapper(headerRow);
-      if (normalizeRut(mappedHeader.rut) !== normalizeRut(customerRut)) {
+      
+      // Normalizar RUTs quitando la C al final para comparación
+      const normalizeRutForComparison = (rut) => {
+        const normalized = normalizeRut(rut);
+        return normalized.toUpperCase().endsWith('C') ? normalized.slice(0, -1) : normalized;
+      };
+      
+      if (normalizeRutForComparison(mappedHeader.rut) !== normalizeRutForComparison(customerRut)) {
         return null;
       }
 
