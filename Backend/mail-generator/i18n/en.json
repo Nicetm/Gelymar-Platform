@@ -1,0 +1,16 @@
+{
+    "mail": {
+        "dear": "Dear",
+        "gelymar": "Gelymar",
+        "gelymarTeam": "Customer Service",
+        "internationalLogisticsServices": "",
+        "introMessage": "We hope this message finds you well.",
+        "pleaseFindAttached": "Please find attached the document",
+        "correspondingTo": "related to your",
+        "logisticsManagement": "logistics process with",
+        "documentContains": "This document contains relevant information regarding your shipment, and we strongly recommend reviewing it carefully.",
+        "questionsContact": "If you have any questions or require additional information, please do not hesitate to reach out to us.",
+        "bestRegards": "Kind regards,",
+        "disclaimer": "This is an automated email. Please do not reply directly to this message."
+    }
+}

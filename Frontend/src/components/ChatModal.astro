@@ -1,0 +1,230 @@
+---
+import { loadTranslations, getServerLang } from '@lib/i18n.js';
+
+// Modal de chat para comunicación cliente-admin
+const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
+const apiPublic = import.meta.env.PUBLIC_API_URL;
+const fileServerUrl = import.meta.env.PUBLIC_CLIENT_FILE_SERVER_URL || import.meta.env.PUBLIC_FILE_SERVER_URL;
+const lang = getServerLang(Astro.cookies);
+
+let t: any = {};
+try {
+  t = {
+      messages: await loadTranslations(lang, 'messages'),
+      comond: await loadTranslations(lang, 'comond')
+    };
+} catch (error) {
+  console.warn('Error cargando traducciones:', error);
+  t = {};
+}
+  
+---
+
+<!-- Modal de chat -->
+<div id="chat-modal" class="fixed inset-0 z-50 hidden pointer-events-none">
+  <!-- Modal content -->
+  <div id="chat-panel" class="absolute bottom-6 right-6 w-96 h-[500px] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col pointer-events-auto overflow-hidden">
+    
+    <!-- Header del chat -->
+    <div id="chat-header" class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700 rounded-t-2xl">
+      <div class="flex items-center gap-3">
+        <div id="chat-admin-avatar" class="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center overflow-hidden">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+          </svg>
+        </div>
+        <div>
+          <h3 id="chat-admin-name" class="font-semibold text-sm text-gray-900 dark:text-white">{t.messages?.chat?.select_agent}</h3>
+          <p id="chat-admin-status" class="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+            <span id="chat-admin-status-dot" class="inline-block w-2 h-2 rounded-full bg-gray-400"></span>
+            <span id="chat-admin-status-text">{t.messages?.chat?.choose_agent}</span>
+          </p>
+        </div>
+      </div>
+      
+      <div class="flex items-center gap-2">
+        <!-- Botón minimizar -->
+        <button id="minimize-chat-btn" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors" aria-label={t.messages?.chat?.minimize_chat}>
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 12h12"/>
+          </svg>
+        </button>
+        <!-- Botón cerrar -->
+        <button id="close-chat-btn" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors" aria-label={t.messages?.chat?.close_chat}>
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+    
+    <div id="chat-body" class="flex-1 flex flex-col overflow-hidden">
+      <!-- Pantalla de selección de administradores -->
+      <div id="admin-selection" class="flex-1 p-4 overflow-y-auto">
+        <div id="admin-list" class="space-y-2">
+          <div class="text-center text-gray-500 dark:text-gray-400">
+            <p>{t.messages?.chat?.loading_agents}</p>
+          </div>
+        </div>
+        
+        <!-- Mensaje de protección de datos -->
+        <div class="mt-8 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <div class="flex items-start gap-2">
+            <svg class="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+            </svg>
+            <div>
+              <p class="text-xs text-blue-700 dark:text-blue-300 font-medium mb-1">{t.messages?.chat?.data_protection}</p>
+              <p class="text-xs text-blue-600 dark:text-blue-400">{t.messages?.chat?.data_protection_message}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+  
+      <!-- Área de mensajes -->
+      <div id="chat-messages" class="flex-1 p-4 overflow-y-auto space-y-3 hidden">
+        <div class="text-center text-gray-500 dark:text-gray-400">
+          <p>{t.messages?.chat?.loading_history}</p>
+        </div>
+        <!-- Los mensajes se cargarán dinámicamente aquí -->
+      </div>
+  
+      <!-- Área de escritura -->
+      <div id="chat-input-area" class="p-4 border-t border-gray-200 dark:border-gray-700 hidden">
+        <div class="flex gap-1">
+          <input 
+            id="chat-input" 
+            type="text" 
+            placeholder={t.messages?.chat?.write_message}
+            class="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+          <input id="chat-image-input" type="file" accept="image/png,image/jpeg" class="hidden" />
+          <button
+            id="chat-image-btn"
+            type="button"
+            class="px-2 py-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors hidden"
+            title={t.messages?.chat?.attach_image}
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21.44 11.05l-8.49 8.49a5.5 5.5 0 01-7.78-7.78l9.19-9.19a3.5 3.5 0 014.95 4.95l-9.19 9.19a1.5 1.5 0 01-2.12-2.12l8.49-8.49"/>
+            </svg>
+          </button>
+          <button 
+            id="emoji-btn"
+            type="button"
+            class="px-2 py-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+            title={t.messages?.chat?.add_emoji}
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </button>
+          <button 
+            id="send-message-btn"
+            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de imagen -->
+<div id="chat-image-modal" class="fixed inset-0 z-[60] hidden items-center justify-center bg-black/70 p-4">
+  <div class="relative max-w-4xl w-full">
+    <button id="chat-image-modal-close" class="absolute -top-3 -right-3 bg-white text-gray-700 rounded-full w-8 h-8 flex items-center justify-center shadow">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    <img id="chat-image-modal-img" alt={t.messages?.chat?.image_alt} class="w-full h-auto rounded-lg shadow-lg bg-white" />
+  </div>
+</div>
+
+
+<script
+  type="module"
+  define:vars={{ apiPublic, apiBase, fileServerUrl, lang, t }}
+>
+  import { initChatModal } from '/js/chat-modal.js';
+
+  window.translations = { ...(window.translations || {}), ...t };
+  initChatModal({
+    apiBase,
+    apiPublic,
+    fileServerUrl,
+    lang,
+    translations: t,
+  });
+</script>
+
+
+<style>
+  #chat-modal {
+    pointer-events: none;
+  }
+
+  #chat-panel {
+    pointer-events: auto;
+    transition: transform 0.2s ease, width 0.2s ease, bottom 0.2s ease, right 0.2s ease;
+  }
+
+  /* Scrollbar personalizado para el área de mensajes */
+  #chat-messages::-webkit-scrollbar {
+    width: 4px;
+  }
+  
+  #chat-messages::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  #chat-messages::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 2px;
+  }
+  
+  #chat-messages::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+  }
+
+  /* Animación de entrada del modal */
+  #chat-modal:not(.hidden) {
+    animation: slideIn 0.3s ease-out;
+  }
+  
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  #chat-panel.chat-minimized {
+    width: 320px;
+    height: auto;
+    right: 1.5rem;
+    left: auto;
+    bottom: 1rem;
+    transform: none;
+    cursor: pointer;
+    border-radius: 1rem;
+  }
+
+  #chat-panel.chat-minimized #chat-body {
+    display: none;
+  }
+
+  #chat-panel.chat-minimized #chat-header {
+    border-bottom: none;
+    border-radius: 1rem;
+  }
+</style>

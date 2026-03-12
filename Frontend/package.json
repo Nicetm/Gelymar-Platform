@@ -22,25 +22,41 @@
 	"scripts": {
 		"astro": "astro",
 		"build": "astro build",
+		"build:admin": "cross-env APP_CONTEXT=admin PUBLIC_APP_CONTEXT=admin astro build",
+		"build:client": "cross-env APP_CONTEXT=client PUBLIC_APP_CONTEXT=client astro build",
+		"build:seller": "cross-env APP_CONTEXT=seller PUBLIC_APP_CONTEXT=seller astro build",
 		"dev": "astro dev",
+		"dev:admin": "cross-env APP_CONTEXT=admin PUBLIC_APP_CONTEXT=admin astro dev --port 2121",
+		"dev:client": "cross-env APP_CONTEXT=client PUBLIC_APP_CONTEXT=client astro dev --port 2122",
+		"dev:seller": "cross-env APP_CONTEXT=seller PUBLIC_APP_CONTEXT=seller astro dev --port 2123",
 		"preview": "astro preview",
+		"preview:admin": "cross-env APP_CONTEXT=admin PUBLIC_APP_CONTEXT=admin astro preview --port 4211 --host 0.0.0.0",
+		"preview:client": "cross-env APP_CONTEXT=client PUBLIC_APP_CONTEXT=client astro preview --port 4222 --host 0.0.0.0",
+		"preview:seller": "cross-env APP_CONTEXT=seller PUBLIC_APP_CONTEXT=seller astro preview --port 4233 --host 0.0.0.0",
 		"start": "astro dev"
 	},
 	"dependencies": {
-		"@astrojs/node": "^9.2.2",
-		"@astrojs/sitemap": "^1.1.0",
+		"@astrojs/node": "^9.3.0",
+		"@astrojs/react": "^4.3.0",
+		"@astrojs/sitemap": "^3.4.1",
 		"@astrojs/tailwind": "^6.0.2",
 		"@faker-js/faker": "^7.6.0",
 		"apexcharts": "^3.37.2",
-		"astro": "^5.8.0",
+		"astro": "^5.12.0",
 		"flowbite": "^2.1.1",
 		"flowbite-typography": "^1.0.3",
+		"jsonwebtoken": "^9.0.2",
+		"react": "^19.1.0",
+		"react-dom": "^19.1.0",
 		"shiki": "^0.14.1",
+		"socket.io-client": "^4.8.1",
+		"sweetalert2": "^11.6.13",
 		"tailwind-scrollbar": "^3.0.0",
 		"tailwindcss": "^3.0.24"
 	},
 	"devDependencies": {
 		"@types/eslint": "^8.21.1",
+		"@types/jsonwebtoken": "^9.0.9",
 		"@typescript-eslint/eslint-plugin": "^5.54.1",
 		"@typescript-eslint/parser": "^5.54.1",
 		"astro-eslint-parser": "^0.11.0",
@@ -52,6 +68,7 @@
 		"eslint-plugin-astro": "^0.23.0",
 		"eslint-plugin-import": "^2.27.5",
 		"eslint-plugin-prettier": "^4.2.1",
-		"eslint-plugin-tsdoc": "^0.2.17"
+		"eslint-plugin-tsdoc": "^0.2.17",
+		"cross-env": "^7.0.3"
 	}
 }

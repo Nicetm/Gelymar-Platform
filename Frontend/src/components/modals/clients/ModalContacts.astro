@@ -1,0 +1,146 @@
+---
+interface Props {
+  clientes: Record<string, any>;
+  comond: Record<string, any>;
+}
+
+const { clientes, comond } = Astro.props as Props;
+const headers = clientes.contactsModal?.headers || {};
+const deleteLabel = clientes.contactsModal?.delete;
+const editLabel = clientes.contactsModal?.edit;
+const ccoLabel = clientes.contactsModal?.cco;
+---
+
+<div id="contactsModal" class="fixed inset-0 bg-black bg-opacity-50 dark:bg-black/80 hidden justify-center items-center z-50">
+  <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 w-full max-w-4xl mx-4 relative max-h-[90vh] overflow-y-auto shadow-2xl">
+    <div class="absolute top-3 right-3 flex items-center gap-2">
+      <button id="contactsHelpBtn" type="button" class="text-blue-600 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200" aria-label={clientes.contactsModal?.helpTitle}>
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8.227 9a3 3 0 115.546 1c-.612.62-1.273 1.06-1.273 2M12 17h.01M12 3a9 9 0 100 18 9 9 0 000-18z" />
+        </svg>
+      </button>
+      <button id="closeContactsModalBtn" class="text-gray-400 hover:text-blue-500 transition dark:text-gray-300 dark:hover:text-blue-400">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
+    <div class="flex items-center gap-4 mb-6">
+      <div class="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+        <span id="contactsInitials">CL</span>
+      </div>
+      <div>
+        <h2 id="contactsClientName" class="text-xl font-bold text-gray-900 dark:text-gray-100"></h2>
+        <p class="text-sm text-gray-600 dark:text-gray-400">{clientes.contacts}</p>
+      </div>
+    </div>
+
+    <div id="contactsFormContainer" class="border-b border-gray-200 dark:border-gray-700 pb-4 mb-6"></div>
+
+    <div id="existingContactsTable" class="mb-6"></div>
+
+    <div class="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700">
+      <button id="addContactRowBtn" type="button"
+        class="text-xs flex items-center gap-2 text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+        </svg>
+        {clientes.addNewContact}
+      </button>
+      <div class="flex gap-3">
+        <button id="cancelAddContactBtn"
+          class="text-xs px-4 py-2 bg-gray-300 dark:bg-gray-800 text-gray-700 dark:text-gray-100 rounded-md hover:bg-gray-400 dark:hover:bg-gray-700 transition font-medium">
+          {comond.cancel}
+        </button>
+        <button id="addContactBtn"
+          class="text-xs px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md font-medium transition flex items-center gap-2">
+          {comond.save}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="contactsHelpModal" class="fixed inset-0 bg-black bg-opacity-50 dark:bg-black/80 hidden justify-center items-center z-50">
+  <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 w-full max-w-md mx-4 relative shadow-2xl">
+    <button id="closeContactsHelpModalBtn" class="absolute top-3 right-3 text-gray-400 hover:text-blue-500 transition dark:text-gray-300 dark:hover:text-blue-400">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+    <h3 class="text-lg font-bold mb-3">{clientes.contactsModal?.helpTitle}</h3>
+    <div class="my-3 border-t border-gray-200 dark:border-gray-700"></div>
+    <ul class="text-sm text-gray-700 dark:text-gray-300 space-y-2 list-disc list-inside">
+      <li>{clientes.contactsModal?.helpAdd}</li>
+      <li>{clientes.contactsModal?.helpFields}</li>
+      <li>{clientes.contactsModal?.helpOptions}</li>
+      <li>{clientes.contactsModal?.helpEdit}</li>
+    </ul>
+    <div class="my-4 border-t border-gray-200 dark:border-gray-700"></div>
+    <div class="flex justify-end">
+      <button id="closeContactsHelpModalFooterBtn" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white rounded-md text-sm">
+        {comond.close}
+      </button>
+    </div>
+  </div>
+</div>
+
+<template id="contactsTableTemplate">
+  <table class="w-full text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800">
+    <thead>
+      <tr class="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+        <th class="p-2 text-left uppercase tracking-wider">{headers.name}</th>
+        <th class="p-2 text-left uppercase tracking-wider">{headers.email}</th>
+        <th class="p-2 text-left uppercase tracking-wider">{headers.phone}</th>
+        <th class="p-2 text-center uppercase tracking-wider">{clientes.sh_documents}</th>
+        <th class="p-2 text-center uppercase tracking-wider">{clientes.reports}</th>
+        <th class="p-2 text-center uppercase tracking-wider">{ccoLabel}</th>
+        <th class="p-2 text-center uppercase tracking-wider">{headers.actions}</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-200 dark:divide-gray-600" id="contactsTableBody"></tbody>
+  </table>
+</template>
+
+<template id="contactsFormTableTemplate">
+  <table class="w-full text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800">
+    <thead>
+      <tr class="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+        <th class="p-2 text-left uppercase tracking-wider">{headers.name}</th>
+        <th class="p-2 text-left uppercase tracking-wider">{headers.email}</th>
+        <th class="p-2 text-left uppercase tracking-wider">{headers.phone}</th>
+        <th class="p-2 text-center uppercase tracking-wider">{clientes.sh_documents}</th>
+        <th class="p-2 text-center uppercase tracking-wider">{clientes.reports}</th>
+        <th class="p-2 text-center uppercase tracking-wider">{ccoLabel}</th>
+        <th class="p-2 text-center uppercase tracking-wider">{headers.actions}</th>
+      </tr>
+    </thead>
+    <tbody id="contactsFormTableBody"></tbody>
+  </table>
+</template>
+
+<template id="contactRowTemplate">
+  <tr class="border-t border-gray-200 dark:border-gray-600">
+    <td class="p-2 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100" data-field="name"></td>
+    <td class="p-2 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400" data-field="email"></td>
+    <td class="p-2 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400" data-field="phone"></td>
+    <td class="p-2 whitespace-nowrap text-center" data-field="sh_documents"></td>
+    <td class="p-2 whitespace-nowrap text-center" data-field="reports"></td>
+    <td class="p-2 whitespace-nowrap text-center" data-field="cco"></td>
+    <td class="p-2 whitespace-nowrap text-center">
+      <div class="flex items-center justify-center gap-2">
+        <button class="edit-contact-btn text-green-600 hover:text-green-500 dark:text-green-400 dark:hover:text-green-300 transition" data-tooltip={editLabel}>
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L7.5 21H3v-4.5l13.732-13.732z" />
+          </svg>
+        </button>
+        <button class="delete-contact-btn text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300 transition" data-tooltip={deleteLabel}>
+          <svg class="w-5 h-5 inline-block" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </button>
+      </div>
+    </td>
+  </tr>
+</template>

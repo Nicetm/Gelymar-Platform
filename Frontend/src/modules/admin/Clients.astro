@@ -1,0 +1,249 @@
+---
+import ModalChangePassword from '@components/modals/clients/ModalChangePassword.astro';
+import ModalContacts from '@components/modals/clients/ModalContacts.astro';
+import { loadTranslations, getServerLang } from '@lib/i18n.js';
+
+const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
+const apiPublic = import.meta.env.PUBLIC_API_URL;
+const lang = getServerLang(Astro.cookies);
+const { basePath = '/admin', hideAdminActions = false } = Astro.props;
+const homeHref = basePath;
+const foldersPath = `${basePath}/clients/folders/view`;
+const apiAttr = apiPublic || apiBase;
+//const foldersBasePath = `${basePath}/clients/folders/view`;
+
+// Cargar traducciones de manera estática
+let t: any = {};
+try {
+  t = {
+    clientes: await loadTranslations(lang, 'clientes'),
+    comond: await loadTranslations(lang, 'comond'),
+    messages: await loadTranslations(lang, 'messages'),
+  };
+} catch (error) {
+  console.warn('Error cargando traducciones, usando fallback:', error);
+  t = {};
+}
+---
+
+<section
+  id="clientSection"
+  class="px-4 pt-20 pb-6 sm:px-6 lg:px-8"
+  data-base-path={basePath}
+  data-folders-path={foldersPath}
+  data-api-base={apiAttr}
+  data-hide-actions={hideAdminActions ? '1' : '0'}
+>
+  <!-- Encabezado y breadcrumb -->
+  <header class="flex flex-col gap-4 border-b border-gray-200 dark:border-gray-700 pb-4">
+    <nav class="text-sm text-gray-500 dark:text-gray-400" aria-label="Breadcrumb">
+      <ol class="inline-flex items-center space-x-1 md:space-x-2">
+        <li class="inline-flex items-center">
+          <a href={homeHref} class="inline-flex items-center gap-1 hover:text-primary-600 dark:hover:text-white">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
+            </svg>
+            <span>{t.clientes.home}</span>
+          </a>
+        </li>
+        <li aria-current="page" class="flex items-center text-gray-400 dark:text-gray-300 font-medium">
+          <span class="mx-1">/</span>{t.clientes.title}
+        </li>
+      </ol>
+    </nav>
+
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{t.clientes.allCustomers}</h1>
+    </div>
+
+    <!-- Búsqueda, filtros y botón agregar cliente -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4">
+      <div class="flex flex-col sm:flex-row gap-3 items-center">
+        <div class="relative w-full sm:max-w-xs">
+          <label for="searchInput" class="sr-only">{t.clientes.search}</label>
+          <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+            <svg class="w-5 h-5 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M10 18a8 8 0 100-16 8 8 0 000 16z"/>
+            </svg>
+          </div>
+          <input id="searchInput" type="text" placeholder={t.clientes.search} class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-primary-500" />
+        </div>
+
+        <!-- Checkbox para filtrar clientes con órdenes -->
+        <div class="flex items-center gap-2">
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="filterWithOrders" class="sr-only peer" />
+            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-0 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                         <span class="ml-3 text-sm font-medium text-gray-900 dark:text-gray-300 whitespace-nowrap">{t.clientes.onlyWithOrders}</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Botón exportar a Excel -->
+      <div class="flex items-center gap-2">
+        <button id="exportExcelBtn" class="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          {t.clientes.exportToExcel}
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Tabla de clientes -->
+  <div class="mt-6 rounded-xl shadow ring-1 ring-gray-200 dark:ring-gray-700">
+    <div class="relative" data-scroll-sync="clients-table">
+      <div class="sticky top-0 z-30 bg-gray-100 dark:bg-gray-800 hidden" data-scroll-header>
+        <div class="overflow-x-auto scrollbar-hidden" data-scroll-header-track>
+          <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 table-fixed bg-white dark:bg-gray-900"></table>
+        </div>
+      </div>
+      <div class="overflow-x-auto" style="border-radius: 10px;" data-scroll-body>
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 table-fixed bg-white dark:bg-gray-900">
+          <thead class="bg-gray-100 dark:bg-gray-800">
+        <tr>
+          <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="name">
+            <div class="flex items-center justify-between">
+              <span>{t.clientes.name}</span>
+              <svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+              </svg>
+            </div>
+          </th>
+          <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="rut">
+            <div class="flex items-center justify-between">
+              <span>{t.clientes.rut}</span>
+              <svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+              </svg>
+            </div>
+          </th>
+          <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="email">
+            <div class="flex items-center justify-between">
+              <span>{t.clientes.email}</span>
+              <svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+              </svg>
+            </div>
+          </th>
+          <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="phone">
+            <div class="flex items-center justify-between">
+              <span>{t.clientes.phone}</span>
+              <svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+              </svg>
+            </div>
+          </th>
+          <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="country">
+            <div class="flex items-center justify-between">
+              <span>{t.clientes.country}</span>
+              <svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+              </svg>
+            </div>
+          </th>
+          <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="city">
+            <div class="flex items-center justify-between">
+              <span>{t.clientes.city}</span>
+              <svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+              </svg>
+            </div>
+          </th>
+          <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="order_count">
+            <div class="flex items-center justify-between">
+              <span>{t.clientes.directory}</span>
+              <svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+              </svg>
+            </div>
+          </th>
+          <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 sticky right-0 z-20 min-w-[120px]">{t.clientes.actions}</th>
+        </tr>
+          </thead>
+          <tbody id="customersTableBody" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-xs min-h-[600px]">
+            <!-- Los datos se cargarán dinámicamente con JavaScript -->
+            <tr id="loadingRow" class="bg-white dark:bg-gray-900">
+              <td colspan="11" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                <div class="flex items-center justify-center">
+                  <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  {t.clientes.loading}
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <style>
+    .scrollbar-hidden {
+      scrollbar-width: none;
+    }
+    .scrollbar-hidden::-webkit-scrollbar {
+      height: 0;
+    }
+    .sticky-scroll-header-floating {
+      position: fixed;
+      top: 64px;
+    }
+  </style>
+
+  <!-- Paginación -->
+  <div class="mt-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-6 text-sm">
+    <div class="flex items-center gap-3">
+      <label for="itemsPerPageSelect" class="text-sm font-medium text-gray-700 dark:text-gray-300">{t.clientes.perPage}</label>
+      <div class="relative">
+        <select id="itemsPerPageSelect" class="block w-20 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-sm text-gray-900 dark:text-gray-100 rounded-md pl-3 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="10">10</option>
+          <option value="20">20</option>
+          <option value="30">30</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <button id="prevPageBtn" aria-label="Previous page" class="w-9 h-9 flex items-center justify-center bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-100 rounded-md transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+      </button>
+      <span id="pageIndicator" class="min-w-[120px] text-center px-4 py-1 rounded-lg bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100 text-sm font-medium shadow-sm flex items-center justify-center"></span>
+      <button id="nextPageBtn" aria-label="Next page" class="w-9 h-9 flex items-center justify-center bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-100 rounded-md transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- Modal de Contactos -->
+<ModalContacts clientes={t.clientes} comond={t.comond}/>
+
+<!-- Modal de Cambio de Contraseña -->
+<ModalChangePassword changePassword={t.clientes.changePassword} cancelLabel={t.comond.cancel}/>
+
+<script type="module" define:vars={{ apiBase, apiPublic, lang, t }}>
+  import { initClientsScript } from '/js/clients.js';
+  
+  // Hacer las variables disponibles globalmente
+  window.apiBase = apiPublic;
+  window.lang = lang;
+  window.translations = { ...(window.translations || {}), ...t };
+
+  // Inicializar el script cuando el DOM esté completamente cargado
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', async () => {
+      await initClientsScript();
+    });
+  } else {
+    // Si el DOM ya está cargado, ejecutar inmediatamente
+    await initClientsScript();
+  } 
+</script>

@@ -1,0 +1,108 @@
+/* ── Estilos del Sidebar ─────────────────────────────────────────────────────── */
+
+/* Fondo sólido y sombra */
+#sidebar {
+  @apply bg-white dark:bg-gray-800 border-r border-gray-300 dark:border-gray-700 transition-all duration-500;
+}
+
+/* Hover animado y barra de acento */
+.sidebar-link {
+  @apply flex items-center gap-2 p-2 px-4 text-sm border-transparent transition-all duration-200 ease-out relative;
+  @apply text-black hover:bg-gray-300 dark:text-gray-200 dark:hover:bg-gray-700;
+  overflow: hidden;
+}
+
+.sidebar-link.active::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  background: #6b7280;
+  border-radius: 0;
+  transition: background 0.3s;
+}
+
+.sidebar-link i {
+  @apply w-6 h-6 text-gray-700 dark:text-gray-400 transition-colors duration-200;
+}
+
+.sidebar-link.active {
+  @apply bg-blue-50 text-black border-[#00538C] dark:bg-blue-900/40 dark:text-blue-300;
+}
+
+/* Estilos específicos para elementos activos en modo claro */
+.sidebar-link.active {
+  @apply bg-gray-100 border-gray-400 text-gray-800 dark:bg-gray-700 dark:border-gray-500 dark:text-gray-200;
+}
+
+/* Estilos para el contenedor del ícono cuando está activo */
+.sidebar-link.active .icon-container {
+  @apply bg-gray-300 dark:bg-gray-600;
+}
+
+/* Estilos para el texto cuando está activo */
+.sidebar-link.active .nav-text {
+  @apply text-gray-800 dark:text-gray-200 font-semibold;
+}
+
+/* Estilos para el ícono cuando está activo */
+.sidebar-link.active .icon-container i {
+  @apply text-gray-700 dark:text-gray-300;
+}
+
+/* Estilos específicos para el botón de soporte cuando está activo */
+.support-link.active {
+  transform: scale(1.05);
+}
+
+.support-link.active > div {
+  @apply bg-gradient-to-br from-green-100 to-blue-100 dark:from-green-800/40 dark:to-blue-800/40;
+  @apply border-green-300 dark:border-green-600;
+  @apply ring-2 ring-green-400/50 dark:ring-green-500/50;
+}
+
+.support-link.active span:last-child {
+  @apply text-green-800 dark:text-green-200 font-semibold;
+}
+
+/* Transición suave para el sidebar */
+#sidebar, .sidebar-link, .sidebar-link i {
+  transition: all 0.3s cubic-bezier(.4,0,.2,1);
+}
+
+/* Dropdown de idioma simple */
+#language-dropdown {
+  display: block !important;
+}
+
+#language-dropdown.hidden {
+  display: none !important;
+}
+
+/* Opciones de idioma */
+.language-option {
+  @apply rounded-lg transition-all duration-200;
+  @apply hover:bg-gray-50 dark:hover:bg-gray-800;
+}
+
+/* Rotar chevron cuando dropdown está abierto */
+button[data-dropdown-toggle="language-dropdown"][aria-expanded="true"] i[data-lucide="chevron-up"] {
+  transform: rotate(180deg);
+}
+
+/* ── Scrollbar personalizada ────────────────────────────────────────────────── */
+.scrollbar::-webkit-scrollbar {
+  @apply w-2;
+}
+
+.scrollbar::-webkit-scrollbar-track {
+  @apply bg-gray-400 dark:bg-gray-800;
+}
+
+.scrollbar::-webkit-scrollbar-thumb {
+  @apply bg-slate-200 dark:bg-slate-900 rounded-md;
+}
+
+.scrollbar::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-300 dark:bg-slate-700;
+} 

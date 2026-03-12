@@ -1,0 +1,13 @@
+---
+export const prerender = false;
+
+import LayoutSidebar from '../../../../../../app/LayoutSidebarAdmin.astro';
+import Folders from '../../../../../../modules/admin/Folders.astro';
+
+const { clientId = '', company = '' } = Astro.params;
+const decodedCompany = company ? company.replace(/-/g, ' ') : '';
+---
+
+<LayoutSidebar>
+  <Folders routeClientId={clientId} routeCompany={decodedCompany} />
+</LayoutSidebar>

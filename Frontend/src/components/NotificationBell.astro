@@ -1,0 +1,133 @@
+---
+import { loadTranslations, getServerLang } from '@lib/i18n.js';
+
+export interface Props {
+  unreadCount?: number;
+  roleId?: number | null;
+  notificationSettings?: {
+    orders?: {
+      enabled?: boolean;
+      config?: Record<string, unknown> | null;
+    };
+    users?: {
+      enabled?: boolean;
+      config?: Record<string, unknown> | null;
+    };
+  };
+}
+
+const {
+  unreadCount = 0,
+  roleId = null,
+  notificationSettings = {}
+} = Astro.props as Props;
+
+const apiBase = import.meta.env.PUBLIC_API_URL || import.meta.env.SERVER_API_URL;
+const apiPublic = import.meta.env.PUBLIC_API_URL;
+
+const lang = getServerLang(Astro.cookies);
+let t: any = {};
+
+try {
+  t = {
+    notifications: await loadTranslations(lang, 'notifications'),
+    messages: await loadTranslations(lang, 'messages')
+  };
+} catch (error) {
+  console.warn('Error cargando traducciones (NotificationBell):', error);
+  t = {};
+}
+
+const labels = {
+  tooltip: t?.notifications?.tooltip,
+  title: t?.notifications?.title,
+  markAll: t?.notifications?.mark_all,
+  empty: t?.notifications?.empty,
+  viewAll: t?.notifications?.view_all
+};
+---
+
+<!-- Campanita de notificaciones -->
+<div id="notification-bell-wrapper" class="relative">
+  <button
+    id="notification-bell"
+    class="relative p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200 focus:outline-none"
+    aria-label={labels.tooltip}
+  >
+    <!-- Icono de campanita -->
+    </svg>
+    <svg class="w-5 h-5 transition-transform duration-300 ease-in-out hover:scale-110 hover:rotate-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M18.7491 9.70957V9.00497C18.7491 5.13623 15.7274 2 12 2C8.27256 2 5.25087 5.13623 5.25087 9.00497V9.70957C5.25087 10.5552 5.00972 11.3818 4.5578 12.0854L3.45036 13.8095C2.43882 15.3843 3.21105 17.5249 4.97036 18.0229C9.57274 19.3257 14.4273 19.3257 19.0296 18.0229C20.789 17.5249 21.5612 15.3843 20.5496 13.8095L19.4422 12.0854C18.9903 11.3818 18.7491 10.5552 18.7491 9.70957Z" stroke="currentColor" stroke-width="1.5"></path>
+      <path d="M7.5 19C8.15503 20.7478 9.92246 22 12 22C14.0775 22 15.845 20.7478 16.5 19" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
+    </svg>
+    
+    <!-- Badge de notificaciones no leídas (se actualiza dinámicamente) -->
+    <span id="notification-badge" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center animate-pulse hidden">
+      0
+    </span>
+    
+    <!-- Animación de ping cuando hay notificaciones -->
+    <span id="notification-ping" class="absolute -top-1 -right-1 bg-red-400 rounded-full w-5 h-5 animate-ping opacity-75 hidden"></span>
+  </button>
+  
+  <!-- Dropdown de notificaciones -->
+  <div
+    id="notification-dropdown"
+    class="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 hidden"
+  >
+    <!-- Header del dropdown -->
+    <div class="flex items-center justify-between p-3 border-b border-gray-200 dark:border-gray-700">
+      <h3 class="text-base font-semibold text-gray-900 dark:text-white">{labels.title}</h3>
+      <button
+        id="mark-all-read"
+        class:list={{
+          'text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300': true,
+          hidden: unreadCount === 0,
+        }}
+      >
+        {labels.markAll}
+      </button>
+    </div>
+    
+    <!-- Lista de notificaciones -->
+    <div id="notification-list" class="max-h-96 overflow-y-auto">
+      <!-- Las notificaciones se cargarán dinámicamente aquí -->
+      <div class="p-4 text-center text-gray-500 dark:text-gray-400">
+        <svg class="w-8 h-8 mx-auto mb-2 text-gray-300 dark:text-gray-600 transition-transform duration-300 ease-in-out hover:scale-110 hover:rotate-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M18.7491 9.70957V9.00497C18.7491 5.13623 15.7274 2 12 2C8.27256 2 5.25087 5.13623 5.25087 9.00497V9.70957C5.25087 10.5552 5.00972 11.3818 4.5578 12.0854L3.45036 13.8095C2.43882 15.3843 3.21105 17.5249 4.97036 18.0229C9.57274 19.3257 14.4273 19.3257 19.0296 18.0229C20.789 17.5249 21.5612 15.3843 20.5496 13.8095L19.4422 12.0854C18.9903 11.3818 18.7491 10.5552 18.7491 9.70957Z" stroke="currentColor" stroke-width="1.5"></path>
+          <path d="M7.5 19C8.15503 20.7478 9.92246 22 12 22C14.0775 22 15.845 20.7478 16.5 19" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
+        </svg>
+        <p>{labels.empty}</p>
+      </div>
+    </div>
+    
+    <!-- Footer del dropdown -->
+    <div class="p-2 border-t border-gray-200 dark:border-gray-700">
+      <a
+        href="/admin/messaging"
+        class="block text-center text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+      >
+        {labels.viewAll}
+      </a>
+    </div>
+  </div>
+</div>
+
+
+
+<script
+  type="module"
+  define:vars={{ apiPublic, apiBase, unreadCount, roleId, notificationSettings, lang, t }}
+>
+  import { initNotificationBell } from '/js/notification-bell.js';
+  window.translations = { ...(window.translations || {}), ...t };
+  initNotificationBell({
+    apiBase,
+    apiPublic,
+    initialUnread: unreadCount || 0,
+    roleId,
+    notificationSettings,
+    lang,
+    translations: t
+  });
+</script>

@@ -1,0 +1,16 @@
+{
+  "title": "Support Center",
+  "subtitle": "Find help, contact our support team, or check your tickets.",
+
+  "faqTitle": "FAQs",
+  "faqDescription": "Common questions and answers about our service.",
+  "faqLink": "Go to FAQs",
+
+  "contactTitle": "Contact Us",
+  "contactDescription": "Need personal assistance? Reach out to us.",
+  "contactLink": "Email Support",
+
+  "ticketsTitle": "Your Tickets",
+  "ticketsDescription": "Track and manage your submitted support tickets.",
+  "ticketsLink": "View Tickets"
+}

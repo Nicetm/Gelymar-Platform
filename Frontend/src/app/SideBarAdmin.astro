@@ -1,136 +1,430 @@
 ---
----
+import { loadTranslations, getServerLang } from '@lib/i18n.js';
+import { getApiBase, getPublicApiUrl, getFileServerUrl } from './constants.ts';
+import { inferUserRole, resolveRoleLabel } from '../lib/roles.ts';
+import ModalPdfMailList from '../components/modals/settings/ModalPdfMailList.astro';
+import ModalNotificationEmailList from '../components/modals/settings/ModalNotificationEmailList.astro';
+import ModalAdminSettings from '../components/modals/settings/ModalAdminSettings.astro';
+import ModalAdminUsers from '../components/modals/settings/ModalAdminUsers.astro';
+import ModalAdminChangePassword from '../components/modals/settings/ModalAdminChangePassword.astro';
 
-<script src="https://unpkg.com/lucide@latest"></script>
+const apiBase = getApiBase();
+const clientApiBase = getPublicApiUrl();
+const fileServer = getFileServerUrl();
+const lang = getServerLang(Astro.cookies);
 
-<aside
-  id="sidebar"
-  class="fixed top-0 left-0 z-20 flex-col flex-shrink-0 hidden w-56 h-full pt-6 font-normal duration-75 lg:flex transition-width bg-white border-r border-gray-200 dark:bg-gray-800 dark:border-gray-700"
-  aria-label="Sidebar"
->
-  <!-- Logo -->
-  <div class="flex items-center justify-center mb-4 px-4">
-    <img src="/assets/gelymar.svg" alt="Gelymar Logo" class="h-10 w-auto" />
-  </div>
+const t: any = {
+  sidebar: await loadTranslations(lang, 'sidebar'),
+  admin_settings: await loadTranslations(lang, 'admin_settings'),
+};
+const isSidebarCollapsed = Astro.cookies?.get('sidebarCollapsed')?.value === '1';
 
-  <!-- Scrollable content -->
-  <div class="flex-1 px-3 overflow-y-auto scrollbar scrollbar-w-2 scrollbar-thumb-rounded-md scrollbar-thumb-slate-200 scrollbar-track-gray-400 dark:scrollbar-thumb-slate-900 dark:scrollbar-track-gray-800">
-    <div class="mt-4 space-y-2">
+// ── Datos del usuario autenticado ───────────────────────────────────────────────
+const token =
+  Astro.cookies.get('token')?.value ??
+  Astro.cookies.get('accessToken')?.value ??
+  Astro.cookies.get('jwt')?.value ??
+  null;
 
-      <!-- dashboard -->
-      <a href="/admin/dashboard" class="flex items-center p-2 text-base text-gray-900 rounded-lg hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700">
-        <i data-lucide="layout-dashboard" class="w-6 h-6 text-gray-500 dark:text-gray-400"></i>
-        <span class="ml-3">Dashboard</span>
-      </a>
+/** @type {import('../types/entities.js').Users | null} */
+let user = null;
 
-      <!-- clients -->
-      <a href="/admin/clients" class="flex items-center p-2 text-base text-gray-900 rounded-lg hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700">
-        <i data-lucide="briefcase" class="w-6 h-6 text-gray-500 dark:text-gray-400"></i>
-        <span class="ml-3">Clients</span>
-      </a>
+try {
+  // En SSR (Node), 'credentials' no es soportado por los tipos de fetch, y las cookies httpOnly
+  // no se envían automáticamente. Solo usamos el header Authorization si tenemos token.
+  if (token) {
+    const data = await fetch(`${apiBase}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` }
+    }).then(r => (r.ok ? r.json() : null));
+    user = Array.isArray(data) ? data[0] ?? null : data;
+    if (user) {
+      const normalizedRole = inferUserRole(user);
+      user.role = normalizedRole;
+    }
+  }
+} catch (err) {
+  console.error('Error fetching user (SSR):', err);
+}
 
-      <!-- documents -->
-      <a href="/admin/documents" class="flex items-center p-2 text-base text-gray-900 rounded-lg hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700">
-        <i data-lucide="file-text" class="w-6 h-6 text-gray-500 dark:text-gray-400"></i>
-        <span class="ml-3">Documents</span>
-      </a>
+if (!user) {
+  user = { full_name: t.sidebar.default_admin_name, rut: '', email: '', role: 'admin', avatar: '' };
+}
 
-      <!-- messaging -->
-      <a href="/admin/messaging" class="flex items-center p-2 text-base text-gray-900 rounded-lg hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700">
-        <i data-lucide="message-circle" class="w-6 h-6 text-gray-500 dark:text-gray-400"></i>
-        <span class="ml-3">Messaging</span>
-      </a>
+if (user) {
+  const normalizedRole = inferUserRole(user);
+  user.role = normalizedRole;
 
-      <!-- shipments -->
-	  <a href="/admin/shipments" class="flex items-center p-2 text-base text-gray-900 rounded-lg hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700">
-	  <i data-lucide="ship" class="w-6 h-6 text-gray-500 dark:text-gray-400"></i>
-	  <span class="ml-3">Shipments</span>
-	  </a>
-
-      <!-- users -->
-      <button type="button" class="flex items-center w-full p-2 text-base text-gray-900 rounded-lg group hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700" data-collapse-toggle="users-submenu">
-        <i data-lucide="users" class="w-6 h-6 text-gray-500 dark:text-gray-400"></i>
-        <span class="flex-1 ml-3 text-left">Users</span>
-        <i data-lucide="chevron-down" class="w-4 h-4 ml-auto transition-transform group-hover:rotate-180"></i>
-      </button>
-      <ul id="users-submenu" class="hidden py-2 space-y-2 pl-7">
-        <li><a href="/admin/users" class="block p-2 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-200">user list</a></li>
-        <li><a href="/admin/roles" class="block p-2 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-200">roles</a></li>
-      </ul>
-
-      <hr class="my-3 border-gray-300 dark:border-gray-600" />
-
-      <!-- support -->
-      <a href="/admin/support" class="flex items-center p-2 text-base text-gray-900 rounded-lg hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700">
-        <i data-lucide="help-circle" class="w-6 h-6 text-gray-500 dark:text-gray-400"></i>
-        <span class="ml-3">Support</span>
-      </a>
-    </div>
-  </div>
-
-  <!-- Footer: settings + language -->
-  <div class="absolute bottom-0 left-0 w-full p-4 bg-white border-t border-gray-200 lg:flex justify-center gap-3 dark:bg-gray-800 dark:border-gray-700">
-    <!-- Configuración -->
-    <a href="/settings/" data-tooltip-target="tooltip-settings" class="inline-flex items-center justify-center w-10 h-10 text-gray-500 rounded-full shadow-md hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-400 dark:hover:text-white transition">
-      <i data-lucide="settings" class="w-6 h-6"></i>
-    </a>
-    <div id="tooltip-settings" role="tooltip" class="absolute z-10 invisible px-3 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg shadow-sm opacity-0 tooltip dark:bg-gray-700">
-      Settings page
-      <div class="tooltip-arrow" data-popper-arrow></div>
-    </div>
-
-    <!-- Idioma con flecha abajo tipo cómic -->
-    <div class="relative inline-block">
-      <button type="button" data-dropdown-toggle="language-dropdown" class="inline-flex items-center justify-center w-10 h-10 text-xl rounded-full shadow-md text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700 transition">
-        🇺🇸
-      </button>
-      <div id="language-dropdown"
-           class="absolute bottom-14 left-1/2 -translate-x-1/2 z-50 hidden w-52 rounded-xl shadow-2xl border border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 transition-all duration-200 ease-out">
-        
-        <!-- Flecha tipo cómic apuntando hacia el botón -->
-        <div class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-white rotate-45 border-b border-r border-gray-200 dark:bg-gray-800 dark:border-gray-600"></div>
-
-        <ul class="py-2 text-sm text-gray-700 dark:text-gray-200">
-          <li>
-            <a href="#" class="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white rounded-md transition">
-              🇺🇸 English (US)
-            </a>
-          </li>
-          <li>
-            <a href="#" class="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white rounded-md transition">
-              🇨🇱 Español (CL)
-            </a>
-          </li>
-        </ul>
-      </div>
-    </div>
-  </div>
-</aside>
-
-<!-- Backdrop móvil -->
-<div class="fixed inset-0 z-10 hidden bg-gray-900/50 dark:bg-gray-900/90" id="sidebarBackdrop"></div>
-<!-- Script -->
-<script>
-  declare global {
-    interface Window {
-      lucide?: { createIcons: () => void };
+  if (user.role_id === undefined || user.role_id === null) {
+    if (normalizedRole === 'admin') {
+      user.role_id = 1;
+    } else if (normalizedRole === 'seller') {
+      user.role_id = 3;
+    } else if (normalizedRole === 'client') {
+      user.role_id = 2;
     }
   }
 
-  window.addEventListener("DOMContentLoaded", () => {
-    if (window.lucide) {
-      window.lucide.createIcons();
-    }
-  });
+  user.role_label = resolveRoleLabel(normalizedRole);
+}
 
-  document.querySelectorAll('[data-collapse-toggle]').forEach((btn) => {
-    const targetId = btn.getAttribute('data-collapse-toggle');
-    if (!targetId) return;
-    const target = document.getElementById(targetId);
-    if (!target) return;
-    btn.addEventListener('click', () => {
-      target.classList.toggle('hidden');
+let sidebarMenuConfig = null;
+try {
+  if (token) {
+    const menuResponse = await fetch(`${apiBase}/api/config/sidebar-menu`, {
+      headers: { Authorization: `Bearer ${token}` }
     });
-  });
+    if (menuResponse.ok) {
+      sidebarMenuConfig = await menuResponse.json();
+    }
+  }
+} catch (error) {
+  console.warn('Error obteniendo configuración del menú lateral:', error);
+}
 
+const toRoleList = (roles: any): number[] => {
+  if (!Array.isArray(roles)) return [];
+  return roles
+    .map((value: any) => Number(value))
+    .filter((value: number) => Number.isFinite(value));
+};
+
+const menuConfigMap = (() => {
+  if (!sidebarMenuConfig || Number(sidebarMenuConfig.enable) !== 1 || !Array.isArray(sidebarMenuConfig.menu)) {
+    return null;
+  }
+  const map = new Map();
+  sidebarMenuConfig.menu.forEach((entry: any) => {
+    if (!entry || !entry.name) return;
+    const key = String(entry.name).toLowerCase().trim();
+    if (!key) return;
+    map.set(key, toRoleList(entry.role_id || entry.roles || []));
+  });
+  return map;
+})();
+
+const MENU_KEY_ALIASES = {
+  dashboard: ['dashboard'],
+  clientes: ['clientes', 'clients'],
+  vendedores: ['vendedores', 'sellers'],
+  ordenes: ['ordenes', 'órdenes', 'orders'],
+  messaging: ['messaging', 'mensajes', 'messages'],
+  shipments: ['shipments', 'envios', 'envíos'],
+};
+
+const userRoleId = Number(user?.role_id ?? user?.roleId ?? null);
+const hasValidRoleId = Number.isFinite(userRoleId);
+
+const getConfigRolesForKey = (key: string): number[] | null => {
+  if (!menuConfigMap) return null;
+  const aliases = (MENU_KEY_ALIASES as Record<string, string[]>)[key] || [key];
+  for (const alias of aliases) {
+    const normalized = String(alias).toLowerCase();
+    if (menuConfigMap.has(normalized)) {
+      return menuConfigMap.get(normalized) || null;
+    }
+  }
+  return null;
+};
+
+const isRoleAllowed = (roles: number[] | null): boolean => {
+  if (!hasValidRoleId) return false;
+  if (!roles || roles.length === 0) return true;
+  return roles.includes(userRoleId);
+};
+
+const canShowMenu = (key: string, fallbackRoles: number[] = []): boolean => {
+  const normalizedFallback = toRoleList(fallbackRoles);
+  const fallbackAllowed =
+    normalizedFallback.length === 0 ? hasValidRoleId : normalizedFallback.includes(userRoleId);
+
+  if (!fallbackAllowed) {
+    return false;
+  }
+
+  if (!menuConfigMap) {
+    return fallbackAllowed;
+  }
+
+  const configRoles = getConfigRolesForKey(key);
+  if (!configRoles) {
+    return false;
+  }
+
+  return isRoleAllowed(configRoles);
+};
+
+const showClients = canShowMenu('clientes', [1, 3]);
+const showSellers = canShowMenu('vendedores', [1]);
+const showOrders = canShowMenu('ordenes', [1, 3]);
+
+const activePath = Astro.url.pathname;
+
+const links = [
+  {
+    href: '/admin/clients',
+    icon: 'briefcase',
+    label: t.sidebar.customers,
+    show: showClients,
+  },
+  {
+    href: '/admin/sellers',
+    icon: 'users',
+    label: t.sidebar.sellers,
+    show: showSellers,
+  },
+  {
+    href: '/admin/orders',
+    icon: 'file-text',
+    label: t.sidebar.orders,
+    show: showOrders,
+  },
+].filter(link => link.show);
+
+const avatarUrl = user?.avatar && user.avatar.startsWith('http')
+  ? user.avatar
+  : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user?.full_name || t.sidebar.default_admin_name)}&backgroundColor=4b5563&fontColor=ffffff`;
+
+let avatarLightSrc = avatarUrl;
+let avatarDarkSrc = user?.avatar 
+  ? avatarUrl 
+  : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user?.full_name || t.sidebar.default_admin_name)}&backgroundColor=1e293b&fontColor=ffffff`;
+---
+
+
+<!-- Carga Lucide diferido y renderiza íconos al terminar -->
+<script src="https://unpkg.com/lucide@latest" defer onload="window.lucide?.createIcons?.()"></script>
+
+<aside
+  id="sidebar"
+  class:list={[
+    'fixed top-0 left-0 z-20 flex-col flex-shrink-0 hidden h-full pt-16 font-normal lg:flex transition-width bg-white border-r border-gray-200 dark:bg-gray-800 dark:border-gray-700',
+    isSidebarCollapsed ? 'w-20 sidebar-collapsed' : 'w-56'
+  ]}
+  aria-label="Admin Sidebar"
+  data-api-base={apiBase}
+  data-file-server={fileServer}
+  data-client-api-base={clientApiBase}
+>
+  <div class="flex-1 overflow-y-auto scrollbar scrollbar-w-2 scrollbar-thumb-rounded-md scrollbar-thumb-slate-200 scrollbar-track-gray-400 dark:scrollbar-thumb-slate-900 dark:scrollbar-track-gray-800">
+    <div id="SidebarUserDescription" data-sidebar-user class:list={['px-4 py-3 border-b border-gray-100 dark:border-gray-700', isSidebarCollapsed && 'hidden']}>
+      <p class="text-xs uppercase text-gray-400 dark:text-gray-500">{t.sidebar.admin_role_label}</p>
+      <p class="mt-1 text-sm font-semibold text-gray-900 dark:text-gray-100">
+        {user?.full_name || t.sidebar.default_admin_name}
+      </p>
+      <p class="text-xs text-gray-500 dark:text-gray-400">
+        {user?.email || user?.rut || ''}
+      </p>
+    </div>
+
+    <nav class="pt-4 space-y-2">
+      {links.map(({ href, icon, label }) => {
+        const isActive = activePath.startsWith(href);
+        return (
+          <a
+            href={href}
+            class={`sidebar-link group flex items-center gap-3 px-4 py-3 transition-all duration-200 ${
+              isActive
+                ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+            }`}
+          >
+            <div class="icon-container w-8 h-8 aspect-square rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center flex-shrink-0 transition-all duration-200">
+              <i data-lucide={icon} class="w-4 h-4"></i>
+            </div>
+            <span data-sidebar-text class:list={['nav-text font-medium text-sm transition-colors duration-200 w-full', isSidebarCollapsed && 'hidden']}>
+              {label}
+            </span>
+          </a>
+        );
+      })}
+    </nav>
+  </div>
+
+  <div class="flex items-center justify-end px-3 py-2">
+    <button
+      id="toggleSidebarCollapse"
+      type="button"
+      class="p-2 rounded-lg text-gray-500 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+      aria-label="Toggle sidebar collapse"
+    >
+      <i data-lucide="panel-left" class="w-4 h-4"></i>
+    </button>
+  </div>
+
+  <!-- Footer: settings + language -->
+  <div
+    class:list={[
+      'w-full p-3 bg-white border-t border-gray-200 flex dark:bg-gray-800 dark:border-gray-700',
+      isSidebarCollapsed ? 'flex-col gap-3' : 'gap-2'
+    ]}>
+      <!-- Settings dropdown -->
+      <div class="relative flex-1">
+        <button
+          type="button"
+          data-dropdown-toggle="settings-dropdown"
+          class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-2 h-10 hover:scale-[1.02] transition-all duration-200 group"
+          id="currentSettingsBtn"
+        >
+          <div class="flex items-center justify-center gap-2">
+            <div class="w-5 h-5 bg-gray-200 dark:bg-gray-600 rounded flex items-center justify-center group-hover:bg-gray-300 dark:group-hover:bg-gray-500 transition-colors duration-200">
+              <i data-lucide="user-cog" class="w-3 h-3 text-gray-600 dark:text-gray-300"></i>
+            </div>
+          <span data-sidebar-text class:list={['text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors duration-200', isSidebarCollapsed && 'hidden']}>{t.admin_settings.settings_label}</span>
+            <i data-lucide="chevron-up" class="w-3 h-3 text-gray-500 transform transition-transform duration-200"></i>
+          </div>
+        </button>
+        <div
+          id="settings-dropdown"
+          class="absolute bottom-14 left-0 z-50 hidden bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg"
+          style="width: 200px; min-width: 180px;"
+        >
+          <div class="flex flex-col p-1">
+            <a
+              href="#"
+              data-setting="pdf-mail-list"
+              class="settings-option flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200"
+            >
+              <i data-lucide="mail" class="w-4 h-4"></i> {t.admin_settings.settings_pdf_mail_list}
+            </a>
+            <a
+              href="#"
+              data-setting="notification-email-list"
+              class="settings-option flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200"
+            >
+              <i data-lucide="bell" class="w-4 h-4"></i> {t.admin_settings.settings_notification_email_list}
+            </a>
+            <a
+              href="#"
+              data-setting="admin-users"
+              class="settings-option flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200"
+            >
+              <i data-lucide="users" class="w-4 h-4"></i> {t.admin_settings.settings_admin_users}
+            </a>
+            <a
+              href="#"
+              data-setting="change-password"
+              class="settings-option flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200"
+            >
+              <i data-lucide="key-round" class="w-4 h-4"></i> {t.admin_settings.change_password_option}
+            </a>
+            <a
+              href="#"
+              data-setting="profile"
+              class="settings-option flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200"
+            >
+              <i data-lucide="user" class="w-4 h-4"></i> {t.admin_settings.settings_profile}
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Idioma -->
+      <div class="relative flex-1">
+        <button
+          type="button"
+          data-dropdown-toggle="language-dropdown"
+          class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-2 h-10 hover:scale-[1.02] transition-all duration-200 group"
+          id="currentLangBtn"
+        >
+          <div class="flex items-center justify-center gap-2">
+            <!-- ⬇️ REEMPLAZO #1: flag actual (US por defecto) -->
+            <svg id="currentLangFlag" class="w-5 h-4 text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white" viewBox="0 0 64 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="USA">
+              <rect x="1.5" y="1.5" width="61" height="45" rx="4" stroke="currentColor" stroke-width="3"/>
+              <g fill="currentColor">
+                <rect x="6" y="6"  width="52" height="3" rx="1.5"/>
+                <rect x="6" y="12" width="52" height="3" rx="1.5"/>
+                <rect x="6" y="18" width="52" height="3" rx="1.5"/>
+                <rect x="6" y="24" width="52" height="3" rx="1.5"/>
+                <rect x="6" y="30" width="52" height="3" rx="1.5"/>
+                <rect x="6" y="36" width="52" height="3" rx="1.5"/>
+                <rect x="6" y="42" width="52" height="3" rx="1.5"/>
+              </g>
+              <rect x="6" y="6" width="20" height="15" rx="2" fill="currentColor"/>
+              <g fill="none" stroke="white" stroke-linecap="round" stroke-width="1.8">
+                <path d="M10 9h0"/><path d="M14 9h0"/><path d="M18 9h0"/>
+                <path d="M12 12h0"/><path d="M16 12h0"/>
+                <path d="M10 15h0"/><path d="M14 15h0"/><path d="M18 15h0"/>
+              </g>
+            </svg>
+      
+            <span data-sidebar-text id="currentLangText" class:list={['text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors duration-200', isSidebarCollapsed && 'hidden']}>EN</span>
+            <i data-lucide="chevron-up" class="w-3 h-3 text-gray-500 transform transition-transform duration-200"></i>
+          </div>
+        </button>
+      
+        <div
+          id="language-dropdown"
+          class="absolute bottom-14 left-0 right-0 z-50 hidden bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg"
+        >
+          <div class="flex flex-col p-1">
+            <a
+              href="#"
+              data-lang="en"
+              class="language-option flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200"
+            >
+              <!-- ⬇️ REEMPLAZO #2: opción EN -->
+              <svg class="w-4 h-3" viewBox="0 0 64 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="USA">
+                <rect x="1.5" y="1.5" width="61" height="45" rx="4" stroke="currentColor" stroke-width="3"/>
+                <g fill="currentColor">
+                  <rect x="6" y="6"  width="52" height="3" rx="1.5"/>
+                  <rect x="6" y="12" width="52" height="3" rx="1.5"/>
+                  <rect x="6" y="18" width="52" height="3" rx="1.5"/>
+                  <rect x="6" y="24" width="52" height="3" rx="1.5"/>
+                  <rect x="6" y="30" width="52" height="3" rx="1.5"/>
+                  <rect x="6" y="36" width="52" height="3" rx="1.5"/>
+                  <rect x="6" y="42" width="52" height="3" rx="1.5"/>
+                </g>
+                <rect x="6" y="6" width="20" height="15" rx="2" fill="currentColor"/>
+                <g fill="none" stroke="white" stroke-linecap="round" stroke-width="1.8">
+                  <path d="M10 9h0"/><path d="M14 9h0"/><path d="M18 9h0"/>
+                  <path d="M12 12h0"/><path d="M16 12h0"/>
+                  <path d="M10 15h0"/><path d="M14 15h0"/><path d="M18 15h0"/>
+                </g>
+              </svg>
+              EN
+            </a>
+      
+            <a
+              href="#"
+              data-lang="es"
+              class="language-option flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200"
+            >
+              <!-- ⬇️ REEMPLAZO #3: opción ES -->
+              <svg class="w-4 h-3" viewBox="0 0 64 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Chile">
+                <rect x="1.5" y="1.5" width="61" height="45" rx="4" stroke="currentColor" stroke-width="3"/>
+                <rect x="4" y="26" width="56" height="18" rx="2" fill="currentColor"/>
+                <rect x="4" y="4" width="18" height="18" rx="2" fill="currentColor"/>
+                <path d="M13 9.2l1.2 3.5h3.7l-3 2.1 1.2 3.6-3.1-2.2-3.1 2.2 1.2-3.6-3-2.1h3.7L13 9.2z" fill="white"/>
+                <line x1="24" y1="22" x2="60" y2="22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+              ES
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>  
+  </div>
+</aside>
+
+<ModalPdfMailList adminSettings={t.admin_settings} />
+<ModalNotificationEmailList adminSettings={t.admin_settings} />
+<ModalAdminSettings
+  adminSettings={t.admin_settings}
+  avatarLightSrc={avatarLightSrc}
+  avatarDarkSrc={avatarDarkSrc}
+  user={user}
+/>
+<ModalAdminUsers adminSettings={t.admin_settings} />
+<ModalAdminChangePassword adminSettings={t.admin_settings} />
+<!-- Backdrop móvil -->
+<div
+  class="fixed inset-0 z-10 hidden bg-gray-900/50 dark:bg-gray-900/90"
+  id="sidebarBackdrop"
+></div>
+
+<!-- Use inline module with define:vars to import and initialize sidebar-admin on the client -->
+<script type="module" define:vars={{ apiBase, clientApiBase, fileServer, t, token, lang }}>
+  import { initSidebarAdmin } from '/js/sidebar-admin.js';
+  // Inicializar el sidebar admin con la configuración del servidor
+  initSidebarAdmin({ apiBase, clientApiBase, fileServer, t, token, lang });
 </script>

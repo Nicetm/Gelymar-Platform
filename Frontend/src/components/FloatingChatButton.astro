@@ -1,0 +1,332 @@
+---
+// Componente de botón flotante de chat
+export interface Props {
+  unreadCount?: number;
+}
+
+const { unreadCount = 0 } = Astro.props;
+---
+
+<!-- Botón flotante de chat -->
+<div id="floating-chat-button" class="fixed bottom-6 right-6 z-50">
+  <!-- Botón principal -->
+  <button 
+    id="chat-toggle-btn"
+    class="relative bg-blue-600 hover:bg-blue-700 text-white w-14 h-14 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center group"
+    aria-label="Abrir chat"
+  >
+    <!-- Icono de chat -->
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+    </svg>
+    
+    <!-- Contador de mensajes no leídos -->
+    <span
+      id="chat-unread-badge"
+      class={`absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center ${unreadCount > 0 ? '' : 'hidden'}`}
+    >
+      {unreadCount > 99 ? '99+' : unreadCount > 0 ? unreadCount : ''}
+    </span>
+    
+    <!-- Efecto de pulso cuando hay mensajes -->
+    <span
+      id="chat-alert-pulse"
+      class={`absolute inset-0 bg-blue-400 rounded-full animate-ping opacity-75 ${unreadCount > 0 ? '' : 'hidden'}`}
+    ></span>
+  </button>
+  
+  <!-- Tooltip -->
+  <div class="absolute bottom-full right-0 mb-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
+    Chat con soporte
+    <div class="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+  </div>
+</div>
+
+<style>
+  /* Animación personalizada para el botón */
+  #floating-chat-button button:hover {
+    transform: scale(1.1);
+  }
+  
+  /* Animación de rebote cuando hay mensajes nuevos */
+  @keyframes bounce {
+    0%, 20%, 53%, 80%, 100% {
+      transform: translate3d(0,0,0);
+    }
+    40%, 43% {
+      transform: translate3d(0,-8px,0);
+    }
+    70% {
+      transform: translate3d(0,-4px,0);
+    }
+    90% {
+      transform: translate3d(0,-2px,0);
+    }
+  }
+  
+  @keyframes glowPulse {
+    0% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.7); }
+    70% { box-shadow: 0 0 0 15px rgba(249, 115, 22, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0); }
+  }
+
+  #floating-chat-button button.chat-toggle-alert {
+    background: #f97316;
+    animation: glowPulse 1.5s infinite;
+  }
+  
+  #floating-chat-button button.chat-toggle-alert:hover {
+    background: #ea580c;
+  }
+</style>
+
+<script is:inline type="module" define:vars={{ initialUnread: unreadCount }}>
+  // Socket.io service (inline)
+  class SocketService {
+    constructor() {
+      this.socket = null;
+      this.isConnected = false;
+      this.reconnectAttempts = 0;
+      this.maxReconnectAttempts = 5;
+    }
+
+    connect(token) {
+      if (this.socket && this.isConnected) {
+        return this.socket;
+      }
+
+      const apiBase = window.apiBase || 'http://localhost:3000';
+      
+      this.socket = io(apiBase, {
+        auth: { token },
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionAttempts: this.maxReconnectAttempts,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000,
+      });
+
+      this.socket.on('connect', () => {
+        this.isConnected = true;
+        this.reconnectAttempts = 0;
+      });
+
+      this.socket.on('disconnect', (reason) => {
+        this.isConnected = false;
+      });
+
+      this.socket.on('connect_error', (error) => {
+        console.error('Error de conexión Socket.io:', error);
+        this.reconnectAttempts++;
+        
+        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+          console.error('Máximo de intentos de reconexión alcanzado');
+        }
+      });
+
+      this.socket.on('reconnect', (attemptNumber) => {
+        this.isConnected = true;
+        this.reconnectAttempts = 0;
+      });
+
+      return this.socket;
+    }
+
+    onNewMessage(callback) {
+      if (this.socket) {
+        this.socket.on('newMessage', callback);
+      }
+    }
+
+    onUpdateNotifications(callback) {
+      if (this.socket) {
+        this.socket.on('updateNotifications', callback);
+      }
+    }
+  }
+
+  const socketService = new SocketService();
+  let socket = null;
+  
+  // Función para obtener el customer_id del usuario actual
+  async function getCustomerId() {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return null;
+      
+      const response = await fetch(`${window.apiBase || 'http://localhost:3000'}/api/auth/me`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const userData = await response.json();
+        return userData.customer_id;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error obteniendo customer_id:', error);
+      return null;
+    }
+  }
+
+  // Inicializar Socket.io para el cliente
+  function initializeClientSocket() {
+    // Verificar que Socket.io esté disponible
+    if (typeof io === 'undefined') {
+      console.error('Socket.io no está disponible');
+      return;
+    }
+
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.error('Token no encontrado para Socket.io');
+      return;
+    }
+
+    socket = socketService.connect(token);
+    
+    // Escuchar mensajes nuevos
+    socketService.onNewMessage((messageData) => {
+      // Verificar que el mensaje sea para este cliente
+      getCustomerId().then(customerId => {
+        const currentId = String(customerId || '').trim();
+        const incomingId = String(messageData.customer_id || '').trim();
+        if (currentId && incomingId && incomingId === currentId) {
+          if (isChatOpen) return;
+          localAlertCount += 1;
+          setChatButtonAlert(true, localAlertCount);
+          // Actualizar contador de notificaciones (dar tiempo a backend)
+          setTimeout(updateNotificationCount, 1500);
+          
+          // Si el chat está abierto, mostrar el mensaje
+          const chatModal = document.getElementById('chat-modal');
+          if (chatModal && !chatModal.classList.contains('hidden')) {
+            const addMessageToChat = window.addMessageToChat;
+            if (addMessageToChat) {
+              const sender = messageData.sender_role === 'admin' ? 'admin' : 'client';
+              addMessageToChat(messageData.message, sender);
+            }
+          }
+        }
+      });
+    });
+  }
+  
+  const chatToggleButton = document.getElementById('chat-toggle-btn');
+  const unreadBadge = document.getElementById('chat-unread-badge');
+  const pulseOverlay = document.getElementById('chat-alert-pulse');
+  let localAlertCount = Number(initialUnread || 0) || 0;
+  let isChatOpen = false;
+
+  function setChatButtonAlert(active, count = null) {
+    if (chatToggleButton) {
+      chatToggleButton.classList.toggle('chat-toggle-alert', active);
+    }
+
+    if (pulseOverlay) {
+      pulseOverlay.classList.toggle('hidden', !active);
+    }
+
+    if (unreadBadge) {
+      if (typeof count === 'number') {
+        if (count > 0) {
+          unreadBadge.textContent = count > 99 ? '99+' : count.toString();
+          unreadBadge.classList.remove('hidden');
+        } else {
+          unreadBadge.textContent = '';
+          unreadBadge.classList.add('hidden');
+        }
+      } else if (!active) {
+        unreadBadge.textContent = '';
+        unreadBadge.classList.add('hidden');
+      }
+    }
+  }
+  
+  // Actualizar contador de notificaciones
+  async function updateNotificationCount() {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    
+    try {
+      // Obtener customerId del token
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const customerId = payload.customer_id || payload.id;
+      
+      if (!customerId) {
+        console.error('No se pudo obtener customerId del token');
+        return;
+      }
+      
+      const baseUrl = window.apiBase || (window.location && window.location.origin);
+      const response = await fetch(`${baseUrl}/api/chat/unread/${customerId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (!response.ok) {
+        console.error('Error obteniendo notificaciones:', response.status);
+        return;
+      }
+      
+      const data = await response.json();
+      if (data.success && data.data) {
+        const count = data.data.unreadCount ?? 0;
+        if (!isChatOpen && localAlertCount > 0 && count === 0) {
+          // mantener alerta hasta que usuario abra el chat
+          return;
+        }
+        localAlertCount = count;
+        setChatButtonAlert(count > 0, count);
+      }
+    } catch (error) {
+      console.error('Error actualizando notificaciones:', error);
+    }
+  }
+  
+  // Event listener para abrir el chat
+  chatToggleButton?.addEventListener('click', () => {
+    // Llamar a la función openChatModal si está disponible
+    if (typeof window.openChatModal === 'function') {
+      window.openChatModal();
+    } else {
+      // Fallback: abrir el modal directamente
+      const chatModal = document.getElementById('chat-modal');
+      if (chatModal) {
+        chatModal.classList.remove('hidden');
+      }
+    }
+
+    isChatOpen = true;
+    localAlertCount = 0;
+    setChatButtonAlert(false, 0);
+  });
+  
+  // Inicializar botón flotante al cargar la página
+  document.addEventListener('DOMContentLoaded', () => {
+    const clearAlert = () => {
+      localAlertCount = 0;
+      setChatButtonAlert(false, 0);
+    };
+
+    window.clearChatNotification = () => {
+      isChatOpen = true;
+      clearAlert();
+    };
+
+    window.notifyClientChatOpened = () => {
+      isChatOpen = true;
+      clearAlert();
+    };
+
+    window.notifyClientChatClosed = () => {
+      isChatOpen = false;
+      if (localAlertCount > 0) {
+        setChatButtonAlert(true, localAlertCount);
+      }
+    };
+
+    initializeClientSocket();
+    updateNotificationCount();
+  });
+</script> 

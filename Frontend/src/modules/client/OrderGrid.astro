@@ -1,0 +1,286 @@
+---
+import { loadTranslations, getServerLang } from '@lib/i18n.js';
+
+const lang = getServerLang(Astro.cookies);
+let t: any = {};
+try {
+  t = {
+    documentos: await loadTranslations(lang, 'documentos'),
+  };
+} catch (error) {
+  console.warn('Error cargando traducciones:', error);
+}
+
+export interface Order {
+  id: number;
+  orderNumber: string;
+  clientName: string;
+  documents: number;
+  factura: string;
+  fecha_factura: string;
+  items_count: number;
+}
+
+interface Props {
+  orders: Order[];
+}
+---
+
+<div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+  <header class="mb-4">
+    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{t.documentos.selectOrder}</h3>
+    <p class="text-sm text-gray-600 dark:text-gray-400">
+      {t.documentos.chooseOrderDescription}
+    </p>
+  </header>
+
+  <!-- Search Bar -->
+  <div class="mb-4">
+    <div class="relative">
+      <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+        <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+      </div>
+      <input 
+        id="orders-search-input"
+        type="text" 
+        placeholder={t.documentos.searchOrders}
+        class="block w-1/4 pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md leading-5 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+      />
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="rounded-xl shadow ring-1 ring-gray-200 dark:ring-gray-700">
+    <div class="relative" data-scroll-sync="client-orders-table">
+      <div class="sticky top-0 z-30 bg-gray-100 dark:bg-gray-800 hidden" data-scroll-header>
+        <div class="overflow-x-auto scrollbar-hidden" data-scroll-header-track>
+          <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900" style="width: max-content;"></table>
+        </div>
+      </div>
+      <div class="overflow-x-auto scrollbar-hidden" data-scroll-body>
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900" style="width: max-content;">
+      <thead class="bg-gray-100/70 dark:bg-gray-800/70 backdrop-blur-md transition-shadow sticky top-0 z-10">
+        <tr>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="order">
+            <div class="flex items-center justify-between">
+              <span>{t.documentos.order}</span>
+              <svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+              </svg>
+            </div>
+          </th>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="documents">
+            <div class="flex items-center justify-between">
+              <span>{t.documentos.documentsCount}</span>
+              <svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+              </svg>
+            </div>
+          </th>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="fecha_incoterm">
+            <div class="flex items-center justify-between">
+              <span>{t.documentos.deliveryDate}</span>
+              <svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+              </svg>
+            </div>
+          </th>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="fecha_etd_factura">
+            <div class="flex items-center justify-between">
+              <span>{t.documentos.fechaEtdFactura}</span>
+              <svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+              </svg>
+            </div>
+          </th>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="fecha_eta_factura">
+            <div class="flex items-center justify-between">
+              <span>{t.documentos.fechaEtaFactura}</span>
+              <svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+              </svg>
+            </div>
+          </th>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="incoterm">
+            <div class="flex items-center justify-between">
+              <span>{t.documentos.incoterm}</span>
+              <svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+              </svg>
+            </div>
+          </th>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="shipping">
+            <div class="flex items-center justify-between">
+              <span>{t.documentos.shippingMethod}</span>
+              <svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+              </svg>
+            </div>
+          </th>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="puerto_destino">
+            <div class="flex items-center justify-between">
+              <span>{t.documentos.puertoDestino}</span>
+              <svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+              </svg>
+            </div>
+          </th>
+          <th class="px-6 py-3 text-center text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider sticky right-0 z-20 bg-gray-100 dark:bg-gray-800 min-w-[120px]">
+            {t.documentos.actions}
+          </th>
+        </tr>
+      </thead>
+      <tbody id="orders-grid" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-xs min-h-[400px] text-gray-900 dark:text-gray-200 transition-all duration-300 ease-out">
+        <!-- Order rows will be injected by JS -->
+      </tbody>
+    </table>
+      </div>
+      <div class="sticky bottom-0 z-40 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm hidden" data-scrollbar>
+        <div class="overflow-x-auto" data-scrollbar-track>
+          <div class="h-1" data-scrollbar-inner></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Pagination -->
+  <footer class="px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+    <div class="flex items-center justify-between">
+      <div class="text-sm text-gray-700 dark:text-gray-300">
+        <span id="orders-pagination-info">{t.documentos.showingOrders}</span>
+      </div>
+
+      <div class="flex items-center space-x-2" id="orders-pagination-controls">
+        <button id="orders-prev-btn"
+                class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md
+                       hover:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-600
+                       disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled>{t.documentos.previous}</button>
+
+        <div id="orders-page-numbers" class="flex items-center space-x-2">
+          <!-- Page buttons injected by JS -->
+        </div>
+
+        <button id="orders-next-btn"
+                class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md
+                       hover:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-600">
+          {t.documentos.next}
+        </button>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<style>
+  .scrollbar-hidden {
+    scrollbar-width: none;
+  }
+  .scrollbar-hidden::-webkit-scrollbar {
+    height: 0;
+  }
+  .sticky-scrollbar-floating {
+    position: fixed;
+    bottom: 0;
+  }
+  .sticky-scroll-header-floating {
+    position: fixed;
+    top: 64px;
+  }
+</style>
+
+<!-- Modal de Items -->
+<div id="itemsModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-6xl w-full mx-4 max-h-[90vh] overflow-hidden">
+    <!-- Header del modal -->
+    <div class="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white text-lg font-bold">
+          <span id="itemsInitials">IT</span>
+        </div>
+        <div>
+          <h2 id="itemsOrderTitle" class="text-xl font-bold text-gray-900 dark:text-gray-100">{t.documentos.orderItems}</h2>
+          <p id="itemsOrderSubtitle" class="text-sm text-gray-600 dark:text-gray-400">{t.documentos.itemsList}</p>
+        </div>
+      </div>
+      <button id="closeItemsModalBtn" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors duration-200">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Contenido del modal -->
+    <div class="p-6 overflow-auto max-h-[calc(90vh-140px)]">
+      <!-- Tabla de items -->
+      <div class="overflow-auto">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+          <thead class="bg-gray-100 dark:bg-gray-800 sticky top-0 z-10">
+            <tr>
+              <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.documentos.itemCode}</th>
+              <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.documentos.itemName}</th>
+              <th class="px-4 py-2 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.documentos.quantity}</th>
+              <th class="px-4 py-2 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.documentos.unitPrice}</th>
+              <th class="px-4 py-2 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.documentos.total}</th>
+            </tr>
+          </thead>
+          <tbody id="itemsTableBody" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
+            <!-- Los items se cargarán dinámicamente aquí -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Resumen de la orden -->
+      <div class="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">{t.documentos.totalItems}</p>
+            <p id="totalItems" class="text-lg font-bold text-gray-900 dark:text-gray-100">0</p>
+          </div>
+          <div>
+            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">{t.documentos.totalQuantity}</p>
+            <p id="totalQuantity" class="text-lg font-bold text-gray-900 dark:text-gray-100">0</p>
+          </div>
+          <div>
+            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">{t.documentos.totalValue}</p>
+            <p id="totalValue" class="text-lg font-bold text-green-600 dark:text-green-400">0</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de Documentos -->
+<div id="docsModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
+    <div class="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+      <div>
+        <h2 id="docsOrderTitle" class="text-xl font-bold text-gray-900 dark:text-gray-100">{t.documentos.documentList}</h2>
+        <p class="text-sm text-gray-600 dark:text-gray-400">{t.documentos.documentListSubtitle}</p>
+      </div>
+      <button id="closeDocsModalBtn" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors duration-200">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <div class="p-6 overflow-auto max-h-[calc(90vh-140px)]">
+      <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+        <thead class="bg-gray-100 dark:bg-gray-800 sticky top-0 z-10">
+          <tr>
+            <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.documentos.documentName}</th>
+            <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.documentos.type}</th>
+            <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.documentos.status}</th>
+            <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.documentos.created}</th>
+            <th class="px-4 py-2 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t.documentos.actions}</th>
+          </tr>
+        </thead>
+        <tbody id="docsListBody" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+

@@ -1,0 +1,26 @@
+---
+import LayoutSidebar from '../../../../app/LayoutSidebarAdmin.astro';
+import Orders from '../../../../modules/admin/Orders.astro';
+
+const { pc, oc } = Astro.params;
+const decodedPc = pc ? decodeURIComponent(pc) : '';
+const decodedOc = oc ? decodeURIComponent(oc).replace(/-/g, ' ') : '';
+---
+
+<script is:inline>
+  try {
+    const pcValue = {JSON.stringify(decodedPc)};
+    const ocValue = {JSON.stringify(decodedOc)};
+    if (ocValue) {
+      localStorage.setItem('ordersSearchFilter', ocValue);
+    } else if (pcValue) {
+      localStorage.setItem('ordersSearchFilter', pcValue);
+    }
+  } catch (error) {
+    console.warn('No se pudo guardar filtro de órdenes:', error);
+  }
+</script>
+
+<LayoutSidebar>
+  <Orders />
+</LayoutSidebar>

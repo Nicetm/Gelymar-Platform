@@ -1,38 +1,232 @@
 ---
 // navbar.astro
-import NotificationDropdown from '../components/NotificationDropdown.astro';
-import AppsDropdown from '../components/AppsDropdown.astro';
+// import NotificationDropdown from '../components/NotificationDropdown.astro';
+// import AppsDropdown from '../components/AppsDropdown.astro';
 import ColorModeSwitcher from '../components/ColorModeSwitcher.astro';
 import UserMenu from '../components/UserMenu.astro';
+import NotificationBell from '../components/NotificationBell.astro';
+import { loadTranslations, getServerLang } from '@lib/i18n.js';
+import { PUBLIC_API_URL, FILE_SERVER_URL } from './constants.ts';
+
+// Obtener configuración del parámetro headerBusquedaClienteChat y datos del usuario
+const apiBaseUrl = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
+const apiPublic = PUBLIC_API_URL;
+const fileServer = FILE_SERVER_URL;
+const authToken = Astro.cookies.get('token')?.value || '';
+const lang = getServerLang(Astro.cookies);
+const t: any = {
+  messages: await loadTranslations(lang, 'messages'),
+};
+let chatEnabled = false;
+let notificationsEnabled = false;
+let roleId = null;
+let notificationSettings = {
+  orders: { enabled: false, config: null },
+  users: { enabled: false, config: null }
+};
+
+try {
+  const meResponse = await fetch(`${apiBaseUrl}/api/auth/me`, {
+    headers: {
+      'Authorization': `Bearer ${authToken}`
+    }
+  });
+
+  if (meResponse.ok) {
+    const meData = await meResponse.json();
+    roleId = Number(meData?.role_id ?? meData?.roleId ?? null);
+  }
+} catch (error) {
+  console.warn('Error obteniendo datos del usuario:', error);
+}
+
+const hasRole = (roles: unknown): boolean => {
+  if (!roleId || !Array.isArray(roles)) return false;
+  const normalized = (roles as Array<number | string>).map((value) => Number(value));
+  return normalized.includes(roleId);
+};
+
+try {
+  const response = await fetch(`${apiBaseUrl}/api/config/headerBusquedaClienteChat`, {
+    headers: {
+      'Authorization': `Bearer ${authToken}`
+    }
+  });
+  if (response.ok) {
+    const config = await response.json();
+    chatEnabled = config.enable === 1 && hasRole(config.role_id || config.roles || []);
+  }
+} catch (error) {
+  console.warn('Error obteniendo configuración de chat:', error);
+}
+
+const normalizeEnable = (value: unknown): boolean => {
+  if (value === undefined || value === null) return false;
+  const numeric = Number(value);
+  if (!Number.isNaN(numeric)) {
+    return numeric === 1;
+  }
+  return String(value).toLowerCase() === 'true';
+};
+
+const isFeatureEnabledForRole = (config: Record<string, unknown> | null): boolean => {
+  if (!config) return false;
+  if (!normalizeEnable(config.enable)) return false;
+  const roles = (config.role_id || config.roles || []) as unknown;
+  if (!Array.isArray(roles) || roles.length === 0) {
+    return true;
+  }
+  return hasRole(roles);
+};
+
+const fetchConfig = async (endpoint: string) => {
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/config/${endpoint}`, {
+      headers: {
+        'Authorization': `Bearer ${authToken}`
+      }
+    });
+    if (response.ok) {
+      return await response.json();
+    }
+  } catch (error) {
+    console.warn(`Error obteniendo configuración ${endpoint}:`, error);
+  }
+  return null;
+};
+
+const [
+  headerNotificacionesConfig,
+  headerOrdenesSinDocumentosConfig,
+  headerUsersSinCuentaConfig
+] = await Promise.all([
+  fetchConfig('headerNotificaciones'),
+  fetchConfig('headerOrdenesSinDocumentos'),
+  fetchConfig('headerUsersSinCuenta')
+]);
+
+notificationsEnabled = isFeatureEnabledForRole(headerNotificacionesConfig);
+
+notificationSettings = {
+  orders: {
+    enabled: isFeatureEnabledForRole(headerOrdenesSinDocumentosConfig),
+    config: headerOrdenesSinDocumentosConfig
+  },
+  users: {
+    enabled: isFeatureEnabledForRole(headerUsersSinCuentaConfig),
+    config: headerUsersSinCuentaConfig
+  }
+};
 ---
 
-<nav class="fixed z-50 w-full bg-white border-b border-gray-200 dark:bg-gray-800 dark:border-gray-700">
+<nav
+  role="navigation"
+  aria-label="Main navigation"
+  class="fixed z-50 w-full bg-white/80 dark:bg-gray-900/70 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 ring-1 ring-white/10 dark:ring-gray-700 transition-colors motion-reduce:transition-none">
   <div class="px-3 py-2 lg:px-5 lg:pl-3">
     <div class="flex items-center justify-between">
       <!-- Logo + Toggle -->
-      <div class="flex items-center justify-start ml-6">
-        <button id="toggleSidebarMobile" class="p-2 text-gray-600 rounded lg:hidden hover:bg-gray-100 dark:hover:bg-gray-700">
-          <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M3 5h14M3 10h14M3 15h14"/>
+      <div class="flex items-center justify-start ml-4 lg:ml-6 px-1">
+        <button
+          id="toggleSidebarMobile"
+          aria-label="Toggle sidebar"
+          aria-expanded="false"
+          class="p-2 xl:hidden relative z-20 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 transition"
+        >
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 6h16M4 12h16M4 18h16"/>
           </svg>
         </button>
         <a
-          href="/"
-          class="-ml-5 inline-flex items-center gap-2 px-2 py-1 rounded-xl shadow-md bg-white dark:bg-gray-200 hover:shadow-lg hover:-translate-y-0.5 hover:scale-105 transition-transform duration-300 ease-out"
+          href="/admin"
+          class="ml-2 md:ml-0 inline-flex items-center gap-2"
         >
           <img
             src="/assets/gelymar.svg"
-            alt="Logo"
-            class="h-8 w-auto transition-transform duration-300 ease-in-out group-hover:scale-110"
-          />
-          <span class="text-lg font-extrabold text-[#002E50] transition-colors duration-300">Gelymar</span>
+            alt="Gelymar logo"
+            class="h-9 w-auto"
+          >
+          <span class="text-xl dark:text-xl font-bold tracking-tight text-[#002E50] dark:text-gray-100">
+            Gelymar
+          </span>
         </a>
       </div>
 
       <!-- Iconos -->
-      <div class="flex items-center space-x-5 ml-3 mr-8">
-        <NotificationDropdown />
-        <AppsDropdown />
+      <div class="flex items-center space-x-5 ml-3 pr-4 lg:pr-8">
+        <div id="admin-presence" class="flex items-center mr-3"></div>
+        <!-- <NotificationDropdown /> -->
+        <!-- <AppsDropdown /> -->
+        <!-- Chat icon -->
+        {notificationsEnabled && (
+          <NotificationBell
+            unreadCount={0}
+            roleId={roleId}
+            notificationSettings={notificationSettings}
+          />
+        )}
+        {chatEnabled && (
+          <div class="relative">
+            <button
+              id="chat-icon"
+              class="relative p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200 focus:outline-none"
+              aria-label="Chat"
+            >
+              <svg class="w-5 h-5 transition-transform duration-300 ease-in-out hover:scale-110 hover:rotate-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M17 3.33782C15.5291 2.48697 13.8214 2 12 2C6.47715 2 2 6.47715 2 12C2 13.5997 2.37562 15.1116 3.04346 16.4525C3.22094 16.8088 3.28001 17.2161 3.17712 17.6006L2.58151 19.8267C2.32295 20.793 3.20701 21.677 4.17335 21.4185L6.39939 20.8229C6.78393 20.72 7.19121 20.7791 7.54753 20.9565C8.88837 21.6244 10.4003 22 12 22C17.5228 22 22 17.5228 22 12C22 10.1786 21.513 8.47087 20.6622 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </button>
+
+          <!-- Chat dropdown -->
+          <div
+            id="chat-dropdown"
+            class="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 hidden"
+          >
+            <!-- Header del dropdown -->
+            <div class="flex items-center justify-between p-3 border-b border-gray-200 dark:border-gray-700">
+              <h3 class="text-base font-semibold text-gray-900 dark:text-white">{t.messages?.chat?.clients_title}</h3>
+            </div>
+            
+            <!-- Search -->
+              <div class="p-3 border-b border-gray-200 dark:border-gray-700 space-y-2">
+                <input
+                  type="text"
+                  id="chat-search"
+                  placeholder={t.messages?.chat?.search_client}
+                  class="w-full px-3 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <label class="flex items-center justify-between text-xs text-gray-600 dark:text-gray-300">
+                  <span>{t.messages?.chat?.online_only}</span>
+                  <input id="chat-online-only" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                </label>
+              </div>
+
+            <!-- Lista de clientes -->
+            <div id="chat-client-list" class="max-h-96 overflow-y-auto">
+              <!-- Los clientes se cargarán dinámicamente aquí -->
+              <div id="chat-empty-state" class="p-4 text-center text-gray-500 dark:text-gray-400">
+                <div class="flex items-center justify-center gap-3">
+                  <svg class="animate-spin -ml-1 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <p class="text-sm">{t.messages?.chat?.loading_clients}</p>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Footer del dropdown -->
+            <div class="p-2 border-t border-gray-200 dark:border-gray-700">
+              <a
+                href="/admin/clients"
+                class="block text-center text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+              >
+                {t.messages?.chat?.view_all_clients}
+              </a>
+            </div>
+          </div>
+        </div>
+        )}
         <ColorModeSwitcher />
         <UserMenu />
       </div>
@@ -40,8 +234,30 @@ import UserMenu from '../components/UserMenu.astro';
   </div>
 </nav>
 
+<script type="module" define:vars={{ apiPublic, fileServer, t }}>
+  import { initAdminPresence } from '/js/admin-presence.js';
+  window.translations = { ...(window.translations || {}), ...t };
+  initAdminPresence({
+    apiBase: apiPublic,
+    fileServer,
+    labels: {
+      online: t.messages?.chat?.online,
+      offline: t.messages?.chat?.offline
+    }
+  });
+</script>
+
 <!-- Script que maneja los dropdowns -->
-<script is:inline>
+<script is:inline define:vars={{ 
+  chatFeatureEnabled: chatEnabled,
+  chatLabels: {
+    loadingClients: t.messages?.chat?.loading_clients,
+    noClientsFound: t.messages?.chat?.no_clients_found,
+    startChat: t.messages?.chat?.start_chat
+  }
+}}>
+  // @ts-nocheck
+  const CHAT_FEATURE_ENABLED = chatFeatureEnabled;
   window.addEventListener("DOMContentLoaded", () => {
     const toggles = document.querySelectorAll("[data-dropdown-toggle]");
 
@@ -65,9 +281,209 @@ import UserMenu from '../components/UserMenu.astro';
       });
     });
 
+    if (CHAT_FEATURE_ENABLED) {
+      const CHAT_LABELS = chatLabels || {};
+      const CHAT_CACHE_KEY = 'adminChatClientsCache';
+      const CHAT_CACHE_TS_KEY = 'adminChatClientsCacheTs';
+      const CHAT_CACHE_TTL_MS = 5 * 60 * 1000;
+      // Manejo del dropdown de chat
+      const chatIcon = document.getElementById('chat-icon');
+      const chatDropdown = document.getElementById('chat-dropdown');
+      const chatSearch = document.getElementById('chat-search');
+      const chatOnlineOnly = document.getElementById('chat-online-only');
+      const chatClientList = document.getElementById('chat-client-list');
+      const chatEmptyState = document.getElementById('chat-empty-state');
+      
+      let allClients = [];
+      let filteredClients = [];
+      let onlineOnly = false;
+
+      // Cargar clientes
+      function renderLoadingClients() {
+        if (!chatClientList) return;
+        chatClientList.innerHTML = `
+          <div class="p-4 text-center text-gray-500 dark:text-gray-400">
+            <div class="flex items-center justify-center gap-3">
+              <svg class="animate-spin -ml-1 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <p class="text-sm">${CHAT_LABELS.loadingClients}</p>
+            </div>
+          </div>
+        `;
+      }
+
+      function renderEmptyClients() {
+        if (!chatClientList) return;
+        chatClientList.innerHTML = `
+          <div id="chat-empty-state" class="p-4 text-center text-gray-500 dark:text-gray-400">
+            <svg class="w-6 h-6 mx-auto mb-2 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            <p class="text-sm">${CHAT_LABELS.noClientsFound}</p>
+          </div>
+        `;
+      }
+
+      function readCachedClients() {
+        try {
+          const cachedRaw = sessionStorage.getItem(CHAT_CACHE_KEY);
+          const cachedTs = sessionStorage.getItem(CHAT_CACHE_TS_KEY);
+          if (!cachedRaw || !cachedTs) return null;
+          const age = Date.now() - Number(cachedTs);
+          if (Number.isNaN(age) || age > CHAT_CACHE_TTL_MS) return null;
+          return JSON.parse(cachedRaw);
+        } catch (error) {
+          return null;
+        }
+      }
+
+      function writeCachedClients(clients) {
+        try {
+          sessionStorage.setItem(CHAT_CACHE_KEY, JSON.stringify(clients || []));
+          sessionStorage.setItem(CHAT_CACHE_TS_KEY, Date.now().toString());
+        } catch (error) {
+          // ignore cache failures
+        }
+      }
+
+      async function loadClients({ force = false } = {}) {
+        if (!force) {
+          const cached = readCachedClients();
+          if (cached) {
+            allClients = cached;
+            filteredClients = [...allClients];
+            renderClients();
+            return;
+          }
+        }
+        try {
+          renderLoadingClients();
+          const token = localStorage.getItem('token');
+          const apiBase = window.apiBase || window.location.origin.replace(':4321', ':3000');
+          
+          if (!token) {
+            console.error('No token found');
+            return;
+          }
+          
+          const response = await fetch(`${apiBase}/api/customers`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          
+          if (!response.ok) {
+            console.error('HTTP error:', response.status, response.statusText);
+            return;
+          }
+          
+          const contentType = response.headers.get('content-type');
+          if (!contentType || !contentType.includes('application/json')) {
+            console.error('Response is not JSON:', contentType);
+            return;
+          }
+          
+          const data = await response.json();
+          allClients = data || [];
+          writeCachedClients(allClients);
+          filteredClients = [...allClients];
+          renderClients();
+        } catch (error) {
+          console.error('Error cargando clientes:', error);
+          renderEmptyClients();
+        }
+      }
+
+      // Renderizar clientes
+      function renderClients() {
+        if (filteredClients.length === 0) {
+          renderEmptyClients();
+          return;
+        }
+        
+        const clientsHTML = filteredClients.map(client => `
+          <div class="flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-700">
+            <div class="flex-1 flex items-center gap-2">
+              <div class="w-2 h-2 rounded-full ${client.online === 1 ? 'bg-green-500' : 'bg-red-500'}"></div>
+              <p class="text-xs font-medium text-gray-900 dark:text-white">${client.name.toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}</p>
+            </div>
+            <button 
+              class="ml-3 px-3 py-1 text-xs font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 rounded-md transition-colors"
+              onclick="openChat('${client.rut}', '${client.name}', ${client.online === 1})"
+            >
+              ${CHAT_LABELS.startChat}
+            </button>
+          </div>
+        `).join('');
+        
+        chatClientList.innerHTML = clientsHTML;
+      }
+
+      // Filtrar clientes
+      function filterClients(searchTerm) {
+        const term = (searchTerm || '').toLowerCase();
+        filteredClients = allClients.filter(client => {
+          const matchesSearch = client.name.toLowerCase().includes(term);
+          const matchesOnline = !onlineOnly || client.online === 1;
+          return matchesSearch && matchesOnline;
+        });
+        renderClients();
+      }
+
+      // Función para abrir chat (global)
+      window.openChat = function(customerId, customerName, isOnline = false) {
+        // Cerrar el dropdown de clientes
+        chatDropdown.classList.add('hidden');
+        
+        // Abrir el chat del admin con el cliente seleccionado
+        if (window.openAdminChat) {
+          window.openAdminChat(customerId, customerName, isOnline);
+        }
+      };
+
+      if (chatIcon && chatDropdown) {
+        chatIcon.addEventListener('click', function(e) {
+          e.stopPropagation();
+          const notificationDropdown = document.getElementById('notification-dropdown');
+          if (notificationDropdown && !notificationDropdown.classList.contains('hidden')) {
+            notificationDropdown.classList.add('hidden');
+          }
+          chatDropdown.classList.toggle('hidden');
+          
+          // Cargar clientes cada vez que se abre el dropdown para obtener datos actualizados
+          if (!chatDropdown.classList.contains('hidden')) {
+            loadClients();
+            // Limpiar el buscador
+            if (chatSearch) {
+              chatSearch.value = '';
+              filteredClients = [];
+            }
+            if (chatOnlineOnly) {
+              chatOnlineOnly.checked = false;
+              onlineOnly = false;
+            }
+          }
+        });
+      }
+
+      // Buscar clientes
+      if (chatSearch) {
+        chatSearch.addEventListener('input', function(e) {
+          filterClients(e.target.value);
+        });
+      }
+
+      if (chatOnlineOnly) {
+        chatOnlineOnly.addEventListener('change', function() {
+          onlineOnly = chatOnlineOnly.checked;
+          filterClients(chatSearch?.value || '');
+        });
+      }
+    }
+
     // Cierra todos si haces clic afuera
     document.addEventListener("click", (e) => {
-      const target = e.target;
+      const { target } = e;
       if (!(target instanceof Node)) return;
 
       const isInsideDropdown = [...document.querySelectorAll("[id$='-dropdown']")].some(el => el.contains(target));
@@ -75,6 +491,27 @@ import UserMenu from '../components/UserMenu.astro';
 
       if (!isInsideDropdown && !isToggle) {
         document.querySelectorAll("[id$='-dropdown']").forEach((el) => el.classList.add("hidden"));
+      }
+    });
+    // --- Navbar shadow on scroll ---
+    const nav = document.querySelector('nav[aria-label="Main navigation"]');
+    const toggleBtn = document.getElementById('toggleSidebarMobile');
+    const sidebar   = document.getElementById('sidebar');         // aside element
+
+    function handleScroll() {
+      if (!nav) return;
+      nav.classList.toggle('shadow-lg', window.scrollY > 0);
+    }
+    window.addEventListener('scroll', handleScroll);
+    handleScroll();
+
+    // --- aria-expanded sync for the hamburger ---
+    toggleBtn?.addEventListener('click', () => {
+      const expanded = toggleBtn.getAttribute('aria-expanded') === 'true';
+      toggleBtn.setAttribute('aria-expanded', (!expanded).toString());
+      // toggle sidebar visibility on mobile
+      if (sidebar) {
+        sidebar.classList.toggle('-translate-x-full');
       }
     });
   });

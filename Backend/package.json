@@ -1,24 +1,51 @@
 {
   "scripts": {
     "start": "node app.js",
-    "dev": "nodemon app.js"
+    "dev": "nodemon app.js",
+    "cleanup": "node scripts/cleanup.js",
+    "cleanup:temp": "node scripts/cleanup.js --temp-only",
+    "check:permissions": "node scripts/cleanup.js --check-permissions"
   },
   "dependencies": {
+    "awilix": "^10.0.1",
+    "axios": "^1.9.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
+    "crypto-js": "^4.2.0",
+    "csv-parse": "^5.6.0",
+    "csv-stringify": "^6.5.2",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
+    "express-rate-limit": "^7.5.1",
+    "express-slow-down": "^2.1.0",
+    "express-validator": "^7.2.1",
+    "fs-extra": "^11.3.1",
+    "handlebars": "^4.7.8",
+    "helmet": "^7.2.0",
     "jsonwebtoken": "^9.0.2",
+    "module-alias": "^2.2.3",
     "mssql": "^11.0.1",
-    "multer": "^2.0.0",
+    "multer": "^2.0.2",
+    "mysql2": "^3.14.1",
+    "node-cron": "^4.1.1",
     "nodemailer": "^7.0.3",
+    "pdfkit": "^0.17.1",
     "qrcode": "^1.5.4",
+    "readable-stream": "^2.3.7",
+    "socket.io": "^4.8.1",
     "speakeasy": "^2.0.0",
     "swagger-jsdoc": "^6.2.8",
-    "swagger-ui-express": "^5.0.1"
+    "swagger-ui-express": "^5.0.1",
+    "uuid": "^11.1.0",
+    "validator": "^13.9.0",
+    "winston": "^3.17.0",
+    "winston-daily-rotate-file": "^5.0.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"
+  },
+  "_moduleAliases": {
+    "@utils": "utils"
   }
 }

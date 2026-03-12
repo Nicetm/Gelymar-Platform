@@ -1,0 +1,22 @@
+---
+import LayoutCommon from '../../app/LayoutCommon.astro';
+
+export const prerender = false;
+
+const { id } = Astro.params;
+const token = Astro.url.searchParams.get('token');
+
+if (!id || !token) {
+  return Astro.redirect('/404');
+}
+---
+
+<LayoutCommon title="Ver Archivo">
+  <div class="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <iframe 
+      src={`/api/files/${id}?token=${token}`}
+      class="w-full h-screen border-0"
+      title="Archivo"
+    ></iframe>
+  </div>
+</LayoutCommon>

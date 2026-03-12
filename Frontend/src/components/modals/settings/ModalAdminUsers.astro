@@ -1,0 +1,138 @@
+---
+interface AdminSettingsTranslations {
+  admins_title?: string;
+  admins_subtitle?: string;
+  add_admin?: string;
+  cancel?: string;
+  close?: string;
+  save?: string;
+  email?: string;
+  full_name?: string;
+  phone?: string;
+  agent?: string;
+  actions?: string;
+  reset_password?: string;
+  confirm_reset?: string;
+  confirm_delete?: string;
+  admins_help_title?: string;
+  admins_help_add?: string;
+  admins_help_fields?: string;
+  admins_help_agent?: string;
+  admins_help_actions?: string;
+  admins_help_password?: string;
+}
+
+interface Props {
+  adminSettings: AdminSettingsTranslations;
+}
+
+const { adminSettings } = Astro.props as Props;
+---
+
+<div id="adminUsersModal" class="fixed inset-0 bg-black bg-opacity-50 dark:bg-black/80 hidden justify-center items-center z-50">
+  <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 w-full max-w-3xl mx-4 relative max-h-[90vh] overflow-y-auto shadow-2xl">
+    <div class="absolute top-3 right-3 flex items-center gap-2">
+      <button id="adminUsersHelpBtn" type="button" class="text-blue-600 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200" aria-label={adminSettings.admins_help_title}>
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8.227 9a3 3 0 115.546 1c-.612.62-1.273 1.06-1.273 2M12 17h.01M12 3a9 9 0 100 18 9 9 0 000-18z" />
+        </svg>
+      </button>
+      <button id="closeAdminUsersModal" class="text-gray-400 hover:text-rose-500 transition dark:text-gray-300 dark:hover:text-rose-400">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
+    <div class="flex items-center gap-4 mb-6">
+      <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+        <span>AD</span>
+      </div>
+      <div>
+        <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">{adminSettings.admins_title}</h2>
+        <p class="text-sm text-gray-600 dark:text-gray-400">{adminSettings.admins_subtitle}</p>
+      </div>
+    </div>
+
+    <div id="adminUsersFormContainer" class="border-b border-gray-200 dark:border-gray-700 pb-4 mb-6"></div>
+
+    <div id="adminUsersTableContainer" class="mb-6"></div>
+
+    <div class="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700">
+      <button id="addAdminUserBtn" type="button"
+        class="text-xs flex items-center gap-2 text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+        </svg>
+        {adminSettings.add_admin}
+      </button>
+      <div class="flex gap-3">
+        <button id="cancelAdminUsersBtn"
+          class="text-xs px-4 py-2 bg-gray-300 dark:bg-gray-800 text-gray-700 dark:text-gray-100 rounded-md hover:bg-gray-400 dark:hover:bg-gray-700 transition font-medium">
+          {adminSettings.cancel}
+        </button>
+        <button id="saveAdminUsersBtn"
+          class="text-xs px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md font-medium transition">
+          {adminSettings.save}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="adminUsersHelpModal" class="fixed inset-0 bg-black bg-opacity-50 dark:bg-black/80 hidden justify-center items-center z-50">
+  <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 w-full max-w-md mx-4 relative shadow-2xl">
+    <button id="closeAdminUsersHelpModalBtn" class="absolute top-3 right-3 text-gray-400 hover:text-rose-500 transition dark:text-gray-300 dark:hover:text-rose-400">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+    <h3 class="text-lg font-bold mb-3">{adminSettings.admins_help_title}</h3>
+    <div class="my-3 border-t border-gray-200 dark:border-gray-700"></div>
+    <ul class="text-sm text-gray-700 dark:text-gray-300 space-y-2 list-disc list-inside">
+      <li>{adminSettings.admins_help_add}</li>
+      <li>{adminSettings.admins_help_fields}</li>
+      <li>{adminSettings.admins_help_agent}</li>
+      <li>{adminSettings.admins_help_actions}</li>
+      <li>{adminSettings.admins_help_password}</li>
+    </ul>
+    <div class="my-4 border-t border-gray-200 dark:border-gray-700"></div>
+    <div class="flex justify-end">
+      <button id="closeAdminUsersHelpModalFooterBtn" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white rounded-md text-sm">
+        {adminSettings.close ?? adminSettings.cancel}
+      </button>
+    </div>
+  </div>
+</div>
+
+<template id="adminUsersFormTableTemplate">
+  <table class="w-full text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800">
+    <thead>
+      <tr class="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+        <th class="p-2 text-left uppercase tracking-wider">RUT</th>
+        <th class="p-2 text-left uppercase tracking-wider">{adminSettings.email}</th>
+        <th class="p-2 text-left uppercase tracking-wider">{adminSettings.full_name}</th>
+        <th class="p-2 text-left uppercase tracking-wider">{adminSettings.phone}</th>
+        <th class="p-2 text-left uppercase tracking-wider">{adminSettings.agent}</th>
+        <th class="p-2 text-center uppercase tracking-wider">{adminSettings.actions}</th>
+      </tr>
+    </thead>
+    <tbody id="adminUsersFormTableBody"></tbody>
+  </table>
+</template>
+
+<template id="adminUsersExistingTableTemplate">
+  <table class="w-full text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800">
+    <thead>
+      <tr class="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+        <th class="p-2 text-left uppercase tracking-wider">RUT</th>
+        <th class="p-2 text-left uppercase tracking-wider">{adminSettings.email}</th>
+        <th class="p-2 text-left uppercase tracking-wider">{adminSettings.full_name}</th>
+        <th class="p-2 text-left uppercase tracking-wider">{adminSettings.phone}</th>
+        <th class="p-2 text-left uppercase tracking-wider">{adminSettings.agent}</th>
+        <th class="p-2 text-center uppercase tracking-wider">{adminSettings.actions}</th>
+      </tr>
+    </thead>
+    <tbody id="adminUsersExistingTableBody"></tbody>
+  </table>
+</template>

@@ -1,7 +1,28 @@
 {
   "extends": "astro/tsconfigs/strictest",
   "compilerOptions": {
-    "strictNullChecks": true
+    "strictNullChecks": true,
+    "types": ["astro/client"],
+    "typeRoots": ["./src/types", "./node_modules/@types"],
+
+    // alias para imports tipo @components/...
+    "baseUrl": ".",
+    "paths": {
+      "@components/*": ["src/components/*"],
+      "@layouts/*": ["src/layouts/*"],
+      "@pages/*": ["src/pages/*"],
+      "@lib/*": ["src/lib/*"],
+      "@types/*": ["src/types/*"],
+      "@i18n/*": ["src/i18n/*"],
+      "@app/*": ["src/app/*"],
+    }
   },
-  "include": ["src", "astro.config.*", "env.d.ts"]
+  "include": [
+    "src",
+    "astro.config.*",
+    "env.d.ts",
+    "public/js/tokenWatcher.js",
+    "src/types/locals.d.ts"
+  ]
 }
+

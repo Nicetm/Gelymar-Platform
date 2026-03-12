@@ -1,0 +1,64 @@
+---
+import CopyrightNotice from '../components/CopyrightNotice.astro';
+---
+
+<footer
+  class="p-4  my-6 mx-4 bg-white rounded-lg shadow md:flex md:items-center md:justify-between md:p-6 xl:p-8 dark:bg-gray-800"
+>
+  <!-- Enlaces sociales -->
+  <div class="flex justify-center gap-6 animate-fade-in-up delay-200 w-full md:justify-end">
+    <!-- Sitio Web -->
+    <a
+      href="https://www.gelymar.com"
+      target="_blank"
+      aria-label="Visit Gelymar website"
+      class="text-gray-500 hover:text-gray-700 dark:hover:text-white transition-transform transform hover:scale-110"
+    >
+      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <line x1="2" y1="12" x2="22" y2="12" />
+        <path d="M12 2a15.3 15.3 0 0 1 0 20" />
+        <path d="M12 2a15.3 15.3 0 0 0 0 20" />
+      </svg>
+    </a>
+
+    <!-- LinkedIn -->
+    <a
+      href="https://www.linkedin.com/company/gelymar-sa"
+      target="_blank"
+      aria-label="Visit Gelymar LinkedIn"
+      class="text-gray-500 hover:text-gray-700 dark:hover:text-white transition-transform transform hover:scale-110"
+    >
+      <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M20.452 20.452h-3.555v-5.569c0-1.327-.025-3.037-1.85-3.037-1.851 0-2.134 1.445-2.134 2.939v5.667H9.358V9h3.413v1.561h.048c.476-.9 1.637-1.85 3.368-1.85 3.599 0 4.265 2.367 4.265 5.446v6.295zM5.337 7.433c-1.144 0-2.07-.927-2.07-2.07 0-1.144.926-2.07 2.07-2.07s2.07.926 2.07 2.07c0 1.143-.926 2.07-2.07 2.07zm1.777 13.019H3.56V9h3.554v11.452z" />
+      </svg>
+    </a>
+  </div>
+</footer>
+
+<CopyrightNotice />
+
+<style>
+  @keyframes fade-in-up {
+    0% {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fade-in-up {
+    animation: fade-in-up 0.8s ease-out both;
+  }
+
+  .delay-100 {
+    animation-delay: 0.1s;
+  }
+
+  .delay-200 {
+    animation-delay: 0.2s;
+  }
+</style>

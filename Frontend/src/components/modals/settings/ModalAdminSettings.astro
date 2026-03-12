@@ -1,0 +1,221 @@
+---
+interface AdminSettingsTranslations {
+  title?: string;
+  profile_title?: string;
+  change_photo?: string;
+  avatar_drop_title?: string;
+  avatar_drop_subtitle?: string;
+  avatar_presets_label?: string;
+  full_name?: string;
+  placeholder_full_name?: string;
+  corporate_email?: string;
+  email_cannot_be_changed?: string;
+  contact_phone?: string;
+  address_label?: string;
+  address_placeholder?: string;
+  city_label?: string;
+  city_placeholder?: string;
+  country_label?: string;
+  country_placeholder?: string;
+  cancel?: string;
+  save_changes?: string;
+}
+
+interface UserData {
+  full_name?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  country?: string;
+}
+
+interface Props {
+  adminSettings: AdminSettingsTranslations;
+  avatarLightSrc: string;
+  avatarDarkSrc: string;
+  user: UserData | null;
+}
+
+const {
+  adminSettings,
+  avatarLightSrc,
+  avatarDarkSrc,
+  user
+} = Astro.props as Props;
+---
+
+<div
+  id="adminSettingsModal"
+  class="fixed inset-0 bg-black bg-opacity-50 dark:bg-black/80 hidden flex justify-center items-center z-50"
+>
+  <div
+    class="modal-card bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 w-full max-w-2xl mx-4 relative max-h-[90vh] overflow-y-auto shadow-2xl"
+  >
+    <button
+      id="closeAdminSettings"
+      class="absolute top-3 right-3 text-gray-500 hover:text-rose-500 transition dark:text-gray-400 dark:hover:text-rose-400"
+    >
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+
+    <div class="flex items-center gap-4 mb-6">
+      <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">{adminSettings.profile_title ?? adminSettings.title}</h2>
+    </div>
+
+    <form id="adminSettingsForm" class="space-y-4">
+      <div class="flex flex-col items-center gap-4">
+        <div class="relative w-24 h-24">
+          <img id="adminAvatarLight" class="w-24 h-24 rounded-full object-cover dark:hidden"
+               src={avatarLightSrc} alt="Avatar administrador">
+          <img id="adminAvatarDark"  class="w-24 h-24 rounded-full object-cover hidden dark:inline"
+               src={avatarDarkSrc}  alt="Avatar administrador">
+        </div>
+
+        <div
+          id="adminAvatarDrop"
+          class="w-full max-w-md border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/40 hover:border-gray-300 dark:hover:border-gray-600 transition cursor-pointer"
+        >
+          <p class="font-medium text-gray-700 dark:text-gray-200">{adminSettings.avatar_drop_title}</p>
+          <p class="mt-1">{adminSettings.avatar_drop_subtitle}</p>
+          <input id="adminAvatarInput" type="file" accept="image/*" class="hidden" />
+        </div>
+
+        <div class="w-full">
+          <p class="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2 text-center">{adminSettings.avatar_presets_label}</p>
+          <div class="flex items-center justify-center gap-3 flex-wrap">
+            <button type="button" class="avatar-preset" data-avatar-preset="https://api.dicebear.com/7.x/adventurer/png?seed=human20&size=128">
+              <img class="w-14 h-14 rounded-full border border-gray-200 dark:border-gray-700" src="https://api.dicebear.com/7.x/adventurer/png?seed=human20&size=128" alt="Human avatar 1">
+            </button>
+            <button type="button" class="avatar-preset" data-avatar-preset="https://api.dicebear.com/7.x/adventurer/png?seed=human1&size=128">
+              <img class="w-14 h-14 rounded-full border border-gray-200 dark:border-gray-700" src="https://api.dicebear.com/7.x/adventurer/png?seed=human1&size=128" alt="Human avatar 1">
+            </button>
+            <button type="button" class="avatar-preset" data-avatar-preset="https://api.dicebear.com/7.x/adventurer/png?seed=human2&size=128">
+              <img class="w-14 h-14 rounded-full border border-gray-200 dark:border-gray-700" src="https://api.dicebear.com/7.x/adventurer/png?seed=human2&size=128" alt="Human avatar 2">
+            </button>
+            <button type="button" class="avatar-preset" data-avatar-preset="https://api.dicebear.com/7.x/adventurer/png?seed=human3&size=128">
+              <img class="w-14 h-14 rounded-full border border-gray-200 dark:border-gray-700" src="https://api.dicebear.com/7.x/adventurer/png?seed=human3&size=128" alt="Human avatar 3">
+            </button>
+            <button type="button" class="avatar-preset" data-avatar-preset="https://api.dicebear.com/7.x/adventurer/png?seed=human21&size=128">
+              <img class="w-14 h-14 rounded-full border border-gray-200 dark:border-gray-700" src="https://api.dicebear.com/7.x/adventurer/png?seed=human21&size=128" alt="Human avatar 4">
+            </button>
+            <button type="button" class="avatar-preset" data-avatar-preset="https://api.dicebear.com/7.x/adventurer/png?seed=human5&size=128">
+              <img class="w-14 h-14 rounded-full border border-gray-200 dark:border-gray-700" src="https://api.dicebear.com/7.x/adventurer/png?seed=human5&size=128" alt="Human avatar 5">
+            </button>
+            <button type="button" class="avatar-preset" data-avatar-preset="https://api.dicebear.com/7.x/adventurer/png?seed=human6&size=128">
+              <img class="w-14 h-14 rounded-full border border-gray-200 dark:border-gray-700" src="https://api.dicebear.com/7.x/adventurer/png?seed=human6&size=128" alt="Human avatar 6">
+            </button>
+            <button type="button" class="avatar-preset" data-avatar-preset="https://api.dicebear.com/7.x/adventurer/png?seed=human7&size=128">
+              <img class="w-14 h-14 rounded-full border border-gray-200 dark:border-gray-700" src="https://api.dicebear.com/7.x/adventurer/png?seed=human7&size=128" alt="Human avatar 7">
+            </button>
+            <button type="button" class="avatar-preset" data-avatar-preset="https://api.dicebear.com/7.x/adventurer/png?seed=human8&size=128">
+              <img class="w-14 h-14 rounded-full border border-gray-200 dark:border-gray-700" src="https://api.dicebear.com/7.x/adventurer/png?seed=human8&size=128" alt="Human avatar 8">
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <i data-lucide="user" class="w-4 h-4 inline mr-1.5"></i>
+            {adminSettings.full_name}
+          </label>
+          <input
+            id="adminNameInput"
+            type="text"
+            placeholder={adminSettings.placeholder_full_name}
+            class="w-full text-xs px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+            value={user?.full_name ?? ''}
+          />
+          <p id="adminNameError" class="hidden text-xs text-rose-600 dark:text-rose-400 mt-1"></p>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <i data-lucide="phone" class="w-4 h-4 inline mr-1.5"></i>
+            {adminSettings.contact_phone}
+          </label>
+          <input
+            id="adminPhoneInput"
+            type="tel"
+            placeholder="+56 9 1234 5678"
+            class="w-full text-xs px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+            value={user?.phone ?? ''}
+          />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <i data-lucide="mail" class="w-4 h-4 inline mr-1.5"></i>
+            {adminSettings.corporate_email}
+          </label>
+          <input
+            id="adminEmailInput"
+            type="email"
+            readonly
+            class="w-full text-xs px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+            value={user?.email ?? ''}
+          />
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+          <i data-lucide="map-pin" class="w-4 h-4 inline mr-1.5"></i>
+          {adminSettings.address_label}
+        </label>
+        <input
+          id="adminAddressInput"
+          type="text"
+          placeholder={adminSettings.address_placeholder}
+          class="w-full text-xs px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+          value={user?.address ?? ''}
+        />
+        <p id="adminAddressError" class="hidden text-xs text-rose-600 dark:text-rose-400 mt-1"></p>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <i data-lucide="map" class="w-4 h-4 inline mr-1.5"></i>
+            {adminSettings.city_label}
+          </label>
+          <input
+            id="adminCityInput"
+            type="text"
+            placeholder={adminSettings.city_placeholder}
+            class="w-full text-xs px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+            value={user?.city ?? ''}
+          />
+          <p id="adminCityError" class="hidden text-xs text-rose-600 dark:text-rose-400 mt-1"></p>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <i data-lucide="globe-2" class="w-4 h-4 inline mr-1.5"></i>
+            {adminSettings.country_label}
+          </label>
+          <input
+            id="adminCountryInput"
+            type="text"
+            placeholder={adminSettings.country_placeholder}
+            class="w-full text-xs px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+            value={user?.country ?? ''}
+          />
+          <p id="adminCountryError" class="hidden text-xs text-rose-600 dark:text-rose-400 mt-1"></p>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <button type="button" id="cancelAdminEdit"
+          class="text-xs px-4 py-2 bg-gray-300 dark:bg-gray-800 text-gray-700 dark:text-gray-100 rounded-md hover:bg-gray-400 dark:hover:bg-gray-700 transition font-medium">
+          {adminSettings.cancel}
+        </button>
+        <button type="submit" id="saveAdminChanges"
+          class="text-xs px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md font-medium transition flex items-center gap-2">
+          <i data-lucide="save" class="w-4 h-4"></i> {adminSettings.save_changes}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

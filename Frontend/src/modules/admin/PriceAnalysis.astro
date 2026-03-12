@@ -1,0 +1,136 @@
+---
+---
+
+<div class="px-4 pt-14 space-y-6">
+  <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Analisis de precios</h1>
+      <p class="text-sm text-gray-500 dark:text-gray-400">Historial de precios por producto, mercado y cliente.</p>
+    </div>
+    <div class="flex flex-wrap items-end gap-3">
+      <div>
+        <label for="price-product" class="block text-xs font-medium text-gray-500 dark:text-gray-400">Producto</label>
+        <select
+          id="price-product"
+          class="mt-1 w-56 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+        >
+          <option value="">Todos</option>
+        </select>
+      </div>
+      <div>
+        <label for="price-customer" class="block text-xs font-medium text-gray-500 dark:text-gray-400">Cliente</label>
+        <select
+          id="price-customer"
+          class="mt-1 w-56 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+        >
+          <option value="">Todos</option>
+        </select>
+      </div>
+      <div>
+        <label for="price-market" class="block text-xs font-medium text-gray-500 dark:text-gray-400">Mercado</label>
+        <select
+          id="price-market"
+          class="mt-1 w-40 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+        >
+          <option value="">Todos</option>
+        </select>
+      </div>
+      <div>
+        <label for="price-currency" class="block text-xs font-medium text-gray-500 dark:text-gray-400">Moneda</label>
+        <select
+          id="price-currency"
+          class="mt-1 w-28 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+        >
+          <option value="USD">USD</option>
+          <option value="EUR">EUR</option>
+          <option value="">Todas</option>
+        </select>
+      </div>
+      <div>
+        <label for="price-start-date" class="block text-xs font-medium text-gray-500 dark:text-gray-400">Desde</label>
+        <input
+          id="price-start-date"
+          type="date"
+          class="mt-1 w-40 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+        />
+      </div>
+      <div>
+        <label for="price-end-date" class="block text-xs font-medium text-gray-500 dark:text-gray-400">Hasta</label>
+        <input
+          id="price-end-date"
+          type="date"
+          class="mt-1 w-40 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+        />
+      </div>
+      <button
+        id="price-apply"
+        class="h-10 rounded-lg bg-blue-600 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
+      >
+        Aplicar
+      </button>
+    </div>
+  </div>
+
+  <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Precio minimo</p>
+      <p id="price-min" class="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">-</p>
+    </div>
+    <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Precio maximo</p>
+      <p id="price-max" class="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">-</p>
+    </div>
+    <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Precio promedio</p>
+      <p id="price-avg" class="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">-</p>
+    </div>
+    <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Kg total</p>
+      <p id="price-kg" class="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">-</p>
+    </div>
+  </div>
+
+  <div class="grid gap-4 lg:grid-cols-3">
+    <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 lg:col-span-2">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Detalle de precios</h2>
+          <p id="price-count" class="text-xs text-gray-500 dark:text-gray-400">0 registros</p>
+        </div>
+        <div class="text-right">
+          <p class="text-xs text-gray-500 dark:text-gray-400">Ventas</p>
+          <p id="price-sales" class="text-sm font-semibold text-gray-900 dark:text-white">-</p>
+          <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">Ordenes</p>
+          <p id="price-orders" class="text-sm font-semibold text-gray-900 dark:text-white">-</p>
+        </div>
+      </div>
+      <div class="mt-4 overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+          <thead class="bg-gray-50 dark:bg-gray-700">
+            <tr>
+              <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">Fecha</th>
+              <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">Producto</th>
+              <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">Mercado</th>
+              <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">Cliente</th>
+              <th class="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">Precio</th>
+              <th class="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">Kg</th>
+            </tr>
+          </thead>
+          <tbody id="price-rows" class="divide-y divide-gray-200 bg-white dark:divide-gray-700 dark:bg-gray-800"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Notas rapidas</h3>
+      <div class="mt-4 space-y-3 text-sm text-gray-600 dark:text-gray-300">
+        <p>Filtra por producto, mercado y cliente para comparar precios historicos.</p>
+        <p>Las filas corresponden a items facturados.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  import './PriceAnalysis.client.ts';
+</script>

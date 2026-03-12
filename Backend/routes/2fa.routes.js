@@ -1,38 +1,62 @@
-// src/routes/2fa.routes.js
 const express = require('express');
 const router = express.Router();
-const { generate2FA, verify2FA } = require('../controllers/auth2fa.controller');
-const { authenticate } = require('../middleware/auth.middleware');
-
-router.get('/generate', authenticate, generate2FA);
-router.post('/verify', authenticate, verify2FA);
-
-module.exports = router;
-
-// src/controllers/auth2fa.controller.js
 const speakeasy = require('speakeasy');
 const qrcode = require('qrcode');
+const pool = require('../config/db').pool;
+const { logger } = require('../utils/logger');
 
+// ✅ Generar secreto, guardar en DB y devolver QR
 exports.generate2FA = async (req, res) => {
-  const secret = speakeasy.generateSecret({ name: 'Gelymar Panel' });
-  req.user.tempSecret = secret;
+  const userId = req.user.id;
+  const secret = speakeasy.generateSecret({ name: `Gelymar (${req.user.rut || req.user.email})` });
 
-  qrcode.toDataURL(secret.otpauth_url, (err, data_url) => {
-    if (err) return res.status(500).json({ message: 'Error generating QR' });
-    res.json({ qrCode: data_url, secret: secret.base32 });
-  });
+  try {
+    await pool.query(
+      `UPDATE users SET twoFASecret = ? WHERE id = ?`,
+      [secret.base32, userId]
+    );
+
+    qrcode.toDataURL(secret.otpauth_url, (err, data_url) => {
+      if (err) return res.status(500).json({ message: 'Error generando QR' });
+      res.json({ qrCode: data_url, secret: secret.base32 });
+    });
+
+  } catch (error) {
+    logger.error('[2FA] Error al guardar secreto 2FA:', {
+      message: error.message,
+      stack: error.stack,
+      userId
+    });
+    res.status(500).json({ message: 'Error al guardar 2FA' });
+  }
 };
 
-exports.verify2FA = (req, res) => {
+// ✅ Verificar código y marcar 2FA como activado
+exports.verify2FA = async (req, res) => {
+  const userId = req.user.id;
   const { token } = req.body;
+  const secret = req.user.twoFASecret;
+
   const verified = speakeasy.totp.verify({
-    secret: req.user.tempSecret.base32,
+    secret,
     encoding: 'base32',
     token,
   });
 
   if (!verified) return res.status(400).json({ message: 'Token inválido' });
 
-  req.user.verified2FA = true;
-  res.json({ message: '2FA verificado con éxito' });
+  try {
+    await pool.query(
+      'UPDATE users SET twoFAEnabled = ? WHERE id = ?',
+      [true, userId]
+    );
+    res.json({ message: '✅ 2FA verificado y activado con éxito' });
+  } catch (err) {
+    logger.error('[2FA] Error activando 2FA:', {
+      message: err.message,
+      stack: err.stack,
+      userId
+    });
+    res.status(500).json({ message: 'Error al activar 2FA' });
+  }
 };

@@ -1,61 +1,129 @@
 ---
 import pkg from '../../package.json' assert { type: 'json' };
 import { url } from '../lib/data.js';
-
 import { SITE_TITLE } from './constants.js';
+import AuthGuard from '../components/AuthGuard.astro';
+import { buildConnectSrc, SCRIPT_SRC_DIRECTIVES } from './security.js';
 
-const { class: clazz } = Astro.props;
+const { class: clazz, authRole = undefined } = Astro.props;
+const isSidebarCollapsed = Astro.cookies?.get('sidebarCollapsed')?.value === '1';
+
+// Construir CSP dinámica para connect-src según entornos
+const apiPublic = import.meta.env.PUBLIC_API_URL || '';
+const frontendPublic = import.meta.env.PUBLIC_FRONTEND_BASE_URL || '';
+const fileServerPublic = import.meta.env.PUBLIC_FILE_SERVER_URL || '';
+const fileServerAlt = import.meta.env.PUBLIC_FILE_SERVER || '';
+const connectSrc = buildConnectSrc(apiPublic, frontendPublic);
+const scriptSrc = SCRIPT_SRC_DIRECTIVES.join(' ');
+const imgSrcExtra = [fileServerPublic, fileServerAlt, apiPublic, 'https://api.dicebear.com'].filter(Boolean).join(' ');
 ---
 
 <!DOCTYPE html>
-<html lang="en">
-	<head>
-		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>{SITE_TITLE} — v{pkg.version}</title>
-		<link rel="icon" type="image/svg+xml" href="/gelymar.svg" />
+<html lang="en" class:list={[isSidebarCollapsed && 'sidebar-collapsed']}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{SITE_TITLE}</title>
+    <link rel="icon" type="image/svg+xml" href="/gelymar.svg" />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="description" content={pkg.description} />
+    <meta name="author" content="Sebastián Allende - Pablo Santibañez | Softkey" />
+    <meta name="copyright" content="MIT" />
+    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <link rel="sitemap" type="application/xml" href={url('sitemap-index.xml')} />
 
-		<meta name="generator" content={Astro.generator} />
-		<meta name="description" content={pkg.description} />
-		<meta name="" content={pkg.description} />
-		<link
-			rel="sitemap"
-			type="application/xml"
-			href={url('sitemap-index.xml')}
-		/>
+    <!-- Security Headers -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block" />
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin" />
+    <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=()" />
+    
+    <!-- Content Security Policy (connect-src dinámico para Socket.io/API) -->
+    <meta http-equiv="Content-Security-Policy" content={`
+      default-src 'self';
+      script-src ${scriptSrc};
+      style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net;
+      font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net;
+      img-src 'self' data: https: blob:${imgSrcExtra ? ` ${imgSrcExtra}` : ''};
+      connect-src ${connectSrc} https://www.google.com/recaptcha/;
+      frame-src 'self' data: blob: https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/;
+      object-src 'none';
+      base-uri 'self';
+      form-action 'self';
+    `} />
 
-		<meta
-			name="author"
-			content="Sebastián Allende - Pablo Santibáñez | Softkey"
-		/>
-		<meta name="copyright" content="MIT" /> <!-- Buscar para coolocar para softkey -->
+    <!-- Socket.io -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script is:inline>
+      (function() {
+        try {
+          const storedTheme = localStorage.getItem('color-theme');
+          const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          const shouldUseDark = storedTheme === 'dark' || (!storedTheme && prefersDark);
+          document.documentElement.classList.toggle('dark', shouldUseDark);
+        } catch (_) {
+          // ignore access issues (e.g., localStorage disabled)
+        }
+      })();
+    </script>
+    <script
+      type="module"
+      define:vars={{
+        API_BASE: import.meta.env.PUBLIC_API_URL,
+        FRONTEND_BASE: import.meta.env.PUBLIC_FRONTEND_BASE_URL
+      }}
+    >
+      import { initLayoutCommon } from '/js/layout-common.js';
 
-		<script is:inline>
-			if (
-				localStorage.getItem('color-theme') === 'dark' ||
-				(!('color-theme' in localStorage) &&
-					window.matchMedia('(prefers-color-scheme: dark)').matches)
-			) {
-				document.documentElement.classList.add('dark');
-			} else {
-				document.documentElement.classList.remove('dark');
-			}
-		</script>
-	</head>
-	<body
-		class:list={[
-			//
-			clazz,
-			'bg-gray-50 dark:bg-gray-800',
-			'scrollbar scrollbar-w-3 scrollbar-thumb-rounded-[0.25rem]',
-			'scrollbar-track-slate-200  scrollbar-thumb-gray-400',
-			'dark:scrollbar-track-gray-900 dark:scrollbar-thumb-gray-700',
-		]}
-	>
-		<slot />
-	</body>
+      initLayoutCommon({
+        apiBase: API_BASE || '',
+        frontendBase: FRONTEND_BASE || '',
+      });
+    </script>
+
+    <style>
+      html.sidebar-collapsed #sidebar [data-sidebar-text],
+      html.sidebar-collapsed #sidebar [data-sidebar-user] {
+        display: none !important;
+      }
+      html.sidebar-collapsed #sidebar #currentSettingsBtn span,
+      html.sidebar-collapsed #sidebar #currentLangText {
+        display: none !important;
+      }
+    </style>
+
+  </head>
+
+  <body
+    class:list={[
+      clazz,
+      'bg-gray-50 dark:bg-gray-800',
+      'scrollbar scrollbar-w-3 scrollbar-thumb-rounded-[0.25rem]',
+      'scrollbar-track-slate-200 scrollbar-thumb-gray-400',
+      'dark:scrollbar-track-gray-900 dark:scrollbar-thumb-gray-700',
+    ]}
+  >
+    <AuthGuard role={authRole} />
+    <slot />
+
+    <!-- MODAL DE SESIÓN -->
+    <div id="tokenWarningModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden justify-center items-center">
+      <div class="bg-white dark:bg-gray-800 p-6 rounded-xl max-w-md w-full mx-4 shadow-xl">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Sesión por expirar</h2>
+        <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">Tu sesión expirará pronto. ¿Deseas extenderla?</p>
+        <div class="flex justify-end gap-2">
+          <button id="logoutNow" class="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700">Cerrar sesión</button>
+          <button id="extendSession" class="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700">Mantener sesión</button>
+        </div>
+      </div>
+    </div>
+
+  </body>
 </html>
 
 <style is:global>
-	@import url('https://fonts.cdnfonts.com/css/inter');
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap');
 </style>

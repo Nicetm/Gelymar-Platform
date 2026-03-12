@@ -7,7 +7,7 @@ Plataforma de gestión integral para Gelymar con arquitectura de microservicios 
 La plataforma está dividida en 6 capas principales:
 
 1. **Frontend** (Astro) - Puerto 2121
-2. **Backend** (Node.js API) - Puerto 3000
+2. **Backend** (Node.js API) - Puerto 3000  
 3. **File Server** (Apache + FTP) - Puerto 8080
 4. **Database** (MySQL + phpMyAdmin) - Puerto 3306/8081
 5. **Cron Jobs** (PM2) - Puerto 9615
@@ -253,7 +253,7 @@ docker exec gelymar-platform-cron pm2 restart gelymar-client-fetcher
 1. **Limpieza de BD** - Limpia base de datos y directorios
 2. **Check Clients** - Procesa clientes desde red compartida
 3. **Check Client Access** - Crea usuarios de acceso para clientes
-4. **Check Items** - Procesa productos
+4. **Check Items** - Procesa productos 
 5. **Check Orders** - Procesa órdenes
 6. **Check Order Lines** - Procesa líneas de orden
 7. **Check Default Files** - Genera documentos PDF por defecto
@@ -398,7 +398,7 @@ docker-compose --env-file .env.local up -d frontend
 docker-compose --env-file .env.local build --no-cache frontend
 docker-compose --env-file .env.local up -d frontend
 ```
-**Usar cuando:**
+**Usar cuando:** 
 - Cambios en `Dockerfile`
 - Cambios en código fuente
 - Cambios en dependencias (`package.json`)

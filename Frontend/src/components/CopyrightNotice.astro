@@ -1,7 +1,14 @@
+---
+import { getServerLang, loadTranslations } from '@lib/i18n.js';
+
+const lang = getServerLang(Astro.cookies);
+  const t: any = await loadTranslations(lang, 'footer');
+const year = new Date().getFullYear();
+---
 <p class="my-10 text-sm text-center text-gray-500 dark:text-gray-400">
-  &copy; 1991–{new Date().getFullYear()} <a href="https://gelymar.com" target="_blank" class="hover:underline text-[#00538C] dark:text-[#F6B234] font-semibold">Gelymar SA</a>. All rights reserved.
+  <span set:html={t.copyright?.replace('{year}', year)}></span>
   <br />
   <span class="text-xs">
-    Built with <span class="text-red-500">❤️</span> by the <a href="https://softkey.cl" target="_blank" class="hover:underline text-[#00538C] dark:text-[#F6B234] font-semibold">Softkey</a> team
+    <span set:html={t.built_by} />
   </span>
 </p>

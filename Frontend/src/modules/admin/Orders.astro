@@ -1,0 +1,327 @@
+---
+import { loadTranslations, getServerLang } from '@lib/i18n.js';
+import ModalItems from '../../components/modals/orders/ModalItems.astro';
+import ModalOrderDetail from '../../components/modals/orders/ModalOrderDetail.astro';
+
+// Para el código del servidor (SSR), usar SERVER_API_URL
+// Para el código del cliente, usar PUBLIC_API_URL
+const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
+const apiPublic = import.meta.env.PUBLIC_API_URL;
+const { basePath = '/admin' } = Astro.props;
+const homeHref = basePath;
+const clientsPath = `${basePath}/clients`;
+const documentsViewPath = `${clientsPath}/documents/view`;
+const lang = getServerLang(Astro.cookies);
+
+// Cargar traducciones de manera estática
+let t: any = {};
+try {
+  t = {
+    documentos: await loadTranslations(lang, 'documentos'),
+    carpetas: await loadTranslations(lang, 'carpetas'),
+    orders: await loadTranslations(lang, 'orders'),
+    clientes: await loadTranslations(lang, 'clientes'),
+    comond: await loadTranslations(lang, 'comond'),
+  };
+} catch (error) {
+  console.warn('Error cargando traducciones:', error);
+  t = {};
+}
+---
+
+<section
+  id="OrderSection"
+  class="px-4 pt-20 pb-6 sm:px-6 lg:px-8"
+  data-base-path={basePath}
+  data-clients-path={clientsPath}
+  data-documents-path={documentsViewPath}
+  data-api-base={apiBase}
+>
+  <!-- Encabezado y breadcrumb -->
+  <header class="flex flex-col gap-4 border-b border-gray-200 dark:border-gray-700 pb-4">
+    <nav class="text-sm text-gray-500 dark:text-gray-400" aria-label="Breadcrumb">
+      <ol class="inline-flex items-center space-x-1 md:space-x-2">
+        <li class="inline-flex items-center">
+          <a href={homeHref} class="inline-flex items-center gap-1 hover:text-primary-600 dark:hover:text-white">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
+            </svg>
+            <span>{t.comond.home}</span>
+          </a>
+        </li>
+        <li class="flex items-center text-gray-400 dark:text-gray-300 font-medium" aria-current="page">
+          <span class="mx-1">/ {t.comond.search} {t.orders.orders}
+        </li>
+		</ol>
+    </nav>
+
+    <!-- Título -->
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <h1 id="titleFile" class="text-3xl font-bold text-gray-900 dark:text-white">{t.comond.search} {t.orders.orders}</h1>
+	</div>
+
+	<!-- Búsqueda y filtros -->
+	<div class="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+		<div class="flex flex-col sm:flex-row gap-3 items-center">
+			<div class="relative w-full sm:max-w-xs">
+				<label for="searchInput" class="sr-only">{t.comond.search}</label>
+				<div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+					<svg class="w-5 h-5 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M10 18a8 8 0 100-16 8 8 0 000 16z"/>
+					</svg>
+				</div>
+				<input id="searchInput" type="text" placeholder={t.comond.search} class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-primary-500" />
+			</div>
+
+		</div>
+
+		<!-- Botones de exportar y refresh -->
+		<div class="flex items-center gap-2">
+			<button id="exportExcelBtn" class="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800">
+				<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+				</svg>
+				{t.comond.exportToExcel}
+			</button>
+		</div>
+	</div>
+  </header>
+
+	<!-- Tabla de órdenes -->
+	<div class="mt-6 rounded-xl shadow ring-1 ring-gray-200 dark:ring-gray-700">
+		<div class="relative" data-scroll-sync="orders-table">
+			<div class="sticky top-0 z-30 bg-gray-100 dark:bg-gray-800 hidden" data-scroll-header>
+				<div class="overflow-x-auto scrollbar-hidden" data-scroll-header-track>
+					<table class="admin-orders min-w-full divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900" style="width: max-content;"></table>
+				</div>
+			</div>
+			<div class="overflow-x-auto scrollbar-hidden" style="border-radius: 10px;" data-scroll-body>
+				<table class="admin-orders orders-view min-w-full divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900" style="width: max-content;">
+					<thead class="bg-gray-100 dark:bg-gray-800 sticky top-0">
+						<tr>
+							<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="pc">
+								<div class="flex items-center justify-between">
+									<span>{t.orders.name}</span>
+									<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+									</svg>
+								</div>
+							</th>
+							<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="oc">
+								<div class="flex items-center justify-between">
+									<span>{t.orders.oc}</span>
+									<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+									</svg>
+								</div>
+							</th>
+							<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="customer_name">
+								<div class="flex items-center justify-between">
+									<span>{t.clientes.client_name}</span>
+									<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+									</svg>
+								</div>
+							</th>
+							<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="fecha">
+								<div class="flex items-center justify-between">
+									<span>{t.orders.fechaIngreso}</span>
+									<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+									</svg>
+								</div>
+							</th>
+							<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="medio_envio_factura">
+								<div class="flex items-center justify-between">
+									<span>{t.orders.shippingMethod}</span>
+									<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+									</svg>
+								</div>
+							</th>
+							<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="factura">
+								<div class="flex items-center justify-between">
+									<span>{t.orders.factura}</span>
+									<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+									</svg>
+								</div>
+							</th>
+							<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="fecha_factura">
+								<div class="flex items-center justify-between">
+									<span>{t.orders.fechaFactura}</span>
+									<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+									</svg>
+								</div>
+							</th>
+							<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="fecha_etd">
+								<div class="flex items-center justify-between">
+									<span>{t.orders.etdOv}</span>
+									<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+									</svg>
+								</div>
+							</th>
+							<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="fecha_eta">
+								<div class="flex items-center justify-between">
+									<span>{t.orders.etaOv}</span>
+									<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+									</svg>
+								</div>
+							</th>
+							<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="fecha_etd_factura">
+								<div class="flex items-center justify-between">
+									<span>{t.orders.etdFactura}</span>
+									<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+									</svg>
+								</div>
+							</th>
+							<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="fecha_eta_factura">
+								<div class="flex items-center justify-between">
+									<span>{t.orders.etaFactura}</span>
+									<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+									</svg>
+								</div>
+							</th>
+							<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="incoterm">
+								<div class="flex items-center justify-between">
+									<span>{t.orders.incoterm}</span>
+									<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+									</svg>
+								</div>
+							</th>
+							<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="puerto_destino">
+								<div class="flex items-center justify-between">
+									<span>{t.orders.puertoDestino}</span>
+									<svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+									</svg>
+								</div>
+							</th>
+							<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800">
+								<span>{t.orders.documents}</span>
+							</th>
+							<th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 sticky right-0 z-20 min-w-[120px]">{t.comond.actions}</th>
+						</tr>
+					</thead>
+					<tbody id="ordersTableBody" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-xs min-h-[600px]">
+						<!-- Los datos se cargarán dinámicamente con JavaScript -->
+						<tr id="loadingRow" class="bg-white dark:bg-gray-900">
+							<td colspan="11" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+								<div class="flex items-center justify-center">
+									<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+										<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+										<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+									</svg>
+									{t.orders.loading}
+								</div>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			<div class="sticky bottom-0 z-40 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm hidden" data-scrollbar>
+				<div class="overflow-x-auto" data-scrollbar-track>
+					<div class="h-1" data-scrollbar-inner></div>
+				</div>
+			</div>
+		</div>
+	</div>
+	<style>
+		.scrollbar-hidden {
+			scrollbar-width: none;
+		}
+		.scrollbar-hidden::-webkit-scrollbar {
+			height: 0;
+		}
+		.sticky-scrollbar-floating {
+			position: fixed;
+			bottom: 0;
+		}
+		.sticky-scroll-header-floating {
+			position: fixed;
+			top: 64px;
+		}
+	</style>
+
+	<!-- Paginación -->
+	<div class="mt-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-6 text-sm">
+		<div class="flex items-center gap-3">
+			<label for="itemsPerPageSelect" class="text-sm font-medium text-gray-700 dark:text-gray-300">{t.orders.perPage}</label>
+			<div class="relative">
+				<select id="itemsPerPageSelect" class="block w-20 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-sm text-gray-900 dark:text-gray-100 rounded-md pl-3 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+					<option value="10">10</option>
+					<option value="20">20</option>
+					<option value="30">30</option>
+				</select>
+			</div>
+		</div>
+
+		<div class="flex items-center gap-3">
+			<button id="prevPageBtn" aria-label="Previous page" class="text-xs w-9 h-9 flex items-center justify-center bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-100 rounded-md transition">
+				<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+				</svg>
+			</button>
+			<span id="pageIndicator" class="min-w-[120px] text-center px-4 py-1 rounded-lg bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100 text-sm font-medium shadow-sm flex items-center justify-center"></span>
+			<button id="nextPageBtn" aria-label="Next page" class="text-xs w-9 h-9 flex items-center justify-center bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-100 rounded-md transition">
+				<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+				</svg>
+			</button>
+		</div>
+	</div>
+
+	<ModalItems orders={t.orders ?? {}} />
+	<ModalOrderDetail orders={t.orders ?? {}} />
+
+	<div id="itemsDetailModal" class="fixed inset-0 bg-black bg-opacity-50 dark:bg-black/80 hidden justify-center items-center z-50">
+		<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 w-full max-w-6xl mx-4 relative max-h-[90vh] overflow-y-auto shadow-2xl">
+			<button id="closeItemsDetailModalBtn" class="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition dark:text-gray-300 dark:hover:text-red-400">
+				<svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+				</svg>
+			</button>
+
+			<div class="flex items-center gap-4 mb-6">
+				<div class="w-16 h-16 bg-gradient-to-br from-teal-500 to-emerald-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+					<span id="itemsDetailInitials">IT</span>
+				</div>
+				<div>
+					<h2 id="itemsDetailTitle" class="text-xl font-bold text-gray-900 dark:text-gray-100"></h2>
+					<p id="itemsDetailCustomerName" class="text-sm text-gray-600 dark:text-gray-400"></p>
+					<p id="itemsDetailSubtitle" class="text-sm text-gray-600 dark:text-gray-400">{t.orders.itemsList}</p>
+				</div>
+			</div>
+
+			<div id="itemsDetailTableContainer" class="overflow-auto rounded-xl shadow ring-1 ring-gray-200 dark:ring-gray-700"></div>
+		</div>
+	</div>
+
+	<div id="notification" class="hidden fixed top-5 right-5 px-6 py-4 rounded-lg shadow-lg z-50 text-white text-base font-semibold transition-all duration-300 ease-in-out"></div>
+</section>
+
+<script type="module" define:vars={{ apiBase, apiPublic, lang, t }}>
+  import { initOrdersScript } from '/js/orders.js';
+  
+  // Hacer las variables disponibles globalmente
+  window.apiBase = apiPublic;
+  window.lang = lang;
+  window.translations = { ...(window.translations || {}), ...t };
+
+  // Inicializar el script cuando el DOM esté completamente cargado
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', async () => {
+      await initOrdersScript();
+    });
+  } else {
+    // Si el DOM ya está cargado, ejecutar inmediatamente
+    await initOrdersScript();
+  }
+
+</script>

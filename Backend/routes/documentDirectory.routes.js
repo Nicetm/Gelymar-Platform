@@ -1,42 +1,37 @@
 const express = require('express');
 const router = express.Router();
-const controller = require('../controllers/documentDirectory.controller');
+const controller = require('../controllers/directory.controller');
 const authMiddleware = require('../middleware/auth.middleware');
 const { authorizeRoles } = require('../middleware/role.middleware');
 
 /**
  * @swagger
- * /api/directories/create-client:
- *   post:
- *     summary: Crear carpeta principal del cliente
+ * /api/directories/{customerRut}:
+ *   get:
+ *     summary: Lista los directorios de un cliente
  *     tags: [Directorios]
  *     security:
  *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - clientName
- *             properties:
- *               clientName:
- *                 type: string
- *                 example: Cliente Nuevo SPA
+ *     parameters:
+ *       - in: path
+ *         name: customerRut
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: RUT del cliente
  *     responses:
- *       201:
- *         description: Carpeta creada
+ *       200:
+ *         description: Directorios listados correctamente
  *       400:
- *         description: Nombre requerido
- *       409:
- *         description: Ya existe
+ *         description: ID inválido
+ *       404:
+ *         description: Cliente no encontrado
  */
-router.post('/create-client', authMiddleware, authorizeRoles(['admin']), controller.createClientDirectory);
+router.get('/:customerRut', authMiddleware, authorizeRoles(['admin', 'seller', 'client']), controller.getClientDirectories);
 
 /**
  * @swagger
- * /api/directories/create-sub:
+ * /api/directories/create/sub:
  *   post:
  *     summary: Crear subcarpeta dentro del directorio de cliente
  *     tags: [Directorios]
@@ -68,11 +63,11 @@ router.post('/create-client', authMiddleware, authorizeRoles(['admin']), control
  *       409:
  *         description: Subcarpeta ya existe
  */
-router.post('/create-sub', authMiddleware, authorizeRoles(['admin']), controller.createSubDirectory);
+router.post('/create/sub', authMiddleware, authorizeRoles(['admin']), controller.createSubDirectory);
 
 /**
  * @swagger
- * /api/directories/delete-sub:
+ * /api/directories/delete/sub:
  *   delete:
  *     summary: Eliminar subcarpeta vacía de un cliente
  *     tags: [Directorios]
@@ -102,7 +97,8 @@ router.post('/create-sub', authMiddleware, authorizeRoles(['admin']), controller
  *       404:
  *         description: Subcarpeta no encontrada
  */
+router.delete('/delete/sub', authMiddleware, authorizeRoles(['admin']), controller.deleteSubDirectory);
 
-router.delete('/delete-sub', authMiddleware, authorizeRoles(['admin']), controller.deleteSubDirectory);
+router.get('/count/:customer_id', authMiddleware, authorizeRoles(['admin', 'seller', 'client']), controller.getCountDirectoryByCustomerID);
 
 module.exports = router;

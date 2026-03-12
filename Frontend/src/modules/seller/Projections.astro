@@ -1,0 +1,237 @@
+---
+import { loadTranslations, getServerLang } from '@lib/i18n.js';
+import { getApiBase } from '@app/constants.js';
+
+const apiBase = getApiBase();
+const lang = getServerLang(Astro.cookies);
+
+let t: any = {};
+try {
+  t = {
+    projections: await loadTranslations(lang, 'projections'),
+    comond: await loadTranslations(lang, 'comond'),
+  };
+} catch (error) {
+  console.warn('Error cargando traducciones (projections):', error);
+  t = { projections: {}, comond: {} };
+}
+---
+
+<section class="px-4 pt-20 pb-6 sm:px-6 lg:px-8" id="sellerProjectionsSection" data-api-base={apiBase}>
+  <header class="flex flex-col gap-4 border-b border-gray-200 dark:border-gray-700 pb-4">
+    <nav class="text-sm text-gray-500 dark:text-gray-400" aria-label="Breadcrumb">
+      <ol class="inline-flex items-center space-x-1 md:space-x-2">
+        <li class="inline-flex items-center">
+          <a href="/seller" class="inline-flex items-center gap-1 hover:text-primary-600 dark:hover:text-white">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
+            </svg>
+            <span>{t.comond.home}</span>
+          </a>
+        </li>
+        <li aria-current="page" class="flex items-center text-gray-400 dark:text-gray-300 font-medium">
+          <span class="mx-1">/</span>{t.projections.title}
+        </li>
+      </ol>
+    </nav>
+
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{t.projections.heading}</h1>
+    </div>
+  </header>
+
+  <div class="mt-6 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm p-6 space-y-6">
+    <div class="flex items-center justify-between gap-4">
+      <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t.projections.filters}</h2>
+    </div>
+
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div class="space-y-1">
+        <label class="text-xs font-semibold text-gray-600 dark:text-gray-300 inline-flex items-center gap-1">
+          {t.projections.client}
+        </label>
+        <select id="projectionClient" class="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-xs px-3 py-2">
+          <option value="">{t.projections.client}</option>
+        </select>
+      </div>
+      <div class="space-y-1">
+        <label class="text-xs font-semibold text-gray-600 dark:text-gray-300 inline-flex items-center gap-1">
+          {t.projections.product}
+        </label>
+        <select id="projectionProduct" class="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-xs px-3 py-2">
+          <option value="">{t.projections.product}</option>
+        </select>
+      </div>
+      <div class="space-y-1">
+        <label class="text-xs font-semibold text-gray-600 dark:text-gray-300 inline-flex items-center gap-2">
+          {t.projections.startDate}
+          <span class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-[11px] cursor-pointer"
+                data-help={t.projections.helpDateRange} data-help-title={t.projections.startDate}>?</span>
+        </label>
+        <input id="projectionStart" type="date" class="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-xs px-3 py-2" />
+      </div>
+      <div class="space-y-1">
+        <label class="text-xs font-semibold text-gray-600 dark:text-gray-300 inline-flex items-center gap-2">
+          {t.projections.endDate}
+          <span class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-[11px] cursor-pointer"
+                data-help={t.projections.helpDateRange} data-help-title={t.projections.endDate}>?</span>
+        </label>
+        <input id="projectionEnd" type="date" class="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-xs px-3 py-2" />
+      </div>
+      <div class="space-y-1">
+        <label class="text-xs font-semibold text-gray-600 dark:text-gray-300 inline-flex items-center gap-1">
+          {t.projections.period}
+          <span class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-[11px] cursor-pointer"
+                data-help={t.projections.helpPeriod} data-help-title={t.projections.period}>?</span>
+        </label>
+        <select id="projectionPeriod" class="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-xs px-3 py-2">
+          <option value="monthly">{t.projections.periodMonthly}</option>
+          <option value="quarterly">{t.projections.periodQuarterly}</option>
+          <option value="annual">{t.projections.periodAnnual}</option>
+          <option value="ytd">{t.projections.periodYtd}</option>
+          <option value="rolling12m">{t.projections.periodRolling12m}</option>
+        </select>
+      </div>
+      <div class="space-y-1">
+        <label class="text-xs font-semibold text-gray-600 dark:text-gray-300 inline-flex items-center gap-1">
+          {t.projections.metric}
+          <span class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-[11px] cursor-pointer"
+                data-help={t.projections.helpMetric} data-help-title={t.projections.metric}>?</span>
+        </label>
+        <select id="projectionMetric" class="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-xs px-3 py-2">
+          <option value="kg">{t.projections.metricKg}</option>
+          <option value="amount">{t.projections.metricAmount}</option>
+        </select>
+      </div>
+      <div class="space-y-1">
+        <label class="text-xs font-semibold text-gray-600 dark:text-gray-300">{t.projections.currency}</label>
+        <select id="projectionCurrency" class="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-xs px-3 py-2">
+          <option value="">{t.projections.currency}</option>
+        </select>
+      </div>
+      <div class="space-y-1">
+        <label class="text-xs font-semibold text-gray-600 dark:text-gray-300 inline-flex items-center gap-1">
+          {t.projections.growthPercent}
+          <span class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-[11px] cursor-pointer"
+                data-help={t.projections.helpGrowthPercent} data-help-title={t.projections.growthPercent}>?</span>
+        </label>
+        <input id="projectionGrowth" type="number" min="0" step="0.1" value="0" class="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-xs px-3 py-2" />
+      </div>
+      <div class="space-y-1">
+        <label class="text-xs font-semibold text-gray-600 dark:text-gray-300 inline-flex items-center gap-1">
+          {t.projections.baseYear}
+          <span class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-[11px] cursor-pointer"
+                data-help={t.projections.helpBaseYear} data-help-title={t.projections.baseYear}>?</span>
+        </label>
+        <select id="projectionBaseYear" class="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-xs px-3 py-2"></select>
+      </div>
+      <div class="space-y-1">
+        <label class="text-xs font-semibold text-gray-600 dark:text-gray-300 inline-flex items-center gap-1">
+          {t.projections.compareMode}
+          <span class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-[11px] cursor-pointer"
+                data-help={t.projections.helpCompareMode} data-help-title={t.projections.compareMode}>?</span>
+        </label>
+        <select id="projectionCompareMode" class="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-xs px-3 py-2">
+          <option value="LY">{t.projections.compareLy}</option>
+          <option value="AVG_3Y">{t.projections.compareAvg3y}</option>
+          <option value="LAST_FULL_YEAR">{t.projections.compareLastFullYear}</option>
+        </select>
+      </div>
+      <div class="space-y-1">
+        <label class="text-xs font-semibold text-gray-600 dark:text-gray-300 inline-flex items-center gap-1">
+          {t.projections.cutoffMode}
+          <span class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-[11px] cursor-pointer"
+                data-help={t.projections.helpCutoffMode} data-help-title={t.projections.cutoffMode}>?</span>
+        </label>
+        <select id="projectionCutoffMode" class="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-xs px-3 py-2">
+          <option value="YTD_SAME_CUTOFF">{t.projections.cutoffYtd}</option>
+          <option value="FULL_YEAR">{t.projections.cutoffFullYear}</option>
+          <option value="ROLLING_12M">{t.projections.cutoffRolling12m}</option>
+        </select>
+      </div>
+      <div class="space-y-1">
+        <label class="text-xs font-semibold text-gray-600 dark:text-gray-300 inline-flex items-center gap-1">
+          {t.projections.forecastType}
+          <span class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-[11px] cursor-pointer"
+                data-help={t.projections.helpForecastType} data-help-title={t.projections.forecastType}>?</span>
+        </label>
+        <select id="projectionForecastType" class="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-xs px-3 py-2">
+          <option value="RUN_RATE">{t.projections.forecastRunRate}</option>
+          <option value="HISTORICAL_AVG">{t.projections.forecastHistorical}</option>
+          <option value="LAST_YEAR_TOTAL">{t.projections.forecastLastYear}</option>
+          <option value="MANUAL_TARGET">{t.projections.forecastManual}</option>
+        </select>
+      </div>
+      <div class="flex items-end">
+        <button id="projectionApply" class="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-semibold shadow-sm bg-blue-600 hover:bg-blue-700 text-white transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+          {t.projections.apply}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-5">
+    <div class="col-span-1 lg:col-span-3 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm p-4">
+      <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">{t.projections.chartTitle}</h3>
+      <div id="projectionChart" class="min-h-[320px]"></div>
+    </div>
+    <div class="col-span-1 lg:col-span-2 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm p-4 space-y-3">
+      <div class="text-xs text-gray-500 dark:text-gray-400 uppercase">
+        <span id="summaryCurrentLabel">{t.projections.summaryCurrent}</span>
+      </div>
+      <div id="summaryCurrent" class="text-2xl font-bold text-gray-900 dark:text-white">-</div>
+      <div class="text-xs text-gray-500 dark:text-gray-400 uppercase">
+        <span id="summaryLastYearLabel">{t.projections.summaryLastYear}</span>
+      </div>
+      <div id="summaryLastYear" class="text-2xl font-bold text-gray-900 dark:text-white">-</div>
+      <div class="text-xs text-gray-500 dark:text-gray-400 uppercase">
+        <span id="summaryYtdCurrentLabel">{t.projections.summaryYtdCurrent}</span>
+      </div>
+      <div id="summaryYtdCurrent" class="text-2xl font-bold text-gray-900 dark:text-white">-</div>
+      <div class="text-xs text-gray-500 dark:text-gray-400 uppercase">
+        <span id="summaryYtdLastYearLabel">{t.projections.summaryYtdLastYear}</span>
+      </div>
+      <div id="summaryYtdLastYear" class="text-2xl font-bold text-gray-900 dark:text-white">-</div>
+      <div class="text-xs text-gray-500 dark:text-gray-400 uppercase">
+        <span id="summaryProjectionLabel">{t.projections.summaryProjection}</span>
+      </div>
+      <div id="summaryProjection" class="text-2xl font-bold text-gray-900 dark:text-white">-</div>
+      <div id="projectionInsight" class="mt-2 text-xs text-gray-600 dark:text-gray-300"></div>
+    </div>
+  </div>
+</section>
+
+<div id="projectionHelpModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 backdrop-blur-sm">
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-sm p-6 mx-4">
+    <div class="flex items-center justify-between gap-3">
+      <h3 id="projectionHelpTitle" class="text-sm font-semibold text-gray-900 dark:text-white"></h3>
+      <button id="projectionHelpClose" class="text-gray-500 hover:text-gray-700 dark:text-gray-300">✕</button>
+    </div>
+    <p id="projectionHelpText" class="mt-3 text-sm text-gray-700 dark:text-gray-200"></p>
+  </div>
+</div>
+
+<div id="projectionLoadingModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 backdrop-blur-sm">
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-sm p-6 mx-4">
+    <div class="flex items-center gap-3">
+      <svg class="w-5 h-5 animate-spin text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+      </svg>
+      <p id="projectionLoadingText" class="text-sm text-gray-700 dark:text-gray-200">{t.projections.loading}</p>
+    </div>
+    <div class="mt-4 flex justify-end">
+      <button id="projectionLoadingCancel" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white rounded-md text-xs">
+        {t.comond.cancel}
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script type="module" define:vars={{ apiBase, t }}>
+  import { initSellerProjections } from '/js/seller-projections.js';
+  window.apiBase = apiBase || window.apiBase;
+  window.translations = { ...(window.translations || {}), ...t };
+  initSellerProjections({ apiBase });
+</script>

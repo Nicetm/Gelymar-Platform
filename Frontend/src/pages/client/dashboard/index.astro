@@ -1,8 +1,18 @@
 ---
-import LayoutSidebar from '../../../app/LayoutSidebar.astro';
-import DashBoard from '../../../modules/DashBoard.astro';
+import LayoutSidebar from '../../../app/LayoutSidebarClient.astro'
+import UnderConstruction from '../../../modules/UnderConstructionClient.astro';
+import AuthGuard from '../../../components/AuthGuard.astro';
+
+// Validación de rol en el servidor
+import { validateRole } from '../../../lib/auth.js';
+const redirect = await validateRole(Astro, 'client');
+if (redirect) return redirect;
 ---
 
 <LayoutSidebar>
-	<DashBoard />
+  <!-- 🔐 Protección de ruta (sólo clientes) -->
+  <AuthGuard role="client" />
+	<UnderConstruction   />
 </LayoutSidebar>
+
+

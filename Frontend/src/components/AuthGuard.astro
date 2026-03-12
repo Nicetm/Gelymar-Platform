@@ -1,22 +1,14 @@
 ---
 // src/components/AuthGuard.astro
+const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
+const { role } = Astro.props;
 ---
 
-// No se renderiza nada, solo actúa como middleware visual
-<script is:inline>
-  const token = localStorage.getItem('token');
+<script
+  type="module"
+  define:vars={{ apiBase, requiredRole: role }}
+>
+  import { initAuthGuard } from '/js/auth-guard.js';
 
-  if (!token) {
-    window.location.href = '/authentication/sign-in';
-  } else {
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-
-      if (payload.role !== 'admin') {
-        window.location.href = '/authentication/sign-in';
-      }
-    } catch (e) {
-      window.location.href = '/authentication/sign-in';
-    }
-  }
+  initAuthGuard({ requiredRole });
 </script>

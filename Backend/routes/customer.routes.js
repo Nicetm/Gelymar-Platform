@@ -1,4 +1,4 @@
-// middleware/auth.middleware.js
+// routes/customer.routes.js
 const express = require('express');
 const router = express.Router();
 const customerController = require('../controllers/customer.controller');
@@ -17,7 +17,27 @@ const { authorizeRoles } = require('../middleware/role.middleware');
  *       200:
  *         description: List of customers
  */
-router.get('/', authMiddleware, authMiddleware, authorizeRoles(['admin']), customerController.getAllCustomers);
+router.get('/', authMiddleware, authorizeRoles(['admin', 'seller']), customerController.getAllCustomers);
+
+/**
+ * @swagger
+ * /api/customers/without-account:
+ *   get:
+ *     summary: Get customers without user account
+ *     tags: [Customers]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of customers without account
+ *       500:
+ *         description: Server error
+ */
+router.get('/without-account', authMiddleware, authorizeRoles(['admin']), customerController.getCustomersWithoutAccount);
+
+router.get('/by-rut/:rut', authMiddleware, authorizeRoles(['admin', 'seller']), customerController.getCustomerByRut);
+
+router.post('/:customerId/create-account', authMiddleware, authorizeRoles(['admin']), customerController.createCustomerAccount);
 
 /**
  * @swagger
@@ -39,6 +59,116 @@ router.get('/', authMiddleware, authMiddleware, authorizeRoles(['admin']), custo
  *       404:
  *         description: Customer not found
  */
-router.get('/:id', authMiddleware, authMiddleware, authorizeRoles(['admin']), customerController.getCustomerById);
+router.get('/:id', authMiddleware, authorizeRoles(['admin']), customerController.getCustomerById);
+
+router.get('/rut/:rut', authMiddleware, authorizeRoles(['admin', 'seller']), customerController.getCustomerByRut);
+
+router.post('/contacts', authMiddleware, authorizeRoles(['admin']), customerController.createCustomerContact);
+
+router.get('/:rut/contacts', authMiddleware, authorizeRoles(['admin', 'seller']), customerController.getCustomerContacts);
+
+/**
+ * @swagger
+ * /api/customers/contacts/{contactId}:
+ *   delete:
+ *     summary: Delete a customer contact
+ *     tags: [Customers]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: contactId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Contact deleted successfully
+ *       404:
+ *         description: Contact not found
+ *       500:
+ *         description: Server error
+ */
+router.delete('/contacts/:customerRut/:contactIdx', authMiddleware, authorizeRoles(['admin']), customerController.deleteCustomerContact);
+router.patch('/contacts/:customerRut/:contactIdx', authMiddleware, authorizeRoles(['admin']), customerController.updateCustomerContact);
+
+/**
+ * @swagger
+ * /api/customers/{rut}:
+ *   patch:
+ *     summary: Update a customer by UUID
+ *     tags: [Customers]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: rut
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *               name:
+ *                 type: string
+ *               phone:
+ *                 type: string
+ *               country:
+ *                 type: string
+ *               city:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Customer updated successfully
+ *       404:
+ *         description: Customer not found
+ *       500:
+ *         description: Server error
+ */
+router.patch('/:rut', authMiddleware, authorizeRoles(['admin']), customerController.updateCustomer);
+
+/**
+ * @swagger
+ * /api/customers/change-password/{rut}:
+ *   patch:
+ *     summary: Change customer password
+ *     tags: [Customers]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: rut
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               password:
+ *                 type: string
+ *                 minLength: 6
+ *             required:
+ *               - password
+ *     responses:
+ *       200:
+ *         description: Password changed successfully
+ *       400:
+ *         description: Invalid password
+ *       404:
+ *         description: Customer or user not found
+ *       500:
+ *         description: Server error
+ */
+router.patch('/change-password/:rut', authMiddleware, authorizeRoles(['admin']), customerController.changeCustomerPassword);
 
 module.exports = router;

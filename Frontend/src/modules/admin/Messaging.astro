@@ -1,0 +1,206 @@
+---
+import { loadTranslations, getServerLang } from '@lib/i18n.js';
+
+const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
+const apiPublic = import.meta.env.PUBLIC_API_URL;
+const lang = getServerLang(Astro.cookies);
+
+const translations = await loadTranslations(lang, 'messages');
+const messagingTranslations = (translations as any).messaging || {};
+const sharedLabels = messagingTranslations.shared || {};
+const listTranslations = messagingTranslations.list || {};
+const listLabels = {
+  ...sharedLabels,
+  ...listTranslations,
+  columns: listTranslations.columns || {},
+  tabs: listTranslations.tabs || {},
+  summary: listTranslations.summary || {},
+  pagination: sharedLabels.pagination || listTranslations.pagination || {},
+};
+---
+
+<section id="MessagingCenter" class="px-4 pt-20 pb-8 sm:px-6 lg:px-10">
+  <header class="flex flex-col gap-3 pb-4 border-b border-gray-200 dark:border-gray-700">
+    <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{listLabels.pageTitle}</h1>
+    <p class="text-sm text-gray-600 dark:text-gray-400 max-w-2xl">{listLabels.description}</p>
+  </header>
+
+  <section class="mt-6">
+    <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">
+      {listLabels.summaryTitle}
+    </h2>
+    <div class="grid gap-4 md:grid-cols-3">
+      <article
+        class="summary-card rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5 shadow-sm transition-colors duration-150"
+        data-summary-type="messages"
+      >
+        <div class="flex items-center justify-between">
+          <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            {listLabels.summary.messages}
+          </h3>
+          <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300">
+            <i data-lucide="messages-square" class="w-4 h-4"></i>
+          </span>
+        </div>
+        <p
+          id="summary-messages-count"
+          class="mt-3 text-3xl font-semibold text-gray-900 dark:text-white"
+        >
+          0
+        </p>
+      </article>
+
+      <article
+        class="summary-card rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5 shadow-sm transition-colors duration-150"
+        data-summary-type="orders_missing_documents"
+      >
+        <div class="flex items-center justify-between">
+          <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            {listLabels.summary['orders_missing_documents']}
+          </h3>
+          <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-300">
+            <i data-lucide="file-warning" class="w-4 h-4"></i>
+          </span>
+        </div>
+        <p
+          id="summary-orders-missing-documents-count"
+          class="mt-3 text-3xl font-semibold text-gray-900 dark:text-white"
+        >
+          0
+        </p>
+      </article>
+
+      <article
+        class="summary-card rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5 shadow-sm transition-colors duration-150"
+        data-summary-type="customers_without_account"
+      >
+        <div class="flex items-center justify-between">
+          <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            {listLabels.summary['customers_without_account']}
+          </h3>
+          <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300">
+            <i data-lucide="user-round-x" class="w-4 h-4"></i>
+          </span>
+        </div>
+        <p
+          id="summary-customers-without-account-count"
+          class="mt-3 text-3xl font-semibold text-gray-900 dark:text-white"
+        >
+          0
+        </p>
+      </article>
+    </div>
+  </section>
+
+  <section class="mt-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    <div class="flex flex-wrap items-center gap-2" id="messageTabs">
+      {Object.entries(listLabels.tabs).map(([key, label]) => (
+        <button
+          type="button"
+          class="message-tab px-4 py-2 rounded-full text-sm font-semibold border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+          data-type={key}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4 w-full md:w-auto">
+      <div class="relative flex-1 sm:flex-initial sm:w-72">
+        <span class="absolute inset-y-0 left-3 flex items-center text-gray-400">
+          <i data-lucide="search" class="w-4 h-4"></i>
+        </span>
+        <input
+          id="messageSearchInput"
+          type="search"
+          class="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder={listLabels.searchPlaceholder}
+        />
+      </div>
+
+      <label class="inline-flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+        <input type="checkbox" id="messageStatusToggle" class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
+        <span>{listLabels.statusToggle}</span>
+      </label>
+    </div>
+  </section>
+
+  <section class="mt-6">
+    <div class="overflow-x-auto rounded-xl shadow ring-1 ring-gray-200 dark:ring-gray-700">
+      <table class="min-w-[960px] w-full divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900">
+        <thead class="bg-gray-100 dark:bg-gray-800 text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">
+          <tr>
+            <th class="px-6 py-3 text-left">{listLabels.columns.description}</th>
+            <th class="px-6 py-3 text-left">{listLabels.columns.related}</th>
+            <th class="px-6 py-3 text-left">{listLabels.columns.date}</th>
+            <th class="px-6 py-3 text-left">{listLabels.columns.status}</th>
+            <th class="px-6 py-3 text-center">{listLabels.columns.actions}</th>
+          </tr>
+        </thead>
+        <tbody
+          id="messageTableBody"
+          class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-xs text-gray-700 dark:text-gray-200"
+        >
+          <tr>
+            <td colspan="5" class="px-6 py-8 text-center text-gray-400 dark:text-gray-500">
+              ...
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div
+      id="messageEmptyState"
+      class="hidden flex flex-col items-center justify-center gap-2 py-12 text-center text-gray-500 dark:text-gray-400"
+    >
+      <i data-lucide="inbox" class="w-10 h-10 text-gray-300 dark:text-gray-600"></i>
+      <p class="font-semibold">{listLabels.emptyTitle}</p>
+      <p class="text-sm text-gray-400 dark:text-gray-500">{listLabels.emptyBody}</p>
+    </div>
+  </section>
+  <div class="mt-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-6 text-sm">
+    <div class="flex items-center gap-3">
+      <label for="messagingItemsPerPage" class="text-sm font-medium text-gray-700 dark:text-gray-300">
+        {listLabels.perPage}
+      </label>
+      <div class="relative">
+        <select
+          id="messagingItemsPerPage"
+          class="block w-20 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-sm text-gray-900 dark:text-gray-100 rounded-md pl-3 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="10">10</option>
+          <option value="20">20</option>
+          <option value="30">30</option>
+        </select>
+      </div>
+    </div>
+    <div class="flex items-center gap-3 text-gray-600 dark:text-gray-300">
+      <div id="messagePaginationControls" class="flex items-center gap-2"></div>
+    </div>
+  </div>
+</section>
+
+<script type="module" define:vars={{ apiBase, apiPublic, lang, labels: listLabels }}>
+  import { initMessagingList } from '/js/messaging.js';
+
+  async function bootstrap() {
+    if (!window.apiBase) {
+      window.apiBase = apiPublic || apiBase || '';
+    }
+    if (!window.lang) {
+      window.lang = lang || 'es';
+    }
+    await initMessagingList({
+      apiBase,
+      apiPublic,
+      lang,
+      labels,
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootstrap);
+  } else {
+    bootstrap();
+  }
+</script>

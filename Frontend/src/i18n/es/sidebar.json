@@ -1,0 +1,24 @@
+{
+  "dashboard": "Inicio",
+  "customers": "Clientes",
+  "sellers": "Vendedores",
+  "orders": "Pedidos",
+  "projections": "Proyecciones",
+  "messaging": "Mensajes",
+  "shipments": "Envíos",
+  "documents": "Documentos",
+  "users": "Usuarios",
+  "users_list": "Lista de usuarios",
+  "support": "Soporte",
+  "admin_settings": "Configuración",
+  "english": "Inglés (US)",
+  "spanish": "Español (CL)"
+  ,
+  "admin_role_label": "Admin",
+  "client_role_label": "Cliente",
+  "seller_role_label": "Vendedor",
+  "default_admin_name": "Admin",
+  "default_client_name": "Cliente",
+  "default_seller_name": "Vendedor",
+  "collapse": "Colapsar"
+}

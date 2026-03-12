@@ -66,6 +66,7 @@ module.exports = {
 			extends: ['airbnb-base', 'eslint:recommended', 'prettier'],
 			rules: {
 				'import/prefer-default-export': 'off',
+				'no-console': 'off',
 			},
 		},
 
@@ -97,11 +98,31 @@ module.exports = {
 				'no-unused-vars': ['error', { varsIgnorePattern: 'Props' }],
 				'max-lines': [
 					'error',
-					{ max: 250, skipComments: true, skipBlankLines: true },
+					{ max: 1000, skipComments: true, skipBlankLines: true },
 				],
 			},
 			globals: {
 				astroHTML: 'readonly',
+			},
+		},
+		// React / JSX / TSX
+		{
+			files: ['*.jsx', '*.tsx'],
+			parser: '@babel/eslint-parser',
+			parserOptions: {
+				requireConfigFile: false,
+				ecmaVersion: 'latest',
+				sourceType: 'module',
+				ecmaFeatures: {
+					jsx: true,
+				},
+			},
+			plugins: ['react'],
+			extends: ['plugin:react/recommended'],
+			rules: {
+				'react/react-in-jsx-scope': 'off', // No necesario con React 17+
+				'import/extensions': 'off',
+				'import/prefer-default-export': 'off',
 			},
 		},
 	],

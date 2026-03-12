@@ -1,56 +1,212 @@
 ---
 // import { asset } from '../lib/data.js';
+import { loadTranslations, getServerLang } from '@lib/i18n.js';
+const apiBase = import.meta.env.SERVER_API_URL || import.meta.env.PUBLIC_API_URL;
+const apiPublic = import.meta.env.PUBLIC_API_URL;
+const adminAppUrl = import.meta.env.PUBLIC_ADMIN_APP_URL || '';
+const clientAppUrl = import.meta.env.PUBLIC_CLIENT_APP_URL || '';
+const sellerAppUrl = import.meta.env.PUBLIC_SELLER_APP_URL || '';
+const rawAppContext = (import.meta.env.PUBLIC_APP_CONTEXT || 'both').toLowerCase();
+const recaptchaSiteKey = import.meta.env.PUBLIC_RECAPTCHA_SITE_KEY || '';
+const lang = getServerLang(Astro.cookies);
+
+let t: any = {};
+try {
+  t = {
+    comond: await loadTranslations(lang, 'comond')
+  };
+} catch (error) {
+  console.error('Error loading translations (FormSignIn):', error);
+}
+
+// Obtener configuración de recaptcha desde el backend
+let recaptchaEnabled = true;
+try {
+  const response = await fetch(`${apiBase}/api/config/recaptcha-login`);
+  if (response.ok) {
+    const config = await response.json();
+    recaptchaEnabled = config.enable === 1;
+    console.log('[FormSignIn] Recaptcha config loaded:', config);
+  } else {
+    console.error('[FormSignIn] Failed to load recaptcha config, status:', response.status);
+  }
+} catch (error) {
+  console.error('[FormSignIn] Error loading recaptcha config:', error);
+}
+
+
+const requestUrl = Astro.request?.url ? new URL(Astro.request.url) : null;
+const requestOrigin = requestUrl?.origin ?? '';
+
+const getOrigin = (value?: string) => {
+  if (!value) return '';
+  try {
+    return new URL(value, requestOrigin || 'http://localhost').origin;
+  } catch {
+    return '';
+  }
+};
+
+const contextCandidates = [
+  { key: 'admin', url: adminAppUrl },
+  { key: 'client', url: clientAppUrl },
+  { key: 'seller', url: sellerAppUrl },
+];
+
+const matchedByOrigin = contextCandidates.find(({ url }) => url && getOrigin(url) === requestOrigin)?.key;
+const matchedByPath = (() => {
+  const pathname = requestUrl?.pathname ?? '';
+  if (pathname.startsWith('/admin')) return 'admin';
+  if (pathname.startsWith('/client')) return 'client';
+  if (pathname.startsWith('/seller')) return 'seller';
+  return null;
+})();
+
+const activeAppContext =
+  rawAppContext !== 'both'
+    ? rawAppContext
+    : matchedByOrigin || matchedByPath || 'admin';
+
+const contextInfo = (() => {
+  const normalized = activeAppContext;
+  if (normalized === 'admin') {
+    return {
+      label: t?.comond?.portal_admin_label,
+      helper: t?.comond?.portal_admin_helper,
+      badgeClasses: 'bg-amber-100 text-amber-700 border border-amber-200'
+    };
+  }
+  if (normalized === 'client') {
+    return {
+      label: t?.comond?.portal_client_label,
+      helper: t?.comond?.portal_client_helper,
+      badgeClasses: 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+    };
+  }
+  if (normalized === 'seller') {
+    return {
+      label: t?.comond?.portal_seller_label,
+      helper: t?.comond?.portal_seller_helper,
+      badgeClasses: 'bg-blue-100 text-blue-700 border border-blue-200'
+    };
+  }
+  return null;
+})();
+
 ---
 
 <div class="w-full max-w-md mx-auto mt-10 space-y-6 animate-fade-in">
+
+  <!-- Header -->
+  <div class="flex flex-col items-center text-center gap-6">
+    <!-- Logo + Nombre animado -->
+    <div class="flex items-center gap-2">
+      <img src="/assets/gelymar.svg" alt="Gelymar Logo" class="h-10 w-10"/>
+      <span class="text-[2rem] font-bold tracking-tight text-[#002E50] dark:text-gray-100">
+        Gelymar
+      </span>
+    </div>
+
+  </div>
+
+  <div class="text-center">
+    <h1 class="text-2xl font-bold text-[#002E50]">
+      {contextInfo?.label ?? t?.comond?.welcome_back}
+    </h1>
+    <p class="mt-1 text-sm text-[#002E50]/80">
+      {contextInfo?.helper ?? t?.comond?.login_helper}
+    </p>
+  </div>
+  
   <!-- Mensaje de contraseña actualizada -->
   <p id="resetSuccessMessage" class="text-sm text-center text-green-600 hidden">
-    Your password has been updated. You can now log in.
+    {t?.comond?.reset_success}
   </p>
 
-  <form id="loginForm" class="space-y-6" autocomplete="off">
-    <!-- Email -->
-    <div>
-      <label for="email" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Email</label>
+  <form id="loginForm" class="space-y-6" method="POST" action="javascript:void(0);" onsubmit="return false;" novalidate>
+    <!-- Username -->
+    <div class="relative">
+      <label for="username" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+        {t?.comond?.rut_label}
+      </label>
       <input
-        type="email"
-        id="email"
-        name="email"
+        type="text"
+        id="username"
+        name="username"
         required
+        autocomplete="username"
         class="input"
-        placeholder="user@company.com"
+        placeholder={t?.comond?.rut_placeholder}
       />
+    
+      <div class="group absolute right-2 top-9">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="1.5"
+          stroke="currentColor"
+          class="w-5 h-5 text-gray-400 cursor-help"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M8.625 9.75a3.375 3.375 0 016.75 0c0 1.875-3.375 1.875-3.375 3.75m0 3.75h.008v.008h-.008v-.008z" />
+        </svg>
+        <!-- Tooltip -->
+        <span
+          class="absolute hidden group-hover:block bg-blue-800 text-white text-xs rounded px-3 py-2 -top-11 right-0 whitespace-nowrap">
+          {t?.comond?.rut_example}
+        </span>
+      </div>
     </div>
 
     <!-- Password -->
     <div>
-      <label for="password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Password</label>
-      <input
-        type="password"
-        id="password"
-        name="password"
-        required
-        class="input"
-        placeholder="••••••••"
-      />
+      <label for="password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">{t?.comond?.password_label}</label>
+      <div class="relative">
+        <input type="password" id="password" name="password" required class="input pr-10" placeholder="••••••••" autocomplete="current-password"/>
+        <button
+          type="button"
+          id="togglePasswordBtn"
+          class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:text-gray-300 dark:hover:text-gray-100"
+          aria-label={t?.comond?.show_password}
+          data-label-show={t?.comond?.show_password}
+          data-label-hide={t?.comond?.hide_password}
+        >
+          <svg id="togglePasswordIcon" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M1.5 12s4-7 10.5-7 10.5 7 10.5 7-4 7-10.5 7-10.5-7-10.5-7z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+          <svg id="togglePasswordIconOff" class="w-5 h-5 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 3l18 18M10.5 6.6A8.1 8.1 0 0112 6c6.5 0 10.5 6 10.5 6a17.6 17.6 0 01-4.6 4.9M6.1 6.1A17.2 17.2 0 001.5 12s4 7 10.5 7a9.7 9.7 0 004.1-.9" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9.9 9.9a3 3 0 004.2 4.2" />
+          </svg>
+        </button>
+      </div>
     </div>
+
+    <div class="flex items-center justify-between text-sm text-[#002E50]/80">
+      <label class="inline-flex items-center gap-2">
+        <input id="rememberMe" name="rememberMe" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-[#00538C] focus:ring-[#00538C]" />
+        <span>{t?.comond?.remember_me}</span>
+      </label>
+    </div>
+
+    {recaptchaSiteKey && recaptchaEnabled && (
+      <div class="flex justify-center">
+        <div class="g-recaptcha" data-sitekey={recaptchaSiteKey}></div>
+      </div>
+    )}
 
     <!-- OTP input -->
     <div id="otpContainer" class="hidden">
-      <label for="otp" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">2FA Code</label>
-      <input
-        type="text"
-        id="otp"
-        name="otp"
-        class="input"
-        placeholder="123456"
-      />
+      <label for="otp" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">{t?.comond?.otp_label}</label>
+      <input type="text" id="otp" name="otp" class="input" placeholder="123456"/>
     </div>
 
     <!-- QR -->
     <div id="qrContainer" class="hidden text-center">
       <p class="text-sm text-gray-600 dark:text-gray-300 mb-2">
-        Scan this QR code in Google Authenticator:
+        {t?.comond?.qr_helper}
       </p>
       <img id="qrImage" class="w-40 h-40 mx-auto rounded border" />
     </div>
@@ -61,116 +217,25 @@
     <!-- Submit -->
     <button
       type="submit"
-      class="w-full px-5 py-3 text-base font-semibold text-white bg-[#00538C] rounded-lg hover:bg-[#003F6B] transition hover:scale-[1.01] active:scale-[.98]"
+      class="w-full px-5 py-3 text-base font-semibold text-white bg-[#00538C] rounded-lg hover:bg-[#003F6B] transition hover:scale-[1.01] active:scale-[.98] inline-flex items-center justify-center gap-2"
     >
-      Sign in
+      {t?.comond?.sign_in}
     </button>
   </form>
 </div>
 
-<style is:global>
-  .input {
-    @apply bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-[#00538C] focus:border-[#00538C];
-  }
+<script type="module" define:vars={{ apiPublic, apiBase, adminAppUrl, clientAppUrl, sellerAppUrl, appContext: activeAppContext, recaptchaSiteKey, recaptchaEnabled, comondTranslations: t?.comond ?? {} }}>
+  import { initSignIn } from '/js/sign-in.js';
 
-  @keyframes fade-in {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  .animate-fade-in {
-    animation: fade-in 0.5s ease-out both;
-  }
-</style>
-
-<script is:inline>
-  let otpShown = false;
-
-  // Mostrar mensaje si viene de reseteo de contraseña
-  const params = new URLSearchParams(window.location.search);
-  if (params.get('reset') === 'success') {
-    document.getElementById('resetSuccessMessage').classList.remove('hidden');
-  }
-
-  document.getElementById('loginForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-
-    const email = e.target.email.value.trim();
-    const password = e.target.password.value.trim();
-    const otp = e.target.otp?.value?.trim();
-    const msg = document.getElementById('loginMessage');
-
-    msg.classList.add('hidden');
-
-    try {
-      const res = await fetch('http://localhost:3000/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, otp })
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        if (data.message?.includes('2FA') && !otpShown) {
-          otpShown = true;
-          document.getElementById('otpContainer').classList.remove('hidden');
-
-          const statusRes = await fetch(`http://localhost:3000/api/auth/2fa/status?email=${encodeURIComponent(email)}`);
-          const { twoFAEnabled } = await statusRes.json();
-
-          if (!twoFAEnabled) {
-            document.getElementById('qrContainer').classList.remove('hidden');
-            const qrRes = await fetch(`http://localhost:3000/api/auth/2fa/setup?email=${encodeURIComponent(email)}`);
-            const { qr } = await qrRes.json();
-            document.getElementById('qrImage').src = qr;
-          }
-
-          msg.textContent = 'Please enter your 2FA code from the authenticator app.';
-          msg.classList.remove('hidden');
-          msg.classList.remove('text-red-500');
-          msg.classList.add('text-green-600');
-          return;
-        }
-
-        msg.textContent = data.message || 'Login failed';
-        msg.classList.remove('hidden');
-        msg.classList.remove('text-green-600');
-        msg.classList.add('text-red-500');
-        return;
-      }
-
-      // ✅ Guardar token
-      localStorage.setItem('token', data.token);
-
-      // ✅ Consultar /me para obtener el rol seguro
-      const meRes = await fetch('http://localhost:3000/api/auth/me', {
-        headers: {
-          Authorization: `Bearer ${data.token}`
-        }
-      });
-
-      if (!meRes.ok) {
-        msg.textContent = 'Error validando usuario';
-        msg.classList.remove('hidden');
-        msg.classList.add('text-red-500');
-        return;
-      }
-
-      const user = await meRes.json();
-
-      // ✅ Redirigir según rol real
-      if (user.role === 'admin') {
-        window.location.href = '/admin/dashboard';
-      } else {
-        window.location.href = '/client/dashboard';
-      }
-
-    } catch (err) {
-      msg.textContent = 'Connection error';
-      msg.classList.remove('hidden');
-      msg.classList.add('text-red-500');
-    }
+  initSignIn({
+    apiPublic,
+    apiBase,
+    adminAppUrl,
+    clientAppUrl,
+    sellerAppUrl,
+    appContext,
+    recaptchaSiteKey,
+    recaptchaEnabled,
+    translations: { comond: comondTranslations }
   });
 </script>
-

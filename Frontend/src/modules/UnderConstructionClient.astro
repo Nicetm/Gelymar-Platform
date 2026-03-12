@@ -1,0 +1,79 @@
+---
+// import { url } from '../lib/data.js';
+---
+
+  <!-- Wrapper -->
+  <div class="relative overflow-hidden flex flex-col justify-center items-center min-h-screen px-6 py-12 bg-white dark:bg-gradient-to-b dark:from-gray-900 dark:to-gray-800">
+
+  <!-- Decorative blobs -->
+  <span class="absolute -top-24 -left-24 w-80 h-80 bg-[#00538C]/20 rounded-full blur-3xl pointer-events-none dark:block hidden"></span>
+  <span class="absolute bottom-0 -right-24 w-96 h-96 bg-[#F6B234]/20 dark:bg-[#F6B234]/10 rounded-full blur-3xl pointer-events-none dark:block hidden"></span>
+
+  <!-- Glass-card -->
+  <div class="flex flex-col items-center bg-white/80 dark:bg-gray-900/70 backdrop-blur-md border border-white/40 dark:border-gray-600/50 rounded-2xl p-10 shadow-2xl hover:shadow-3xl transition-all duration-500 transform hover:scale-[1.02] hover:-translate-y-1">
+
+    <!-- Illustration -->
+    <div class="w-[20rem] md:w-[32rem] h-auto mb-6 relative">
+      <img
+        src="/assets/3518832.webp"
+        alt="Under construction illustration"
+        class="w-full h-auto object-contain drop-shadow-2xl dark:brightness-95"
+        loading="lazy"
+      />
+    </div>
+
+    <!-- Text -->
+    <div class="text-center max-w-2xl animate-slide-in">
+      <h1 class="mb-3 text-3xl md:text-5xl font-bold text-gray-900 dark:text-white">
+        This section is currently under maintenance<br class="hidden md:block" />
+        <span class="text-lg font-medium md:text-xl text-gray-500 dark:text-gray-400">We’ll be back shortly</span>
+      </h1>
+
+      <p class="mb-8 text-gray-600 md:text-base dark:text-gray-400">
+        We’re fine-tuning things to give you the best experience.<br />
+        Please check back again soon!
+      </p>
+
+      <a
+        href="/client/"
+        class="group inline-flex items-center gap-3 px-8 py-4 rounded-xl bg-gradient-to-r from-[#00538C] to-[#0066B3] text-white font-semibold shadow-xl hover:shadow-2xl hover:scale-105 focus:outline-none focus:ring-4 focus:ring-[#00538C]/30 transition-all duration-300 transform hover:-translate-y-1 relative overflow-hidden"
+      >
+        <svg class="w-5 h-5 transition-transform duration-300 group-hover:scale-110" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+        </svg>
+        <span class="relative z-10">Back to Client Panel</span>
+        
+        <!-- Shine effect -->
+        <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+      </a>
+    </div><!-- /text -->
+  </div><!-- /glass-card -->
+</div>
+
+<style is:inline>
+  @layer utilities {
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50%      { transform: translateY(-6px); }
+    }
+    .animate-float {
+      animation: float 4s ease-in-out infinite;
+    }
+    
+    @keyframes pulse-glow {
+      0%, 100% { opacity: 0.5; }
+      50%      { opacity: 1; }
+    }
+    .animate-pulse-glow {
+      animation: pulse-glow 3s ease-in-out infinite;
+    }
+    
+    @keyframes slide-in {
+      from { transform: translateY(20px); opacity: 0; }
+      to   { transform: translateY(0); opacity: 1; }
+    }
+    .animate-slide-in {
+      animation: slide-in 0.8s ease-out forwards;
+    }
+  }
+</style>
