@@ -1,0 +1,32 @@
+# Este archivo SOLO se usa para descargar las imágenes, NO para ejecutar contenedores
+
+name: gelymar-platform
+
+services:
+  fileserver:
+    image: nicetm/gelymar-platform:fileserver-prod
+    profiles: ["download"]
+
+  backend:
+    image: nicetm/gelymar-platform:backend-prod
+    profiles: ["download"]
+
+  frontend:
+    image: nicetm/gelymar-platform:frontend-prod
+    profiles: ["download"]
+
+  frontend-client:
+    image: nicetm/gelymar-platform:frontend-client-prod
+    profiles: ["download"]
+
+  frontend-seller:
+    image: nicetm/gelymar-platform:frontend-seller-prod
+    profiles: ["download"]
+
+  cron:
+    image: nicetm/gelymar-platform:cron-prod
+    profiles: ["download"]
+
+  phpmyadmin:
+    image: nicetm/gelymar-platform:phpmyadmin-prod
+    profiles: ["download"] 

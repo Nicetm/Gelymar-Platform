@@ -1,0 +1,11 @@
+Options -Indexes
+DirectoryIndex disabled
+
+# Bloquear acceso a archivos
+Require all denied
+
+# Configuración de tipos MIME
+AddType application/octet-stream .zip
+AddType application/octet-stream .rar
+AddType application/octet-stream .7z
+

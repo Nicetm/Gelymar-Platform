@@ -1,0 +1,380 @@
+name: gelymar-platform-dev
+
+services:
+  # Capa Base de Datos
+  mysql:
+    image: mysql:8.0
+    container_name: gelymar-platform-mysql-dev
+    restart: unless-stopped
+    environment:
+      - TZ=America/Santiago
+      - MYSQL_ROOT_PASSWORD=${MYSQL_DB_PASS}
+      - MYSQL_DATABASE=${MYSQL_DB_NAME}
+      - MYSQL_USER=${MYSQL_DB_USER}
+      - MYSQL_PASSWORD=${MYSQL_DB_PASS}
+    command: ["--default-time-zone=America/Santiago"]
+    ports:
+      - "${MYSQL_DB_PORT}:3306"
+    volumes:
+      - mysql_data_dev:/var/lib/mysql
+      - ./mysql/init:/docker-entrypoint-initdb.d
+    networks:
+      - gelymar-network-dev
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      retries: 5
+
+  # Capa File Server
+  fileserver:
+    build:
+      context: ./fileserver
+      dockerfile: Dockerfile
+      args:
+        - FILESERVER_USER=${FILESERVER_USER}
+        - FILESERVER_PASS=${FILESERVER_PASS}
+    image: nicetm/gelymar-platform:fileserver-dev
+    container_name: gelymar-platform-fileserver-dev
+    restart: unless-stopped
+    ports:
+      - "8080:80"      # HTTP
+      - "21:21"        # FTP
+      - "30000-30009:30000-30009"  # FTP pasivo
+    environment:
+      - TZ=America/Santiago
+      - FILESERVER_USER=${FILESERVER_USER}
+      - FILESERVER_PASS=${FILESERVER_PASS}
+      - BACKEND_BASE_URL=${BACKEND_BASE_URL}
+    volumes:
+      - fileserver_data_dev:/var/www/html
+    networks:
+      - gelymar-network-dev
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  # Capa Backend
+  backend:
+    build:
+      context: ../Backend
+      dockerfile: Dockerfile
+    image: nicetm/gelymar-platform:backend-dev
+    container_name: gelymar-platform-backend-dev
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - TZ=America/Santiago
+      - NODE_ENV=${NODE_ENV}
+      - PORT=${PORT}
+      - DOCKER_ENV=${DOCKER_ENV}
+      - MYSQL_DB_HOST=${MYSQL_DB_HOST}
+      - MYSQL_DB_PORT=${MYSQL_DB_PORT}
+      - MYSQL_DB_USER=${MYSQL_DB_USER}
+      - MYSQL_DB_PASS=${MYSQL_DB_PASS}
+      - MYSQL_DB_NAME=${MYSQL_DB_NAME}
+      - SQL_HOST=${SQL_HOST}
+      - SQL_PORT=${SQL_PORT}
+      - SQL_DB=${SQL_DB}
+      - SQL_USER=${SQL_USER}
+      - SQL_PASS=${SQL_PASS}
+      - JWT_SECRET=${JWT_SECRET}
+      - FRONTEND_BASE_URL=${FRONTEND_BASE_URL}
+      - PUBLIC_SELLER_FRONTEND_BASE_URL=${PUBLIC_SELLER_FRONTEND_BASE_URL}
+      - BACKEND_BASE_URL=${BACKEND_BASE_URL}
+      - FILE_SERVER_URL=${FILE_SERVER_URL}
+      - FILE_SERVER_ROOT=${FILE_SERVER_ROOT}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - RESEND_KEY=${RESEND_KEY}
+      - NETWORK_USER=${NETWORK_USER}
+      - NETWORK_PASSWORD=${NETWORK_PASSWORD}
+      - NETWORK_SERVER=${NETWORK_SERVER}
+      - NETWORK_SHARE_PATH=${NETWORK_SHARE_PATH}
+      - RATE_LIMIT_WINDOW_MS=${RATE_LIMIT_WINDOW_MS}
+      - RATE_LIMIT_MAX_REQUESTS=${RATE_LIMIT_MAX_REQUESTS}
+      - SLOW_DOWN_DELAY_AFTER=${SLOW_DOWN_DELAY_AFTER}
+      - SLOW_DOWN_DELAY_MS=${SLOW_DOWN_DELAY_MS}
+      - RECAPTCHA_SECRET_KEY=${RECAPTCHA_SECRET_KEY}
+    volumes:
+      - backend_logs_dev:/app/logs
+      - fileserver_data_dev:/var/www/html
+      - /mnt/archivos:/mnt/archivos
+    networks:
+      - gelymar-network-dev
+    depends_on:
+      mysql:
+        condition: service_healthy
+      fileserver:
+        condition: service_started
+    privileged: true
+    cap_add:
+      - SYS_ADMIN
+
+  # Capa Frontend
+  frontend:
+    build:
+      context: ../Frontend
+      dockerfile: Dockerfile
+      args:
+        - NODE_ENV=${NODE_ENV}
+        - PUBLIC_API_URL=${PUBLIC_API_URL}
+        - PUBLIC_FILE_SERVER_URL=${PUBLIC_FILE_SERVER_URL}
+        - PUBLIC_API_BASE_URL=${PUBLIC_API_BASE_URL}
+        - PUBLIC_FRONTEND_BASE_URL=${PUBLIC_FRONTEND_BASE_URL}
+        - PUBLIC_LANG=${PUBLIC_LANG}
+        - SITE=${SITE}
+        - BASE_URL=${BASE_URL}
+        - REMOTE_ASSETS_BASE_URL=${REMOTE_ASSETS_BASE_URL}
+        - SERVER_API_URL=${SERVER_API_URL}
+        - CI=${CI}
+        - APP_CONTEXT=admin
+        - PUBLIC_APP_CONTEXT=admin
+        - PUBLIC_ADMIN_APP_URL=${PUBLIC_ADMIN_APP_URL}
+        - PUBLIC_CLIENT_APP_URL=${PUBLIC_CLIENT_APP_URL}
+        - PUBLIC_RECAPTCHA_SITE_KEY=${PUBLIC_RECAPTCHA_SITE_KEY}
+        - DEV_PORT=2121
+    image: nicetm/gelymar-platform:frontend-dev
+    container_name: gelymar-platform-frontend-dev
+    restart: unless-stopped
+    ports:
+      - "2121:2121"
+    environment:
+      - TZ=America/Santiago
+      - PUBLIC_API_URL=${PUBLIC_API_URL}
+      - PUBLIC_FILE_SERVER_URL=${PUBLIC_FILE_SERVER_URL}
+      - PUBLIC_API_BASE_URL=${PUBLIC_API_BASE_URL}
+      - PUBLIC_FRONTEND_BASE_URL=${PUBLIC_FRONTEND_BASE_URL}
+      - PUBLIC_LANG=${PUBLIC_LANG}
+      - SITE=${SITE}
+      - BASE_URL=${BASE_URL}
+      - REMOTE_ASSETS_BASE_URL=${REMOTE_ASSETS_BASE_URL}
+      - SERVER_API_URL=${SERVER_API_URL}
+      - CI=${CI}
+      - APP_CONTEXT=admin
+      - PUBLIC_APP_CONTEXT=admin
+      - PUBLIC_ADMIN_APP_URL=${PUBLIC_ADMIN_APP_URL}
+      - PUBLIC_CLIENT_APP_URL=${PUBLIC_CLIENT_APP_URL}
+      - PUBLIC_RECAPTCHA_SITE_KEY=${PUBLIC_RECAPTCHA_SITE_KEY}
+      - DEV_PORT=2121
+    networks:
+      - gelymar-network-dev
+    depends_on:
+      backend:
+        condition: service_started
+
+  frontend-client:
+    build:
+      context: ../Frontend
+      dockerfile: Dockerfile
+      args:
+        - NODE_ENV=${NODE_ENV}
+        - PUBLIC_API_URL=${PUBLIC_API_URL}
+        - PUBLIC_FILE_SERVER_URL=${PUBLIC_FILE_SERVER_URL}
+        - PUBLIC_API_BASE_URL=${PUBLIC_API_BASE_URL}
+        - PUBLIC_FRONTEND_BASE_URL=${PUBLIC_CLIENT_FRONTEND_BASE_URL}
+        - PUBLIC_LANG=${PUBLIC_LANG}
+        - SITE=${SITE}
+        - BASE_URL=${BASE_URL}
+        - REMOTE_ASSETS_BASE_URL=${REMOTE_ASSETS_BASE_URL}
+        - SERVER_API_URL=${SERVER_API_URL}
+        - CI=${CI}
+        - APP_CONTEXT=client
+        - PUBLIC_APP_CONTEXT=client
+        - PUBLIC_ADMIN_APP_URL=${PUBLIC_ADMIN_APP_URL}
+        - PUBLIC_CLIENT_APP_URL=${PUBLIC_CLIENT_APP_URL}
+        - PUBLIC_RECAPTCHA_SITE_KEY=${PUBLIC_RECAPTCHA_SITE_KEY}
+        - DEV_PORT=2122
+    image: nicetm/gelymar-platform:frontend-client-dev
+    container_name: gelymar-platform-frontend-client-dev
+    restart: unless-stopped
+    ports:
+      - "2122:2122"
+    environment:
+      - TZ=America/Santiago
+      - PUBLIC_API_URL=${PUBLIC_API_URL}
+      - PUBLIC_FILE_SERVER_URL=${PUBLIC_FILE_SERVER_URL}
+      - PUBLIC_API_BASE_URL=${PUBLIC_API_BASE_URL}
+      - PUBLIC_FRONTEND_BASE_URL=${PUBLIC_CLIENT_FRONTEND_BASE_URL}
+      - PUBLIC_LANG=${PUBLIC_LANG}
+      - SITE=${SITE}
+      - BASE_URL=${BASE_URL}
+      - REMOTE_ASSETS_BASE_URL=${REMOTE_ASSETS_BASE_URL}
+      - SERVER_API_URL=${SERVER_API_URL}
+      - CI=${CI}
+      - APP_CONTEXT=client
+      - PUBLIC_APP_CONTEXT=client
+      - PUBLIC_ADMIN_APP_URL=${PUBLIC_ADMIN_APP_URL}
+      - PUBLIC_CLIENT_APP_URL=${PUBLIC_CLIENT_APP_URL}
+      - PUBLIC_RECAPTCHA_SITE_KEY=${PUBLIC_RECAPTCHA_SITE_KEY}
+      - DEV_PORT=2122
+    networks:
+      - gelymar-network-dev
+    depends_on:
+      backend:
+        condition: service_started
+
+  frontend-seller:
+    build:
+      context: ../Frontend
+      dockerfile: Dockerfile
+      args:
+        - NODE_ENV=${NODE_ENV}
+        - PUBLIC_API_URL=${PUBLIC_API_URL}
+        - PUBLIC_FILE_SERVER_URL=${PUBLIC_FILE_SERVER_URL}
+        - PUBLIC_API_BASE_URL=${PUBLIC_API_BASE_URL}
+        - PUBLIC_FRONTEND_BASE_URL=${PUBLIC_SELLER_FRONTEND_BASE_URL}
+        - PUBLIC_LANG=${PUBLIC_LANG}
+        - SITE=${SITE}
+        - BASE_URL=${BASE_URL}
+        - REMOTE_ASSETS_BASE_URL=${REMOTE_ASSETS_BASE_URL}
+        - SERVER_API_URL=${SERVER_API_URL}
+        - CI=${CI}
+        - APP_CONTEXT=seller
+        - PUBLIC_APP_CONTEXT=seller
+        - PUBLIC_ADMIN_APP_URL=${PUBLIC_ADMIN_APP_URL}
+        - PUBLIC_SELLER_APP_URL=${PUBLIC_SELLER_APP_URL}
+        - PUBLIC_RECAPTCHA_SITE_KEY=${PUBLIC_RECAPTCHA_SITE_KEY}
+        - DEV_PORT=2123
+    image: nicetm/gelymar-platform:frontend-seller-dev
+    container_name: gelymar-platform-frontend-seller-dev
+    restart: unless-stopped
+    ports:
+      - "2123:2123"
+    environment:
+      - TZ=America/Santiago
+      - PUBLIC_API_URL=${PUBLIC_API_URL}
+      - PUBLIC_FILE_SERVER_URL=${PUBLIC_FILE_SERVER_URL}
+      - PUBLIC_API_BASE_URL=${PUBLIC_API_BASE_URL}
+      - PUBLIC_FRONTEND_BASE_URL=${PUBLIC_SELLER_FRONTEND_BASE_URL}
+      - PUBLIC_LANG=${PUBLIC_LANG}
+      - SITE=${SITE}
+      - BASE_URL=${BASE_URL}
+      - REMOTE_ASSETS_BASE_URL=${REMOTE_ASSETS_BASE_URL}
+      - SERVER_API_URL=${SERVER_API_URL}
+      - CI=${CI}
+      - APP_CONTEXT=seller
+      - PUBLIC_APP_CONTEXT=seller
+      - PUBLIC_ADMIN_APP_URL=${PUBLIC_ADMIN_APP_URL}
+      - PUBLIC_SELLER_APP_URL=${PUBLIC_SELLER_APP_URL}
+      - PUBLIC_RECAPTCHA_SITE_KEY=${PUBLIC_RECAPTCHA_SITE_KEY}
+      - DEV_PORT=2123
+    networks:
+      - gelymar-network-dev
+    depends_on:
+      backend:
+        condition: service_started
+
+  # Capa Cron (Separada)
+  cron:
+    build:
+      context: ..
+      dockerfile: docker/cron/Dockerfile
+    image: nicetm/gelymar-platform:cron-dev
+    container_name: gelymar-platform-cron-dev
+    restart: unless-stopped
+    environment:
+      - TZ=America/Santiago
+      - MYSQL_DB_HOST=${MYSQL_DB_HOST}
+      - MYSQL_DB_PORT=${MYSQL_DB_PORT}
+      - MYSQL_DB_USER=${MYSQL_DB_USER}
+      - MYSQL_DB_PASS=${MYSQL_DB_PASS}
+      - MYSQL_DB_NAME=${MYSQL_DB_NAME}
+      - SQL_HOST=${SQL_HOST}
+      - SQL_PORT=${SQL_PORT}
+      - SQL_DB=${SQL_DB}
+      - SQL_USER=${SQL_USER}
+      - SQL_PASS=${SQL_PASS}
+      - FILE_SERVER_ROOT=${FILE_SERVER_ROOT}
+      - FILE_SERVER_URL=${FILE_SERVER_URL}
+      - BACKEND_API_URL=${BACKEND_API_URL}
+      - NETWORK_SERVER=${NETWORK_SERVER}
+      - NETWORK_SHARE_PATH=${NETWORK_SHARE_PATH}
+      - NETWORK_USER=${NETWORK_USER}
+      - NETWORK_PASSWORD=${NETWORK_PASSWORD}
+      - PM2_HOME=/app/.pm2
+    volumes:
+      - fileserver_data_dev:/var/www/html:rw
+      - cron_logs_dev:/app/logs
+      - cron_pm2_dev:/app/.pm2
+    networks:
+      - gelymar-network-dev
+    depends_on:
+      mysql:
+        condition: service_healthy
+      backend:
+        condition: service_started
+      fileserver:
+        condition: service_started
+    ports:
+      - "9615:9615"  # PM2 web interface
+    privileged: true  # Dar privilegios para montar redes
+    cap_add:
+      - SYS_ADMIN  # Capacidad para montar sistemas de archivos
+
+  # phpMyAdmin
+  phpmyadmin:
+    image: phpmyadmin:5.2.1
+    container_name: gelymar-platform-phpmyadmin-dev
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+    environment:
+      - TZ=America/Santiago
+      - PMA_HOST=${MYSQL_DB_HOST}
+      - PMA_PORT=${MYSQL_DB_PORT}
+      - PMA_USER=${MYSQL_DB_USER}
+      - PMA_PASSWORD=${MYSQL_DB_PASS}
+      - PMA_ABSOLUTE_URI=http://localhost:8081/
+      - APACHE_LOG_LEVEL=error
+      - UPLOAD_LIMIT=100M
+    networks:
+      - gelymar-network-dev
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  # Config Manager
+  config-manager:
+    build:
+      context: ./config-manager
+      dockerfile: Dockerfile
+    image: nicetm/gelymar-platform:config-manager-dev
+    container_name: gelymar-platform-config-manager-dev
+    restart: unless-stopped
+    ports:
+      - "8083:8083"
+      - "7682:7682"
+    environment:
+      - TZ=America/Santiago
+      - NODE_ENV=development
+      - PROJECT_PATH=/app/project
+      - DOCKER_COMPOSE_FILE=/app/docker/docker-compose-dev.yml
+      - ENV_FILE=/app/docker/.env.local
+      - MYSQL_DB_HOST=mysql
+      - MYSQL_DB_PORT=3306
+      - MYSQL_DB_NAME=${MYSQL_DB_NAME}
+      - MYSQL_DB_USER=${MYSQL_DB_USER}
+      - MYSQL_DB_PASSWORD=${MYSQL_DB_PASS}
+      - SESSION_SECRET=gelymar-config-manager-secret-key-2024
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ..:/app/project
+    networks:
+      - gelymar-network-dev
+    depends_on:
+      - mysql
+      - backend
+
+networks:
+  gelymar-network-dev:
+    driver: bridge
+
+volumes:
+  mysql_data_dev:
+  fileserver_data_dev:
+  backend_logs_dev:
+  cron_logs_dev:
+  cron_pm2_dev:
