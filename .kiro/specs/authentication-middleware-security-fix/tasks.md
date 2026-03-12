@@ -1,6 +1,6 @@
 # Plan de Implementación
 
-- [-] 1. Escribir test de exploración de condición de bug
+- [x] 1. Escribir test de exploración de condición de bug
   - **Property 1: Bug Condition** - Middleware Permite Acceso No Autorizado
   - **CRÍTICO**: Este test DEBE FALLAR en código sin fix - el fallo confirma que el bug existe
   - **NO intentar arreglar el test o el código cuando falle**
@@ -40,9 +40,9 @@
   - Marcar tarea como completa cuando los tests estén escritos, ejecutados y pasando en código sin fix
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7_
 
-- [ ] 3. Fix para vulnerabilidades de seguridad del middleware de autenticación
+- [-] 3. Fix para vulnerabilidades de seguridad del middleware de autenticación
 
-  - [ ] 3.1 Implementar validación JWT completa en el middleware
+  - [x] 3.1 Implementar validación JWT completa en el middleware
     - Agregar importación de librería `jose` para verificación JWT (compatible con edge)
     - Crear función helper `extractTokenFromCookies(cookies)` para extraer JWT de cookies
     - Crear función helper `verifyJWT(token, secret)` para verificar firma y expiración usando `jwtVerify`
@@ -63,14 +63,14 @@
     - _Preservation: Usuarios válidos, modo 'both', assets estáticos, rutas API, 404s de contexto, flujo de logout, visualización de menú de usuario deben continuar funcionando sin cambios_
     - _Requirements: 2.1, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8_
 
-  - [ ] 3.2 Crear página de error de acceso denegado
+  - [x] 3.2 Crear página de error de acceso denegado
     - Crear archivo `Frontend/src/pages/error/access-denied.astro`
     - Usar layout existente de Astro para consistencia visual
     - Mostrar mensaje amigable explicando que el usuario no tiene permisos para acceder a la página
     - Incluir botón o enlace para volver a la página principal o dashboard del usuario
     - _Requirements: 2.3_
 
-  - [ ] 3.3 Identificar y eliminar todas las validaciones parciales de autenticación dispersas
+  - [x] 3.3 Identificar y eliminar todas las validaciones parciales de autenticación dispersas
     - **PRIMERO**: Buscar en todo el código frontend validaciones parciales de autenticación:
       - Buscar verificaciones de token JWT en archivos `.js`, `.ts`, `.astro`
       - Buscar validaciones de rol de usuario en páginas individuales

@@ -34,8 +34,6 @@ export function initAuthGuard(config = {}) {
       }
 
       if (requiredRole) {
-        // En este punto solo podríamos comprobar que existe el rol en el payload.
-        // La validación exhaustiva sigue siendo responsabilidad del backend.
         const payloadRole = payload.role || payload.roles || null;
         if (!payloadRole) {
           throw new Error('Token sin información de rol');

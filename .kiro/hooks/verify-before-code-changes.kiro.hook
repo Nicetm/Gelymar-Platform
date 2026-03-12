@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "name": "Verificar antes de modificar código",
+  "description": "Obliga al agente a confirmar que leyó TODO el código de referencia y verificó TODOS los detalles antes de usar strReplace o editCode",
+  "version": "1",
+  "when": {
+    "type": "preToolUse",
+    "toolTypes": [
+      "write"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "DETENTE. Antes de ejecutar esta operación de escritura, responde:\n\n1. ¿Leíste TODO el código de referencia COMPLETO (no solo fragmentos)?\n2. ¿Comparaste LÍNEA POR LÍNEA todas las diferencias?\n3. ¿Verificaste TODOS los detalles: colores (text-blue-500 vs text-green-500), tamaños (h-5 w-5 vs h-8 w-8), clases CSS (text-xs vs text-sm), textos, estructura?\n4. ¿Estás haciendo TODOS los cambios necesarios de UNA VEZ (no parciales)?\n5. ¿Entendiste EXACTAMENTE lo que el usuario pidió sin asumir nada?\n\nSi la respuesta a CUALQUIERA es NO, CANCELA la operación y lee/verifica primero.\n\nSi TODAS son SÍ, confirma explícitamente cada punto antes de proceder."
+  }
+}

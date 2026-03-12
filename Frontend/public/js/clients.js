@@ -1611,8 +1611,136 @@ export async function initClientsScript() {
     document.getElementById('changePasswordForm').reset();
     updateChangePasswordRules('');
     
+    // Cargar estado de bloqueo y guardar nombre en el botón
+    const toggleBlockBtn = document.getElementById('toggleBlockBtn');
+    if (toggleBlockBtn) {
+      toggleBlockBtn.dataset.customerName = customerName;
+    }
+    loadCurrentBlockedStatus(customerUuid);
+    
     // Mostrar modal
     showModal('#changePasswordModal');
+  }
+
+  async function loadCurrentBlockedStatus(rut) {
+    const toggleBlockBtn = document.getElementById('toggleBlockBtn');
+    const toggleBlockBtnText = document.getElementById('toggleBlockBtnText');
+    
+    if (!toggleBlockBtn || !toggleBlockBtnText) return;
+    
+    // Quitar solo la C final si existe
+    const cleanRut = rut.replace(/c$/i, '');
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${resolvedApiBase}/api/users/blocked-status/${cleanRut}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const isBlocked = data.bloqueado === 1 || data.bloqueado === true;
+        
+        toggleBlockBtn.dataset.blocked = isBlocked ? '1' : '0';
+        toggleBlockBtn.dataset.rut = cleanRut;
+        
+        if (isBlocked) {
+          toggleBlockBtnText.textContent = getMessage(changePasswordTexts.unblockUser) || 'Desbloquear';
+          toggleBlockBtn.classList.remove('bg-amber-500', 'hover:bg-amber-600');
+          toggleBlockBtn.classList.add('bg-green-500', 'hover:bg-green-600');
+        } else {
+          toggleBlockBtnText.textContent = getMessage(changePasswordTexts.blockUser) || 'Bloquear';
+          toggleBlockBtn.classList.remove('bg-green-500', 'hover:bg-green-600');
+          toggleBlockBtn.classList.add('bg-amber-500', 'hover:bg-amber-600');
+        }
+      }
+    } catch (error) {
+      console.error('Error loading blocked status:', error);
+    }
+  }
+
+  // Event listener para bloquear/desbloquear
+  const toggleBlockBtn = document.getElementById('toggleBlockBtn');
+  if (toggleBlockBtn) {
+    toggleBlockBtn.addEventListener('click', async () => {
+      const rut = toggleBlockBtn.dataset.rut;
+      const customerName = toggleBlockBtn.dataset.customerName || rut;
+      const isCurrentlyBlocked = toggleBlockBtn.dataset.blocked === '1';
+      
+      if (!rut) {
+        showNotification(getMessage(changePasswordTexts.errorNoRut) || 'Error: No se pudo identificar el usuario', 'error');
+        return;
+      }
+      
+      const action = isCurrentlyBlocked ? 'unblock' : 'block';
+      const confirmTitle = isCurrentlyBlocked 
+        ? (getMessage(changePasswordTexts.confirmUnblockTitle) || '¿Desbloquear usuario?')
+        : (getMessage(changePasswordTexts.confirmBlockTitle) || '¿Bloquear usuario?');
+      const confirmMessage = isCurrentlyBlocked
+        ? (getMessage(changePasswordTexts.confirmUnblockMessage) || `¿Está seguro de desbloquear al usuario {rut}?`).replace('{rut}', customerName)
+        : (getMessage(changePasswordTexts.confirmBlockMessage) || `¿Está seguro de bloquear al usuario {rut}?`).replace('{rut}', customerName);
+      
+      const confirmed = await confirmAction(confirmTitle, confirmMessage, 'warning');
+      if (!confirmed) return;
+      
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${resolvedApiBase}/api/users/block/${rut}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ bloqueado: !isCurrentlyBlocked })
+        });
+        
+        if (response.ok) {
+          const successMessage = isCurrentlyBlocked
+            ? (getMessage(changePasswordTexts.userUnblockedSuccess) || 'Usuario desbloqueado correctamente')
+            : (getMessage(changePasswordTexts.userBlockedSuccess) || 'Usuario bloqueado correctamente');
+          showNotification(successMessage, 'success');
+          
+          // Actualizar estado del botón
+          await loadCurrentBlockedStatus(rut);
+        } else {
+          showNotification(getMessage(changePasswordTexts.errorUpdatingBlockStatus) || 'Error al actualizar estado del usuario', 'error');
+        }
+      } catch (error) {
+        console.error('Error updating block status:', error);
+        showNotification(getMessage(changePasswordTexts.errorUpdatingBlockStatus) || 'Error al actualizar estado del usuario', 'error');
+      }
+    });
+  }
+
+  // Event listeners para modal de ayuda
+  const changePasswordHelpBtn = document.getElementById('changePasswordHelpBtn');
+  const changePasswordHelpModal = document.getElementById('changePasswordHelpModal');
+  const closeChangePasswordHelpModalBtn = document.getElementById('closeChangePasswordHelpModalBtn');
+  const closeChangePasswordHelpModalFooterBtn = document.getElementById('closeChangePasswordHelpModalFooterBtn');
+
+  if (changePasswordHelpBtn && changePasswordHelpModal) {
+    changePasswordHelpBtn.addEventListener('click', () => {
+      changePasswordHelpModal.classList.remove('hidden');
+      changePasswordHelpModal.classList.add('flex');
+    });
+  }
+
+  if (closeChangePasswordHelpModalBtn) {
+    closeChangePasswordHelpModalBtn.addEventListener('click', () => {
+      changePasswordHelpModal.classList.add('hidden');
+      changePasswordHelpModal.classList.remove('flex');
+    });
+  }
+
+  if (closeChangePasswordHelpModalFooterBtn) {
+    closeChangePasswordHelpModalFooterBtn.addEventListener('click', () => {
+      changePasswordHelpModal.classList.add('hidden');
+      changePasswordHelpModal.classList.remove('flex');
+    });
   }
 
   function slugifyPath(text) {

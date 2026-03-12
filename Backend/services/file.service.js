@@ -383,7 +383,6 @@ const getAllOrdersGroupedByRut = async (sendFrom = null, filters = {}) => {
     FROM jor_imp_HDR_90_softkey h
     LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
     WHERE h.Rut IS NOT NULL AND h.Nro IS NOT NULL AND h.OC IS NOT NULL
-      AND ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
   `;
 
   // Agregar filtro de fecha si se proporciona sendFrom
@@ -537,7 +536,6 @@ const createDefaultFilesForOrder = async (orderId, customerName, pc, oc) => {
       SELECT COUNT(1) AS total, MIN(Fecha) AS min_fecha
       FROM jor_imp_HDR_90_softkey
       WHERE Nro = @pc
-        ${oc ? "AND REPLACE(REPLACE(REPLACE(REPLACE(LOWER(OC), ' ', ''), '(', ''), ')', ''), '-', '') = @oc" : ''}
     `;
     const partialResult = await request.query(partialQuery);
     const partialCount = Number(partialResult.recordset?.[0]?.total || 0);
@@ -558,7 +556,6 @@ const createDefaultFilesForOrder = async (orderId, customerName, pc, oc) => {
         SELECT TOP 1 Fecha
         FROM jor_imp_HDR_90_softkey
         WHERE Nro = @pc
-          ${oc ? "AND REPLACE(REPLACE(REPLACE(REPLACE(LOWER(OC), ' ', ''), '(', ''), ')', ''), '-', '') = @oc" : ''}
           ${hasFactura ? 'AND Factura = @factura' : "AND (Factura IS NULL OR Factura = '' OR Factura = 0 OR Factura = '0')"}
         ORDER BY Fecha ASC
       `;
@@ -932,9 +929,7 @@ const getOrderDataForPDF = async (orderId) => {
         c.Pais AS customer_country
       FROM jor_imp_HDR_90_softkey h
       LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
-      WHERE h.Nro = @pc ${oc ? "AND REPLACE(REPLACE(REPLACE(REPLACE(LOWER(h.OC), ' ', ''), '(', ''), ')', ''), '-', '') = @oc" : ''}
-        AND ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
-        AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
+      WHERE h.Nro = @pc
       ORDER BY ISNULL(h.Fecha, f.Fecha_factura) DESC
     `);
 

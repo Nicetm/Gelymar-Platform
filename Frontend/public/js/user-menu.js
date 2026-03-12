@@ -34,27 +34,6 @@ export function initUserMenu(config = {}) {
   const usermenu = translations.usermenu || {};
   const getMessage = (value) => (typeof value === 'string' ? value : '');
 
-  const ADMIN_ROLE_NAMES = ['admin', 'administrador'];
-  const SELLER_ROLE_NAMES = ['seller', 'ventas', 'vendedor'];
-  const CLIENT_ROLE_NAMES = ['client', 'cliente'];
-
-  const normalizeRoleName = (value) => (value || '').toString().toLowerCase().trim();
-
-  const inferUserRole = (user = {}) => {
-    const roleId = Number(user.role_id);
-    const normalizedRole = normalizeRoleName(user.role);
-
-    if (roleId === 1) return 'admin';
-    if (roleId === 2) return 'client';
-    if (roleId === 3) return 'seller';
-
-    if (ADMIN_ROLE_NAMES.includes(normalizedRole)) return 'admin';
-    if (SELLER_ROLE_NAMES.includes(normalizedRole)) return 'seller';
-    if (CLIENT_ROLE_NAMES.includes(normalizedRole)) return 'client';
-
-    return normalizedRole || 'client';
-  };
-
   const roleLabels = {
     admin: getMessage(usermenu.role_admin),
     seller: getMessage(usermenu.role_seller),
@@ -225,8 +204,7 @@ export function initUserMenu(config = {}) {
       const u = await res.json();
 
       const fullName = u.full_name ?? 'User';
-      const userRole = inferUserRole(u);
-      const roleNameClient = u.role ?? resolveRoleLabel(userRole);
+      const roleNameClient = u.role ?? 'User';
       const rut = u.rut ?? u.email ?? '';
       const contactEmail = u.email ?? '';
 
@@ -241,7 +219,6 @@ export function initUserMenu(config = {}) {
       };
 
       applyUserProfile(profilePayload);
-      localStorage.setItem('userRole', userRole);
       localStorage.setItem('userProfile', JSON.stringify(profilePayload));
       if (rut) {
         localStorage.setItem('userRut', rut);

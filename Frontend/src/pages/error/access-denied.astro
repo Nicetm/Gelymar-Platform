@@ -1,0 +1,84 @@
+---
+import LayoutStacked from '../../app/LayoutStacked.astro';
+import { url } from '../../lib/data.ts';
+
+// Get user role from context.locals.user (set by middleware)
+const user = Astro.locals.user;
+const userRole = user?.role as string | undefined;
+
+// Determine the appropriate dashboard URL based on user role
+let dashboardUrl = url('');
+let dashboardLabel = 'Volver al inicio';
+
+if (userRole === 'admin') {
+  dashboardUrl = url('admin');
+  dashboardLabel = 'Ir al panel de administración';
+} else if (userRole === 'seller') {
+  const sellerPortalPath = (() => {
+    const rawUrl = import.meta.env.PUBLIC_SELLER_APP_URL || '/seller';
+    try {
+      const urlObj = new URL(rawUrl, 'http://localhost');
+      return urlObj.pathname || '/seller';
+    } catch {
+      return rawUrl.startsWith('/') ? rawUrl : '/seller';
+    }
+  })();
+  dashboardUrl = url(sellerPortalPath.replace(/^\//, ''));
+  dashboardLabel = 'Ir al portal de vendedor';
+} else if (userRole === 'client') {
+  dashboardUrl = url('client');
+  dashboardLabel = 'Ir al panel de cliente';
+}
+---
+
+<LayoutStacked>
+  <div
+    class="flex flex-col justify-center items-center px-6 mx-auto h-screen xl:px-0 dark:bg-gray-900"
+  >
+    <div class="block md:max-w-lg">
+      <svg
+        class="w-full h-full text-primary-600 dark:text-primary-400"
+        fill="currentColor"
+        viewBox="0 0 20 20"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          fill-rule="evenodd"
+          d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z"
+          clip-rule="evenodd"
+        ></path>
+      </svg>
+    </div>
+    <div class="text-center xl:max-w-4xl">
+      <h1
+        class="mb-3 text-2xl font-bold leading-tight text-gray-900 sm:text-4xl lg:text-5xl dark:text-white"
+      >
+        Acceso denegado
+      </h1>
+      <p
+        class="mb-5 text-base font-normal text-gray-500 md:text-lg dark:text-gray-400"
+      >
+        Lo sentimos, no tienes los permisos necesarios para acceder a esta página.
+        Por favor, contacta con el administrador si crees que deberías tener acceso.
+      </p>
+      <a
+        href={dashboardUrl}
+        class="text-white bg-primary-700 hover:bg-primary-800 focus:ring-4 focus:ring-primary-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center inline-flex items-center mr-3 dark:bg-primary-600 dark:hover:bg-primary-700 dark:focus:ring-primary-800"
+      >
+        <svg
+          class="mr-2 -ml-1 w-5 h-5"
+          fill="currentColor"
+          viewBox="0 0 20 20"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            fill-rule="evenodd"
+            d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
+            clip-rule="evenodd"
+          ></path>
+        </svg>
+        {dashboardLabel}
+      </a>
+    </div>
+  </div>
+</LayoutStacked>

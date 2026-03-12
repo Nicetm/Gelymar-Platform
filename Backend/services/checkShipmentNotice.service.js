@@ -74,7 +74,6 @@ async function getOrdersReadyForShipmentNotice(sendFromDate = null, filterPc = n
           FROM jor_imp_FACT_90_softkey f
           INNER JOIN jor_imp_HDR_90_softkey h ON h.Nro = f.Nro
           WHERE f.Nro = @pc
-            AND ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
             AND h.Clausula IN ('CFR', 'CIF', 'CIP', 'DAP', 'DDP', 'CPT')
             AND ISDATE(NULLIF(LTRIM(RTRIM(f.ETD_ENC_FA)), '')) = 1
             AND ISDATE(NULLIF(LTRIM(RTRIM(f.ETA_ENC_FA)), '')) = 1

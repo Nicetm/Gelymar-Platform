@@ -53,13 +53,18 @@ router.get('/me', authMiddleware, async (req, res) => {
     try {
         const user = await userService.getUserProfile(req.user.id);
         
+        if (!user) {
+            logger.error(`[AuthRoutes] getUserProfile returned null for user.id: ${req.user.id}`);
+            return res.status(404).json({ message: 'Usuario no encontrado' });
+        }
+        
         // Buscar el customer_id usando el RUT (email del usuario)
         let customer_id = null;
         if (req.user.role === 'client') {
             customer_id = await userService.findCustomerIdByRut(req.user.rut || req.user.email);
         }
         
-        res.json({
+        const response = {
             id: req.user.id,
             rut: req.user.rut || req.user.email,
             email: user.email || null,
@@ -74,9 +79,11 @@ router.get('/me', authMiddleware, async (req, res) => {
             change_pw: user.change_pw,
             customer_id: customer_id,
             avatar_path: user.avatar_path || null
-        });
+        };
+        
+        res.json(response);
     } catch (error) {
-        logger.error(`[AuthRoutes] Error en me: ${error.message}`);
+        logger.error(`[AuthRoutes] Error en me: ${error.message}`, error.stack);
         res.status(500).json({ message: 'Error interno' });
     }
 });

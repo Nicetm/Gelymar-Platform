@@ -255,6 +255,31 @@ export async function initOrdersScript() {
     const shippingMethod = (!order.factura || order.factura === 0 || order.factura === '0')
       ? (order.medio_envio_ov || '-')
       : (order.medio_envio_factura || '-');
+    const documentCount = order.document_count || 0;
+    const documentTypes = order.document_types || [];
+    
+    // Determinar el color del icono según los documentos
+    // IDs: All Documents=18, Order Delivery Notice=15, Availability Notice=6, Shipment Notice=19, Order Receipt Notice=9
+    const hasAllDocuments = documentTypes.includes(18);
+    const hasOrderReceipt = documentTypes.includes(9);
+    const hasShipment = documentTypes.includes(19);
+    const hasDelivery = documentTypes.includes(15);
+    const hasAvailability = documentTypes.includes(6);
+    
+    let iconColorClass = '';
+    if (documentCount === 0) {
+      // Rojo: sin documentos
+      iconColorClass = 'text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300';
+    } else if (hasAllDocuments && (hasOrderReceipt || (hasShipment && hasDelivery && hasAvailability))) {
+      // Verde: tiene All Documents + documentos por defecto
+      iconColorClass = 'text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300';
+    } else if (hasOrderReceipt || (hasShipment && hasDelivery && hasAvailability)) {
+      // Amarillo: solo tiene documentos por defecto
+      iconColorClass = 'text-yellow-500 dark:text-yellow-400 hover:text-yellow-600 dark:hover:text-yellow-300';
+    } else {
+      // Gris: tiene documentos pero no cumple las condiciones
+      iconColorClass = 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200';
+    }
     
     return `
       <tr data-id="${order.id}" class="hover:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition bg-white dark:bg-gray-900">
@@ -263,6 +288,15 @@ export async function initOrdersScript() {
             <a href="${documentUrl}" 
               class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline">
               <span>${order.pc || '-'}</span>
+            </a>
+            <a href="${documentUrl}" 
+               class="relative inline-flex items-center"
+               data-tooltip="${orders.tooltipDocumentCount}"
+               aria-label="${orders.tooltipDocumentCount}">
+              <svg class="w-5 h-5 ${iconColorClass} transition" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+              </svg>
+              <span class="absolute -top-1 -right-1 text-xs font-bold ${iconColorClass}">${documentCount}</span>
             </a>
           </div>
         </td>
@@ -1086,7 +1120,48 @@ export async function initOrdersScript() {
       if (orderDetailModal) {
         orderDetailModal.classList.add('hidden');
       }
+      const documentCountHelpModal = document.getElementById('documentCountHelpModal');
+      if (documentCountHelpModal) {
+        documentCountHelpModal.classList.add('hidden');
+        documentCountHelpModal.classList.remove('flex');
+      }
     });
+
+    // Event listeners para modal de ayuda de contador de documentos
+    const documentCountHelpBtn = document.getElementById('documentCountHelpBtn');
+    const documentCountHelpModal = document.getElementById('documentCountHelpModal');
+    const closeDocumentCountHelpModalBtn = document.getElementById('closeDocumentCountHelpModalBtn');
+    const closeDocumentCountHelpModalFooterBtn = document.getElementById('closeDocumentCountHelpModalFooterBtn');
+
+    if (documentCountHelpBtn && documentCountHelpModal) {
+      documentCountHelpBtn.addEventListener('click', () => {
+        documentCountHelpModal.classList.remove('hidden');
+        documentCountHelpModal.classList.add('flex');
+      });
+    }
+
+    if (closeDocumentCountHelpModalBtn && documentCountHelpModal) {
+      closeDocumentCountHelpModalBtn.addEventListener('click', () => {
+        documentCountHelpModal.classList.add('hidden');
+        documentCountHelpModal.classList.remove('flex');
+      });
+    }
+
+    if (closeDocumentCountHelpModalFooterBtn && documentCountHelpModal) {
+      closeDocumentCountHelpModalFooterBtn.addEventListener('click', () => {
+        documentCountHelpModal.classList.add('hidden');
+        documentCountHelpModal.classList.remove('flex');
+      });
+    }
+
+    if (documentCountHelpModal) {
+      documentCountHelpModal.addEventListener('click', (e) => {
+        if (e.target === documentCountHelpModal) {
+          documentCountHelpModal.classList.add('hidden');
+          documentCountHelpModal.classList.remove('flex');
+        }
+      });
+    }
   }
 
 }

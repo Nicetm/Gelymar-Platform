@@ -181,5 +181,155 @@ export function initSidebarClient(config) {
         }
       });
     });
+
+    // Tooltip system for collapsed sidebar
+    const floatingTooltipState = {
+      el: null,
+      currentTarget: null,
+      removeTimeout: null,
+      globalHandlersBound: false
+    };
+
+    function ensureFloatingTooltipElement() {
+      if (floatingTooltipState.el) {
+        return floatingTooltipState.el;
+      }
+      const tooltip = document.createElement('div');
+      tooltip.className = 'floating-tooltip';
+      Object.assign(tooltip.style, {
+        position: 'fixed',
+        zIndex: '9999',
+        backgroundColor: '#16a34a',
+        color: '#ffffff',
+        padding: '6px 12px',
+        borderRadius: '6px',
+        fontSize: '13px',
+        fontWeight: '500',
+        pointerEvents: 'none',
+        whiteSpace: 'nowrap',
+        opacity: '0',
+        transition: 'opacity 120ms ease',
+        maxWidth: '320px',
+        textAlign: 'center'
+      });
+      floatingTooltipState.el = tooltip;
+      return floatingTooltipState.el;
+    }
+
+    function ensureFloatingTooltipHandlers() {
+      if (floatingTooltipState.globalHandlersBound) return;
+      floatingTooltipState.globalHandlersBound = true;
+      const hideOnChange = () => hideFloatingTooltip();
+      window.addEventListener('scroll', hideOnChange, true);
+      window.addEventListener('resize', hideOnChange, true);
+      window.addEventListener('keydown', event => {
+        if (event.key === 'Escape') {
+          hideFloatingTooltip();
+        }
+      }, true);
+    }
+
+    function positionFloatingTooltip(target, tooltipEl) {
+      const rect = target.getBoundingClientRect();
+      const tooltipRect = tooltipEl.getBoundingClientRect();
+      const spacing = 10;
+
+      // Posicionar a la derecha del botón
+      let left = rect.right + spacing;
+      const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+      
+      // Si no cabe a la derecha, posicionar a la izquierda
+      if (left + tooltipRect.width + spacing > viewportWidth) {
+        left = rect.left - tooltipRect.width - spacing;
+      }
+
+      // Centrar verticalmente con el botón
+      let top = rect.top + (rect.height / 2) - (tooltipRect.height / 2);
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+      
+      // Ajustar si se sale por arriba o abajo
+      top = Math.max(spacing, Math.min(top, viewportHeight - tooltipRect.height - spacing));
+
+      tooltipEl.style.top = `${Math.round(top)}px`;
+      tooltipEl.style.left = `${Math.round(left)}px`;
+    }
+
+    function showFloatingTooltip(target) {
+      if (!target || !(target instanceof HTMLElement)) return;
+      
+      // Only show tooltip when sidebar is collapsed
+      const sidebarCollapsed = sidebar?.classList.contains('sidebar-collapsed');
+      if (!sidebarCollapsed) return;
+      
+      const text = target.getAttribute('data-tooltip');
+      if (!text) return;
+
+      ensureFloatingTooltipHandlers();
+      clearTimeout(floatingTooltipState.removeTimeout);
+
+      const tooltipEl = ensureFloatingTooltipElement();
+      tooltipEl.textContent = text;
+
+      if (!tooltipEl.isConnected) {
+        document.body.appendChild(tooltipEl);
+      }
+
+      tooltipEl.style.opacity = '0';
+      tooltipEl.style.visibility = 'hidden';
+
+      requestAnimationFrame(() => {
+        tooltipEl.style.visibility = 'visible';
+        positionFloatingTooltip(target, tooltipEl);
+        requestAnimationFrame(() => {
+          tooltipEl.style.opacity = '1';
+        });
+      });
+
+      floatingTooltipState.currentTarget = target;
+    }
+
+    function hideFloatingTooltip() {
+      if (!floatingTooltipState.el) return;
+      const tooltipEl = floatingTooltipState.el;
+      tooltipEl.style.opacity = '0';
+      floatingTooltipState.currentTarget = null;
+      clearTimeout(floatingTooltipState.removeTimeout);
+      floatingTooltipState.removeTimeout = window.setTimeout(() => {
+        if (tooltipEl.parentElement) {
+          tooltipEl.parentElement.removeChild(tooltipEl);
+        }
+        tooltipEl.style.visibility = 'hidden';
+      }, 150);
+    }
+
+    function handleTooltipEnter(event) {
+      showFloatingTooltip(event.currentTarget);
+    }
+
+    function handleTooltipLeave(event) {
+      const target = event.currentTarget;
+      if (floatingTooltipState.currentTarget === target) {
+        if (event.type === 'mouseleave' && document.activeElement === target) {
+          return;
+        }
+        hideFloatingTooltip();
+      }
+    }
+
+    function setupFloatingTooltips(container) {
+      if (!container) return;
+      const tooltipTargets = container.querySelectorAll('[data-tooltip]');
+      tooltipTargets.forEach(target => {
+        target.addEventListener('mouseenter', handleTooltipEnter);
+        target.addEventListener('mouseleave', handleTooltipLeave);
+        target.addEventListener('focus', handleTooltipEnter);
+        target.addEventListener('blur', handleTooltipLeave);
+      });
+    }
+
+    // Setup tooltips for sidebar
+    if (sidebar) {
+      setupFloatingTooltips(sidebar);
+    }
   });
 } 

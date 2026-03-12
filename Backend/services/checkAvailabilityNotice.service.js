@@ -74,7 +74,6 @@ async function getOrdersReadyForAvailabilityNotice(sendFromDate = null, filterPc
           INNER JOIN jor_imp_HDR_90_softkey h ON h.Nro = f.Nro
           WHERE f.Nro = @pc
             AND f.Factura = @factura
-            AND ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
             AND f.Factura IS NOT NULL
             AND LTRIM(RTRIM(f.Factura)) <> ''
             AND f.Factura <> 0
@@ -139,15 +138,15 @@ async function getAvailabilityFile(pc, oc, factura = null) {
   const pool = await poolPromise;
   try {
     const query = factura
-      ? `SELECT id, path, fecha_envio FROM order_files WHERE pc = ? AND oc = ? AND factura = ? AND file_id = ? ORDER BY id DESC LIMIT 1`
-      : `SELECT id, path, fecha_envio FROM order_files WHERE pc = ? AND oc = ? AND file_id = ? ORDER BY id DESC LIMIT 1`;
+      ? `SELECT id, path, fecha_envio FROM order_files WHERE pc = ? AND factura = ? AND file_id = ? ORDER BY id DESC LIMIT 1`
+      : `SELECT id, path, fecha_envio FROM order_files WHERE pc = ? AND file_id = ? ORDER BY id DESC LIMIT 1`;
     
-    const params = factura ? [pc, oc, factura, 6] : [pc, oc, 6];
+    const params = factura ? [pc, factura, 6] : [pc, 6];
     
     const [rows] = await pool.query(query, params);
     return rows.length > 0 ? rows[0] : null;
   } catch (error) {
-    logger.error(`Error obteniendo Availability Notice para PC/OC${factura ? '/Factura' : ''} ${pc}/${oc}${factura ? `/${factura}` : ''}: ${error.message}`);
+    logger.error(`Error obteniendo Availability Notice para PC${factura ? '/Factura' : ''} ${pc}${factura ? `/${factura}` : ''}: ${error.message}`);
     throw error;
   }
 }

@@ -207,10 +207,12 @@ exports.changeCustomerPassword = async (req, res) => {
   const rawRut = req.params.rut || req.params.uuid;
   const rut = rawRut ? String(rawRut).trim() : rawRut;
   const normalizedRut = rut ? normalizeRut(rut) : rut;
+  // Quitar la C final para buscar en la tabla users
+  const rutForUsers = normalizedRut ? normalizedRut.replace(/c$/i, '') : normalizedRut;
   const { password } = req.body;
   
   try {
-    logger.info(`[changeCustomerPassword] request rut=${rut || 'N/A'} normalized=${normalizedRut || 'N/A'} hasPassword=${password ? 'Y' : 'N'}`);
+    logger.info(`[changeCustomerPassword] request rut=${rut || 'N/A'} normalized=${normalizedRut || 'N/A'} rutForUsers=${rutForUsers || 'N/A'} hasPassword=${password ? 'Y' : 'N'}`);
     // Validar que se proporcione la contraseña
     if (!password) {
       logger.warn(`[changeCustomerPassword] missing password rut=${rut || 'N/A'}`);
@@ -232,10 +234,10 @@ exports.changeCustomerPassword = async (req, res) => {
       return res.status(404).json({ message: t('errors.customer_not_found', req.lang || 'es') });
     }
 
-    // Buscar el usuario asociado
-    const user = await userService.findUserByEmailOrUsername(normalizedRut || customer.rut);
+    // Buscar el usuario asociado (sin la C final)
+    const user = await userService.findUserByEmailOrUsername(rutForUsers || customer.rut);
     if (!user) {
-      logger.warn(`[changeCustomerPassword] user not found for rut=${normalizedRut || customer.rut}`);
+      logger.warn(`[changeCustomerPassword] user not found for rut=${rutForUsers || customer.rut}`);
       return res.status(404).json({ message: t('errors.user_not_found_for_customer', req.lang || 'es') });
     }
 

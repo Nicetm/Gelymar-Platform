@@ -189,30 +189,48 @@ const createOrderService = ({
   });
 
   const orderPairs = mappedRows
-    .map((row) => ({ pc: row.mapped.pc, oc: row.mapped.oc }))
-    .filter((pair) => pair.pc && pair.oc);
+    .map((row) => ({ pc: row.mapped.pc, factura: row.mapped.factura }))
+    .filter((pair) => pair.pc);
 
   const documentCountMap = new Map();
+  const documentTypesMap = new Map();
   if (orderPairs.length) {
-    const pairConditions = orderPairs.map(() => '(pc = ? AND oc = ?)').join(' OR ');
+    // Agrupar por PC y factura
+    const uniquePairs = Array.from(
+      new Map(orderPairs.map(p => [`${p.pc}|${p.factura || 'NULL'}`, p])).values()
+    );
+    
+    const conditions = uniquePairs.map(pair => 
+      pair.factura 
+        ? '(pc = ? AND factura = ?)'
+        : "(pc = ? AND (factura IS NULL OR factura = '' OR factura = 0 OR factura = '0'))"
+    );
+    
     const pairParams = [];
-    orderPairs.forEach((pair) => {
-      pairParams.push(pair.pc, pair.oc);
+    uniquePairs.forEach((pair) => {
+      pairParams.push(pair.pc);
+      if (pair.factura) {
+        pairParams.push(pair.factura);
+      }
     });
+    
     const [docRows] = await pool.query(
-      `SELECT pc, oc, COUNT(*) AS document_count
+      `SELECT pc, factura, COUNT(*) AS document_count, GROUP_CONCAT(DISTINCT file_id) AS file_ids
        FROM order_files
-       WHERE ${pairConditions}
-       GROUP BY pc, oc`,
+       WHERE ${conditions.join(' OR ')}
+       GROUP BY pc, factura`,
       pairParams
     );
+    
     docRows.forEach((row) => {
-      documentCountMap.set(`${row.pc}|${row.oc}`, row.document_count);
+      const key = `${row.pc}|${row.factura || 'NULL'}`;
+      documentCountMap.set(key, row.document_count);
+      documentTypesMap.set(key, row.file_ids ? row.file_ids.split(',').map(id => parseInt(id, 10)) : []);
     });
   }
 
   return mappedRows.map(({ raw, mapped }) => {
-    const docCountKey = `${mapped.pc}|${mapped.oc}`;
+    const docCountKey = `${mapped.pc}|${mapped.factura || 'NULL'}`;
     const order = new Order({
       id: `${mapped.pc}|${mapped.oc}`,
       rut: mapped.rut,
@@ -238,7 +256,8 @@ const createOrderService = ({
       puerto_destino: mapped.puerto_destino,
       certificados: mapped.certificados,
       estado_ov: mapped.estado_ov,
-      document_count: documentCountMap.get(docCountKey) || 0
+      document_count: documentCountMap.get(docCountKey) || 0,
+      document_types: documentTypesMap.get(docCountKey) || []
     });
 
     return order;
@@ -395,7 +414,7 @@ const createOrderService = ({
           f.Fecha_factura AS fec_factura
         FROM jor_imp_HDR_90_softkey h
         LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
-        WHERE h.Rut = @rut AND LOWER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = LOWER(@oc)
+        WHERE h.Rut = @rut
         ORDER BY CAST(h.Fecha AS date) DESC
       `);
 
@@ -449,7 +468,7 @@ const createOrderService = ({
         FROM jor_imp_HDR_90_softkey h
         LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
         LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
-        WHERE h.Nro = @pc AND LOWER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = LOWER(@oc)
+        WHERE h.Nro = @pc
         ORDER BY CAST(h.Fecha AS date) DESC
       `);
 
@@ -540,8 +559,6 @@ const createOrderService = ({
           LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
           LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
           WHERE h.Nro = @pc
-            AND LOWER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = LOWER(@oc)
-            AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
           ORDER BY CAST(h.Fecha AS date) DESC
         `);
 
@@ -710,8 +727,7 @@ const createOrderService = ({
         FROM jor_imp_HDR_90_softkey h
         LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
         LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
-        WHERE h.Nro = @pc AND LOWER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = LOWER(@oc)
-          AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
+        WHERE h.Nro = @pc
         ORDER BY CAST(h.Fecha AS date) DESC
       `);
 
@@ -804,7 +820,7 @@ const createOrderService = ({
           h.Vendedor
         FROM jor_imp_HDR_90_softkey h
         LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
-        WHERE h.Nro = @pc AND LOWER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = LOWER(@oc)
+        WHERE h.Nro = @pc
         ORDER BY CAST(h.Fecha AS date) DESC
       `);
 
@@ -894,9 +910,7 @@ const createOrderService = ({
           h.ETD_OV AS fecha_etd
         FROM jor_imp_HDR_90_softkey h
         LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
-        WHERE ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
-          AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
-          AND CASE
+        WHERE CASE
             WHEN ISDATE(h.Fecha) = 1
             THEN CAST(h.Fecha AS date)
           END >= @fecha
@@ -1100,7 +1114,6 @@ const createOrderService = ({
           ON i.Nro = h.Nro AND i.Factura = f.Factura
         LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
         WHERE ${withCurrency}
-          AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
         GROUP BY c.Nombre
         ORDER BY total_sales DESC
       `;
@@ -1218,7 +1231,7 @@ const createOrderService = ({
           c.Nombre AS customer_name
         FROM jor_imp_HDR_90_softkey h
         INNER JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
-        WHERE h.Nro = @pc AND LOWER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = LOWER(@oc)
+        WHERE h.Nro = @pc
         ORDER BY CAST(h.Fecha AS date) DESC
       `);
 
@@ -1333,7 +1346,7 @@ const createOrderService = ({
         FROM jor_imp_HDR_90_softkey h
         INNER JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
         INNER JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
-        WHERE h.Nro = @pc AND LOWER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = LOWER(@oc)
+        WHERE h.Nro = @pc
         ORDER BY CAST(h.Fecha AS date) DESC
       `);
 
@@ -1446,7 +1459,6 @@ const createOrderService = ({
         ON i.Nro = h.Nro AND i.Factura = f.Factura
       LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
       WHERE ${where.join(' AND ')}
-        AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
     `;
 
     const summaryQuery = `

@@ -2,10 +2,6 @@
 import LayoutSidebar from '../../../app/LayoutSidebarAdmin.astro';
 import AuthGuard from '../../../components/AuthGuard.astro';
 import PriceAnalysis from '../../../modules/admin/PriceAnalysis.astro';
-import { validateRole } from '../../../lib/auth.js';
-
-const redirect = await validateRole(Astro, 'admin');
-if (redirect) return redirect;
 ---
 
 <LayoutSidebar>

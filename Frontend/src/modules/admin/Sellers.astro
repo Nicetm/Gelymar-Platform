@@ -149,14 +149,6 @@ try {
               </svg>
             </div>
           </th>
-          <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="bloqueado">
-            <div class="flex items-center justify-between">
-              <span>{t.vendedores.blocked}</span>
-              <svg class="w-4 h-4 sort-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
-              </svg>
-            </div>
-          </th>
           <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" data-sort="online">
             <div class="flex items-center justify-between">
               <span>{t.vendedores.status}</span>
@@ -180,7 +172,7 @@ try {
           </thead>
           <tbody id="sellersTableBody" class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-sm min-h-[400px]">
         <tr id="sellersLoadingRow" class="bg-white dark:bg-gray-900">
-          <td colspan="8" class="px-6 py-6 text-center text-gray-500 dark:text-gray-400">
+          <td colspan="7" class="px-6 py-6 text-center text-gray-500 dark:text-gray-400">
             <div class="flex items-center justify-center">
               <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>

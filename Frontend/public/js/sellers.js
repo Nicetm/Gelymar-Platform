@@ -279,7 +279,6 @@ export async function initSellersScript() {
         <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-300">${seller.rut || '-'}</td>
         <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-300">${email}</td>
         <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-300">${activeCheckbox}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-300">${blockedCheckbox}</td>
         <td class="px-6 py-4 whitespace-nowrap text-xs">${statusBadge}</td>
         <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-300">${createdAt}</td>
         <td class="sticky right-0 bg-gray-50 dark:bg-gray-700 z-10 px-6 py-4 min-w-[120px] overflow-visible">

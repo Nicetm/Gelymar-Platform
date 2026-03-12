@@ -33,7 +33,9 @@
 		"preview:admin": "cross-env APP_CONTEXT=admin PUBLIC_APP_CONTEXT=admin astro preview --port 4211 --host 0.0.0.0",
 		"preview:client": "cross-env APP_CONTEXT=client PUBLIC_APP_CONTEXT=client astro preview --port 4222 --host 0.0.0.0",
 		"preview:seller": "cross-env APP_CONTEXT=seller PUBLIC_APP_CONTEXT=seller astro preview --port 4233 --host 0.0.0.0",
-		"start": "astro dev"
+		"start": "astro dev",
+		"test": "vitest --run",
+		"test:watch": "vitest"
 	},
 	"dependencies": {
 		"@astrojs/node": "^9.3.0",
@@ -45,6 +47,7 @@
 		"astro": "^5.12.0",
 		"flowbite": "^2.1.1",
 		"flowbite-typography": "^1.0.3",
+		"jose": "^6.2.1",
 		"jsonwebtoken": "^9.0.2",
 		"react": "^19.1.0",
 		"react-dom": "^19.1.0",
@@ -57,9 +60,12 @@
 	"devDependencies": {
 		"@types/eslint": "^8.21.1",
 		"@types/jsonwebtoken": "^9.0.9",
+		"@types/node": "^25.4.0",
 		"@typescript-eslint/eslint-plugin": "^5.54.1",
 		"@typescript-eslint/parser": "^5.54.1",
+		"@vitest/ui": "^4.0.18",
 		"astro-eslint-parser": "^0.11.0",
+		"cross-env": "^7.0.3",
 		"eslint": "^8.35.0",
 		"eslint-config-airbnb-base": "^15.0.0",
 		"eslint-config-airbnb-typescript": "^17.0.0",
@@ -69,6 +75,7 @@
 		"eslint-plugin-import": "^2.27.5",
 		"eslint-plugin-prettier": "^4.2.1",
 		"eslint-plugin-tsdoc": "^0.2.17",
-		"cross-env": "^7.0.3"
+		"fast-check": "^4.6.0",
+		"vitest": "^4.0.18"
 	}
 }

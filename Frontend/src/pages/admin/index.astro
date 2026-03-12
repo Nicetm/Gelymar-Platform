@@ -2,11 +2,6 @@
 // layout y logo
 import LayoutSidebar from '../../app/LayoutSidebarAdmin.astro';
 import AuthGuard from '../../components/AuthGuard.astro';
-
-// Validación de rol en el servidor
-import { validateRole } from '../../lib/auth.js';
-const redirect = await validateRole(Astro, 'admin');
-if (redirect) return redirect;
 ---
 
 <LayoutSidebar>

@@ -50,11 +50,9 @@ async function getFoldersByCustomerRut(customerRut) {
           f.MedioDeEnvioFact AS medio_envio_factura,
           cli.Nombre AS customer_name
         FROM jor_imp_HDR_90_softkey h
-        LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
         LEFT JOIN jor_imp_CLI_01_softkey cli ON cli.Rut = h.Rut
+        LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
         WHERE h.Rut = @rut
-          AND ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
-          AND LTRIM(RTRIM(cli.EstadoCliente)) = 'Activo'
         ORDER BY CAST(h.Fecha AS date) DESC, f.Factura ASC
       `);
   } catch (error) {

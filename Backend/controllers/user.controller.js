@@ -253,3 +253,64 @@ exports.resetAdminPassword = async (req, res) => {
     res.status(500).json({ message: t('user.reset_password_error', req.lang || 'es') });
   }
 };
+
+
+/**
+ * @route GET /api/users/blocked-status/:rut
+ * @desc Obtiene el estado de bloqueado de un usuario por RUT
+ * @access Protegido (requiere JWT)
+ */
+exports.getBlockedStatus = async (req, res) => {
+  try {
+    const { rut } = req.params;
+    
+    if (!rut) {
+      return res.status(400).json({ message: 'RUT es requerido' });
+    }
+    
+    const user = await userService.getUserByRut(rut);
+    
+    if (!user) {
+      return res.status(404).json({ message: 'Usuario no encontrado' });
+    }
+    
+    res.json({ bloqueado: user.bloqueado || 0 });
+  } catch (error) {
+    logger.error(`Error obteniendo estado de bloqueado: ${error.message}`);
+    res.status(500).json({ message: 'Error al obtener estado de bloqueado' });
+  }
+};
+
+/**
+ * @route PUT /api/users/block/:rut
+ * @desc Actualiza el estado de bloqueado de un usuario por RUT
+ * @access Protegido (requiere JWT - solo admin)
+ */
+exports.updateBlockedStatus = async (req, res) => {
+  try {
+    const { rut } = req.params;
+    const { bloqueado } = req.body;
+    
+    if (!rut) {
+      return res.status(400).json({ message: 'RUT es requerido' });
+    }
+    
+    if (bloqueado === undefined || bloqueado === null) {
+      return res.status(400).json({ message: 'Estado de bloqueado es requerido' });
+    }
+    
+    const blockedValue = bloqueado === 1 || bloqueado === '1' || bloqueado === true ? 1 : 0;
+    
+    const updated = await userService.updateBlockedStatus(rut, blockedValue);
+    
+    if (!updated) {
+      return res.status(404).json({ message: 'Usuario no encontrado' });
+    }
+    
+    logger.info(`Usuario ${rut} ${blockedValue === 1 ? 'bloqueado' : 'desbloqueado'} por admin ${req.user.id}`);
+    res.json({ message: 'Estado actualizado correctamente', bloqueado: blockedValue });
+  } catch (error) {
+    logger.error(`Error actualizando estado de bloqueado: ${error.message}`);
+    res.status(500).json({ message: 'Error al actualizar estado de bloqueado' });
+  }
+};

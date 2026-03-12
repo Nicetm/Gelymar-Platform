@@ -83,7 +83,6 @@ async function generatePendingPDFs(filters = {}) {
         SELECT DISTINCT h.Nro AS pc
         FROM jor_imp_HDR_90_softkey h
         WHERE h.Fecha >= @sendFrom
-          AND ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
       `;
       
       const sqlRequest = sqlPool.request();

@@ -198,9 +198,11 @@ export function initLayoutCommon(config = {}) {
 
   try {
     const shouldClear = sessionStorage.getItem('logout_on_close') === '1';
+    
     if (shouldClear) {
       const path = window.location.pathname || '';
       const isAuthPage = path.startsWith('/authentication');
+      
       if (isAuthPage) {
         clearClientStorage();
       } else {
@@ -212,6 +214,7 @@ export function initLayoutCommon(config = {}) {
             sameOriginReferrer = false;
           }
         }
+        
         if (!sameOriginReferrer) {
           clearClientStorage();
         }

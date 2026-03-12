@@ -21,6 +21,7 @@
   "tooltipViewItemsDetailed": "Ver items detallados",
   "tooltipViewItems": "Ver lista de items",
   "tooltipOrderDetails": "Ver detalles de orden",
+  "tooltipDocumentCount": "Documentos disponibles",
   "order": "Orden",
   "cliente": "Cliente",
   "noItemsFound": "No se encontraron items para esta orden",
@@ -53,5 +54,15 @@
   "itemsLoadError": "Error al cargar los items de la orden",
   "perPage": "Ordenes por página",
   "pageIndicator": "Página",
-  "pageIndicatorSeparator": "de"
+  "pageIndicatorSeparator": "de",
+  "documentCountHelpTitle": "Indicador de Documentos",
+  "documentCountHelpIntro": "El icono de carpeta junto al N° PC muestra el estado de los documentos de cada orden. Los colores indican:",
+  "documentCountHelpRed": "Rojo:",
+  "documentCountHelpRedDesc": "La orden no tiene documentos cargados.",
+  "documentCountHelpYellow": "Amarillo:",
+  "documentCountHelpYellowDesc": "La orden tiene los documentos por defecto (Aviso Recepción Orden o Aviso Embarque + Aviso Entrega + Aviso Disponibilidad).",
+  "documentCountHelpGreen": "Verde:",
+  "documentCountHelpGreenDesc": "La orden tiene los documentos por defecto más el documento 'Todos los Documentos'.",
+  "documentCountHelpGray": "Gris:",
+  "documentCountHelpGrayDesc": "La orden tiene documentos pero no cumple con las condiciones anteriores."
 }

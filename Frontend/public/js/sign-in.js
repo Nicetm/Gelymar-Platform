@@ -133,10 +133,12 @@ export function initSignIn(config = {}) {
 
   const navigateTo = (targetUrl) => {
     if (!targetUrl) return;
+    
+    // Usar replace para evitar que el usuario vuelva atrás al login
     if (isAbsoluteUrl(targetUrl)) {
-      window.location.href = targetUrl;
+      window.location.replace(targetUrl);
     } else {
-      window.location.href = targetUrl.startsWith('/') ? targetUrl : `/${targetUrl}`;
+      window.location.replace(targetUrl.startsWith('/') ? targetUrl : `/${targetUrl}`);
     }
   };
 
@@ -356,7 +358,15 @@ export function initSignIn(config = {}) {
       }
 
       localStorage.setItem('token', data.token);
-      document.cookie = `token=${data.token}; path=/; SameSite=Strict`;
+      
+      // Setear cookie con SameSite=Lax para que se envíe en navegaciones
+      const maxAge = 60 * 60; // 1 hora
+      document.cookie = `token=${data.token}; path=/; SameSite=Lax; max-age=${maxAge}`;
+      
+      console.log('[DEBUG] Token saved to localStorage:', localStorage.getItem('token') ? 'YES' : 'NO');
+      console.log('[DEBUG] Cookie set:', document.cookie.includes('token=') ? 'YES' : 'NO');
+      console.log('[DEBUG] Redirect URL from backend:', data.redirectUrl);
+      
       if (rememberMe) {
         localStorage.setItem('rememberedRut', username);
         localStorage.setItem('rememberMe', '1');
@@ -370,18 +380,21 @@ export function initSignIn(config = {}) {
           headers: { Authorization: `Bearer ${data.token}` },
         });
 
+        console.log('[DEBUG] /api/auth/me response status:', meRes.status, meRes.ok);
+
         if (meRes.ok) {
           const user = await parseJsonResponse(meRes);
-          const userRole = inferUserRole(user);
+          console.log('[DEBUG] User data received:', user);
 
           if (user.change_pw === 0) {
-            localStorage.setItem('userRole', userRole);
-            window.location.href = '/authentication/change-password';
+            console.log('[DEBUG] User needs to change password, redirecting...');
+            localStorage.setItem('userRole', inferUserRole(user));
+            window.location.replace('/authentication/change-password');
             return;
           }
 
           localStorage.setItem('cfg', user.role_cfg);
-          localStorage.setItem('userRole', userRole);
+          localStorage.setItem('userRole', inferUserRole(user));
 
           const resolveRoleLabel = (role) => {
             if (role === 'admin') return 'Admin';
@@ -390,123 +403,33 @@ export function initSignIn(config = {}) {
             return 'Guest';
           };
 
-            const profilePayload = {
-              fullName: user.full_name ?? '',
-              roleName:
-                user.role ||
-                resolveRoleLabel(userRole),
-              rut: user.rut ?? user.email ?? '',
-              email: user.email ?? '',
-              avatarPath: user.avatar_path || '',
-              avatarUrl:
-                !user.avatar_path && user.full_name
-                  ? `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
-                      user.full_name
-                    )}&backgroundColor=4b5563&fontColor=ffffff`
-                  : '',
-            };
-            localStorage.setItem('userProfile', JSON.stringify(profilePayload));
-            if (profilePayload.rut) {
-              localStorage.setItem('userRut', profilePayload.rut);
-            }
-            if (profilePayload.email) {
-              localStorage.setItem('userEmail', profilePayload.email);
-            }
-
-          const isAdminContext = normalizedAppContext === 'admin';
-          const isClientContext = normalizedAppContext === 'client';
-          const isSellerContext = normalizedAppContext === 'seller';
-          const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
-          const adminOrigin = resolveOrigin(normalizedAdminUrl);
-          const clientOrigin = resolveOrigin(normalizedClientUrl);
-          const sellerOrigin = resolveOrigin(normalizedSellerUrl);
-          const isAdminHost = adminOrigin && currentOrigin === adminOrigin;
-          const isClientHost = clientOrigin && currentOrigin === clientOrigin;
-          const isSellerHost = sellerOrigin && currentOrigin === sellerOrigin;
-
-          const allowAdminAccess = isAdminContext || isAdminHost;
-          const allowSellerAccess = isSellerContext || isSellerHost;
-          const allowClientAccess = isClientContext || isClientHost;
-
-          const sellerLandingUrl = (() => {
-            const trimmed = normalizedSellerUrl.trim();
-            const defaultLandingPath = '/seller/orders';
-            if (!trimmed) {
-              return defaultLandingPath;
-            }
-            if (isAbsoluteUrl(trimmed)) {
-              try {
-                const parsed = new URL(trimmed);
-                const normalizedPath = parsed.pathname.replace(/\/+$/, '');
-                if (normalizedPath === '/seller') {
-                  return `${parsed.origin}${defaultLandingPath}`;
-                }
-                return trimmed;
-              } catch {
-                return trimmed;
-              }
-            }
-            const normalizedPath = trimmed.replace(/\/+$/, '');
-            return normalizedPath === '/seller' ? defaultLandingPath : trimmed;
-          })();
-
-          if (userRole === 'admin') {
-            if (!allowAdminAccess) {
-              clearSessionAfterMismatch();
-              showPortalMismatchMessage(
-                'Acceso de administracion disponible solo desde la intranet. Usa el portal interno.'
-              );
-              return;
-            }
-            let adminTarget = normalizedAdminUrl && normalizedAdminUrl.trim() !== ''
-              ? normalizedAdminUrl.trim()
-              : '/admin/orders';
-
-            // Si es URL relativa y apunta a /admin o /admin/, enviar a /admin/orders
-            const normalizedRelative = adminTarget.replace(/\/+$/, '');
-            if (!isAbsoluteUrl(adminTarget) && (normalizedRelative === '/admin' || normalizedRelative === 'admin')) {
-              adminTarget = '/admin/orders';
-            }
-
-            // Si es URL absoluta y termina en /admin o /admin/, anexar /orders
-            if (isAbsoluteUrl(adminTarget)) {
-              try {
-                const parsed = new URL(adminTarget);
-                const normalizedPath = parsed.pathname.replace(/\/+$/, '');
-                if (normalizedPath === '/admin') {
-                  parsed.pathname = '/admin/orders';
-                  adminTarget = parsed.toString();
-                }
-              } catch {
-                // Si falla el parseo, dejar adminTarget tal cual
-              }
-            }
-
-            navigateTo(adminTarget);
-          } else if (userRole === 'seller') {
-            if (!allowSellerAccess) {
-              clearSessionAfterMismatch();
-              const mismatchMessage =
-                isAdminContext || isAdminHost
-                  ? getText('portal_seller_only', 'Seller access is available only from the seller portal. Use the seller URL.')
-                  : getText('portal_client_only_alt', 'Client portal is available only for clients. Use the client URL.');
-              showPortalMismatchMessage(mismatchMessage);
-              return;
-            }
-            navigateTo(sellerLandingUrl);
-          } else {
-            if (!allowClientAccess) {
-              clearSessionAfterMismatch();
-              const mismatchMessage =
-                isAdminContext || isAdminHost
-                  ? getText('portal_client_only', 'Client portal is available on the public domain. Use the client URL.')
-                  : getText('portal_seller_only_alt', 'Seller portal is available only for sellers. Use the seller URL.');
-              showPortalMismatchMessage(mismatchMessage);
-              return;
-            }
-            navigateTo(normalizedClientUrl);
+          const profilePayload = {
+            fullName: user.full_name ?? '',
+            roleName: user.role || resolveRoleLabel(inferUserRole(user)),
+            rut: user.rut ?? user.email ?? '',
+            email: user.email ?? '',
+            avatarPath: user.avatar_path || '',
+            avatarUrl:
+              !user.avatar_path && user.full_name
+                ? `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
+                    user.full_name
+                  )}&backgroundColor=4b5563&fontColor=ffffff`
+                : '',
+          };
+          localStorage.setItem('userProfile', JSON.stringify(profilePayload));
+          if (profilePayload.rut) {
+            localStorage.setItem('userRut', profilePayload.rut);
           }
+          if (profilePayload.email) {
+            localStorage.setItem('userEmail', profilePayload.email);
+          }
+
+          // Usar la URL de redirección del backend
+          const redirectTarget = data.redirectUrl || '/admin/orders';
+          console.log('[DEBUG] Final redirect target:', redirectTarget);
+          navigateTo(redirectTarget);
         } else {
+          console.error('[DEBUG] /api/auth/me failed with status:', meRes.status);
           msg.textContent = 'Error validando usuario';
           msg.classList.remove('hidden');
           msg.classList.add('text-red-500');

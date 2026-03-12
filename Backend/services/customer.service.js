@@ -738,7 +738,6 @@ async function getCustomerOrders(customerRut) {
         AND LTRIM(RTRIM(f.Factura)) <> ''
         AND f.Factura <> 0
       WHERE h.Rut = @customerRut
-        AND ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
       GROUP BY h.Nro, h.OC, h.Fecha, h.EstadoOV, h.ETD_OV, h.ETA_OV, h.Clausula, h.Puerto_Destino
       ORDER BY CAST(h.Fecha AS date) DESC
     `);

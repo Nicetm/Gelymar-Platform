@@ -70,7 +70,6 @@ async function getOrdersReadyForOrderDeliveryNotice(
           INNER JOIN jor_imp_HDR_90_softkey h ON h.Nro = f.Nro
           WHERE f.Factura = @factura
             AND f.Nro = @pc
-            AND ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
             AND ISDATE(NULLIF(LTRIM(RTRIM(f.ETA_ENC_FA)), '')) = 1
             AND DATEADD(day, 7, CAST(f.ETA_ENC_FA AS date)) <= CAST(GETDATE() AS date)
             ${sendFromDate ? 'AND CAST(h.Fecha AS date) >= @sendFrom' : ''}

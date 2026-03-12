@@ -350,7 +350,16 @@ const contactEmailMetadata: any[] = [];
 			</div>
 			<h2 class="text-xl font-bold mb-4 dark:text-white">{t.documentos.dragTitle}</h2>
 	
+			<!-- Checkbox para modo múltiple -->
 			<div class="mb-4">
+				<label class="flex items-center gap-2 cursor-pointer">
+					<input type="checkbox" id="uploadMultipleCheckbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+					<span class="text-xs font-medium text-gray-700 dark:text-gray-300">{t.documentos.uploadMultipleFiles || 'Upload multiple files'}</span>
+				</label>
+			</div>
+
+			<!-- Selector de tipo de documento (solo visible en modo single) -->
+			<div id="singleFileSection" class="mb-4">
 				<label for="uploadFileName" class="block text-xs font-medium text-gray-700 dark:text-gray-300 pb-2">{t.documentos.nameOfDocument}</label>
 				<!-- Solo valores predefinidos -->
 				<div class="relative">
@@ -389,6 +398,11 @@ const contactEmailMetadata: any[] = [];
 					<p id="dropZoneText" class="text-gray-500 text-xs">{t.documentos.dragAndDrop}</p>
 					<input type="file" id="uploadFileInput" class="hidden text-xs" />
 				</div>
+				
+				<!-- Lista de archivos seleccionados (solo visible en modo múltiple) -->
+				<div id="selectedFilesList" class="hidden mt-3 space-y-2 max-h-48 overflow-y-auto">
+					<!-- Los archivos se agregarán aquí dinámicamente -->
+				</div>
 			</div>
 	
 			<div class="flex justify-end gap-2">
@@ -421,6 +435,7 @@ const contactEmailMetadata: any[] = [];
 				<li>{t.documentos.uploadHelpStep1}</li>
 				<li>{t.documentos.uploadHelpStep2}</li>
 				<li>{t.documentos.uploadHelpStep3} </li>
+				<li>{t.documentos.uploadHelpStep6}</li>
 				<li>{t.documentos.uploadHelpStep4}</li>
 				<li>{t.documentos.uploadHelpStep5}</li>
 			</ul>

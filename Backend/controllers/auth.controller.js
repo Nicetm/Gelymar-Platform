@@ -231,7 +231,7 @@ const extractTwoFAPayload = (req) => {
 
     const cookieOptions = {
       httpOnly: true,
-      sameSite: 'strict',
+      sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',
       path: '/',
       maxAge: 60 * 60 * 1000,
@@ -241,9 +241,19 @@ const extractTwoFAPayload = (req) => {
 
       logger.info(`Login exitoso para usuario ${user.rut || user.username || 'undefined'}`);
       logger.info(`Usuario encontrado:`, { id: user.id, rut: user.rut, username: user.username, role: user.role });
+    
+    // Determinar URL de redirección según el rol
+    let redirectUrl = '/admin/orders';
+    if (normalizedRole === 'seller') {
+      redirectUrl = '/seller/orders';
+    } else if (normalizedRole === 'client') {
+      redirectUrl = '/client/documents';
+    }
+    
     res.json({ 
       token,
-      customersWithoutAccount 
+      customersWithoutAccount,
+      redirectUrl
     });
 
   } catch (err) {

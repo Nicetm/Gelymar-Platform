@@ -301,6 +301,30 @@ async function openItemsModal(orderPc, orderOc, factura) {
 
   if (!itemsModal || !itemsOrderTitle || !itemsTableBody) return;
 
+  // Mostrar modal inmediatamente con spinner
+  itemsModal.classList.remove('hidden');
+  itemsModal.classList.add('flex');
+  itemsOrderTitle.textContent = `${carpetas.order}: ${orderOc || '-'}`;
+  
+  // Mostrar spinner mientras carga (igual que orders.js)
+  itemsTableBody.innerHTML = `
+    <tr class="bg-white dark:bg-gray-900">
+      <td colspan="5" class="px-6 py-6 text-center text-gray-500 dark:text-gray-400">
+        <div class="flex items-center justify-center text-xs">
+          <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          ${carpetas.loading || 'Cargando...'}
+        </div>
+      </td>
+    </tr>
+  `;
+  if (totalItems) totalItems.textContent = '-';
+  if (totalQuantity) totalQuantity.textContent = '-';
+  if (totalValue) totalValue.textContent = '-';
+  if (totalGastoAdicional) totalGastoAdicional.textContent = '-';
+
   // Funciones de formato
   const parseNumber = (value, fallback = 0) => {
     const number = Number(typeof value === 'string' ? value.replace(',', '.') : value);
@@ -467,7 +491,7 @@ async function openItemsModal(orderPc, orderOc, factura) {
     } else {
       itemsTableBody.innerHTML = `
         <tr>
-          <td colspan="5" class="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+          <td colspan="5" class="px-6 py-4 text-center text-xs text-gray-500 dark:text-gray-400">
             ${carpetas.noItems || 'No hay items disponibles'}
           </td>
         </tr>
@@ -483,7 +507,7 @@ async function openItemsModal(orderPc, orderOc, factura) {
     if (itemsTableBody) {
       itemsTableBody.innerHTML = `
         <tr>
-          <td colspan="5" class="px-6 py-4 text-center text-sm text-red-600 dark:text-red-400">
+          <td colspan="5" class="px-6 py-4 text-center text-xs text-red-600 dark:text-red-400">
             ${error.message || 'Error al cargar los items'}
           </td>
         </tr>
@@ -1396,6 +1420,47 @@ export async function initFoldersScript() {
     const detailContainer = document.getElementById('itemsDetailTableContainer');
     if (!detailModal || !detailContainer) return;
 
+    // Mostrar modal inmediatamente con spinner (igual que orders.js)
+    if (detailTitle) {
+      detailTitle.textContent = `${getMessage(carpetas.itemsOfOrder)} ${orderOc || '-'}`;
+    }
+    detailContainer.innerHTML = `
+      <div class="bg-white dark:bg-gray-700 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600">
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead class="bg-gray-100 dark:bg-gray-800 sticky top-0 z-10">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${getMessage(carpetas.itemCode)}</th>
+                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${getMessage(carpetas.itemName)}</th>
+                <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${getMessage(carpetas.tipo)}</th>
+                <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${getMessage(carpetas.kgSolicitados)}</th>
+                <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${getMessage(carpetas.kgDespachados)}</th>
+                <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${getMessage(carpetas.kgFacturados)}</th>
+                <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${getMessage(carpetas.fechaEtd)}</th>
+                <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${getMessage(carpetas.fechaEta)}</th>
+                <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${getMessage(carpetas.precioUnitario)}</th>
+                <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">${getMessage(carpetas.total)}</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-xs">
+              <tr class="bg-white dark:bg-gray-900">
+                <td colspan="10" class="px-6 py-6 text-center text-gray-500 dark:text-gray-400">
+                  <div class="flex items-center justify-center">
+                    <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    ${getMessage(carpetas.loading) || 'Cargando...'}
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+    showModal('#itemsDetailModal');
+
     try {
       const token = localStorage.getItem('token');
       const apiBase = window.apiBase;
@@ -1414,9 +1479,7 @@ export async function initFoldersScript() {
       }
 
       const items = await response.json();
-      if (detailTitle) {
-        detailTitle.textContent = `${getMessage(carpetas.itemsOfOrder)} ${orderOc || '-'}`;
-      }
+      const currency = items[0]?.currency || items[0]?.moneda || 'CLP';
       detailContainer.innerHTML = `
         <div class="bg-white dark:bg-gray-700 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600">
           <div class="overflow-x-auto">
@@ -1424,7 +1487,6 @@ export async function initFoldersScript() {
           </div>
         </div>
       `;
-      showModal('#itemsDetailModal');
     } catch (error) {
       console.error('Error cargando items para modal:', error);
       showNotification(resolveBackendMessage(error.code, getMessage(messagesFolders.itemsLoadError)), 'error');

@@ -21,6 +21,7 @@
   "tooltipViewItemsDetailed": "View detailed items",
   "tooltipViewItems": "View items list",
   "tooltipOrderDetails": "View order details",
+  "tooltipDocumentCount": "Available documents",
   "order": "Order",
   "cliente": "Customer",
   "noItemsFound": "No items found for this order",
@@ -53,5 +54,15 @@
   "itemsLoadError": "Error loading order items",
   "perPage": "Orders per page",
   "pageIndicator": "Page",
-  "pageIndicatorSeparator": "of"
+  "pageIndicatorSeparator": "of",
+  "documentCountHelpTitle": "Document Indicator",
+  "documentCountHelpIntro": "The folder icon next to the PC number shows the document status for each order. The colors indicate:",
+  "documentCountHelpRed": "Red:",
+  "documentCountHelpRedDesc": "The order has no documents uploaded.",
+  "documentCountHelpYellow": "Yellow:",
+  "documentCountHelpYellowDesc": "The order has default documents (Order Receipt Notice or Shipment Notice + Delivery Notice + Availability Notice).",
+  "documentCountHelpGreen": "Green:",
+  "documentCountHelpGreenDesc": "The order has default documents plus the 'All Documents' document.",
+  "documentCountHelpGray": "Gray:",
+  "documentCountHelpGrayDesc": "The order has documents but doesn't meet the above conditions."
 }

@@ -599,6 +599,35 @@ async function resetAdminPassword(id, newPassword = '12345') {
 }
 
 
+/**
+ * Obtiene un usuario por RUT
+ * @param {string} rut - RUT del usuario (sin C final)
+ * @returns {Promise<Object|null>} Usuario encontrado o null
+ */
+const getUserByRut = async (rut) => {
+  const pool = await poolPromise;
+  const [rows] = await pool.query(
+    'SELECT id, rut, role_id, bloqueado FROM users WHERE rut = ?',
+    [rut]
+  );
+  return rows[0] || null;
+};
+
+/**
+ * Actualiza el estado de bloqueado de un usuario por RUT
+ * @param {string} rut - RUT del usuario (sin C final)
+ * @param {number} bloqueado - Estado de bloqueado (0 o 1)
+ * @returns {Promise<boolean>} true si se actualizó, false si no se encontró el usuario
+ */
+const updateBlockedStatus = async (rut, bloqueado) => {
+  const pool = await poolPromise;
+  const [result] = await pool.query(
+    'UPDATE users SET bloqueado = ?, updated_at = NOW() WHERE rut = ?',
+    [bloqueado, rut]
+  );
+  return result.affectedRows > 0;
+};
+
 // Verificar si hay al menos un administrador en línea
 module.exports = {
   getAllUsers,
@@ -622,4 +651,6 @@ module.exports = {
   updateAdminUser,
   deleteUserById,
   resetAdminPassword,
+  getUserByRut,
+  updateBlockedStatus,
 };
