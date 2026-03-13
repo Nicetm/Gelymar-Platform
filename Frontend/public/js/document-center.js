@@ -90,27 +90,26 @@ function setupStickyHorizontalScrollbar() {
       const hasOverflow = scrollWidth > body.clientWidth + 1;
       const inView = rect.bottom > 0 && rect.top < window.innerHeight;
 
+      // Manejar scrollbar horizontal solo si hay overflow
       if (!hasOverflow || !inView) {
         scrollbar.classList.add('hidden');
         scrollbar.classList.remove('sticky-scrollbar-floating');
         scrollbar.style.left = '';
         scrollbar.style.width = '';
-        header.classList.add('hidden');
-        return;
-      }
-
-      scrollbar.classList.remove('hidden');
-
-      if (rect.bottom > window.innerHeight) {
-        scrollbar.classList.add('sticky-scrollbar-floating');
-        scrollbar.style.left = `${Math.max(rect.left, 0)}px`;
-        scrollbar.style.width = `${Math.max(rect.width, 0)}px`;
       } else {
-        scrollbar.classList.remove('sticky-scrollbar-floating');
-        scrollbar.style.left = '';
-        scrollbar.style.width = '';
+        scrollbar.classList.remove('hidden');
+        if (rect.bottom > window.innerHeight) {
+          scrollbar.classList.add('sticky-scrollbar-floating');
+          scrollbar.style.left = `${Math.max(rect.left, 0)}px`;
+          scrollbar.style.width = `${Math.max(rect.width, 0)}px`;
+        } else {
+          scrollbar.classList.remove('sticky-scrollbar-floating');
+          scrollbar.style.left = '';
+          scrollbar.style.width = '';
+        }
       }
 
+      // Sticky header se muestra cuando haces scroll hacia abajo, independiente del overflow
       const shouldShowHeader = rect.top < 0 && rect.bottom > 0;
       header.classList.toggle('hidden', !shouldShowHeader);
 
@@ -517,7 +516,13 @@ function renderOrders() {
   updateOrdersPagination();
   // Activar tooltips flotantes en los botones de acción
   setupFloatingTooltips(ordersGrid);
-  setupStickyHorizontalScrollbar();
+  
+  // Esperar a que el navegador renderice antes de configurar sticky header
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      setupStickyHorizontalScrollbar();
+    });
+  });
 }
 
 /**
