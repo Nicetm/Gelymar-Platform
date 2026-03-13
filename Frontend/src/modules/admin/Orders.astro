@@ -77,6 +77,11 @@ try {
 
 		<!-- Botones de exportar y refresh -->
 		<div class="flex items-center gap-2">
+			<button id="documentIndicatorHelpBtn" type="button" class="w-9 h-9 inline-flex items-center justify-center rounded-md border border-blue-300 text-blue-600 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/30 transition" aria-label={t.orders.documentIndicatorHelp || 'Ayuda'}>
+				<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+				</svg>
+			</button>
 			<button id="exportExcelBtn" class="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800">
 				<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -203,9 +208,6 @@ try {
 									</svg>
 								</div>
 							</th>
-							<th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800">
-								<span>{t.orders.documents}</span>
-							</th>
 							<th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 sticky right-0 z-20 min-w-[120px]">{t.comond.actions}</th>
 						</tr>
 					</thead>
@@ -279,6 +281,57 @@ try {
 
 	<ModalItems orders={t.orders ?? {}} />
 	<ModalOrderDetail orders={t.orders ?? {}} />
+
+	<!-- Modal de ayuda de indicador de documentos -->
+	<div id="documentIndicatorHelpModal" class="fixed inset-0 hidden justify-center items-center z-50 bg-black/50 flex backdrop-blur-sm">
+		<div class="bg-white/95 dark:bg-gray-800/95 text-gray-900 dark:text-gray-100 rounded-2xl p-6 w-full max-w-md relative shadow-2xl ring-1 ring-gray-200 dark:ring-white/10">
+			<button id="closeDocumentIndicatorHelpBtn" class="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition text-xs">
+				<svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+				</svg>
+			</button>
+			<h3 class="text-lg font-bold mb-3">{t.orders.documentIndicatorTitle || 'Indicador de Documentos'}</h3>
+			<div class="my-3 border-t border-gray-200 dark:border-gray-700"></div>
+			<p class="text-sm text-gray-700 dark:text-gray-300 mb-4">
+				{t.orders.documentIndicatorDescription || 'El icono de carpeta junto al N° PC muestra el estado de los documentos de cada orden. Los colores indican:'}
+			</p>
+			<div class="space-y-3 text-sm">
+				<div class="flex items-start gap-2">
+					<svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="#dc2626" stroke-width="2" viewBox="0 0 20 20">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path>
+					</svg>
+					<p class="text-gray-700 dark:text-gray-300"><span class="font-semibold text-red-600 dark:text-red-400">{t.orders.documentIndicatorRed || 'Rojo: La orden no tiene documentos cargados.'}</span></p>
+				</div>
+				
+				<div class="flex items-start gap-2">
+					<svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="#eab308" stroke-width="2" viewBox="0 0 20 20">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path>
+					</svg>
+					<p class="text-gray-700 dark:text-gray-300"><span class="font-semibold text-yellow-600 dark:text-yellow-400">{t.orders.documentIndicatorYellow || 'Amarillo: La orden tiene los documentos por defecto.'}</span></p>
+				</div>
+				
+				<div class="flex items-start gap-2">
+					<svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="#16a34a" stroke-width="2" viewBox="0 0 20 20">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path>
+					</svg>
+					<p class="text-gray-700 dark:text-gray-300"><span class="font-semibold text-green-600 dark:text-green-400">{t.orders.documentIndicatorGreen || 'Verde: La orden tiene los documentos por defecto más "Todos los Documentos".'}</span></p>
+				</div>
+				
+				<div class="flex items-start gap-2">
+					<svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="#6b7280" stroke-width="2" viewBox="0 0 20 20">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path>
+					</svg>
+					<p class="text-gray-700 dark:text-gray-300"><span class="font-semibold text-gray-600 dark:text-gray-400">{t.orders.documentIndicatorGray || 'Gris: La orden tiene documentos pero no cumple con las condiciones anteriores.'}</span></p>
+				</div>
+			</div>
+			<div class="my-4 border-t border-gray-200 dark:border-gray-700"></div>
+			<div class="flex justify-end">
+				<button id="closeDocumentIndicatorHelpFooterBtn" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white rounded-md text-sm">
+					{t.comond.close || 'Cerrar'}
+				</button>
+			</div>
+		</div>
+	</div>
 
 	<div id="itemsDetailModal" class="fixed inset-0 bg-black bg-opacity-50 dark:bg-black/80 hidden justify-center items-center z-50">
 		<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 w-full max-w-6xl mx-4 relative max-h-[90vh] overflow-y-auto shadow-2xl">

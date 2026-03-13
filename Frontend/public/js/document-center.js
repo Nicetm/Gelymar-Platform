@@ -14,8 +14,7 @@ const itemsPerPage = 1000; // Mostrar todas las tarjetas
 
 // Variables globales para paginación de órdenes
 let currentOrderPage = 1;
-const ordersPerPage = 10;
-let stickyScrollInitialized = false;
+let ordersPerPage = 10;
 
 // Variables globales para búsqueda
 let allOrders = [];
@@ -49,7 +48,6 @@ const statusColors = {
 };
 
 function setupStickyHorizontalScrollbar() {
-  if (stickyScrollInitialized) return;
   const containers = document.querySelectorAll('[data-scroll-sync]');
   if (!containers.length) return;
 
@@ -151,8 +149,6 @@ function setupStickyHorizontalScrollbar() {
     window.addEventListener('scroll', updateSizes, true);
     updateSizes();
   });
-
-  stickyScrollInitialized = true;
 }
 
 // =============================================================================
@@ -1870,6 +1866,17 @@ function updateOrdersPagination() {
         renderOrders();
       }
     };
+  }
+  
+  // Event listener para el selector de items per page
+  const itemsPerPageSelect = document.getElementById('orders-items-per-page');
+  if (itemsPerPageSelect && !itemsPerPageSelect.dataset.listenerAdded) {
+    itemsPerPageSelect.dataset.listenerAdded = 'true';
+    itemsPerPageSelect.addEventListener('change', () => {
+      ordersPerPage = parseInt(itemsPerPageSelect.value, 10);
+      currentOrderPage = 1;
+      renderOrders();
+    });
   }
 }
 

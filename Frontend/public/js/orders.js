@@ -21,6 +21,113 @@ export async function initOrdersScript() {
   const translations = window.translations || {};
   orders = translations.orders || {};
   
+  // ===== SISTEMA DE CACHÉ =====
+
+  // Configuración del caché (5 minutos)
+  const CACHE_DURATION = 5 * 60 * 1000;
+  const CACHE_KEY = 'orders_cache';
+  const CACHE_TIMESTAMP_KEY = 'orders_cache_timestamp';
+
+  // Función para verificar si el caché es válido
+  function isCacheValid() {
+    const timestamp = localStorage.getItem(CACHE_TIMESTAMP_KEY);
+    if (!timestamp) return false;
+    const now = Date.now();
+    const cacheTime = parseInt(timestamp);
+    return (now - cacheTime) < CACHE_DURATION;
+  }
+
+  // Función para guardar datos en caché
+  function saveToCache(data) {
+    try {
+      localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+      localStorage.setItem(CACHE_TIMESTAMP_KEY, Date.now().toString());
+    } catch (error) {
+      console.warn('No se pudo guardar en caché:', error);
+    }
+  }
+
+  // Función para cargar datos desde caché
+  function loadFromCache() {
+    try {
+      const cachedData = localStorage.getItem(CACHE_KEY);
+      if (cachedData) {
+        return JSON.parse(cachedData);
+      }
+    } catch (error) {
+      console.warn('Error cargando desde caché:', error);
+    }
+    return null;
+  }
+
+  // Función para limpiar caché
+  function clearCache() {
+    localStorage.removeItem(CACHE_KEY);
+    localStorage.removeItem(CACHE_TIMESTAMP_KEY);
+  }
+
+  // Función para cargar datos desde la API con caché
+  async function loadOrdersWithCache() {
+    try {
+      if (isCacheValid()) {
+        const cachedData = loadFromCache();
+        if (cachedData) {
+          return cachedData;
+        }
+      }
+
+      const token = localStorage.getItem('token');
+      const section = document.getElementById('OrderSection');
+      const datasetApiBase = section?.dataset?.apiBase;
+      const apiBase = window.apiBase || datasetApiBase;
+      
+      const response = await fetch(`${apiBase}/api/orders`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const orders = await response.json();
+      saveToCache(orders);
+      return orders;
+    } catch (error) {
+      console.error('Error cargando órdenes:', error);
+      const cachedData = loadFromCache();
+      if (cachedData) {
+        return cachedData;
+      }
+      throw error;
+    }
+  }
+
+  // Función para refrescar datos
+  async function refreshData() {
+    try {
+      clearCache();
+      allOrders = await loadOrdersWithCache();
+      filteredOrders = [...allOrders];
+      searchInput.value = '';
+      currentPage = 1;
+      renderTable();
+      showNotification(orders.refreshSuccess, 'success');
+    } catch (error) {
+      console.error('Error refrescando datos:', error);
+      showNotification(orders.refreshError, 'error');
+    }
+  }
+
+  // Auto-refresh cuando el caché expire
+  function setupAutoRefresh() {
+    const checkCacheExpiry = () => {
+      if (!isCacheValid()) {
+        refreshData();
+      }
+    };
+    setInterval(checkCacheExpiry, 30 * 60 * 1000);
+  }
+  
   // Verificar que todos los elementos necesarios existan
   const searchInput = qs('searchInput');
   const itemsPerPageSelect = qs('itemsPerPageSelect');
@@ -264,6 +371,15 @@ export async function initOrdersScript() {
               class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline">
               <span>${order.pc || '-'}</span>
             </a>
+            <a href="${documentUrl}" 
+               class="relative inline-flex items-center"
+               data-tooltip="${orders.documentsAvailable || 'Documentos disponibles'}: ${order.document_count || 0}"
+               aria-label="${orders.documentsAvailable || 'Documentos disponibles'}: ${order.document_count || 0}">
+              <svg class="w-5 h-5 folder-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" data-doc-types="${(order.document_type_ids || []).join(',')}">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path>
+              </svg>
+              <span class="absolute -top-1 -right-3 dark:border-gray-800 text-gray-900 dark:text-white text-xs rounded-full h-4 w-4 flex items-center justify-center text-[10px]">${order.document_count || 0}</span>
+            </a>
           </div>
         </td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${order.oc || '-'}</td>
@@ -285,20 +401,6 @@ export async function initOrdersScript() {
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(order.fecha_eta_factura)}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${order.incoterm || '-'}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${order.puerto_destino || '-'}</td>
-        <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">
-          <div class="flex items-center gap-3">
-            <div class="relative inline-flex items-center">
-              <svg class="w-6 h-6 text-gray-600 dark:text-gray-300" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path>
-              </svg>
-              <span class="absolute -top-1 -right-1 bg-blue-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">${order.document_count || 0}</span>
-            </div>
-            <a href="${documentUrl}" 
-               class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline">
-              ${orders.viewDocuments}
-            </a>
-          </div>
-        </td>
         <td class="sticky right-0 bg-gray-50 dark:bg-gray-700 z-10 px-6 py-4 min-w-[120px] overflow-visible">
           <div class="flex justify-center gap-3 relative">
             <!-- Ver lista de items -->
@@ -518,6 +620,43 @@ export async function initOrdersScript() {
    * Función principal de render de la tabla según búsqueda y paginación.
    * Renderiza las filas correspondientes a la página actual.
    */
+  function applyFolderColors() {
+    // Aplicar colores a todos los SVG de carpeta (tanto admin como seller)
+    document.querySelectorAll('.folder-icon').forEach(icon => {
+      const docTypesStr = icon.dataset.docTypes || '';
+      const docTypes = docTypesStr ? docTypesStr.split(',').map(id => parseInt(id)) : [];
+      
+      // IDs de documentos según la regla
+      const avisoRecepcionOrden = 9;
+      const avisoEmbarque = 19;
+      const avisoEntrega = 15;
+      const avisoDisponibilidad = 6;
+      const todosLosDocumentos = 18;
+      
+      // Verificar si tiene al menos uno de los documentos por defecto
+      const hasRecepcionOrden = docTypes.includes(avisoRecepcionOrden);
+      const hasEmbarque = docTypes.includes(avisoEmbarque);
+      const hasEntrega = docTypes.includes(avisoEntrega);
+      const hasDisponibilidad = docTypes.includes(avisoDisponibilidad);
+      const hasAnyDefaultDoc = hasRecepcionOrden || hasEmbarque || hasEntrega || hasDisponibilidad;
+      const hasTodosLosDocumentos = docTypes.includes(todosLosDocumentos);
+      
+      if (docTypes.length === 0) {
+        // Sin documentos = rojo
+        icon.style.stroke = '#dc2626'; // red-600
+      } else if (hasAnyDefaultDoc && hasTodosLosDocumentos) {
+        // Tiene al menos un documento por defecto + Todos los Documentos = verde
+        icon.style.stroke = '#16a34a'; // green-600
+      } else if (hasAnyDefaultDoc) {
+        // Tiene al menos un documento por defecto = amarillo
+        icon.style.stroke = '#eab308'; // yellow-600
+      } else {
+        // Tiene documentos pero no cumple condiciones = gris
+        icon.style.stroke = '#6b7280'; // gray-500
+      }
+    });
+  }
+
   function renderTable() {
     const start = (currentPage - 1) * itemsPerPage;
     const pageData = filteredOrders.slice(start, start + itemsPerPage);
@@ -538,6 +677,8 @@ export async function initOrdersScript() {
       }
     });
     
+    // Aplicar colores a los iconos de carpeta según el conteo de documentos
+    applyFolderColors();
     
     // Si no hay datos, mostrar mensaje
     if (pageData.length === 0) {
@@ -889,6 +1030,43 @@ export async function initOrdersScript() {
   // Event listener para el botón de exportar
   if (exportBtn) {
     exportBtn.addEventListener('click', exportToExcel);
+  }
+  
+  // Event listener para el botón de ayuda de indicador de documentos
+  const documentIndicatorHelpBtn = qs('documentIndicatorHelpBtn');
+  const documentIndicatorHelpModal = document.getElementById('documentIndicatorHelpModal');
+  const closeDocumentIndicatorHelpBtn = document.getElementById('closeDocumentIndicatorHelpBtn');
+  const closeDocumentIndicatorHelpFooterBtn = document.getElementById('closeDocumentIndicatorHelpFooterBtn');
+  
+  if (documentIndicatorHelpBtn && documentIndicatorHelpModal) {
+    documentIndicatorHelpBtn.addEventListener('click', () => {
+      documentIndicatorHelpModal.classList.remove('hidden');
+      documentIndicatorHelpModal.classList.add('flex');
+    });
+  }
+  
+  if (closeDocumentIndicatorHelpBtn && documentIndicatorHelpModal) {
+    closeDocumentIndicatorHelpBtn.addEventListener('click', () => {
+      documentIndicatorHelpModal.classList.add('hidden');
+      documentIndicatorHelpModal.classList.remove('flex');
+    });
+  }
+  
+  if (closeDocumentIndicatorHelpFooterBtn && documentIndicatorHelpModal) {
+    closeDocumentIndicatorHelpFooterBtn.addEventListener('click', () => {
+      documentIndicatorHelpModal.classList.add('hidden');
+      documentIndicatorHelpModal.classList.remove('flex');
+    });
+  }
+  
+  // Cerrar modal al hacer click fuera
+  if (documentIndicatorHelpModal) {
+    documentIndicatorHelpModal.addEventListener('click', (e) => {
+      if (e.target === documentIndicatorHelpModal) {
+        documentIndicatorHelpModal.classList.add('hidden');
+        documentIndicatorHelpModal.classList.remove('flex');
+      }
+    });
   }
   
   // Auto-refresh sin botón manual
@@ -1575,116 +1753,3 @@ async function openOrderDetailModal(orderId, orderOc) {
   }
 }
 
-// ===== SISTEMA DE CACHÉ =====
-
-// Configuración del caché (5 minutos)
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos en milisegundos
-const CACHE_KEY = 'orders_cache';
-const CACHE_TIMESTAMP_KEY = 'orders_cache_timestamp';
-
-// Función para verificar si el caché es válido
-function isCacheValid() {
-  const timestamp = localStorage.getItem(CACHE_TIMESTAMP_KEY);
-  if (!timestamp) return false;
-  
-  const now = Date.now();
-  const cacheTime = parseInt(timestamp);
-  return (now - cacheTime) < CACHE_DURATION;
-}
-
-// Función para guardar datos en caché
-function saveToCache(data) {
-  try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify(data));
-    localStorage.setItem(CACHE_TIMESTAMP_KEY, Date.now().toString());
-  } catch (error) {
-    console.warn('No se pudo guardar en caché:', error);
-  }
-}
-
-// Función para cargar datos desde caché
-function loadFromCache() {
-  try {
-    const cachedData = localStorage.getItem(CACHE_KEY);
-    if (cachedData) {
-      return JSON.parse(cachedData);
-    }
-  } catch (error) {
-    console.warn('Error cargando desde caché:', error);
-  }
-  return null;
-}
-
-// Función para limpiar caché
-function clearCache() {
-  localStorage.removeItem(CACHE_KEY);
-  localStorage.removeItem(CACHE_TIMESTAMP_KEY);
-}
-
-// Función para cargar datos desde la API con caché
-export async function loadOrdersWithCache() {
-  try {
-    // Primero intentar cargar desde caché
-    if (isCacheValid()) {
-      const cachedData = loadFromCache();
-      if (cachedData) {
-        return cachedData;
-      }
-    }
-
-    const token = localStorage.getItem('token');
-    const section = document.getElementById('OrderSection');
-    const datasetApiBase = section?.dataset?.apiBase;
-    const apiBase = window.apiBase || datasetApiBase;
-    
-    const response = await fetch(`${apiBase}/api/orders`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    const orders = await response.json();
-    
-    // Guardar en caché
-    saveToCache(orders);
-    
-    return orders;
-  } catch (error) {
-    console.error('Error cargando órdenes:', error);
-    
-    // Si hay error en la API, intentar usar caché aunque esté expirado
-    const cachedData = loadFromCache();
-    if (cachedData) {
-      return cachedData;
-    }
-    
-    throw error;
-  }
-}
-
-// Función para forzar recarga de datos (ignorar caché)
-export async function forceReloadOrders() {
-  clearCache();
-  return await loadOrdersWithCache();
-}
-
-// Función para obtener información del caché
-export function getCacheInfo() {
-  const timestamp = localStorage.getItem(CACHE_TIMESTAMP_KEY);
-  if (!timestamp) {
-    return { exists: false, age: null, valid: false };
-  }
-  
-  const now = Date.now();
-  const cacheTime = parseInt(timestamp);
-  const age = now - cacheTime;
-  const valid = age < CACHE_DURATION;
-  
-  return {
-    exists: true,
-    age: Math.floor(age / 1000), // en segundos
-    valid: valid
-  };
-}

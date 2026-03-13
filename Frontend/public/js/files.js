@@ -865,7 +865,7 @@ export function initFilesScript() {
     const fullNameAttr = escapeHtmlAttribute(fullName);
 
     return `
-      <tr data-id="${file.id}" data-is-generated="${isGeneratedFlag}" class="bg-white dark:bg-gray-900 transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-800 hover:shadow-[0_1px_3px_rgba(0,0,0,0.12)]">
+      <tr data-id="${file.id}" data-status-id="${file.status_id}" data-is-generated="${isGeneratedFlag}" class="bg-white dark:bg-gray-900 transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-800 hover:shadow-[0_1px_3px_rgba(0,0,0,0.12)]">
         <td class="px-6 py-4 text-sm editable-filename cursor-pointer" data-id="${file.id}">
           <div class="inline-flex items-center gap-1 relative group">
             <span class="filename-text block truncate" data-full-name="${fullNameAttr}">${displayName}</span>
@@ -894,13 +894,22 @@ export function initFilesScript() {
         <td class="px-6 py-4 items-center gap-3">${file.fecha_reenvio ? new Date(file.fecha_reenvio).toLocaleString("es-CL") : '-'}</td>
         <td data-v="${file.is_visible_to_client}" class="px-6 py-4 text-center">
           <div class="relative group flex items-center justify-center">
-            <label class="inline-flex items-center cursor-pointer gap-2" data-tooltip="${getMessage(documentos.enable_client_visibility)}">
-              <input
-                type="checkbox"
-                class="visibility-toggle h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring focus:ring-blue-500 focus:ring-offset-0 dark:border-gray-600 dark:bg-gray-700"
-                data-file-id="${file.id}"
-                ${(file.is_visible_to_client == 1 || file.is_visible_to_client === true) ? 'checked' : ''} />
-            </label>
+            ${file.status_id === 1 ? `
+              <div class="visibility-disabled-wrapper inline-flex items-center cursor-not-allowed gap-2" data-tooltip="${getMessage(documentos.enable_client_visibility)}">
+                <input
+                  type="checkbox"
+                  class="h-4 w-4 rounded border-gray-300 text-blue-600 dark:border-gray-600 dark:bg-gray-700 opacity-50 pointer-events-none"
+                  disabled />
+              </div>
+            ` : `
+              <label class="inline-flex items-center cursor-pointer gap-2" data-tooltip="${getMessage(documentos.enable_client_visibility)}">
+                <input
+                  type="checkbox"
+                  class="visibility-toggle h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring focus:ring-blue-500 focus:ring-offset-0 dark:border-gray-600 dark:bg-gray-700"
+                  data-file-id="${file.id}"
+                  ${(file.is_visible_to_client == 1 || file.is_visible_to_client === true) ? 'checked' : ''} />
+              </label>
+            `}
           </div>
         </td>
         ${actionsCell}
@@ -1911,6 +1920,11 @@ export function initFilesScript() {
     );
 
     if (confirmed && fileId) {
+      // Mostrar loading en el botón
+      const originalText = btn.innerHTML;
+      btn.innerHTML = '<svg class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>';
+      btn.disabled = true;
+
       try {
         const res = await fetch(`${apiBase}/api/files/delete/${fileId}`, {
           method: 'DELETE',
@@ -1927,9 +1941,15 @@ export function initFilesScript() {
           btn.closest('tr')?.remove();
         } else {
           showNotification(data.message || getMessage(documentos.deleteError), 'error');
+          // Restaurar botón en caso de error
+          btn.innerHTML = originalText;
+          btn.disabled = false;
         }
       } catch (err) {
         showNotification(getMessage(documentos.deleteError), 'error');
+        // Restaurar botón en caso de error
+        btn.innerHTML = originalText;
+        btn.disabled = false;
       }
     }
   });
@@ -2710,13 +2730,14 @@ export function initFilesScript() {
   /* ---------- visibilidad (checkbox) ---------- */
   // Event listener para checkbox de visibilidad (como en clients.js)
   function attachVisibilityEvents() {
+    // Event listener para checkboxes habilitados (status 2 y 3)
     document.querySelectorAll('.visibility-toggle').forEach(checkbox => {
       checkbox.addEventListener('change', async (e) => {
         const fileId = e.target.dataset.fileId;
+        const row = e.target.closest('tr');
         const newVisible = e.target.checked ? 1 : 0;
 
         // Mantén el nombre actual para el endpoint de actualización
-        const row = e.target.closest('tr');
         const currentName = row?.querySelector('.filename-text')?.dataset?.fullName || row?.querySelector('.filename-text')?.textContent?.trim() || '';
 
         try {
@@ -2740,6 +2761,14 @@ export function initFilesScript() {
           e.target.checked = !e.target.checked;
           showNotification(getMessage(documentos.visibilityUpdateError), 'error');
         }
+      });
+    });
+    
+    // Event listener para checkboxes deshabilitados (status 1)
+    document.querySelectorAll('.visibility-disabled-wrapper').forEach(wrapper => {
+      wrapper.addEventListener('click', (e) => {
+        e.preventDefault();
+        showNotification(getMessage(documentos.cannotEnableVisibilityNotCreated), 'error');
       });
     });
   }

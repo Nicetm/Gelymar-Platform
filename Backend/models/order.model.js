@@ -28,7 +28,8 @@ class Order {
     certificados = null,
     estado_ov = null,
     id_nro_ov_mas_factura = null,
-    document_count = 0
+    document_count = 0,
+    document_type_ids = []
   }) {
     this.id = id;
     this.rut = rut;
@@ -58,6 +59,7 @@ class Order {
     this.estado_ov = estado_ov;
     this.id_nro_ov_mas_factura = id_nro_ov_mas_factura;
     this.document_count = document_count;
+    this.document_type_ids = document_type_ids;
   }
 }
 

@@ -189,30 +189,37 @@ const createOrderService = ({
   });
 
   const orderPairs = mappedRows
-    .map((row) => ({ pc: row.mapped.pc, oc: row.mapped.oc }))
+    .map((row) => ({ pc: row.mapped.pc, oc: row.mapped.oc, factura: row.mapped.factura }))
     .filter((pair) => pair.pc && pair.oc);
 
   const documentCountMap = new Map();
+  const documentTypesMap = new Map();
   if (orderPairs.length) {
-    const pairConditions = orderPairs.map(() => '(pc = ? AND oc = ?)').join(' OR ');
+    // Crear condiciones que consideren pc y factura (o NULL)
+    const pairConditions = orderPairs.map(() => '(pc = ? AND (factura = ? OR (factura IS NULL AND ? IS NULL) OR (factura = \'\' AND ? IS NULL)))').join(' OR ');
     const pairParams = [];
     orderPairs.forEach((pair) => {
-      pairParams.push(pair.pc, pair.oc);
+      const factura = pair.factura || null;
+      pairParams.push(pair.pc, factura, factura, factura);
     });
     const [docRows] = await pool.query(
-      `SELECT pc, oc, COUNT(*) AS document_count
+      `SELECT pc, factura, COUNT(*) AS document_count, GROUP_CONCAT(DISTINCT file_id) AS file_ids
        FROM order_files
        WHERE ${pairConditions}
-       GROUP BY pc, oc`,
+       GROUP BY pc, factura`,
       pairParams
     );
     docRows.forEach((row) => {
-      documentCountMap.set(`${row.pc}|${row.oc}`, row.document_count);
+      const facturaKey = row.factura || 'NULL';
+      const key = `${row.pc}|${facturaKey}`;
+      documentCountMap.set(key, row.document_count);
+      documentTypesMap.set(key, row.file_ids ? row.file_ids.split(',').map(id => parseInt(id)) : []);
     });
   }
 
   return mappedRows.map(({ raw, mapped }) => {
-    const docCountKey = `${mapped.pc}|${mapped.oc}`;
+    const facturaKey = mapped.factura || 'NULL';
+    const docCountKey = `${mapped.pc}|${facturaKey}`;
     const order = new Order({
       id: `${mapped.pc}|${mapped.oc}`,
       rut: mapped.rut,
@@ -238,7 +245,8 @@ const createOrderService = ({
       puerto_destino: mapped.puerto_destino,
       certificados: mapped.certificados,
       estado_ov: mapped.estado_ov,
-      document_count: documentCountMap.get(docCountKey) || 0
+      document_count: documentCountMap.get(docCountKey) || 0,
+      document_type_ids: documentTypesMap.get(docCountKey) || []
     });
 
     return order;

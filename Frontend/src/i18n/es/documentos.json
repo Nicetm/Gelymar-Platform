@@ -44,6 +44,7 @@
   "customerFetchError": "Error al obtener cliente",
   "visibilityUpdateSuccess": "Visibilidad actualizada correctamente",
   "visibilityUpdateError": "Error al actualizar visibilidad",
+  "cannotEnableVisibilityNotCreated": "No se puede habilitar la visibilidad porque el archivo no ha sido creado",
   "noMessageData": "Error: No hay datos de mensaje",
   "sendBlockedTitle": "Envío bloqueado",
   "sendBlockedMessage": "No se puede enviar el documento a {emails} porque no tienen habilitado {restriction}.",
