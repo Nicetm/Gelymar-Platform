@@ -346,7 +346,7 @@ export async function initClientsScript() {
                 </a>
               </div>
               <div class="relative">
-                <a id="changePasswordViewBtn" href="#" data-uuid="${customer.rut || customer.uuid}" data-name="${customer.name}" class="changePasswordView text-gray-900 dark:text-white hover:text-green-500 dark:hover:text-green-400 transition change-password-btn"
+                <a id="changePasswordViewBtn" href="#" data-uuid="${customer.rut || customer.uuid}" data-name="${customer.name}" data-blocked="${customer.blocked || 0}" class="changePasswordView text-gray-900 dark:text-white hover:text-green-500 dark:hover:text-green-400 transition change-password-btn"
                   data-tooltip="${getMessage(clientes.change_password)}"
                   aria-label="${getMessage(clientes.change_password)}">
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
@@ -1599,13 +1599,42 @@ export async function initClientsScript() {
     e.stopPropagation(); // Evitar que se propague al event listener del botón "Ver"
     const customerUuid = btn.dataset.uuid;
     const customerName = btn.dataset.name;
+    const customerBlocked = btn.dataset.blocked || '0';
     
-    openChangePasswordModal(customerUuid, customerName);
+    openChangePasswordModal(customerUuid, customerName, customerBlocked);
   });
 
-  function openChangePasswordModal(customerUuid, customerName) {
+  function openChangePasswordModal(customerUuid, customerName, customerBlocked) {
     currentPasswordCustomerUuid = customerUuid;
     document.getElementById('changePasswordCustomerName').textContent = customerName || getMessage(profileTexts.noName);
+    
+    // Configurar botón de bloquear/desbloquear
+    const toggleBlockBtn = document.getElementById('toggleBlockUserBtn');
+    const toggleBlockBtnText = document.getElementById('toggleBlockUserBtnText');
+    const toggleBlockBtnIcon = toggleBlockBtn?.querySelector('svg');
+    
+    if (toggleBlockBtn && toggleBlockBtnText) {
+      const isBlocked = customerBlocked === '1';
+      toggleBlockBtn.dataset.blocked = customerBlocked;
+      toggleBlockBtn.dataset.uuid = customerUuid;
+      toggleBlockBtn.dataset.name = customerName;
+      
+      if (isBlocked) {
+        // Usuario bloqueado - mostrar botón "Desbloquear" en verde
+        toggleBlockBtn.className = 'text-xs px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-md font-medium transition flex items-center gap-2';
+        toggleBlockBtnText.textContent = getMessage(clientes.unblock_user);
+        if (toggleBlockBtnIcon) {
+          toggleBlockBtnIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />';
+        }
+      } else {
+        // Usuario desbloqueado - mostrar botón "Bloquear" en ámbar
+        toggleBlockBtn.className = 'text-xs px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-md font-medium transition flex items-center gap-2';
+        toggleBlockBtnText.textContent = getMessage(clientes.block_user);
+        if (toggleBlockBtnIcon) {
+          toggleBlockBtnIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />';
+        }
+      }
+    }
     
     // Limpiar formulario
     document.getElementById('changePasswordForm').reset();
@@ -1613,6 +1642,107 @@ export async function initClientsScript() {
     
     // Mostrar modal
     showModal('#changePasswordModal');
+  }
+
+  // Event listener para botón de bloquear/desbloquear dentro del modal
+  document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('#toggleBlockUserBtn');
+    if (!btn) return;
+    
+    e.preventDefault();
+    
+    const customerUuid = btn.dataset.uuid;
+    const customerName = btn.dataset.name;
+    const isBlocked = btn.dataset.blocked === '1';
+    
+    await toggleBlockUser(customerUuid, customerName, isBlocked, btn);
+  });
+
+  async function toggleBlockUser(customerUuid, customerName, isCurrentlyBlocked, btnElement) {
+    const confirmTitle = isCurrentlyBlocked 
+      ? getMessage(clientes.confirm_unblock_title) 
+      : getMessage(clientes.confirm_block_title);
+    const confirmMessage = isCurrentlyBlocked
+      ? getMessage(clientes.confirm_unblock_message).replace('{name}', customerName)
+      : getMessage(clientes.confirm_block_message).replace('{name}', customerName);
+    
+    const confirmed = await confirmAction(
+      confirmTitle,
+      confirmMessage,
+      'warning'
+    );
+    
+    if (!confirmed) {
+      return;
+    }
+    
+    try {
+      const token = localStorage.getItem('token');
+      const newBlockedValue = isCurrentlyBlocked ? 0 : 1;
+      
+      const url = `${resolvedApiBase}/api/users/block/${customerUuid}`;
+      const body = { blocked: newBlockedValue };
+      
+      const response = await fetch(url, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(body)
+      });
+      
+      if (response.ok) {
+        const responseData = await response.json();
+        
+        const successMessage = isCurrentlyBlocked
+          ? getMessage(clientes.user_unblocked_success).replace('{name}', customerName)
+          : getMessage(clientes.user_blocked_success).replace('{name}', customerName);
+        showNotification(successMessage, 'success');
+        
+        // Actualizar el botón en el modal
+        const toggleBlockBtnText = document.getElementById('toggleBlockUserBtnText');
+        const toggleBlockBtnIcon = btnElement?.querySelector('svg');
+        
+        if (btnElement && toggleBlockBtnText) {
+          btnElement.dataset.blocked = newBlockedValue;
+          
+          if (newBlockedValue === 1) {
+            // Ahora está bloqueado - mostrar "Desbloquear" en verde
+            btnElement.className = 'text-xs px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-md font-medium transition flex items-center gap-2';
+            toggleBlockBtnText.textContent = getMessage(clientes.unblock_user);
+            if (toggleBlockBtnIcon) {
+              toggleBlockBtnIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />';
+            }
+          } else {
+            // Ahora está desbloqueado - mostrar "Bloquear" en ámbar
+            btnElement.className = 'text-xs px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-md font-medium transition flex items-center gap-2';
+            toggleBlockBtnText.textContent = getMessage(clientes.block_user);
+            if (toggleBlockBtnIcon) {
+              toggleBlockBtnIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />';
+            }
+          }
+        }
+        
+        // Actualizar el data-blocked en el botón de la tabla para la próxima vez que se abra el modal
+        const tableBtn = document.querySelector(`.change-password-btn[data-uuid="${customerUuid}"]`);
+        if (tableBtn) {
+          tableBtn.dataset.blocked = newBlockedValue;
+        }
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        
+        const errorMessage = isCurrentlyBlocked
+          ? getMessage(clientes.unblock_user_error)
+          : getMessage(clientes.block_user_error);
+        showNotification(errorMessage, 'error');
+      }
+    } catch (error) {
+      const errorMessage = isCurrentlyBlocked
+        ? getMessage(clientes.unblock_user_error)
+        : getMessage(clientes.block_user_error);
+      showNotification(errorMessage, 'error');
+    }
   }
 
   function slugifyPath(text) {
@@ -1744,6 +1874,8 @@ export async function initClientsScript() {
   setupModalClose('#contactsModal', '#closeContactsModalBtn');
   setupModalClose('#contactsHelpModal', '#closeContactsHelpModalBtn');
   setupModalClose('#contactsHelpModal', '#closeContactsHelpModalFooterBtn');
+  setupModalClose('#directoryHelpModal', '#closeDirectoryHelpModalBtn');
+  setupModalClose('#directoryHelpModal', '#closeDirectoryHelpModalFooterBtn');
   setupModalClose('#changePasswordModal', '#closeChangePasswordModalBtn');
   setupModalClose('#changePasswordModal', '#cancelChangePasswordBtn');
 
@@ -1752,6 +1884,7 @@ export async function initClientsScript() {
     hideModal('#profileModal');
     hideModal('#contactsModal');
     hideModal('#contactsHelpModal');
+    hideModal('#directoryHelpModal');
     hideModal('#changePasswordModal');
   });
 
@@ -1759,6 +1892,13 @@ export async function initClientsScript() {
   if (contactsHelpBtn) {
     contactsHelpBtn.addEventListener('click', () => {
       showModal('#contactsHelpModal');
+    });
+  }
+
+  const directoryHelpBtn = document.getElementById('directoryHelpBtn');
+  if (directoryHelpBtn) {
+    directoryHelpBtn.addEventListener('click', () => {
+      showModal('#directoryHelpModal');
     });
   }
 

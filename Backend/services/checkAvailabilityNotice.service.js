@@ -74,7 +74,6 @@ async function getOrdersReadyForAvailabilityNotice(sendFromDate = null, filterPc
           INNER JOIN jor_imp_HDR_90_softkey h ON h.Nro = f.Nro
           WHERE f.Nro = @pc
             AND f.Factura = @factura
-            AND ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
             AND f.Factura IS NOT NULL
             AND LTRIM(RTRIM(f.Factura)) <> ''
             AND f.Factura <> 0

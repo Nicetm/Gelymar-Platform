@@ -129,4 +129,4 @@ chmod -R 777 /var/www/html/uploads
 vsftpd /etc/vsftpd/vsftpd.conf &
 
 # Iniciar Apache
-apache2-foreground 
+apache2-foreground

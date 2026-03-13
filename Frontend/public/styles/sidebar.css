@@ -105,4 +105,44 @@ button[data-dropdown-toggle="language-dropdown"][aria-expanded="true"] i[data-lu
 
 .scrollbar::-webkit-scrollbar-thumb:hover {
   @apply bg-slate-300 dark:bg-slate-700;
+}
+
+/* ── Tooltips para sidebar colapsado ────────────────────────────────────────── */
+/* Mostrar tooltips cuando el sidebar está colapsado (w-20) */
+#sidebar.w-20 .sidebar-link {
+  position: relative;
+}
+
+#sidebar.w-20 .sidebar-link::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-left: 16px;
+  padding: 10px 16px;
+  background: #1f2937;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  border-radius: 8px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+  z-index: 99999;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
+#sidebar.w-20 .sidebar-link:hover::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Tooltip en modo oscuro */
+.dark #sidebar.w-20 .sidebar-link::after {
+  background: #374151;
+  color: #f9fafb;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.7);
 } 

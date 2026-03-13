@@ -253,3 +253,46 @@ exports.resetAdminPassword = async (req, res) => {
     res.status(500).json({ message: t('user.reset_password_error', req.lang || 'es') });
   }
 };
+
+
+/**
+ * @route PUT /api/users/block/:rut
+ * @desc Bloquea o desbloquea un usuario
+ * @access Protegido (requiere JWT y rol admin)
+ */
+exports.toggleBlockUser = async (req, res) => {
+  try {
+    let { rut } = req.params;
+    const { blocked } = req.body;
+    
+    if (!rut) {
+      return res.status(400).json({ message: t('user.rut_required', req.lang || 'es') });
+    }
+    
+    // Limpiar el RUT: quitar la C final si existe
+    rut = String(rut).trim();
+    if (rut.toUpperCase().endsWith('C')) {
+      rut = rut.slice(0, -1);
+    }
+    
+    if (blocked === undefined || blocked === null) {
+      return res.status(400).json({ message: t('user.blocked_value_required', req.lang || 'es') });
+    }
+    
+    const updated = await userService.updateBlockedStatus(rut, blocked);
+    
+    if (!updated) {
+      return res.status(404).json({ message: t('user.user_not_found', req.lang || 'es') });
+    }
+    
+    logger.info(`[toggleBlockUser] Usuario ${blocked ? 'bloqueado' : 'desbloqueado'} rut=${rut}`);
+    res.json({ 
+      message: blocked 
+        ? t('user.user_blocked', req.lang || 'es') 
+        : t('user.user_unblocked', req.lang || 'es')
+    });
+  } catch (error) {
+    logger.error(`[toggleBlockUser] Error: ${error.message}`);
+    res.status(500).json({ message: t('user.toggle_block_error', req.lang || 'es') });
+  }
+};

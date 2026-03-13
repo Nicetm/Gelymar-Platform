@@ -286,10 +286,18 @@ export async function initOrdersScript() {
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${order.incoterm || '-'}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${order.puerto_destino || '-'}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">
-          <a href="${documentUrl}" 
-             class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline">
-            ${orders.viewDocuments}
-          </a>
+          <div class="flex items-center gap-3">
+            <div class="relative inline-flex items-center">
+              <svg class="w-6 h-6 text-gray-600 dark:text-gray-300" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path>
+              </svg>
+              <span class="absolute -top-1 -right-1 bg-blue-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">${order.document_count || 0}</span>
+            </div>
+            <a href="${documentUrl}" 
+               class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline">
+              ${orders.viewDocuments}
+            </a>
+          </div>
         </td>
         <td class="sticky right-0 bg-gray-50 dark:bg-gray-700 z-10 px-6 py-4 min-w-[120px] overflow-visible">
           <div class="flex justify-center gap-3 relative">

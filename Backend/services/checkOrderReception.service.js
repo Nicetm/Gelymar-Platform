@@ -375,9 +375,7 @@ async function getOrdersWithFacturaAndMissingFiles() {
       FROM jor_imp_HDR_90_softkey h
       INNER JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
       JOIN jor_imp_CLI_01_softkey c ON h.Rut = c.Rut
-      WHERE ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
-        AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
-        AND f.Factura IS NOT NULL
+      WHERE f.Factura IS NOT NULL
         AND LTRIM(RTRIM(CAST(f.Factura AS NVARCHAR(50)))) <> ''
         AND f.Factura <> 0
         AND f.Factura <> '0'

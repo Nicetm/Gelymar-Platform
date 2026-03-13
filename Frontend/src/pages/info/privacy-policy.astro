@@ -1,10 +1,9 @@
 ---
 // /pages/privacy-policy.astro
-import LayoutSidebar from '../../app/LayoutSidebar.astro';
-import GelymarLogo from '../../assets/gelymar.svg';
+import LayoutStacked from '../../app/LayoutStacked.astro';
 ---
 
-<LayoutSidebar>
+<LayoutStacked>
   <section class="relative w-full min-h-[100vh] px-6 py-16 text-gray-800 dark:text-gray-200 dark:bg-gray-900 font-sans overflow-hidden">
 
 
@@ -12,7 +11,7 @@ import GelymarLogo from '../../assets/gelymar.svg';
     <div class="relative z-10 max-w-5xl mx-auto animate-fade-in-up space-y-10">
       <!-- Logo y título -->
       <div class="text-center flex flex-col items-center gap-2">
-        <GelymarLogo class="h-16 w-auto animate-floating" />
+        <img src="/assets/gelymar.svg" alt="Gelymar Logo" class="h-16 w-auto animate-floating" />
         <h1 class="text-4xl font-extrabold text-[#002E50] dark:text-white">Privacy Policy</h1>
         <p class="text-md text-gray-600 dark:text-gray-400">
           Last updated: <time datetime="2024-01-01">January 1, 2025</time>
@@ -125,4 +124,4 @@ import GelymarLogo from '../../assets/gelymar.svg';
       animation: background-motion 30s linear infinite;
     }
   </style>
-</LayoutSidebar>
+</LayoutStacked>

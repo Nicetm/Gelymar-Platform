@@ -80,8 +80,7 @@ async function getItemsByOrder(orderId, user) {
     const headerResult = await headerRequest.query(
       `SELECT TOP 1 *
        FROM jor_imp_HDR_90_softkey
-       WHERE Nro = @pc
-       ${key.oc ? "AND REPLACE(REPLACE(UPPER(OC), ' ', ''), '-', '') = @oc" : ''}`
+       WHERE Nro = @pc`
     );
     const headerRow = headerResult.recordset?.[0];
     if (!headerRow) return null;

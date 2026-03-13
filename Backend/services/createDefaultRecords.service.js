@@ -130,16 +130,16 @@ async function createDefaultRecords(filters = {}) {
     const totalBatches = Math.ceil(clientEntries.length / batchSize);
 
     const partialKeyCount = new Map();
-    const partialKeyMinDate = new Map();
+    const partialKeyMinId = new Map();
     clientEntries.forEach(([, orders]) => {
       orders.forEach((order) => {
-        const key = `${String(order.pc || '').trim()}|${normalizeOcKey(order.oc)}`;
+        const key = `${String(order.pc || '').trim()}`;
         partialKeyCount.set(key, (partialKeyCount.get(key) || 0) + 1);
-        const orderDate = order.created_at ? new Date(order.created_at) : null;
-        if (orderDate && !Number.isNaN(orderDate.getTime())) {
-          const currentMin = partialKeyMinDate.get(key);
-          if (!currentMin || orderDate < currentMin) {
-            partialKeyMinDate.set(key, orderDate);
+        const orderId = order.id ? Number(order.id) : null;
+        if (orderId && !Number.isNaN(orderId)) {
+          const currentMin = partialKeyMinId.get(key);
+          if (!currentMin || orderId < currentMin) {
+            partialKeyMinId.set(key, orderId);
           }
         }
       });
@@ -187,22 +187,24 @@ async function createDefaultRecords(filters = {}) {
               'Availability Notice': 6
             };
             const hasFactura = hasFacturaValue(order.factura);
-            const partialKey = `${String(order.pc || '').trim()}|${normalizeOcKey(order.oc)}`;
+            const partialKey = `${String(order.pc || '').trim()}`;
             const hasPartial = (partialKeyCount.get(partialKey) || 0) > 1;
-            const orderDate = order.created_at ? new Date(order.created_at) : null;
-            const minDate = partialKeyMinDate.get(partialKey) || null;
+            const orderId = order.id ? Number(order.id) : null;
+            const minId = partialKeyMinId.get(partialKey) || null;
             const isParent =
               !hasPartial ||
-              (orderDate && minDate && !Number.isNaN(orderDate.getTime()) && orderDate.getTime() === minDate.getTime());
+              (orderId && minId && !Number.isNaN(orderId) && orderId === minId);
 
-            // Determinar documentos requeridos según estado de factura e incoterm
-            let requiredDocs;
+            // Determinar documentos requeridos
+            let requiredDocs = [];
             if (hasPartial) {
-              if (isParent && !hasFactura) {
-                requiredDocs = ['Order Receipt Notice'];
-              } else {
-                // Orden parcial con factura: determinar según incoterm
-                requiredDocs = [];
+              // Hay múltiples órdenes con el mismo PC
+              if (isParent) {
+                // Es la primera orden (parent) → SIEMPRE crear ORN
+                requiredDocs.push('Order Receipt Notice');
+              }
+              // Para todas las órdenes parciales con factura, crear los otros documentos
+              if (hasFactura) {
                 if (canCreateShipment(order)) {
                   requiredDocs.push('Shipment Notice');
                 }
@@ -214,9 +216,10 @@ async function createDefaultRecords(filters = {}) {
                 }
               }
             } else {
+              // Solo hay una orden con este PC → SIEMPRE crear ORN
+              requiredDocs.push('Order Receipt Notice');
+              // Si tiene factura, crear también los otros documentos
               if (hasFactura) {
-                // Orden con factura: determinar según incoterm
-                requiredDocs = [];
                 if (canCreateShipment(order)) {
                   requiredDocs.push('Shipment Notice');
                 }
@@ -226,17 +229,15 @@ async function createDefaultRecords(filters = {}) {
                 if (canCreateAvailability(order)) {
                   requiredDocs.push('Availability Notice');
                 }
-                
-                // NUEVO: Si la orden ahora tiene factura, actualizar el ORN existente que tiene factura=NULL
-                if (requiredDocs.length > 0) {
-                  try {
-                    await updateOrderReceiptNoticeFactura(order.pc, order.oc, order.factura);
-                  } catch (updateError) {
-                    logger.warn(`[createDefaultRecords] Error actualizando ORN con factura pc=${order.pc} oc=${order.oc || 'N/A'} factura=${order.factura}: ${updateError.message}`);
-                  }
-                }
-              } else {
-                requiredDocs = ['Order Receipt Notice'];
+              }
+            }
+            
+            // Si la orden ahora tiene factura, actualizar el ORN existente que tiene factura=NULL
+            if (hasFactura && requiredDocs.length > 0) {
+              try {
+                await updateOrderReceiptNoticeFactura(order.pc, order.oc, order.factura);
+              } catch (updateError) {
+                logger.warn(`[createDefaultRecords] Error actualizando ORN con factura pc=${order.pc} oc=${order.oc || 'N/A'} factura=${order.factura}: ${updateError.message}`);
               }
             }
 

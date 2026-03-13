@@ -118,4 +118,7 @@ router.patch('/admins/:id', authMiddleware, authorizeRoles(['admin']), userContr
 router.delete('/admins/:id', authMiddleware, authorizeRoles(['admin']), userController.deleteAdminUser);
 router.post('/admins/:id/reset-password', authMiddleware, authorizeRoles(['admin']), userController.resetAdminPassword);
 
+// Block/Unblock user
+router.put('/block/:rut', authMiddleware, authorizeRoles(['admin']), userController.toggleBlockUser);
+
 module.exports = router;

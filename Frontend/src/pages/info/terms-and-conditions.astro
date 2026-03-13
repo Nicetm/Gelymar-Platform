@@ -1,14 +1,13 @@
 ---
-import LayoutSidebar from '../../app/LayoutSidebar.astro';
-import GelymarLogo from '../../assets/gelymar.svg';
+import LayoutStacked from '../../app/LayoutStacked.astro';
 ---
 
-<LayoutSidebar>
+<LayoutStacked>
   <section class="relative w-full min-h-[80vh] px-6 py-12 text-gray-800 dark:text-gray-200  dark:from-slate-900 dark:to-slate-800 font-sans animate-fade-in-up">
     <div class="max-w-5xl mx-auto">
       <!-- Logo -->
       <div class="flex justify-center mb-8">
-        <GelymarLogo class="h-16 w-auto" />
+        <img src="/assets/gelymar.svg" alt="Gelymar Logo" class="h-16 w-auto" />
       </div>
 
       <!-- Title -->
@@ -87,4 +86,4 @@ import GelymarLogo from '../../assets/gelymar.svg';
       animation: fade-in-up 0.8s ease-out both;
     }
   </style>
-</LayoutSidebar>
+</LayoutStacked>

@@ -335,7 +335,7 @@ const contactEmailMetadata: any[] = [];
 	</div>
 
 	<div id="uploadModal" data-folder-name={pc} data-folder-id={resolvedFolderId} class="fixed inset-0 hidden justify-center items-center z-50 bg-black/50 flex backdrop-blur-sm opacity-0 transition-opacity duration-500">
-		<div class="modal-card bg-white/95 dark:bg-gray-800/95 text-gray-900 dark:text-gray-100 rounded-2xl p-8 w-full max-w-lg relative shadow-2xl ring-1 ring-gray-200 dark:ring-white/10 transform opacity-0 scale-90 translate-y-6 transition-all duration-500 ease-[cubic-bezier(.22,1,.36,1)]"> <!-- <-- Aquí -->
+		<div class="modal-card bg-white/95 dark:bg-gray-800/95 text-gray-900 dark:text-gray-100 rounded-2xl p-8 w-full max-w-lg relative shadow-2xl ring-1 ring-gray-200 dark:ring-white/10 transform opacity-0 scale-90 translate-y-6 transition-all duration-500 ease-[cubic-bezier(.22,1,.36,1)]">
 			<div class="absolute top-3 right-3 flex items-center gap-2">
 				<button id="uploadHelpBtn" type="button" class="text-blue-600 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200" aria-label={t.documentos.uploadHelpTitle}>
 					<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -350,9 +350,17 @@ const contactEmailMetadata: any[] = [];
 			</div>
 			<h2 class="text-xl font-bold mb-4 dark:text-white">{t.documentos.dragTitle}</h2>
 	
+			<!-- Checkbox para modo múltiple -->
 			<div class="mb-4">
+				<label class="flex items-center gap-2 cursor-pointer">
+					<input type="checkbox" id="uploadMultipleCheckbox" class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700">
+					<span class="text-xs font-medium text-gray-700 dark:text-gray-300">{t.documentos.uploadMultipleFiles}</span>
+				</label>
+			</div>
+
+			<!-- Name of Document selector (solo visible en modo single) -->
+			<div id="singleFileNameSelector" class="mb-4">
 				<label for="uploadFileName" class="block text-xs font-medium text-gray-700 dark:text-gray-300 pb-2">{t.documentos.nameOfDocument}</label>
-				<!-- Solo valores predefinidos -->
 				<div class="relative">
 				  <select id="uploadFileName"
 				          class="appearance-none pr-10 pl-3 py-2 block w-full border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 text-xs">
@@ -362,10 +370,11 @@ const contactEmailMetadata: any[] = [];
 				    ))}
 				  </select>
 				</div>
+				<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{t.documentos.fileWillBeRenamed}</p>
 			</div>
 	
+			<!-- Type of Document y Visible to Client (SIEMPRE visibles, lado a lado) -->
 			<div class="mb-4 flex gap-4">
-				<!-- Tipo de Documento -->
 				<div class="w-1/2">
 					<label for="uploadFileType" class="block text-xs font-medium text-gray-700 dark:text-gray-300 pb-2">{t.documentos.typeofDocument}</label>
 					<select id="uploadFileType" class="mt-1 block w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-md shadow-sm p-2 text-xs">
@@ -373,7 +382,6 @@ const contactEmailMetadata: any[] = [];
 					</select>
 				</div>
 			
-				<!-- Visible al cliente -->
 				<div class="w-1/2">
 					<label for="isVisibleToClient" class="block text-xs font-medium text-gray-700 dark:text-gray-300 pb-2">{t.documentos.visibleToClient}</label>
 					<select id="isVisibleToClient" class="mt-1 block w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-md shadow-sm p-2 text-xs">
@@ -383,10 +391,17 @@ const contactEmailMetadata: any[] = [];
 				</div>
 			</div>
 	
+			<!-- Select Document drop zone -->
 			<div class="mb-4">
 				<label class="block text-xs font-medium text-gray-700 dark:text-gray-300 pb-2">{t.documentos.selectDocument}</label>
 				<div id="dropZone" class="flex flex-col items-center justify-center border-2 border-dashed border-gray-400 dark:border-gray-600 rounded-md p-6 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700">
-					<p id="dropZoneText" class="text-gray-500 text-xs">{t.documentos.dragAndDrop}</p>
+					<div id="dropZoneContent" class="w-full">
+						<p id="dropZoneText" class="text-gray-500 text-xs text-center">{t.documentos.dragAndDrop}</p>
+						<!-- Lista de archivos seleccionados (aparece aquí en modo múltiple) -->
+						<div id="filesListContainer" class="hidden space-y-1 mt-2">
+							<!-- Los archivos se agregarán aquí dinámicamente -->
+						</div>
+					</div>
 					<input type="file" id="uploadFileInput" class="hidden text-xs" />
 				</div>
 			</div>

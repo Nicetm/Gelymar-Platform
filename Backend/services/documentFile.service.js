@@ -49,9 +49,6 @@ async function getOrderWithCustomerForPdf(pc, oc, factura = null) {
       ${normalizedFactura ? 'AND f.Factura = @factura' : ''}
     LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
     WHERE h.Nro = @pc
-      AND ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
-      AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
-      ${oc ? "AND REPLACE(REPLACE(REPLACE(REPLACE(LOWER(h.OC), ' ', ''), '(', ''), ')', ''), '-', '') = @oc" : ''}
     ORDER BY h.Nro
   `);
   const row = result.recordset?.[0];
@@ -116,8 +113,6 @@ async function getOrderDetailForPdf(pc, oc, factura = null) {
     LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
       ${normalizedFactura ? 'AND f.Factura = @factura' : ''}
     WHERE h.Nro = @pc
-      AND ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
-      ${oc ? "AND REPLACE(REPLACE(REPLACE(REPLACE(LOWER(h.OC), ' ', ''), '(', ''), ')', ''), '-', '') = @oc" : ''}
     ORDER BY h.Nro
   `;
   const result = await request.query(query);
@@ -239,8 +234,6 @@ async function getOrderByPcOc(pc, oc) {
         OC AS oc
       FROM jor_imp_HDR_90_softkey
       WHERE Nro = @pc
-        AND ISNULL(LTRIM(RTRIM(LOWER(EstadoOV))), '') <> 'cancelada'
-        AND REPLACE(REPLACE(LOWER(OC), ' ', ''), '-', '') = @oc
     `);
 
   const row = result.recordset?.[0];
@@ -302,8 +295,6 @@ async function getCustomerCheckForViewFile(fileId, userId) {
     SELECT TOP 1 Rut
     FROM jor_imp_HDR_90_softkey
     WHERE Nro = @pc
-      AND ISNULL(LTRIM(RTRIM(LOWER(EstadoOV))), '') <> 'cancelada'
-      AND REPLACE(REPLACE(LOWER(OC), ' ', ''), '-', '') = @oc
   `);
   const row = sqlResult.recordset?.[0];
   if (!row?.Rut) return null;
@@ -382,7 +373,6 @@ async function getCustomerCheckForDownload(fileId, userId) {
     SELECT TOP 1 Rut
     FROM jor_imp_HDR_90_softkey
     WHERE Nro = @pc
-      AND REPLACE(REPLACE(LOWER(OC), ' ', ''), '-', '') = @oc
   `);
   const row = sqlResult.recordset?.[0];
   if (!row?.Rut) return null;
@@ -429,8 +419,6 @@ async function getOrderWithCustomerForDefaultFiles(orderId) {
     LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
     LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
     WHERE h.Nro = @pc
-      AND ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
-      AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
     ORDER BY h.Fecha DESC
   `);
   const row = result.recordset?.[0];

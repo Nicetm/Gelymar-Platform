@@ -214,5 +214,8 @@
   "createDefaultAlreadyExists": "Default files already exist for this order",
   "loading": "Loading...",
   "docsCountHelpTitle": "Document Counter",
-  "docsCountHelpText": "Corresponds to the number of documents available to view for order {orderNumber}. To view the documents, you can click directly on the order number or from the Actions column."
+  "docsCountHelpText": "Corresponds to the number of documents available to view for order {orderNumber}. To view the documents, you can click directly on the order number or from the Actions column.",
+  "uploadMultipleFiles": "Upload multiple files",
+  "fileWillBeRenamed": "The file will be renamed to the selected document type",
+  "selectedFiles": "Selected files:"
 }

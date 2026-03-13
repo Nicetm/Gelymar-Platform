@@ -2247,13 +2247,72 @@ export function initFilesScript() {
       const uploadFileName = qs('#uploadFileName');
       const uploadFileType = qs('#uploadFileType');
       const uploadFileInput = qs('#uploadFileInput');
+      const uploadMultipleCheckbox = qs('#uploadMultipleCheckbox');
 
       if (uploadFileName) uploadFileName.value = '';
       if (uploadFileType) uploadFileType.value = 'PDF';
       if (uploadFileInput) uploadFileInput.value = '';
+      if (uploadMultipleCheckbox) uploadMultipleCheckbox.checked = false;
+      
+      // Reset to single mode
+      const singleFileNameSelector = qs('#singleFileNameSelector');
+      if (singleFileNameSelector) singleFileNameSelector.classList.remove('hidden');
+      
+      // Reset drop zone to single mode
+      if (uploadFileInput) uploadFileInput.removeAttribute('multiple');
+      
+      // Reset drop zone display
+      const filesListContainer = qs('#filesListContainer');
+      if (dropZoneText) {
+        dropZoneText.classList.remove('hidden');
+        dropZoneText.textContent = getMessage(documentos.dragAndDrop);
+      }
+      if (filesListContainer) {
+        filesListContainer.classList.add('hidden');
+        filesListContainer.innerHTML = '';
+      }
       
       showUploadModal();
     }, 500);
+  });
+
+  // Event listener para toggle entre single/multiple mode
+  const uploadMultipleCheckbox = qs('#uploadMultipleCheckbox');
+  
+  uploadMultipleCheckbox?.addEventListener('change', (e) => {
+    const singleFileNameSelector = qs('#singleFileNameSelector');
+    const uploadFileInput = qs('#uploadFileInput');
+    const dropZoneText = qs('#dropZoneText');
+    const filesListContainer = qs('#filesListContainer');
+    
+    if (e.target.checked) {
+      // Multiple mode: hide name selector, enable multiple, show text
+      if (singleFileNameSelector) singleFileNameSelector.classList.add('hidden');
+      if (uploadFileInput) uploadFileInput.setAttribute('multiple', 'multiple');
+      if (dropZoneText) {
+        dropZoneText.classList.remove('hidden');
+        dropZoneText.textContent = getMessage(documentos.dragAndDrop);
+      }
+      if (filesListContainer) {
+        filesListContainer.classList.add('hidden');
+        filesListContainer.innerHTML = '';
+      }
+    } else {
+      // Single mode: show name selector, disable multiple, clear files
+      if (singleFileNameSelector) singleFileNameSelector.classList.remove('hidden');
+      if (uploadFileInput) {
+        uploadFileInput.removeAttribute('multiple');
+        uploadFileInput.value = '';
+      }
+      if (filesListContainer) {
+        filesListContainer.classList.add('hidden');
+        filesListContainer.innerHTML = '';
+      }
+      if (dropZoneText) {
+        dropZoneText.classList.remove('hidden');
+        dropZoneText.textContent = getMessage(documentos.dragAndDrop);
+      }
+    }
   });
 
   // Event listeners para cerrar el modal
@@ -2270,11 +2329,28 @@ export function initFilesScript() {
         const uploadFileType = qs('#uploadFileType');
         const uploadFileInput = qs('#uploadFileInput');
         const dropZoneText = qs('#dropZoneText');
+        const filesListContainer = qs('#filesListContainer');
+        const uploadMultipleCheckbox = qs('#uploadMultipleCheckbox');
+        const singleFileNameSelector = qs('#singleFileNameSelector');
 
         if (uploadFileName) uploadFileName.value = '';
         if (uploadFileType) uploadFileType.value = 'PDF';
-        if (uploadFileInput) uploadFileInput.value = '';
-        if (dropZoneText) dropZoneText.textContent = getMessage(documentos.dragAndDrop);
+        if (uploadFileInput) {
+          uploadFileInput.value = '';
+          uploadFileInput.removeAttribute('multiple');
+        }
+        if (dropZoneText) {
+          dropZoneText.classList.remove('hidden');
+          dropZoneText.textContent = getMessage(documentos.dragAndDrop);
+        }
+        if (filesListContainer) {
+          filesListContainer.classList.add('hidden');
+          filesListContainer.innerHTML = '';
+        }
+        if (uploadMultipleCheckbox) uploadMultipleCheckbox.checked = false;
+        
+        // Reset to single mode
+        if (singleFileNameSelector) singleFileNameSelector.classList.remove('hidden');
       });
     }
   });
@@ -2283,48 +2359,160 @@ export function initFilesScript() {
   const confirmUploadBtn = qs('#confirmUploadBtn');
   if (confirmUploadBtn) {
     confirmUploadBtn.addEventListener('click', async () => {
-      const uploadSelect = qs('#uploadFileName');
-      const selectedOption = uploadSelect?.selectedOptions?.[0];
-      const fileId = selectedOption?.value?.trim();
-      const fileName = selectedOption?.dataset?.fileName || selectedOption?.textContent?.trim();
-      const fileType = qs('#uploadFileType')?.value;
-      const pcName = qs('#uploadModal')?.dataset?.folderName;
-      const idFolder = qs('#uploadModal')?.dataset?.folderId;
-      const isVisibleToCustomer = qs('#isVisibleToClient')?.value;
-      const fileObject = qs('#uploadFileInput')?.files?.[0];
-      const orderPc = window.orderPc || pcName || '';
-      const orderOc = window.orderOc || '';
+      const uploadMultipleCheckbox = qs('#uploadMultipleCheckbox');
+      const isMultipleMode = uploadMultipleCheckbox?.checked;
 
-      if (!fileId || !fileName || !fileType || !fileObject) {
-        showNotification(getMessage(documentos.uploadFieldsRequired), 'error');
-        return;
+      if (isMultipleMode) {
+        // Multiple files mode
+        await handleMultipleFilesUpload();
+      } else {
+        // Single file mode (existing logic)
+        await handleSingleFileUpload();
+      }
+    });
+  }
+
+  async function handleSingleFileUpload() {
+    const uploadSelect = qs('#uploadFileName');
+    const selectedOption = uploadSelect?.selectedOptions?.[0];
+    const fileId = selectedOption?.value?.trim();
+    const fileName = selectedOption?.dataset?.fileName || selectedOption?.textContent?.trim();
+    const fileType = qs('#uploadFileType')?.value;
+    const pcName = qs('#uploadModal')?.dataset?.folderName;
+    const idFolder = qs('#uploadModal')?.dataset?.folderId;
+    const isVisibleToCustomer = qs('#isVisibleToClient')?.value;
+    const fileObject = qs('#uploadFileInput')?.files?.[0];
+    const orderPc = window.orderPc || pcName || '';
+    const orderOc = window.orderOc || '';
+
+    if (!fileId || !fileName || !fileType || !fileObject) {
+      showNotification(getMessage(documentos.uploadFieldsRequired), 'error');
+      return;
+    }
+
+    const originalUploadContent = confirmUploadBtn.innerHTML;
+    const uploadingLabel = getMessage(documentos.uploading);
+    confirmUploadBtn.innerHTML = `
+      <span class="flex items-center gap-2">
+        <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+        </svg>
+        <span>${uploadingLabel}</span>
+      </span>
+    `;
+    confirmUploadBtn.disabled = true;
+
+    try {
+      const response = await fetch(`${apiBase}/api/customers/rut/${uuid}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) throw new Error(getMessage(documentos.customerFetchError));
+
+      const { name: clientName } = await response.json();
+
+      const formData = new FormData();
+      formData.append('customer_id', uuid);
+      formData.append('folder_id', idFolder || '');
+      formData.append('client_name', clientName);
+      formData.append('subfolder', pcName || orderPc);
+      formData.append('pc', orderPc);
+      formData.append('oc', orderOc);
+      formData.append('name', fileName);
+      formData.append('file_id', fileId);
+      formData.append('file', fileObject);
+      formData.append('is_visible_to_customer', isVisibleToCustomer);
+
+      const res = await fetch(`${apiBase}/api/files/upload`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData
+      });
+
+      if (!res.ok) {
+        throw new Error(getMessage(documentos.uploadError));
       }
 
-      const originalUploadContent = confirmUploadBtn.innerHTML;
-      const uploadingLabel = getMessage(documentos.uploading);
-      confirmUploadBtn.innerHTML = `
-        <span class="flex items-center gap-2">
-          <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
-          </svg>
-          <span>${uploadingLabel}</span>
-        </span>
-      `;
-      confirmUploadBtn.disabled = true;
+      showNotification(getMessage(documentos.uploadSuccess), 'success');
 
-      try {
-        const response = await fetch(`${apiBase}/api/customers/rut/${uuid}`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          }
-        });
+      hideUploadModal();
 
-        if (!response.ok) throw new Error(getMessage(documentos.customerFetchError));
+      const uploadFileName = qs('#uploadFileName');
+      const uploadFileType = qs('#uploadFileType');
+      const uploadFileInput = qs('#uploadFileInput');
+      const dropZoneText = qs('#dropZoneText');
 
-        const { name: clientName } = await response.json();
+      if (uploadFileName) uploadFileName.value = '';
+      if (uploadFileType) uploadFileType.value = 'PDF';
+      if (uploadFileInput) uploadFileInput.value = '';
+      if (dropZoneText) dropZoneText.textContent = getMessage(documentos.dragAndDrop);
+
+      await refreshFiles();
+    } catch (err) {
+      showNotification(err.message || getMessage(documentos.uploadError), 'error');
+    } finally {
+      confirmUploadBtn.innerHTML = originalUploadContent;
+      confirmUploadBtn.disabled = false;
+    }
+  }
+
+  async function handleMultipleFilesUpload() {
+    const uploadFileInput = qs('#uploadFileInput');
+    const files = uploadFileInput?.files;
+    const pcName = qs('#uploadModal')?.dataset?.folderName;
+    const idFolder = qs('#uploadModal')?.dataset?.folderId;
+    const isVisibleToCustomer = qs('#isVisibleToClient')?.value;
+    const orderPc = window.orderPc || pcName || '';
+    const orderOc = window.orderOc || '';
+
+    if (!files || files.length === 0) {
+      showNotification('Please select at least one file', 'error');
+      return;
+    }
+
+    const originalUploadContent = confirmUploadBtn.innerHTML;
+    confirmUploadBtn.disabled = true;
+
+    try {
+      const response = await fetch(`${apiBase}/api/customers/rut/${uuid}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) throw new Error(getMessage(documentos.customerFetchError));
+
+      const { name: clientName } = await response.json();
+
+      let successCount = 0;
+      let errorCount = 0;
+      const totalFiles = files.length;
+
+      // Upload each file
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const currentFileNumber = i + 1;
+        
+        // Update button with progress counter
+        confirmUploadBtn.innerHTML = `
+          <span class="flex items-center gap-2">
+            <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+            </svg>
+            <span>Uploading... ${currentFileNumber}/${totalFiles}</span>
+          </span>
+        `;
+        
+        // Remove extension from filename for the name field
+        const fileNameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
 
         const formData = new FormData();
         formData.append('customer_id', uuid);
@@ -2333,73 +2521,182 @@ export function initFilesScript() {
         formData.append('subfolder', pcName || orderPc);
         formData.append('pc', orderPc);
         formData.append('oc', orderOc);
-        formData.append('name', fileName);
-        formData.append('file_id', fileId);
-        formData.append('file', fileObject);
+        formData.append('name', fileNameWithoutExt); // Use original filename without extension
+        formData.append('file_id', '1'); // Use file_id=1 for multiple uploads
+        formData.append('file', file);
         formData.append('is_visible_to_customer', isVisibleToCustomer);
 
-        const res = await fetch(`${apiBase}/api/files/upload`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-          body: formData
-        });
+        try {
+          const res = await fetch(`${apiBase}/api/files/upload`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            body: formData
+          });
 
-        if (!res.ok) {
-          throw new Error(getMessage(documentos.uploadError));
+          if (res.ok) {
+            successCount++;
+          } else {
+            errorCount++;
+          }
+        } catch (err) {
+          errorCount++;
         }
-
-        showNotification(getMessage(documentos.uploadSuccess), 'success');
-
-        hideUploadModal();
-
-        const uploadFileName = qs('#uploadFileName');
-        const uploadFileType = qs('#uploadFileType');
-        const uploadFileInput = qs('#uploadFileInput');
-        const dropZoneText = qs('#dropZoneText');
-
-        if (uploadFileName) uploadFileName.value = '';
-        if (uploadFileType) uploadFileType.value = 'PDF';
-        if (uploadFileInput) uploadFileInput.value = '';
-        if (dropZoneText) dropZoneText.textContent = getMessage(documentos.dragAndDrop);
-
-        await refreshFiles();
-      } catch (err) {
-        showNotification(err.message || getMessage(documentos.uploadError), 'error');
-      } finally {
-        confirmUploadBtn.innerHTML = originalUploadContent;
-        confirmUploadBtn.disabled = false;
       }
-    });
+
+      if (successCount > 0) {
+        showNotification(`${successCount} file(s) uploaded successfully${errorCount > 0 ? `, ${errorCount} failed` : ''}`, successCount === files.length ? 'success' : 'warning');
+      } else {
+        showNotification('All uploads failed', 'error');
+      }
+
+      hideUploadModal();
+
+      // Reset form
+      const filesListContainer = qs('#filesListContainer');
+      const dropZoneText = qs('#dropZoneText');
+      if (uploadFileInput) uploadFileInput.value = '';
+      if (filesListContainer) {
+        filesListContainer.classList.add('hidden');
+        filesListContainer.innerHTML = '';
+      }
+      if (dropZoneText) {
+        dropZoneText.classList.remove('hidden');
+        dropZoneText.textContent = getMessage(documentos.dragAndDrop);
+      }
+
+      await refreshFiles();
+    } catch (err) {
+      showNotification(err.message || 'Upload error', 'error');
+    } finally {
+      confirmUploadBtn.innerHTML = originalUploadContent;
+      confirmUploadBtn.disabled = false;
+    }
   }
 
-  // Event listeners para drag & drop
+  // Unified drop zone and file input handlers
   const dropZone = qs('#dropZone');
   const fileInput = qs('#uploadFileInput');
   const dropZoneText = qs('#dropZoneText');
+  const filesListContainer = qs('#filesListContainer');
+
+  function updateFileDisplay() {
+    const uploadMultipleCheckbox = qs('#uploadMultipleCheckbox');
+    const isMultipleMode = uploadMultipleCheckbox?.checked;
+    
+    if (!fileInput) return;
+    
+    if (isMultipleMode) {
+      // Multiple mode: show file list inside drop zone
+      updateMultipleFilesList(fileInput.files);
+    } else {
+      // Single mode: show filename in drop zone text
+      if (dropZoneText) {
+        dropZoneText.textContent = fileInput.files.length > 0
+          ? fileInput.files[0].name
+          : getMessage(documentos.dragAndDrop);
+      }
+      // Hide file list in single mode
+      if (filesListContainer) {
+        filesListContainer.classList.add('hidden');
+        filesListContainer.innerHTML = '';
+      }
+    }
+  }
+
+  function updateMultipleFilesList(files) {
+    if (!filesListContainer || !dropZoneText) return;
+    
+    if (files.length === 0) {
+      // No files: show default text
+      dropZoneText.classList.remove('hidden');
+      dropZoneText.textContent = getMessage(documentos.dragAndDrop);
+      filesListContainer.classList.add('hidden');
+      filesListContainer.innerHTML = '';
+      return;
+    }
+
+    // Hide text, show file list
+    dropZoneText.classList.add('hidden');
+    filesListContainer.classList.remove('hidden');
+    filesListContainer.innerHTML = '';
+    
+    Array.from(files).forEach((file, index) => {
+      const fileSizeKB = (file.size / 1024).toFixed(2);
+      const fileItem = document.createElement('div');
+      fileItem.className = 'flex items-center justify-between p-1 bg-gray-700 dark:bg-gray-600 rounded text-xs text-white';
+      fileItem.innerHTML = `
+        <div class="flex items-center gap-2 flex-1 min-w-0">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+          </svg>
+          <span class="truncate flex-1">${file.name}</span>
+          <span class="text-gray-300 flex-shrink-0">(${fileSizeKB} KB)</span>
+        </div>
+        <button type="button" class="ml-2 text-red-400 hover:text-red-300 flex-shrink-0" data-file-index="${index}">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      `;
+      
+      const removeBtn = fileItem.querySelector('button');
+      removeBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        removeFileFromMultipleSelection(index);
+      });
+      
+      filesListContainer.appendChild(fileItem);
+    });
+  }
+
+  function removeFileFromMultipleSelection(index) {
+    if (!fileInput) return;
+    
+    const dt = new DataTransfer();
+    const files = Array.from(fileInput.files);
+    
+    files.forEach((file, i) => {
+      if (i !== index) {
+        dt.items.add(file);
+      }
+    });
+    
+    fileInput.files = dt.files;
+    updateFileDisplay();
+  }
 
   fileInput?.addEventListener('change', () => {
-    if (dropZoneText) {
-      dropZoneText.textContent = fileInput.files.length > 0
-        ? fileInput.files[0].name
-        : getMessage(documentos.dragAndDrop);
-    }
+    updateFileDisplay();
   });
 
-  dropZone?.addEventListener('click', () => fileInput?.click());
+  dropZone?.addEventListener('click', (e) => {
+    // Don't trigger file input if clicking on remove button
+    if (e.target.closest('button[data-file-index]')) {
+      return;
+    }
+    fileInput?.click();
+  });
 
-  // Configurar drag & drop
+  // Configurar drag & drop para el drop zone unificado
   if (dropZone && fileInput) {
     setupDragAndDrop(dropZone, (files) => {
-      if (files.length > 0) {
-        // Crear un DataTransfer para asignar archivos al input
-        const dataTransfer = new DataTransfer();
-        dataTransfer.items.add(files[0]);
-        fileInput.files = dataTransfer.files;
-        
-        if (dropZoneText) {
-          dropZoneText.textContent = files[0].name;
+      const uploadMultipleCheckbox = qs('#uploadMultipleCheckbox');
+      const isMultipleMode = uploadMultipleCheckbox?.checked;
+      
+      const dataTransfer = new DataTransfer();
+      
+      if (isMultipleMode) {
+        // Multiple mode: add all files
+        files.forEach(file => dataTransfer.items.add(file));
+      } else {
+        // Single mode: add only first file
+        if (files.length > 0) {
+          dataTransfer.items.add(files[0]);
         }
       }
+      
+      fileInput.files = dataTransfer.files;
+      updateFileDisplay();
     });
   }
 

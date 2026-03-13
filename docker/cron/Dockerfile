@@ -19,9 +19,8 @@ COPY Cronjob/ ./
 # Crear directorios necesarios
 RUN mkdir -p logs
 
-# Script de inicio
-COPY docker/cron/docker-entrypoint-cron.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/docker-entrypoint-cron.sh
+# Crear script de inicio directamente (evita problemas de CRLF)
+RUN printf '#!/bin/bash\nset -e\necho "Starting PM2..."\npm2-runtime start ecosystem.config.js\n' > /usr/local/bin/docker-entrypoint-cron.sh && chmod +x /usr/local/bin/docker-entrypoint-cron.sh
 
 # Variables de entorno por defecto (se pueden sobrescribir en runtime)
 ENV NODE_ENV=production

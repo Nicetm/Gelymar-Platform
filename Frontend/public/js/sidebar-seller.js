@@ -96,6 +96,148 @@ export function initSidebarSeller(config) {
   // Inicialización cuando el DOM está listo
   document.addEventListener("DOMContentLoaded", async () => {
 
+    // ===== Floating Tooltip System (from folders.js) =====
+    const floatingTooltipState = {
+      el: null,
+      currentTarget: null,
+      removeTimeout: null,
+      globalHandlersBound: false
+    };
+
+    function ensureFloatingTooltipElement() {
+      if (!floatingTooltipState.el) {
+        const tooltip = document.createElement('div');
+        tooltip.setAttribute('role', 'tooltip');
+        Object.assign(tooltip.style, {
+          position: 'fixed',
+          zIndex: '50',
+          backgroundColor: '#047857',
+          color: '#ffffff',
+          padding: '6px 10px',
+          borderRadius: '6px',
+          fontSize: '12px',
+          fontWeight: '500',
+          lineHeight: '1.4',
+          boxShadow: '0 8px 18px rgba(0, 0, 0, 0.25)',
+          pointerEvents: 'none',
+          whiteSpace: 'nowrap',
+          opacity: '0',
+          transition: 'opacity 120ms ease',
+          maxWidth: '320px',
+          textAlign: 'center'
+        });
+        floatingTooltipState.el = tooltip;
+      }
+      return floatingTooltipState.el;
+    }
+
+    function ensureFloatingTooltipHandlers() {
+      if (floatingTooltipState.globalHandlersBound) return;
+      floatingTooltipState.globalHandlersBound = true;
+      const hideOnChange = () => hideFloatingTooltip();
+      window.addEventListener('scroll', hideOnChange, true);
+      window.addEventListener('resize', hideOnChange, true);
+      window.addEventListener('keydown', event => {
+        if (event.key === 'Escape') {
+          hideFloatingTooltip();
+        }
+      }, true);
+    }
+
+    function positionFloatingTooltip(target, tooltipEl) {
+      const rect = target.getBoundingClientRect();
+      const tooltipRect = tooltipEl.getBoundingClientRect();
+      const spacing = 10;
+
+      // Position to the right of the sidebar icon
+      let left = rect.right + spacing;
+      let top = rect.top + (rect.height / 2) - (tooltipRect.height / 2);
+
+      const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+
+      // Keep within viewport bounds
+      if (left + tooltipRect.width + spacing > viewportWidth) {
+        left = rect.left - tooltipRect.width - spacing;
+      }
+      top = Math.min(Math.max(spacing, top), viewportHeight - tooltipRect.height - spacing);
+
+      tooltipEl.style.top = `${Math.round(top)}px`;
+      tooltipEl.style.left = `${Math.round(left)}px`;
+    }
+
+    function showFloatingTooltip(target) {
+      if (!target || !(target instanceof HTMLElement)) return;
+      const text = target.getAttribute('data-tooltip');
+      if (!text) return;
+
+      // Only show tooltip when sidebar is collapsed
+      if (!sidebar?.classList.contains('sidebar-collapsed')) return;
+
+      ensureFloatingTooltipHandlers();
+      clearTimeout(floatingTooltipState.removeTimeout);
+
+      const tooltipEl = ensureFloatingTooltipElement();
+      tooltipEl.textContent = text;
+
+      if (!tooltipEl.isConnected) {
+        document.body.appendChild(tooltipEl);
+      }
+
+      tooltipEl.style.opacity = '0';
+      tooltipEl.style.visibility = 'hidden';
+
+      requestAnimationFrame(() => {
+        tooltipEl.style.visibility = 'visible';
+        positionFloatingTooltip(target, tooltipEl);
+        requestAnimationFrame(() => {
+          tooltipEl.style.opacity = '1';
+        });
+      });
+
+      floatingTooltipState.currentTarget = target;
+    }
+
+    function hideFloatingTooltip() {
+      if (!floatingTooltipState.el) return;
+      const tooltipEl = floatingTooltipState.el;
+      tooltipEl.style.opacity = '0';
+      floatingTooltipState.currentTarget = null;
+      clearTimeout(floatingTooltipState.removeTimeout);
+      floatingTooltipState.removeTimeout = window.setTimeout(() => {
+        if (tooltipEl.parentElement) {
+          tooltipEl.parentElement.removeChild(tooltipEl);
+        }
+        tooltipEl.style.visibility = 'hidden';
+      }, 150);
+    }
+
+    function handleTooltipEnter(event) {
+      showFloatingTooltip(event.currentTarget);
+    }
+
+    function handleTooltipLeave(event) {
+      const target = event.currentTarget;
+      if (floatingTooltipState.currentTarget === target) {
+        if (event.type === 'mouseleave' && document.activeElement === target) {
+          return;
+        }
+        hideFloatingTooltip();
+      }
+    }
+
+    function setupFloatingTooltips(container) {
+      if (!container) return;
+      const tooltipTargets = container.querySelectorAll('[data-tooltip]');
+      tooltipTargets.forEach(target => {
+        target.addEventListener('mouseenter', handleTooltipEnter);
+        target.addEventListener('mouseleave', handleTooltipLeave);
+        target.addEventListener('focus', handleTooltipEnter);
+        target.addEventListener('blur', handleTooltipLeave);
+      });
+    }
+    // ===== End Floating Tooltip System =====
+
     // Sidebar collapse
     const sidebar = document.getElementById('sidebar');
     const rootEl = document.documentElement;
@@ -107,9 +249,12 @@ export function initSidebarSeller(config) {
 
     const applySidebarCollapsed = (collapsed) => {
       if (!sidebar) return;
+      
+      // Aplicar clase al elemento raíz (html) para que los estilos CSS funcionen
       if (rootEl) {
         rootEl.classList.toggle('sidebar-collapsed', collapsed);
       }
+      
       sidebar.classList.toggle('w-20', collapsed);
       sidebar.classList.toggle('w-56', !collapsed);
       sidebar.classList.toggle('sidebar-collapsed', collapsed);
@@ -167,6 +312,9 @@ export function initSidebarSeller(config) {
         link.classList.add("active");
       }
     });
+
+    // Setup tooltips for sidebar links
+    setupFloatingTooltips(sidebar);
 
     // Submenu toggles
     document.querySelectorAll("[data-collapse-toggle]").forEach(btn => {

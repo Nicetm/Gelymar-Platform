@@ -623,3 +623,48 @@ module.exports = {
   deleteUserById,
   resetAdminPassword,
 };
+
+
+/**
+ * Actualiza el estado de bloqueo de un usuario por RUT
+ * @param {string} rut - RUT del usuario (sin dígito verificador)
+ * @param {number} blocked - Estado de bloqueo (0 = desbloqueado, 1 = bloqueado)
+ * @returns {Promise<boolean>} - true si se actualizó, false si no se encontró
+ */
+async function updateBlockedStatus(rut, blocked) {
+  logger.info(`[updateBlockedStatus] Inicio - rut=${rut}, blocked=${blocked}`);
+  const pool = await poolPromise;
+  const query = 'UPDATE users SET bloqueado = ? WHERE rut = ?';
+  logger.info(`[updateBlockedStatus] Query: ${query}, params: [${blocked}, ${rut}]`);
+  const [result] = await pool.query(query, [blocked, rut]);
+  logger.info(`[updateBlockedStatus] Resultado - affectedRows: ${result.affectedRows}`);
+  return result.affectedRows > 0;
+}
+
+module.exports = {
+  getSqlCustomerByRut,
+  getSqlCustomerByEmail,
+  getSqlSellerByRut,
+  getAllUsers,
+  findUserByEmailOrUsername,
+  findUserForPasswordRecovery,
+  findUserById,
+  findCustomerIdByRut,
+  updateUserOnlineStatus,
+  getPrimaryAdminPresence,
+  getSpecificAdminPresence,
+  findUserForAuth,
+  getUserProfile,
+  updateUserProfile,
+  createUser,
+  updateUser2FASecret,
+  getAdminUsers,
+  getAdminPresenceList,
+  getAdminUserById,
+  getAdminNotificationRecipients,
+  createAdminUser,
+  updateAdminUser,
+  deleteUserById,
+  resetAdminPassword,
+  updateBlockedStatus
+};

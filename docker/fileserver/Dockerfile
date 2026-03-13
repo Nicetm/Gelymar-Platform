@@ -67,9 +67,8 @@ RUN chmod -R 777 /var/www/html/uploads
 # Crear usuario daemon para Apache si no existe
 RUN (groupadd -g 1 daemon || true) && (useradd -r -u 1 -g daemon daemon || true)
 
-# Script de inicio
-COPY docker-entrypoint-fileserver.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+# Crear script de inicio directamente (evita problemas de CRLF)
+RUN printf '#!/bin/bash\nset -e\nmkdir -p /var/www/html/uploads\nchown -R www-data:www-data /var/www/html\nchmod -R 755 /var/www/html\nchmod -R 777 /var/www/html/uploads\nvsftpd /etc/vsftpd/vsftpd.conf &\napache2-foreground\n' > /entrypoint.sh && chmod +x /entrypoint.sh
 
 EXPOSE 80 21 30000-30009
 

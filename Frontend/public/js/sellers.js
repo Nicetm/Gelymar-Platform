@@ -254,12 +254,8 @@ export async function initSellersScript() {
     const name = seller.full_name || seller.rut || '-';
     const online = seller.online === 1;
     const isActive = Number(seller.activo) === 1;
-    const isBlocked = Number(seller.bloqueado) === 1;
     const activeCheckbox = `
       <input type="checkbox" disabled ${isActive ? 'checked' : ''} class="h-4 w-4 accent-green-500 cursor-not-allowed">
-    `;
-    const blockedCheckbox = `
-      <input type="checkbox" disabled ${isBlocked ? 'checked' : ''} class="h-4 w-4 accent-rose-500 cursor-not-allowed">
     `;
 
     const statusBadge = `
@@ -279,7 +275,6 @@ export async function initSellersScript() {
         <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-300">${seller.rut || '-'}</td>
         <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-300">${email}</td>
         <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-300">${activeCheckbox}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-300">${blockedCheckbox}</td>
         <td class="px-6 py-4 whitespace-nowrap text-xs">${statusBadge}</td>
         <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-300">${createdAt}</td>
         <td class="sticky right-0 bg-gray-50 dark:bg-gray-700 z-10 px-6 py-4 min-w-[120px] overflow-visible">
@@ -651,7 +646,7 @@ export async function initSellersScript() {
     const token = getToken();
 
     try {
-      tableBody.innerHTML = buildLoadingRow(8, t.loading);
+      tableBody.innerHTML = buildLoadingRow(7, t.loading);
       const scrollBody = tableBody?.closest('[data-scroll-body]') || tableBody?.closest('.overflow-x-auto');
       if (scrollBody) {
         scrollBody.classList.add('scrollbar-hidden');

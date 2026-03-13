@@ -395,7 +395,7 @@ const createOrderService = ({
           f.Fecha_factura AS fec_factura
         FROM jor_imp_HDR_90_softkey h
         LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
-        WHERE h.Rut = @rut AND LOWER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = LOWER(@oc)
+        WHERE h.Rut = @rut
         ORDER BY CAST(h.Fecha AS date) DESC
       `);
 
@@ -540,8 +540,6 @@ const createOrderService = ({
           LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
           LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
           WHERE h.Nro = @pc
-            AND LOWER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = LOWER(@oc)
-            AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
           ORDER BY CAST(h.Fecha AS date) DESC
         `);
 
@@ -711,7 +709,6 @@ const createOrderService = ({
         LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
         LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
         WHERE h.Nro = @pc AND LOWER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = LOWER(@oc)
-          AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
         ORDER BY CAST(h.Fecha AS date) DESC
       `);
 
@@ -804,7 +801,7 @@ const createOrderService = ({
           h.Vendedor
         FROM jor_imp_HDR_90_softkey h
         LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
-        WHERE h.Nro = @pc AND LOWER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = LOWER(@oc)
+        WHERE h.Nro = @pc
         ORDER BY CAST(h.Fecha AS date) DESC
       `);
 
@@ -894,9 +891,7 @@ const createOrderService = ({
           h.ETD_OV AS fecha_etd
         FROM jor_imp_HDR_90_softkey h
         LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
-        WHERE ISNULL(LTRIM(RTRIM(LOWER(h.EstadoOV))), '') <> 'cancelada'
-          AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
-          AND CASE
+        WHERE CASE
             WHEN ISDATE(h.Fecha) = 1
             THEN CAST(h.Fecha AS date)
           END >= @fecha
@@ -1100,7 +1095,6 @@ const createOrderService = ({
           ON i.Nro = h.Nro AND i.Factura = f.Factura
         LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
         WHERE ${withCurrency}
-          AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
         GROUP BY c.Nombre
         ORDER BY total_sales DESC
       `;
@@ -1218,7 +1212,7 @@ const createOrderService = ({
           c.Nombre AS customer_name
         FROM jor_imp_HDR_90_softkey h
         INNER JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
-        WHERE h.Nro = @pc AND LOWER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = LOWER(@oc)
+        WHERE h.Nro = @pc
         ORDER BY CAST(h.Fecha AS date) DESC
       `);
 
@@ -1333,7 +1327,7 @@ const createOrderService = ({
         FROM jor_imp_HDR_90_softkey h
         INNER JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
         INNER JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
-        WHERE h.Nro = @pc AND LOWER(REPLACE(REPLACE(REPLACE(REPLACE(h.OC, ' ', ''), '(', ''), ')', ''), '-', '')) = LOWER(@oc)
+        WHERE h.Nro = @pc
         ORDER BY CAST(h.Fecha AS date) DESC
       `);
 
@@ -1446,7 +1440,6 @@ const createOrderService = ({
         ON i.Nro = h.Nro AND i.Factura = f.Factura
       LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
       WHERE ${where.join(' AND ')}
-        AND LTRIM(RTRIM(c.EstadoCliente)) = 'Activo'
     `;
 
     const summaryQuery = `

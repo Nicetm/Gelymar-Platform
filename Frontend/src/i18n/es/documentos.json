@@ -212,5 +212,8 @@
   "createDefaultAlreadyExists": "Los archivos por defecto ya existen para esta orden",
   "loading": "Cargando...",
   "docsCountHelpTitle": "Contador de Documentos",
-  "docsCountHelpText": "Corresponde al número de documentos que tiene disponibles para visualizar la orden {orderNumber}. Para ver sus documentos puede hacer click directamente sobre el número de orden o desde la columna Acciones."
+  "docsCountHelpText": "Corresponde al número de documentos que tiene disponibles para visualizar la orden {orderNumber}. Para ver sus documentos puede hacer click directamente sobre el número de orden o desde la columna Acciones.",
+  "uploadMultipleFiles": "Subir múltiples archivos",
+  "fileWillBeRenamed": "El archivo se renombrará al tipo de documento seleccionado",
+  "selectedFiles": "Archivos seleccionados:"
 }
