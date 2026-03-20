@@ -66,32 +66,19 @@ export async function initOrdersScript() {
     localStorage.removeItem(CACHE_TIMESTAMP_KEY);
   }
 
-  // Función para cargar datos desde la API con caché
+  // Función para cargar datos desde la API con caché (stale-while-revalidate)
   async function loadOrdersWithCache() {
     try {
-      if (isCacheValid()) {
-        const cachedData = loadFromCache();
-        if (cachedData) {
-          return cachedData;
-        }
+      const cachedData = loadFromCache();
+
+      // Si hay cache, devolverlo inmediatamente y revalidar en background
+      if (cachedData) {
+        revalidateInBackground();
+        return cachedData;
       }
 
-      const token = localStorage.getItem('token');
-      const section = document.getElementById('OrderSection');
-      const datasetApiBase = section?.dataset?.apiBase;
-      const apiBase = window.apiBase || datasetApiBase;
-      
-      const response = await fetch(`${apiBase}/api/orders`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const orders = await response.json();
-      saveToCache(orders);
-      return orders;
+      // Sin cache: fetch obligatorio
+      return await fetchOrdersFromAPI();
     } catch (error) {
       console.error('Error cargando órdenes:', error);
       const cachedData = loadFromCache();
@@ -100,6 +87,46 @@ export async function initOrdersScript() {
       }
       throw error;
     }
+  }
+
+  // Fetch directo desde la API
+  async function fetchOrdersFromAPI() {
+    const token = localStorage.getItem('token');
+    const section = document.getElementById('OrderSection');
+    const datasetApiBase = section?.dataset?.apiBase;
+    const apiBase = window.apiBase || datasetApiBase;
+    
+    const response = await fetch(`${apiBase}/api/orders`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const orders = await response.json();
+    saveToCache(orders);
+    return orders;
+  }
+
+  // Revalidar en background: fetch silencioso, si los datos cambiaron actualizar tabla
+  let revalidating = false;
+  function revalidateInBackground() {
+    if (revalidating) return;
+    revalidating = true;
+    fetchOrdersFromAPI()
+      .then(freshData => {
+        const cachedJson = localStorage.getItem(CACHE_KEY);
+        const freshJson = JSON.stringify(freshData);
+        // Solo actualizar si los datos cambiaron
+        if (cachedJson !== freshJson) {
+          saveToCache(freshData);
+          allOrders = freshData;
+          filterRows({ preservePage: true });
+        }
+      })
+      .catch(err => console.warn('Error en revalidación background:', err))
+      .finally(() => { revalidating = false; });
   }
 
   // Función para refrescar datos

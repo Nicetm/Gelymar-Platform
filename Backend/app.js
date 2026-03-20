@@ -266,7 +266,7 @@ app.get('/api-docs', (req, res) => {
 // Rutas API públicas
 app.use('/api/auth', authLimiter, authSlowDown, authRoutes);
 app.use('/api/monitoring', readLimiter, monitoringRoutes);
-app.use('/api/fileserver', uploadLimiter, fileserverRoutes);
+app.use('/api/fileserver', fileserverRoutes);
 app.use('/api/assets', readLimiter, assetsRoutes);
 
 // Rutas protegidas (requieren token + rol adecuado)
@@ -281,7 +281,7 @@ app.use('/api/vendedores', authMiddleware, writeLimiter, authorizeRoles(['admin'
 // Ruta especial para visualización de archivos (acceso para admin y client)
 app.use('/api/file-view', readLimiter, documentFileRoutes);
 
-app.use('/api/files', authMiddleware, uploadLimiter, authorizeRoles(['admin', 'seller', 'client']), documentFileRoutes);
+app.use('/api/files', authMiddleware, authorizeRoles(['admin', 'seller', 'client']), documentFileRoutes);
 app.use('/api/document-types', authMiddleware, readLimiter, authorizeRoles(['admin', 'seller']), documentTypeRoutes);
 app.use('/api/chat', authMiddleware, writeLimiter, chatRoutes);
 app.use('/api/projections', authMiddleware, readLimiter, authorizeRoles(['admin', 'seller']), projectionRoutes);

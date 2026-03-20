@@ -1051,6 +1051,10 @@ export function initFilesScript() {
   }
 
   async function refreshFiles() {
+    // Invalidar cache de órdenes para que el listado refleje los contadores actualizados
+    localStorage.removeItem('orders_cache');
+    localStorage.removeItem('orders_cache_timestamp');
+
     const loadingRow = document.getElementById('loadingRow');
     try {
       const facturaQuery = resolvedFactura ? `&factura=${encodeURIComponent(resolvedFactura)}` : '';
@@ -1939,6 +1943,9 @@ export function initFilesScript() {
         if (res.ok) {
           showNotification(getMessage(documentos.deleteSuccess), 'success');
           btn.closest('tr')?.remove();
+          // Invalidar cache de órdenes para que el listado refleje los contadores actualizados
+          localStorage.removeItem('orders_cache');
+          localStorage.removeItem('orders_cache_timestamp');
         } else {
           showNotification(data.message || getMessage(documentos.deleteError), 'error');
           // Restaurar botón en caso de error

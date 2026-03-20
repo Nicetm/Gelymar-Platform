@@ -118,11 +118,14 @@ async function generateDefaultFiles(filters = {}) {
               continue;
             }
             
-            // Verificar si ya existen documentos para esta orden
+            // Sincronizar factura del ERP: si la orden ahora tiene factura pero
+            // el Order Receipt Notice fue creado con factura=NULL, actualizarlo
+            await syncFacturaFromERP(order.pc, order.factura);
+
+            // Verificar si ya existen documentos para esta orden (solo por PC + factura, sin OC)
             const existingFiles = await checkExistingFiles(
               order.id,
               order.pc,
-              order.oc,
               order.factura
             );
             // Determinar ruta base: usar la existente si hay archivos previos
@@ -239,22 +242,25 @@ async function generateDefaultFiles(filters = {}) {
   }
 }
 
-async function checkExistingFiles(orderId, pc, oc, factura = null) {
+async function checkExistingFiles(orderId, pc, factura = null) {
   const pool = await poolPromise;
   
   try {
     const normalizedPc = pc == null ? '' : String(pc).trim();
-    const normalizedOc = oc == null ? '' : String(oc).toUpperCase().replace(/[\s-]+/g, '');
     const normalizedFactura = factura !== null && factura !== undefined && factura !== '' && factura !== 0 && factura !== '0'
       ? String(factura).trim()
       : null;
-    const facturaClause = normalizedFactura ? ' AND f.factura = ?' : " AND (f.factura IS NULL OR f.factura = '' OR f.factura = 0 OR f.factura = '0')";
-    const query = normalizedOc
-      ? `SELECT f.* FROM order_files f WHERE TRIM(COALESCE(f.pc, '')) = ? AND REPLACE(REPLACE(UPPER(COALESCE(f.oc, '')), ' ', ''), '-', '') = ?${facturaClause}`
-      : `SELECT f.* FROM order_files f WHERE TRIM(COALESCE(f.pc, '')) = ? AND (f.oc IS NULL OR TRIM(f.oc) = '')${facturaClause}`;
-    const params = normalizedOc
-      ? (normalizedFactura ? [normalizedPc, normalizedOc, normalizedFactura] : [normalizedPc, normalizedOc])
-      : (normalizedFactura ? [normalizedPc, normalizedFactura] : [normalizedPc]);
+    // Buscar TODOS los registros para este PC: tanto los que tienen la factura
+    // específica como los que tienen factura NULL (ORN recién sincronizados o pendientes).
+    // Esto evita duplicados cuando syncFactura acaba de actualizar un registro.
+    let query, params;
+    if (normalizedFactura) {
+      query = `SELECT f.* FROM order_files f WHERE TRIM(COALESCE(f.pc, '')) = ? AND (f.factura = ? OR f.factura IS NULL OR f.factura = '' OR f.factura = '0')`;
+      params = [normalizedPc, normalizedFactura];
+    } else {
+      query = `SELECT f.* FROM order_files f WHERE TRIM(COALESCE(f.pc, '')) = ? AND (f.factura IS NULL OR f.factura = '' OR f.factura = '0')`;
+      params = [normalizedPc];
+    }
     const [rows] = await pool.query(query, params);
     
     return rows;
@@ -262,8 +268,51 @@ async function checkExistingFiles(orderId, pc, oc, factura = null) {
   } catch (error) {
     logger.error(`[checkDefaultFiles] Error verificando archivos existentes pc=${pc}: ${error.message}`);
     logger.error(`[checkDefaultFiles] Stack: ${error.stack}`);
-    // Si hay error, retornar array vacío para que continúe el proceso
     return [];
+  }
+}
+
+/**
+ * Sincroniza la factura del ERP en registros existentes de order_files.
+ * Si la orden ahora tiene factura en el ERP pero el Order Receipt Notice (file_id=9)
+ * fue creado con factura=NULL, actualiza el campo factura en esos registros.
+ */
+async function syncFacturaFromERP(pc, erpFactura) {
+  const pool = await poolPromise;
+  
+  try {
+    const normalizedPc = pc == null ? '' : String(pc).trim();
+    const normalizedFactura = erpFactura !== null && erpFactura !== undefined && erpFactura !== '' && erpFactura !== 0 && erpFactura !== '0'
+      ? String(erpFactura).trim()
+      : null;
+    
+    // Solo sincronizar si el ERP tiene factura
+    if (!normalizedFactura) return 0;
+    
+    // Buscar registros de Order Receipt Notice (file_id=9) con factura NULL para esta PC
+    const [rows] = await pool.query(
+      `SELECT id, factura FROM order_files 
+       WHERE TRIM(COALESCE(pc, '')) = ? 
+         AND file_id = 9 
+         AND (factura IS NULL OR factura = '' OR factura = 0 OR factura = '0')`,
+      [normalizedPc]
+    );
+    
+    if (rows.length === 0) return 0;
+    
+    // Actualizar la factura en esos registros
+    const ids = rows.map(r => r.id);
+    await pool.query(
+      `UPDATE order_files SET factura = ?, updated_at = NOW() WHERE id IN (${ids.map(() => '?').join(',')})`,
+      [normalizedFactura, ...ids]
+    );
+    
+    logger.info(`[checkDefaultFiles] Factura sincronizada desde ERP: pc=${normalizedPc} factura=${normalizedFactura} registros_actualizados=${ids.length} ids=[${ids.join(',')}]`);
+    
+    return ids.length;
+  } catch (error) {
+    logger.error(`[checkDefaultFiles] Error sincronizando factura pc=${pc}: ${error.message}`);
+    return 0;
   }
 }
 
