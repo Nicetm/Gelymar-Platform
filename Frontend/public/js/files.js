@@ -1136,28 +1136,31 @@ export function initFilesScript() {
     };
   }
 
-  function setupEmailRecipientsEditor(initialEmails = []) {
-    const editor = document.getElementById('emailRecipientsEditor');
-    if (!editor) {
-      window.emailRecipientController = {
-        getActive: () => Array.isArray(initialEmails) ? [...initialEmails] : [],
-        reset: () => {},
-        setBase: () => {},
-        addToKnown: () => {},
-        getNoRecipientsMessage: () => getMessage(documentos.noRecipientsSelected)
-      };
-      return;
-    }
+  function createEmailEditor(editorId, initialEmails = []) {
+    const editor = document.getElementById(editorId);
+    const fallback = {
+      getActive: () => Array.isArray(initialEmails) ? [...initialEmails] : [],
+      reset: () => {},
+      setBase: () => {},
+      addToKnown: () => {},
+      getNoRecipientsMessage: () => getMessage(documentos.noRecipientsSelected),
+      setValidationMode: () => {},
+      getValidationMode: () => getGlobalValidationMode()
+    };
+    if (!editor) return fallback;
 
+    // Use querySelectorAll-based child lookup (first matching child)
+    const children = Array.from(editor.querySelectorAll('[id]'));
+    const findChild = (suffix) => children.find(el => el.id.toLowerCase().endsWith(suffix.toLowerCase()));
     const dataset = editor.dataset || {};
-    const activeContainer = editor.querySelector('#activeEmailChips');
-    const availableWrapper = editor.querySelector('#availableEmailsWrapper');
-    const availableContainer = editor.querySelector('#availableEmailChips');
-    const ccoWrapper = editor.querySelector('#ccoEmailsWrapper');
-    const ccoContainer = editor.querySelector('#ccoEmailChips');
-    const newEmailInput = editor.querySelector('#newEmailInput');
-    const addEmailBtn = editor.querySelector('#addEmailBtn');
-    const hiddenInput = editor.querySelector('#selectedEmailRecipients');
+    const activeContainer = findChild('ActiveEmailChips');
+    const availableWrapper = findChild('AvailableEmailsWrapper');
+    const availableContainer = findChild('AvailableEmailChips');
+    const ccoWrapper = findChild('CcoEmailsWrapper');
+    const ccoContainer = findChild('CcoEmailChips');
+    const newEmailInput = findChild('NewEmailInput');
+    const addEmailBtn = findChild('AddEmailBtn');
+    const hiddenInput = findChild('SelectedEmailRecipients');
 
     const addPlaceholder = dataset.addPlaceholder || getMessage(documentos.addEmailPlaceholder);
     const addButtonLabel = dataset.addButtonLabel || getMessage(documentos.addEmailButton);
@@ -1215,7 +1218,7 @@ export function initFilesScript() {
         button.type = 'button';
         button.className = isActive
           ? 'inline-flex items-center gap-2 rounded-full border border-green-300 px-3 py-1 text-xs text-green-700 bg-green-50 dark:border-green-700 dark:text-green-200 dark:bg-green-900/30 cursor-default'
-          : 'inline-flex items-center gap-1 rounded-full border border-dashed border-gray-300 px-3 py-1 text-xs text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800';
+          : 'inline-flex items-center gap-1 rounded-full border border-dashed border-gray-300 px-3 py-1 text-xs text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700';
         button.innerHTML = isActive
           ? `<svg class="w-3 h-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-7.5 7.5a1 1 0 01-1.414 0l-3.5-3.5a1 1 0 011.414-1.414l2.793 2.793 6.793-6.793a1 1 0 011.414 0z" clip-rule="evenodd" /></svg><span>${email}</span>`
           : `<svg class="w-3 h-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg><span>${email}</span>`;
@@ -1414,7 +1417,7 @@ export function initFilesScript() {
       ));
     }
 
-    window.emailRecipientController = {
+    const controller = {
       getActive: () => Array.from(activeEmails),
       reset: (list) => {
         if (Array.isArray(list) && list.length) {
@@ -1444,6 +1447,11 @@ export function initFilesScript() {
       },
       getValidationMode: () => validationMode
     };
+    return controller;
+  }
+
+  function setupEmailRecipientsEditor(initialEmails = []) {
+    window.emailRecipientController = createEmailEditor('emailRecipientsEditor', initialEmails);
   }
 
   async function sendDocument(fileId, orderNumber, customMessage, action, providedRecipients = null, providedNoRecipientsMessage = null, validationMode = getGlobalValidationMode(), ccoRecipients = []) {
@@ -2650,16 +2658,16 @@ export function initFilesScript() {
     Array.from(files).forEach((file, index) => {
       const fileSizeKB = (file.size / 1024).toFixed(2);
       const fileItem = document.createElement('div');
-      fileItem.className = 'flex items-center justify-between p-1 bg-gray-700 dark:bg-gray-600 rounded text-xs text-white';
+      fileItem.className = 'flex items-center justify-between p-1 bg-gray-100 dark:bg-gray-700 rounded text-xs text-gray-800 dark:text-white';
       fileItem.innerHTML = `
         <div class="flex items-center gap-2 flex-1 min-w-0">
-          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <svg class="w-4 h-4 flex-shrink-0 text-gray-500 dark:text-gray-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
           </svg>
           <span class="truncate flex-1">${file.name}</span>
-          <span class="text-gray-300 flex-shrink-0">(${fileSizeKB} KB)</span>
+          <span class="text-gray-500 dark:text-gray-300 flex-shrink-0">(${fileSizeKB} KB)</span>
         </div>
-        <button type="button" class="ml-2 text-red-400 hover:text-red-300 flex-shrink-0" data-file-index="${index}">
+        <button type="button" class="ml-2 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 flex-shrink-0" data-file-index="${index}">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -3096,6 +3104,181 @@ export function initFilesScript() {
     });
 
     renderTable();
+  }
+
+  // ===== BULK SEND (Envío masivo de documentos no automáticos) =====
+  const AUTO_FILE_IDS = new Set([9, 19, 15, 6]);
+  const bulkSendBtn = qs('#bulkSendBtn');
+  const bulkSendModal = qs('#bulkSendModal');
+  const bulkSendFileList = qs('#bulkSendFileList');
+  const bulkSendEmptyMsg = qs('#bulkSendEmptyMsg');
+  const bulkSendSelectAll = qs('#bulkSendSelectAll');
+  const bulkSendCount = qs('#bulkSendCount');
+  const confirmBulkSendBtn = qs('#confirmBulkSendBtn');
+  const cancelBulkSendBtn = qs('#cancelBulkSendBtn');
+  const closeBulkSendModalBtn = qs('#closeBulkSendModalBtn');
+  const bulkSendOrderDisplay = qs('#bulkSendOrderDisplay');
+
+  // Crear instancia del editor de emails para bulk send (una sola vez)
+  const bulkEmailController = createEmailEditor('bulkSendEmailEditor', []);
+
+  function updateBulkSendCount() {
+    if (!bulkSendCount || !bulkSendFileList) return;
+    const checked = bulkSendFileList.querySelectorAll('.bulk-send-check:checked').length;
+    const total = bulkSendFileList.querySelectorAll('.bulk-send-check').length;
+    bulkSendCount.textContent = `${checked} / ${total}`;
+    if (bulkSendSelectAll) bulkSendSelectAll.checked = checked === total && total > 0;
+  }
+
+  function openBulkSendModal() {
+    if (!bulkSendFileList || !bulkSendModal) return;
+
+    // Filtrar archivos: excluir los automáticos (file_id 9, 19, 15, 6)
+    const sendableFiles = allFiles.filter(f => !AUTO_FILE_IDS.has(Number(f.file_id)));
+
+    bulkSendFileList.innerHTML = '';
+    if (sendableFiles.length === 0) {
+      if (bulkSendEmptyMsg) bulkSendEmptyMsg.classList.remove('hidden');
+      if (bulkSendSelectAll) bulkSendSelectAll.closest('label')?.classList.add('hidden');
+    } else {
+      if (bulkSendEmptyMsg) bulkSendEmptyMsg.classList.add('hidden');
+      if (bulkSendSelectAll) bulkSendSelectAll.closest('label')?.classList.remove('hidden');
+      sendableFiles.forEach(file => {
+        const displayName = file.document_type || file.name || '-';
+        const row = document.createElement('div');
+        row.className = 'flex items-center gap-3 px-3 py-2 transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-700';
+        row.innerHTML = `
+          <input type="checkbox" checked class="bulk-send-check w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700" data-file-id="${file.id}">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm text-gray-900 dark:text-white truncate">${displayName}</p>
+          </div>
+          <span class="text-xs text-gray-500 dark:text-gray-400">${file.status_name || ''}</span>
+        `;
+        bulkSendFileList.appendChild(row);
+      });
+    }
+
+    // Orden display
+    const urlParams = new URLSearchParams(window.location.search);
+    const orderOc = window.orderOc || urlParams.get('oc') || '';
+    if (bulkSendOrderDisplay) bulkSendOrderDisplay.textContent = orderOc || '-';
+
+    // Reset editor de emails con los emails base del cliente
+    const baseEmails = Array.isArray(window.emailRecipients) ? [...window.emailRecipients] : [];
+    bulkEmailController.setBase(baseEmails);
+
+    if (bulkSendSelectAll) bulkSendSelectAll.checked = true;
+    updateBulkSendCount();
+
+    showModal('#bulkSendModal');
+  }
+
+  if (bulkSendBtn) {
+    bulkSendBtn.addEventListener('click', openBulkSendModal);
+  }
+
+  if (bulkSendSelectAll) {
+    bulkSendSelectAll.addEventListener('change', () => {
+      const checks = bulkSendFileList?.querySelectorAll('.bulk-send-check') || [];
+      checks.forEach(c => { c.checked = bulkSendSelectAll.checked; });
+      updateBulkSendCount();
+    });
+  }
+
+  if (bulkSendFileList) {
+    bulkSendFileList.addEventListener('change', (e) => {
+      if (e.target.classList.contains('bulk-send-check')) updateBulkSendCount();
+    });
+  }
+
+  // Cerrar modal
+  setupModalClose('#bulkSendModal', '#closeBulkSendModalBtn');
+  if (cancelBulkSendBtn) cancelBulkSendBtn.addEventListener('click', () => hideModal('#bulkSendModal'));
+
+  // Ayuda bulk send
+  const bulkSendHelpBtn = qs('#bulkSendHelpBtn');
+  if (bulkSendHelpBtn) {
+    bulkSendHelpBtn.addEventListener('click', () => showModal('#bulkSendHelpModal'));
+  }
+  setupModalClose('#bulkSendHelpModal', '#closeBulkSendHelpModalBtn');
+
+  // Confirmar envío masivo
+  if (confirmBulkSendBtn) {
+    confirmBulkSendBtn.addEventListener('click', async () => {
+      const selectedIds = Array.from(bulkSendFileList?.querySelectorAll('.bulk-send-check:checked') || [])
+        .map(c => c.dataset.fileId)
+        .filter(Boolean);
+
+      if (selectedIds.length === 0) {
+        showNotification(getMessage(documentos.bulkSendNoSelection) || 'Selecciona al menos un documento', 'warning');
+        return;
+      }
+
+      const rawRecipients = bulkEmailController ? bulkEmailController.getActive() : [];
+      if (rawRecipients.length === 0) {
+        showNotification(getMessage(documentos.noRecipientsSelected) || 'Agrega al menos un destinatario', 'warning');
+        return;
+      }
+
+      // Separar destinatarios normales de CCO según metadata
+      const ccoFromSelected = rawRecipients.filter((email) => {
+        const meta = getRecipientMetadata(email);
+        return meta?.cco === true;
+      });
+      const recipients = rawRecipients.filter((email) => {
+        const meta = getRecipientMetadata(email);
+        return !(meta?.cco === true);
+      });
+      const ccoRecipients = Array.from(new Set([...getCcoEmailsFromMetadata(), ...ccoFromSelected]));
+
+      const confirmed = await confirmAction(
+        getMessage(documentos.confirmSendTitle) || 'Confirmar envío',
+        getMessage(documentos.bulkSendConfirmMessage) || `¿Enviar ${selectedIds.length} documento(s) a ${recipients.length} destinatario(s)?`,
+        'question'
+      );
+      if (!confirmed) return;
+
+      const originalLabel = confirmBulkSendBtn.textContent;
+      confirmBulkSendBtn.disabled = true;
+      confirmBulkSendBtn.innerHTML = `
+        <span class="inline-flex items-center gap-2">
+          <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+          <span>Enviando... 0/${selectedIds.length}</span>
+        </span>
+      `;
+
+      let successCount = 0;
+      let errorCount = 0;
+      const urlParams = new URLSearchParams(window.location.search);
+      const orderNumber = window.orderOc || urlParams.get('oc') || '';
+
+      for (let i = 0; i < selectedIds.length; i++) {
+        const fileId = selectedIds[i];
+        confirmBulkSendBtn.querySelector('span span').textContent = `Enviando... ${i + 1}/${selectedIds.length}`;
+        try {
+          const success = await sendDocument(fileId, orderNumber, '', 'send', recipients, null, '0', ccoRecipients);
+          if (success) successCount++;
+          else errorCount++;
+        } catch (err) {
+          errorCount++;
+        }
+      }
+
+      confirmBulkSendBtn.disabled = false;
+      confirmBulkSendBtn.textContent = originalLabel;
+
+      if (successCount > 0) {
+        const msg = errorCount > 0
+          ? `${successCount} enviados, ${errorCount} fallidos`
+          : `${successCount} documento(s) enviados correctamente`;
+        showNotification(msg, errorCount > 0 ? 'warning' : 'success');
+      } else {
+        showNotification('Error al enviar los documentos', 'error');
+      }
+
+      hideModal('#bulkSendModal');
+      await refreshFiles();
+    });
   }
 }
 

@@ -20,6 +20,7 @@ class File {
       this.pc = row.pc;
       this.oc = row.oc;
       this.file_identifier = row.file_identifier;
+      this.file_id = row.file_id;
       this.fecha_generacion = row.fecha_generacion;
       this.fecha_envio = row.fecha_envio;
       this.fecha_reenvio = row.fecha_reenvio;

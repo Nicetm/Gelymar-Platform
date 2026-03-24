@@ -504,7 +504,7 @@ exports.handleUpload = async (req, res) => {
       file_identifier: fileIdentifier,
       status_id: 2,
       is_visible_to_customer: is_visible_to_customer,
-      is_generated: 1,
+      is_generated: 0,
       fecha_generacion: new Date(),
       file_id: req.body.file_id || null
     };

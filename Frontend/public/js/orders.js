@@ -78,7 +78,9 @@ export async function initOrdersScript() {
       }
 
       // Sin cache: fetch obligatorio
-      return await fetchOrdersFromAPI();
+      const freshData = await fetchOrdersFromAPI();
+      saveToCache(freshData);
+      return freshData;
     } catch (error) {
       console.error('Error cargando órdenes:', error);
       const cachedData = loadFromCache();
@@ -89,7 +91,7 @@ export async function initOrdersScript() {
     }
   }
 
-  // Fetch directo desde la API
+  // Fetch directo desde la API (NO guarda en cache, el caller decide)
   async function fetchOrdersFromAPI() {
     const token = localStorage.getItem('token');
     const section = document.getElementById('OrderSection');
@@ -104,9 +106,7 @@ export async function initOrdersScript() {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
-    const orders = await response.json();
-    saveToCache(orders);
-    return orders;
+    return await response.json();
   }
 
   // Revalidar en background: fetch silencioso, si los datos cambiaron actualizar tabla
@@ -114,13 +114,15 @@ export async function initOrdersScript() {
   function revalidateInBackground() {
     if (revalidating) return;
     revalidating = true;
+    // Capturar el cache ANTES del fetch para comparar después
+    const oldCacheJson = localStorage.getItem(CACHE_KEY);
     fetchOrdersFromAPI()
       .then(freshData => {
-        const cachedJson = localStorage.getItem(CACHE_KEY);
         const freshJson = JSON.stringify(freshData);
-        // Solo actualizar si los datos cambiaron
-        if (cachedJson !== freshJson) {
-          saveToCache(freshData);
+        // Siempre guardar los datos frescos en cache
+        saveToCache(freshData);
+        // Solo re-renderizar la tabla si los datos cambiaron
+        if (oldCacheJson !== freshJson) {
           allOrders = freshData;
           filterRows({ preservePage: true });
         }
@@ -1151,10 +1153,21 @@ export async function initOrdersScript() {
     }
   });
   
-  // Event listener para recarga de página
-  window.addEventListener('pageshow', () => {
+  // Cuando el usuario vuelve a esta página (botón atrás o cambio de pestaña),
+  // forzar revalidación para mostrar datos actualizados
+  window.addEventListener('pageshow', (event) => {
+    if (event.persisted) {
+      // Página restaurada desde bfcache (botón atrás) — revalidar siempre
+      revalidateInBackground();
+    }
     if (searchInput && searchInput.value.trim()) {
       filterRows({ preservePage: true });
+    }
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      revalidateInBackground();
     }
   });
 

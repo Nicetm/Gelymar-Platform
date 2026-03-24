@@ -98,6 +98,7 @@
   "addEmailPlaceholder": "Agregar correo...",
   "addEmailButton": "Agregar correo",
   "availableEmails": "Correos disponibles",
+  "ccoEmails": "Correos CCO",
   "noActiveEmails": "No hay correos seleccionados",
   "invalidEmail": "Correo electrónico inválido",
   "emailExists": "El correo ya está en la lista",
@@ -216,5 +217,18 @@
   "docsCountHelpText": "Corresponde al número de documentos que tiene disponibles para visualizar la orden {orderNumber}. Para ver sus documentos puede hacer click directamente sobre el número de orden o desde la columna Acciones.",
   "uploadMultipleFiles": "Subir múltiples archivos",
   "fileWillBeRenamed": "El archivo se renombrará al tipo de documento seleccionado",
-  "selectedFiles": "Archivos seleccionados:"
+  "selectedFiles": "Archivos seleccionados:",
+  "bulkSend": "Enviar documentos",
+  "bulkSendTooltip": "Enviar documentos por correo",
+  "bulkSendTitle": "Enviar documentos por correo",
+  "bulkSendNoFiles": "No hay documentos disponibles para enviar",
+  "bulkSendSelectAll": "Seleccionar todos",
+  "bulkSendConfirm": "Enviar seleccionados",
+  "bulkSendNoSelection": "Selecciona al menos un documento",
+  "bulkSendConfirmMessage": "¿Enviar los documentos seleccionados a los destinatarios?",
+  "bulkSendHelpTitle": "Ayuda de envío masivo",
+  "bulkSendHelpFiles": "Selecciona los documentos que deseas enviar usando los checkboxes.",
+  "bulkSendHelpExcluded": "Los documentos generados automáticamente no aparecen en esta lista.",
+  "bulkSendHelpEmails": "Puedes agregar o quitar destinatarios desde la sección de correos.",
+  "bulkSendHelpCco": "Los correos CCO se envían como copia oculta en todos los documentos."
 }

@@ -100,6 +100,7 @@
   "addEmailPlaceholder": "Add email...",
   "addEmailButton": "Add email",
   "availableEmails": "Emails available",
+  "ccoEmails": "CCO emails",
   "noActiveEmails": "No emails selected",
   "invalidEmail": "Invalid email address",
   "emailExists": "Email is already in the list",
@@ -218,5 +219,18 @@
   "docsCountHelpText": "Corresponds to the number of documents available to view for order {orderNumber}. To view the documents, you can click directly on the order number or from the Actions column.",
   "uploadMultipleFiles": "Upload multiple files",
   "fileWillBeRenamed": "The file will be renamed to the selected document type",
-  "selectedFiles": "Selected files:"
+  "selectedFiles": "Selected files:",
+  "bulkSend": "Send documents",
+  "bulkSendTooltip": "Send documents by email",
+  "bulkSendTitle": "Send documents by email",
+  "bulkSendNoFiles": "No documents available to send",
+  "bulkSendSelectAll": "Select all",
+  "bulkSendConfirm": "Send selected",
+  "bulkSendNoSelection": "Select at least one document",
+  "bulkSendConfirmMessage": "Send selected documents to the recipients?",
+  "bulkSendHelpTitle": "Bulk send help",
+  "bulkSendHelpFiles": "Select the documents you want to send using the checkboxes.",
+  "bulkSendHelpExcluded": "Automatically generated documents are not shown in this list.",
+  "bulkSendHelpEmails": "You can add or remove recipients from the email section.",
+  "bulkSendHelpCco": "CCO emails are sent as blind copy on all documents."
 }

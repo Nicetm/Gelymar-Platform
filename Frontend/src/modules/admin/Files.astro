@@ -120,13 +120,27 @@ const contactEmailMetadata: any[] = [];
             </svg>
           </button>
         )}
+        {/* Botón enviar documentos manuales en lote */}
+        {!hideAdminActions && (
+          <button id="bulkSendBtn" class="flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-semibold shadow-sm
+              bg-blue-600 hover:bg-blue-700 text-white transition-all
+              focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500
+              disabled:bg-gray-400 disabled:cursor-not-allowed disabled:hover:bg-gray-400"
+            data-tooltip={t.documentos.bulkSendTooltip ?? 'Enviar documentos por correo'}
+            aria-label={t.documentos.bulkSendTooltip ?? 'Enviar documentos por correo'}>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+            </svg>
+            <span>{t.documentos.bulkSend ?? 'Enviar documentos'}</span>
+          </button>
+        )}
         {/* Botón subir archivo (oculto para seller) */}
         {!hideAdminActions && (
           <button id="uploadFileBtn" class="flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-semibold shadow-sm
               bg-gray-200 hover:bg-gray-300 text-gray-700 transition-all dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white
               focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
             <svg id="addIcon" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
             </svg>
             <svg id="spinnerIcon" class="w-4 h-4 animate-spin hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -330,6 +344,134 @@ const contactEmailMetadata: any[] = [];
 				<li>{t.documentos.sendDocumentsHelpRemove}</li>
 				<li>{t.documentos.sendDocumentsHelpRestricted}</li>
 				<li>{t.documentos.sendDocumentsHelpCco}</li>
+			</ul>
+		</div>
+	</div>
+
+	<!-- Modal de Envío Masivo de Documentos -->
+	<div id="bulkSendModal" class="fixed inset-0 bg-black bg-opacity-50 hidden justify-center items-center z-50">
+		<div class="bg-white dark:bg-gray-800 dark:text-white rounded-lg p-6 w-full max-w-lg relative max-h-[90vh] flex flex-col">
+			<div class="absolute top-3 right-3 flex items-center gap-2">
+				<button id="bulkSendHelpBtn" type="button" class="text-blue-600 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200" aria-label={t.documentos.bulkSendHelpTitle ?? 'Ayuda de envío masivo'}>
+					<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M8.227 9a3 3 0 115.546 1c-.612.62-1.273 1.06-1.273 2M12 17h.01M12 3a9 9 0 100 18 9 9 0 000-18z" />
+					</svg>
+				</button>
+				<button id="closeBulkSendModalBtn" class="text-gray-400 hover:text-red-500 transition">
+				<svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+				</svg>
+			</button>
+			</div>
+			<div class="mb-4 pr-8">
+				<h2 class="text-xl font-bold">{t.documentos.bulkSendTitle ?? 'Enviar documentos por correo'}</h2>
+			</div>
+
+			<div class="mb-3 text-sm leading-5 space-y-1">
+				<p class="text-gray-700 dark:text-gray-300">
+					<strong>{t.documentos.orderNumber}:</strong>
+					<span id="bulkSendOrderDisplay" class="ml-1 text-gray-900 dark:text-white">-</span>
+				</p>
+			</div>
+
+			<!-- Lista de documentos con checkboxes -->
+			<div class="mb-4 border border-gray-200 dark:border-gray-700 rounded-md">
+				<div id="bulkSendFileList" class="divide-y divide-gray-200 dark:divide-gray-700">
+					<!-- Se llena dinámicamente -->
+				</div>
+				<p id="bulkSendEmptyMsg" class="hidden text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+					{t.documentos.bulkSendNoFiles ?? 'No hay documentos disponibles para enviar'}
+				</p>
+			</div>
+
+
+			<hr class="border-t border-gray-200 dark:border-gray-700 mb-4">
+
+			<!-- Editor de emails (replica la estructura completa del messageModal) -->
+			<div class="mb-4">
+				<label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+					{t.documentos.emailRecipients}
+				</label>
+				<div
+					id="bulkSendEmailEditor"
+					class="mt-2 space-y-3"
+					data-initial-emails={JSON.stringify(emailRecipients)}
+					data-no-active={t.documentos.noActiveEmails}
+					data-invalid-email={t.documentos.invalidEmail}
+					data-email-exists={t.documentos.emailAlreadySelected}
+					data-no-recipients={t.documentos.noRecipientsSelected}
+					data-add-placeholder={t.documentos.addEmailPlaceholder}
+					data-add-button-label={t.documentos.addEmailButton}
+					data-remove-label={t.documentos.removeEmail}
+				>
+					<div id="bulkActiveEmailChips" class="flex flex-wrap gap-2 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 p-2 min-h-[40px]"></div>
+					<div class="flex flex-wrap items-center gap-2">
+						<input
+							id="bulkNewEmailInput"
+							type="email"
+							class="flex-1 min-w-[200px] rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+							placeholder={t.documentos.addEmailPlaceholder}
+						/>
+						<button
+							type="button"
+							id="bulkAddEmailBtn"
+							class="inline-flex items-center justify-center rounded-md bg-blue-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+							aria-label={t.documentos.addEmailButton}
+						>
+							<svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+								<path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+							</svg>
+						</button>
+					</div>
+					<div id="bulkAvailableEmailsWrapper" class="hidden space-y-1">
+						<p class="text-xs text-gray-500 dark:text-gray-400">
+							{t.documentos.availableEmails}
+						</p>
+						<div id="bulkAvailableEmailChips" class="flex flex-wrap gap-2"></div>
+					</div>
+					<div id="bulkCcoEmailsWrapper" class="hidden space-y-1">
+						<p class="text-xs text-gray-500 dark:text-gray-400">
+							{t.documentos.ccoEmails}
+						</p>
+						<div id="bulkCcoEmailChips" class="flex flex-wrap gap-2"></div>
+					</div>
+					<input type="hidden" id="bulkSelectedEmailRecipients" value={emailRecipients.join(',')} />
+				</div>
+			</div>
+
+			<div class="my-4 border-t border-gray-200 dark:border-gray-700"></div>
+
+			<div class="flex justify-end gap-2">
+				<button
+					id="cancelBulkSendBtn"
+					class="px-4 py-2 bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-500 dark:text-white rounded-md transition-transform duration-150 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary-500 text-xs"
+				>
+					{t.comond.cancel}
+				</button>
+				<button
+					id="confirmBulkSendBtn"
+					class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-transform duration-150 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary-500 text-xs"
+				>
+					{t.documentos.bulkSendConfirm ?? 'Enviar seleccionados'}
+				</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- Modal de Ayuda de Envío Masivo -->
+	<div id="bulkSendHelpModal" class="fixed inset-0 bg-black bg-opacity-50 hidden justify-center items-center z-50">
+		<div class="bg-white dark:bg-gray-800 dark:text-white rounded-lg p-6 w-full max-w-md relative">
+			<button id="closeBulkSendHelpModalBtn" class="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition">
+				<svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+				</svg>
+			</button>
+			<h3 class="text-lg font-bold mb-3">{t.documentos.bulkSendHelpTitle ?? 'Ayuda de envío masivo'}</h3>
+			<ul class="text-sm text-gray-700 dark:text-gray-300 space-y-2">
+				<li>{t.documentos.bulkSendHelpFiles ?? 'Selecciona los documentos que deseas enviar usando los checkboxes.'}</li>
+				<li>{t.documentos.bulkSendHelpExcluded ?? 'Los documentos generados automáticamente no aparecen en esta lista.'}</li>
+				<li>{t.documentos.bulkSendHelpEmails ?? 'Puedes agregar o quitar destinatarios desde la sección de correos.'}</li>
+				<li>{t.documentos.bulkSendHelpCco ?? 'Los correos CCO se envían como copia oculta en todos los documentos.'}</li>
 			</ul>
 		</div>
 	</div>
