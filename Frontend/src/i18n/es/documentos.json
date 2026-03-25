@@ -144,6 +144,7 @@
   "send_document": "Enviar documento",
   "resend_document": "Reenviar documento",
   "view_document": "Ver documento",
+  "not_generated_yet": "Documento aún no generado",
   "edit_document": "Editar documento",
   "delete_document": "Eliminar documento",
   "double_click_to_edit": "Doble clic para editar",

@@ -123,6 +123,7 @@ router.post('/upload', languageMiddleware, authMiddleware, authorizeRoles(['admi
 router.post('/generate/:id', languageMiddleware, authMiddleware, authorizeRoles(['admin']), controller.generateFile);
 router.post('/regenerate/:id', languageMiddleware, authMiddleware, authorizeRoles(['admin']), controller.regenerateFile);
 router.post('/send/:id', languageMiddleware, authMiddleware, authorizeRoles(['admin']), controller.sendFile);
+router.post('/bulk-send', languageMiddleware, authMiddleware, authorizeRoles(['admin']), controller.bulkSendFiles);
 router.post('/resend/:id', languageMiddleware, authMiddleware, authorizeRoles(['admin']), controller.resendFile);
 router.put('/rename/:id', languageMiddleware, authMiddleware, authorizeRoles(['admin', 'seller']), controller.RenameFile);
 router.delete('/delete/:id', languageMiddleware, authMiddleware, authorizeRoles(['admin']), controller.deleteFileById);

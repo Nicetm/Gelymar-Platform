@@ -402,7 +402,7 @@ export function initFilesScript() {
   let currentPage = 1;
   let itemsPerPage = parseInt(itemsPerPageSelect?.value || '10', 10);
   const hideActions = tableBody?.dataset?.hideActions === '1';
-  const colSpan = hideActions ? 7 : 8;
+  const colSpan = 8;
   let allFiles = [];
   let filteredFiles = [];
   let currentSort = { column: null, direction: 'asc' };
@@ -809,8 +809,26 @@ export function initFilesScript() {
           </a>
         </div>`;
     }
+    }
 
-    if (!hideActions && [2, 3, 4].includes(file.status_id)) {
+    // Botón ver documento: visible para admin y seller (status >= 2 = tiene PDF)
+    const fileStatusNum = Number(file.status_id);
+    if (hideActions && fileStatusNum < 2) {
+      // Seller: mostrar icono deshabilitado para archivos sin PDF
+      if (!actions) actions = `<div class="flex justify-center gap-3 relative">`;
+      actions += `
+        <div class="relative">
+          <span class="text-gray-400 dark:text-gray-600 cursor-not-allowed"
+             data-tooltip="${getMessage(documentos.not_generated_yet) || 'Documento aún no generado'}"
+             aria-label="${getMessage(documentos.not_generated_yet) || 'Documento aún no generado'}">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+          </span>
+        </div>`;
+    } else if ([2, 3, 4].includes(fileStatusNum)) {
+      if (!actions) actions = `<div class="flex justify-center gap-3 relative">`;
       actions += `
         <div class="relative">
           <a href="#"
@@ -853,12 +871,11 @@ export function initFilesScript() {
         </div>`;
     }
     
-    if (!hideActions) {
+    if (actions) {
       actions += `</div>`;
     }
-    }
 
-    const actionsCell = hideActions ? '' : `<td class="sticky right-0 bg-gray-50 dark:bg-gray-700 z-10 px-6 py-4 min-w-[120px] overflow-visible">${actions}</td>`;
+    const actionsCell = `<td class="sticky right-0 bg-gray-50 dark:bg-gray-700 z-10 px-6 py-4 min-w-[120px] overflow-visible">${actions}</td>`;
 
     const fullName = typeof file.name === 'string' ? file.name.trim() : '';
     const displayName = resolveFileDisplayName(file);
@@ -1605,6 +1622,17 @@ export function initFilesScript() {
 
   // Función para abrir archivos en modal de forma segura
   window.downloadFile = async (fileId) => {
+    // Reemplazar el SVG del botón por un spinner
+    const btn = document.querySelector(`a[onclick="downloadFile(${fileId}); return false;"]`);
+    const originalHTML = btn?.innerHTML;
+    const originalTooltip = btn?.getAttribute('data-tooltip');
+    if (btn) {
+      btn.blur();
+      btn.innerHTML = `<svg class="w-5 h-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>`;
+      btn.style.pointerEvents = 'none';
+      btn.removeAttribute('data-tooltip');
+    }
+
     try {
       if (!token) {
         showNotification(getMessage(documentos.authRequired), 'error');
@@ -1646,6 +1674,12 @@ export function initFilesScript() {
     } catch (error) {
       console.error('Error cargando archivo:', error);
       showNotification(getMessage(documentos.loadFileNetworkError), 'error');
+    } finally {
+      if (btn && originalHTML) {
+        btn.innerHTML = originalHTML;
+        btn.style.pointerEvents = '';
+        if (originalTooltip) btn.setAttribute('data-tooltip', originalTooltip);
+      }
     }
   };
 
@@ -3243,38 +3277,38 @@ export function initFilesScript() {
       confirmBulkSendBtn.innerHTML = `
         <span class="inline-flex items-center gap-2">
           <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
-          <span>Enviando... 0/${selectedIds.length}</span>
+          <span>Enviando...</span>
         </span>
       `;
 
-      let successCount = 0;
-      let errorCount = 0;
-      const urlParams = new URLSearchParams(window.location.search);
-      const orderNumber = window.orderOc || urlParams.get('oc') || '';
+      try {
+        const res = await fetch(`${apiBase}/api/files/bulk-send`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            fileIds: selectedIds,
+            emails: recipients,
+            cco_emails: ccoRecipients
+          })
+        });
 
-      for (let i = 0; i < selectedIds.length; i++) {
-        const fileId = selectedIds[i];
-        confirmBulkSendBtn.querySelector('span span').textContent = `Enviando... ${i + 1}/${selectedIds.length}`;
-        try {
-          const success = await sendDocument(fileId, orderNumber, '', 'send', recipients, null, '0', ccoRecipients);
-          if (success) successCount++;
-          else errorCount++;
-        } catch (err) {
-          errorCount++;
+        const data = await res.json();
+
+        if (!res.ok) {
+          showNotification(data.message || 'Error al enviar los documentos', 'error');
+        } else {
+          showNotification(data.message || 'Documentos enviados correctamente', 'success');
         }
+      } catch (err) {
+        console.error('Error en bulk send:', err);
+        showNotification('Error al enviar los documentos', 'error');
       }
 
       confirmBulkSendBtn.disabled = false;
       confirmBulkSendBtn.textContent = originalLabel;
-
-      if (successCount > 0) {
-        const msg = errorCount > 0
-          ? `${successCount} enviados, ${errorCount} fallidos`
-          : `${successCount} documento(s) enviados correctamente`;
-        showNotification(msg, errorCount > 0 ? 'warning' : 'success');
-      } else {
-        showNotification('Error al enviar los documentos', 'error');
-      }
 
       hideModal('#bulkSendModal');
       await refreshFiles();

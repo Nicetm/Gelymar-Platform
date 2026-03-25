@@ -761,8 +761,8 @@ exports.downloadFile = async (req, res) => {
     const userId = req.user.id;
     const userRole = req.user.role;
     
-    // Si es admin, puede acceder a todos los archivos
-    if (userRole !== 'admin') {
+    // Si es admin o seller, puede acceder a todos los archivos
+    if (userRole !== 'admin' && userRole !== 'seller') {
       // Verificar que el archivo pertenece a un cliente del usuario
       // La relación es: users.rut = clientes en SQL (jor_imp_CLI_01_softkey.Rut)
       const customerCheck = await documentFileService.getCustomerCheckForDownload(id, userId);
@@ -1047,6 +1047,68 @@ exports.sendFile = async (req, res) => {
     }
     
     res.status(500).json({ message: t('documentFile.send_file_error', req.lang || 'es') });
+  }
+};
+
+/**
+ * @route POST /api/files/bulk-send
+ * @desc Envía múltiples archivos en un solo correo
+ * @access Protegido (requiere JWT, admin)
+ */
+exports.bulkSendFiles = async (req, res) => {
+  try {
+    const { fileIds, emails, cco_emails } = req.body || {};
+
+    if (!Array.isArray(fileIds) || fileIds.length === 0) {
+      return res.status(400).json({ message: 'No se proporcionaron archivos para enviar' });
+    }
+
+    const recipients = Array.isArray(emails)
+      ? emails.map(e => typeof e === 'string' ? e.trim() : '').filter(Boolean)
+      : [];
+    const ccoRecipients = Array.isArray(cco_emails)
+      ? cco_emails.map(e => typeof e === 'string' ? e.trim() : '').filter(Boolean)
+      : [];
+
+    if (!recipients.length) {
+      return res.status(400).json({ message: 'No se proporcionaron destinatarios' });
+    }
+
+    // Cargar todos los archivos
+    const files = [];
+    for (const id of fileIds) {
+      const file = await fileService.getFileById(id);
+      if (file) files.push(file);
+    }
+
+    if (files.length === 0) {
+      return res.status(404).json({ message: 'No se encontraron archivos válidos' });
+    }
+
+    await emailService.sendBulkFilesToClient(files, {
+      recipients,
+      ccoRecipients,
+      lang: req.lang || 'es'
+    });
+
+    // Actualizar status de todos los archivos enviados
+    const now = new Date();
+    for (const file of files) {
+      await fileService.updateFile({
+        id: file.id,
+        status_id: 3,
+        updated_at: now,
+        fecha_envio: now,
+        path: file.path,
+        is_visible_to_client: 1
+      });
+    }
+
+    logger.info(`[bulkSendFiles] ${files.length} archivos enviados a ${recipients.length} destinatarios`);
+    res.json({ message: `${files.length} documento(s) enviados correctamente`, sent: files.length });
+  } catch (err) {
+    logger.error(`[bulkSendFiles] Error: ${err.message}`);
+    res.status(500).json({ message: err.message || 'Error al enviar los documentos' });
   }
 };
 

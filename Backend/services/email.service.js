@@ -447,4 +447,99 @@ async function translateNameOfDocument(name) {
   return DOC_NAME_MAP[name] || name;
 }
 
-module.exports = { sendFileToClient, sendChatNotification, sendAdminNotificationSummary };
+/**
+ * Envía un solo correo con múltiples archivos adjuntos
+ * @param {Array} files - Array de objetos file (de getFileById)
+ * @param {Object} options - { recipients, ccoRecipients, lang }
+ */
+async function sendBulkFilesToClient(files, options = {}) {
+  if (!Array.isArray(files) || files.length === 0) {
+    throw new Error('No hay archivos para enviar');
+  }
+
+  const resolvedLang = options.lang || files[0].lang || 'en';
+  const overrideRecipients = Array.isArray(options.recipients)
+    ? options.recipients.map(e => typeof e === 'string' ? e.trim() : '').filter(Boolean)
+    : [];
+  const ccoRecipients = Array.isArray(options.ccoRecipients)
+    ? options.ccoRecipients.map(e => typeof e === 'string' ? e.trim() : '').filter(Boolean)
+    : [];
+
+  if (!overrideRecipients.length) {
+    throw new Error('No hay destinatarios para enviar el correo');
+  }
+
+  // Build attachments and validate all files exist
+  const attachments = [];
+  const docNames = [];
+  for (const file of files) {
+    if (!file.path) continue;
+    const relativePath = file.path.replace(/\\/g, '/');
+    const absolutePath = path.join(process.env.FILE_SERVER_ROOT, relativePath);
+    if (!fs.existsSync(absolutePath)) {
+      const { logger } = require('../utils/logger');
+      logger.warn(`[sendBulkFilesToClient] Archivo no encontrado: ${absolutePath}`);
+      continue;
+    }
+    const attachmentName = path.basename(absolutePath);
+    attachments.push({
+      filename: attachmentName || (file.name.endsWith('.pdf') ? file.name : `${file.name}.pdf`),
+      path: absolutePath
+    });
+    const translated = resolvedLang === 'en' ? file.name : await translateNameOfDocument(file.name);
+    docNames.push(translated);
+  }
+
+  if (attachments.length === 0) {
+    throw new Error('Ninguno de los archivos fue encontrado en el servidor');
+  }
+
+  const t = translations[resolvedLang] || translations.en || {};
+  const template = compiledTemplates.document;
+  if (!template) {
+    throw new Error('Template "document" not found');
+  }
+
+  const docListText = docNames.join(', ');
+  const templateData = {
+    lang: resolvedLang,
+    dear: t.mail?.dear || 'Dear',
+    subject: `📄 Gelymar: ${docListText}`,
+    title: docListText,
+    logoUrl: 'https://www.gelymar.com/wp-content/uploads/2014/08/gelymar-logo.jpg',
+    customerName: files[0].customer_name,
+    introMessage: t.mail?.introMessage || '',
+    documentName: docListText,
+    logisticsManagement: t.mail?.logisticsManagement || '',
+    gelymar: t.mail?.gelymar || 'Gelymar',
+    pleaseFindAttached: t.mail?.pleaseFindAttached || '',
+    correspondingTo: t.mail?.correspondingTo || '',
+    documentContains: t.mail?.documentContains || '',
+    questionsContact: t.mail?.questionsContact || '',
+    bestRegards: t.mail?.bestRegards || 'Best regards',
+    gelymarTeam: t.mail?.gelymarTeam || 'Gelymar Team',
+    internationalLogisticsServices: t.mail?.internationalLogisticsServices || '',
+    contactEmail: 'carla.torres@gelymar.com',
+    contactWebsite: 'www.gelymar.com',
+    contactPhone: '+56 9 9760 4855',
+    disclaimer: t.mail?.disclaimer || ''
+  };
+
+  const htmlContent = template(templateData);
+  const uniqueEmails = Array.from(new Set(overrideRecipients));
+  const uniqueBcc = Array.from(new Set(ccoRecipients.filter(Boolean)))
+    .filter(e => !uniqueEmails.includes(e));
+
+  const mailOptions = {
+    from: `Gelymar <${process.env.SMTP_USER}>`,
+    to: uniqueEmails.join(','),
+    bcc: uniqueBcc.length ? uniqueBcc.join(',') : undefined,
+    subject: templateData.subject,
+    html: htmlContent,
+    attachments
+  };
+
+  await transporter.sendMail(mailOptions);
+}
+
+module.exports = { sendFileToClient, sendBulkFilesToClient, sendChatNotification, sendAdminNotificationSummary };
