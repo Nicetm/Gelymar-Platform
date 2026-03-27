@@ -101,7 +101,7 @@ async function generatePendingPDFs(filters = {}) {
       // Ahora filtrar order_files por los PC válidos
       query = `
         SELECT 
-          id, pc, oc, factura, name, path, file_identifier, file_id, created_at
+          id, pc, oc, factura, name, path, file_identifier, file_id, document_type, created_at
         FROM order_files
         WHERE status_id = 1
           AND pc IN (?)
@@ -124,7 +124,7 @@ async function generatePendingPDFs(filters = {}) {
       // Sin filtro de fecha, consulta normal
       query = `
         SELECT 
-          id, pc, oc, factura, name, path, file_identifier, file_id, created_at
+          id, pc, oc, factura, name, path, file_identifier, file_id, document_type, created_at
         FROM order_files
         WHERE status_id = 1
       `;
@@ -450,14 +450,17 @@ async function generatePhysicalPDF(record, pdfData) {
       return normalized || '-';
     };
     
-    // Construir nombre del archivo igual que el proceso manual
+    // Construir nombre del archivo según document_type
     const docName = sanitizeFileNamePart(record.name) || 'Documento';
     const customerName = sanitizeFileNamePart(pdfData.customerName) || '';
+    const pc = sanitizeFileNamePart(record.pc) || '';
     const poNumber = normalizePONumber(pdfData.orderNumber);
     const poLabel = poNumber && poNumber !== '-' ? sanitizeFileNamePart(`PO ${poNumber}`) : '';
+    const docType = record.document_type != null ? Number(record.document_type) : 0;
     
     const parts = [docName];
-    if (customerName) parts.push(customerName);
+    if (docType === 0 && customerName) parts.push(customerName);
+    if (pc) parts.push(pc);
     if (poLabel) parts.push(poLabel);
     const baseName = parts.join(' - ');
     const fileName = `${baseName}.pdf`;

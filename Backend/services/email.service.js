@@ -134,7 +134,11 @@ async function sendFileToClient(file, options = {}) {
 
   const canContactReceive = (contact, mode = getValidationMode()) => {
     if (!contact) return true;
-    if (contact.cco === true) return true;
+
+    // CCO contacts only receive SH Docs (mode 0), not Reports (mode 1)
+    if (contact.cco === true) {
+      return mode === 0;
+    }
 
     const shEnabled = contact.sh_documents === true;
     const reportsEnabled = contact.reports === true;
@@ -270,7 +274,9 @@ async function sendFileToClient(file, options = {}) {
     }
 
     emails = allowed;
-    ccoFromContacts = contacts.filter((c) => c.cco).map((c) => c.email).filter(Boolean);
+    ccoFromContacts = validationMode === 0
+      ? contacts.filter((c) => c.cco).map((c) => c.email).filter(Boolean)
+      : [];
   } else {
     const contacts = await loadContacts();
     if (!contacts.length) {
@@ -288,7 +294,9 @@ async function sendFileToClient(file, options = {}) {
     }
 
     emails = allowedContacts.map((contact) => contact.email);
-    ccoFromContacts = contacts.filter((c) => c.cco).map((c) => c.email).filter(Boolean);
+    ccoFromContacts = validationMode === 0
+      ? contacts.filter((c) => c.cco).map((c) => c.email).filter(Boolean)
+      : [];
   }
 
   if (emails.length === 0) {
@@ -500,11 +508,23 @@ async function sendBulkFilesToClient(files, options = {}) {
     throw new Error('Template "document" not found');
   }
 
+  // Build a compact subject: Documentos - {cliente} - {PC} - PO {OC}
+  const firstFile = files[0];
+  const customerLabel = firstFile.customer_name || '';
+  const pcLabel = firstFile.pc || '';
+  const ocRaw = firstFile.oc || '';
+  const ocNormalized = ocRaw ? ocRaw.replace(/^GEL\s*/i, '').trim() : '';
+  const subjectParts = [resolvedLang === 'es' ? 'Documentos' : 'Documents'];
+  if (customerLabel) subjectParts.push(customerLabel);
+  if (pcLabel) subjectParts.push(pcLabel);
+  if (ocNormalized) subjectParts.push(`PO ${ocNormalized}`);
+  const bulkSubject = `📄 Gelymar: ${subjectParts.join(' - ')}`;
+
   const docListText = docNames.join(', ');
   const templateData = {
     lang: resolvedLang,
     dear: t.mail?.dear || 'Dear',
-    subject: `📄 Gelymar: ${docListText}`,
+    subject: bulkSubject,
     title: docListText,
     logoUrl: 'https://www.gelymar.com/wp-content/uploads/2014/08/gelymar-logo.jpg',
     customerName: files[0].customer_name,

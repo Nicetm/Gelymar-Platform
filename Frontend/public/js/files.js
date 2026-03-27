@@ -56,7 +56,10 @@ function getRecipientMetadataList() {
     : [];
 }
 
-function getCcoEmailsFromMetadata() {
+function getCcoEmailsFromMetadata(mode) {
+  const validationMode = mode !== undefined ? String(mode) : getGlobalValidationMode();
+  // CCO contacts only apply for SH Docs (mode '0')
+  if (validationMode !== '0') return [];
   return getRecipientMetadataList()
     .filter((contact) => contact.cco === true)
     .map((contact) => contact.email)
@@ -725,9 +728,7 @@ export function initFilesScript() {
   }
 
   function resolveFileDisplayName(file) {
-    const explicit = typeof file?.document_type === 'string' ? file.document_type.trim() : '';
     const versionSuffix = resolveFileVersionSuffix(file);
-    if (explicit) return versionSuffix ? `${explicit} ${versionSuffix}` : explicit;
     const full = typeof file?.name === 'string' ? file.name.trim() : '';
     if (!full) return '-';
     const [firstPart] = full.split(' - ');
@@ -780,7 +781,7 @@ export function initFilesScript() {
              class="send-btn text-gray-900 dark:text-white hover:text-blue-500 transition"
              data-file-id="${file.id}"
              data-is-generated="${isGeneratedFlag}"
-             data-file-name="${file.document_type || file.name}"
+             data-file-name="${file.name}"
              data-order="${file.oc}"
              data-tooltip="${getMessage(documentos.send_document)}"
              aria-label="${getMessage(documentos.send_document)}">
@@ -799,7 +800,7 @@ export function initFilesScript() {
              class="resend-btn text-gray-900 dark:text-white hover:text-amber-500 transition"
              data-file-id="${file.id}"
              data-is-generated="${isGeneratedFlag}"
-             data-file-name="${file.document_type || file.name}"
+             data-file-name="${file.name}"
              data-order="${file.oc}"
              data-tooltip="${getMessage(documentos.resend_document)}"
              aria-label="${getMessage(documentos.resend_document)}">
@@ -1221,7 +1222,7 @@ export function initFilesScript() {
 
     const renderCco = () => {
       if (!ccoWrapper || !ccoContainer) return;
-      const ccoEmails = getCcoEmailsFromMetadata();
+      const ccoEmails = getCcoEmailsFromMetadata(validationMode);
       if (!ccoEmails.length) {
         ccoWrapper.classList.add('hidden');
         ccoContainer.innerHTML = '';
@@ -1296,8 +1297,18 @@ export function initFilesScript() {
       if (!availableWrapper || !availableContainer) return;
       availableContainer.innerHTML = '';
 
-      const ccoSet = new Set(getCcoEmailsFromMetadata().map(normalize).filter(Boolean));
-      const availableList = Array.from(knownEmails).filter((email) => !activeEmails.has(email) && !ccoSet.has(normalize(email)));
+      const ccoSet = new Set(getCcoEmailsFromMetadata(validationMode).map(normalize).filter(Boolean));
+      // Exclude all CCO contacts from available list — in SH mode they show in CCO section, in Reports mode they shouldn't appear at all
+      const allCcoEmails = new Set(
+        getRecipientMetadataList()
+          .filter((c) => c.cco === true)
+          .map((c) => normalize(c.email))
+          .filter(Boolean)
+      );
+      const availableList = Array.from(knownEmails).filter((email) => {
+        const norm = normalize(email);
+        return !activeEmails.has(email) && !ccoSet.has(norm) && !allCcoEmails.has(norm);
+      });
       if (!availableList.length) {
         availableWrapper.classList.add('hidden');
         return;
@@ -1415,7 +1426,7 @@ export function initFilesScript() {
 
     initialNormalized.forEach((email) => knownEmails.add(email));
     baseEmails = Array.from(new Set(initialNormalized));
-    getCcoEmailsFromMetadata().forEach((email) => {
+    getCcoEmailsFromMetadata(validationMode).forEach((email) => {
       const normalized = normalize(email);
       if (normalized && !baseEmails.includes(normalized)) {
         baseEmails.push(normalized);
@@ -2987,7 +2998,7 @@ export function initFilesScript() {
 
       try {
         setConfirmLoading(true);
-        const ccoRecipients = Array.from(new Set([...getCcoEmailsFromMetadata(), ...ccoFromSelected]));
+        const ccoRecipients = Array.from(new Set([...getCcoEmailsFromMetadata(validationMode), ...ccoFromSelected]));
         const success = await sendDocument(
           window.currentMessageData.fileId,
           window.currentMessageData.order || '',
@@ -3178,7 +3189,7 @@ export function initFilesScript() {
       if (bulkSendEmptyMsg) bulkSendEmptyMsg.classList.add('hidden');
       if (bulkSendSelectAll) bulkSendSelectAll.closest('label')?.classList.remove('hidden');
       sendableFiles.forEach(file => {
-        const displayName = file.document_type || file.name || '-';
+        const displayName = file.name || '-';
         const row = document.createElement('div');
         row.className = 'flex items-center gap-3 px-3 py-2 transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-700';
         row.innerHTML = `
@@ -3263,7 +3274,7 @@ export function initFilesScript() {
         const meta = getRecipientMetadata(email);
         return !(meta?.cco === true);
       });
-      const ccoRecipients = Array.from(new Set([...getCcoEmailsFromMetadata(), ...ccoFromSelected]));
+      const ccoRecipients = Array.from(new Set([...getCcoEmailsFromMetadata('0'), ...ccoFromSelected]));
 
       const confirmed = await confirmAction(
         getMessage(documentos.confirmSendTitle) || 'Confirmar envío',

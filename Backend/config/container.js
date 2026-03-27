@@ -37,6 +37,7 @@ const orderItemService = require('../services/orderItem.service');
 const userAvatarService = require('../services/user_avatar.service');
 const userService = require('../services/user.service');
 const vendedorService = require('../services/vendedor.service');
+const { createOrderChangeDetectionService } = require('../services/orderChangeDetection.service');
 
 const container = createContainer();
 
@@ -88,7 +89,8 @@ container.register({
   orderItemService: asValue(orderItemService),
   userAvatarService: asValue(userAvatarService),
   userService: asValue(userService),
-  vendedorService: asValue(vendedorService)
+  vendedorService: asValue(vendedorService),
+  orderChangeDetectionService: asFunction((deps) => createOrderChangeDetectionService(deps)).singleton(),
 });
 
 module.exports = { container };

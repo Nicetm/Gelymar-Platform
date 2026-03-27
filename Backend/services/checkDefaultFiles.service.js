@@ -326,7 +326,7 @@ async function insertDefaultFile(fileData) {
         pc, oc, factura, rut, name, path, file_identifier, file_id, was_sent, 
         document_type, file_type, status_id, is_visible_to_client, 
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, 'PDF', 1, 0, NOW(), NOW())
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, 0, 'PDF', 1, 0, NOW(), NOW())
     `;
 
     const nextIdentifier = await getNextFileIdentifier(fileData.pc);

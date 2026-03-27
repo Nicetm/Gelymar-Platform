@@ -78,6 +78,7 @@ const configRoutes = require('./routes/config.routes');
 const messageRoutes = require('./routes/message.routes');
 const vendedorRoutes = require('./routes/vendedor.routes');
 const projectionRoutes = require('./routes/projection.routes');
+const orderChangeDetectionRoutes = require('./routes/orderChangeDetection.routes');
 
 
 // Configuración de rate limiting
@@ -285,6 +286,7 @@ app.use('/api/files', authMiddleware, authorizeRoles(['admin', 'seller', 'client
 app.use('/api/document-types', authMiddleware, readLimiter, authorizeRoles(['admin', 'seller']), documentTypeRoutes);
 app.use('/api/chat', authMiddleware, writeLimiter, chatRoutes);
 app.use('/api/projections', authMiddleware, readLimiter, authorizeRoles(['admin', 'seller']), projectionRoutes);
+app.use('/api/order-changes', authMiddleware, readLimiter, authorizeRoles(['admin']), orderChangeDetectionRoutes);
 
 // Ruta especial para procesamiento de órdenes nuevas (sin autenticación para cron)
 const {
@@ -297,6 +299,10 @@ app.post('/api/cron/process-new-orders', cronLimiter, processNewOrdersAndSendRec
 app.post('/api/cron/process-shipment-notices', cronLimiter, processShipmentNotices);
 app.post('/api/cron/process-order-delivery-notices', cronLimiter, processOrderDeliveryNotices);
 app.post('/api/cron/process-availability-notices', cronLimiter, processAvailabilityNotices);
+
+// Endpoint cron para detección de cambios en órdenes
+const { detectOrderChanges } = require('./controllers/orderChangeDetection.controller');
+app.post('/api/cron/detect-order-changes', cronLimiter, detectOrderChanges);
 
 // Rutas de cron (sin autenticación para acceso interno)
 app.use('/api/cron', cronLimiter, cronRoutes);

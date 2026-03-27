@@ -96,10 +96,13 @@ function buildDocumentFileBaseName(documentName, file, pdfData, lang) {
   const rawDocName = documentName || getDocumentDisplayName(documentName, lang) || 'Documento';
   const docName = sanitizeFileNamePart(rawDocName) || 'Documento';
   const customerName = sanitizeFileNamePart(pdfData?.customerName || file.customer_name) || '';
+  const pc = sanitizeFileNamePart(file.pc) || '';
   const poNumber = normalizePONumber(pdfData?.orderNumber || file.oc);
   const poLabel = poNumber && poNumber !== '-' ? sanitizeFileNamePart(`PO ${poNumber}`) : '';
+  const docType = file.document_type != null ? Number(file.document_type) : 0;
   const parts = [docName];
-  if (customerName) parts.push(customerName);
+  if (docType === 0 && customerName) parts.push(customerName);
+  if (pc) parts.push(pc);
   if (poLabel) parts.push(poLabel);
   return parts.join(' - ');
 }
@@ -452,7 +455,20 @@ exports.handleUpload = async (req, res) => {
     // Crear el directorio físico con la ruta correcta
     const basePath = process.env.FILE_SERVER_ROOT || '/var/www/html';
     const physicalDirPath = path.join(basePath, 'uploads', cleanClientName, folderName);
-    const filePath = path.join('uploads', cleanClientName, folderName, file.originalname);
+
+    // Construir nombre renombrado según patrón document_type=1: {nombre} - {PC} - PO {OC}.ext
+    const fileExt = path.extname(file.originalname) || '.pdf';
+    const docName = sanitizeFileNamePart(name) || 'Documento';
+    const pcPart = sanitizeFileNamePart(orderPc) || '';
+    const poNumber = normalizePONumber(orderOc);
+    const poLabel = poNumber && poNumber !== '-' ? sanitizeFileNamePart(`PO ${poNumber}`) : '';
+    const nameParts = [docName];
+    if (pcPart) nameParts.push(pcPart);
+    if (poLabel) nameParts.push(poLabel);
+    const renamedBaseName = nameParts.join(' - ');
+    const renamedFileName = `${renamedBaseName}${fileExt}`;
+
+    const filePath = path.join('uploads', cleanClientName, folderName, renamedFileName);
 
     // Crear directorio si no existe
     try {
@@ -469,7 +485,7 @@ exports.handleUpload = async (req, res) => {
     }
 
     // Guardar el archivo desde el buffer de memoria
-    const physicalFilePath = path.join(physicalDirPath, file.originalname);
+    const physicalFilePath = path.join(physicalDirPath, renamedFileName);
     try {
       fs.writeFileSync(physicalFilePath, file.buffer);
     } catch (error) {
@@ -499,9 +515,10 @@ exports.handleUpload = async (req, res) => {
       oc: order.oc,
       factura: resolvedFactura,
       rut: customerRut,
-      name: name,
+      name: renamedBaseName,
       path: filePath,
       file_identifier: fileIdentifier,
+      document_type: 1,
       status_id: 2,
       is_visible_to_customer: is_visible_to_customer,
       is_generated: 0,
@@ -630,7 +647,8 @@ exports.tempViewFile = async (req, res) => {
 
     // Establecer headers para visualización (no descarga)
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'inline; filename="' + file.name + '.pdf"');
+    const safeNameToken = encodeURIComponent(`${file.name}.pdf`).replace(/'/g, '%27');
+    res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${safeNameToken}`);
     
     // Enviar el archivo
     res.sendFile(filePath, (err) => {
@@ -721,7 +739,8 @@ exports.viewWithToken = async (req, res) => {
 
     // Establecer headers para visualización (no descarga)
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'inline; filename="' + file.name + '.pdf"');
+    const safeNameView = encodeURIComponent(`${file.name}.pdf`).replace(/'/g, '%27');
+    res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${safeNameView}`);
     
     // Enviar el archivo
     res.sendFile(filePath, (err) => {
@@ -789,7 +808,8 @@ exports.downloadFile = async (req, res) => {
     }
 
     // Establecer headers para la descarga
-    res.setHeader('Content-Disposition', `attachment; filename="${file.name}.pdf"`);
+    const safeFileName = encodeURIComponent(`${file.name}.pdf`).replace(/'/g, '%27');
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${safeFileName}`);
     res.setHeader('Content-Type', 'application/pdf');
     
     // Enviar el archivo
@@ -1088,7 +1108,7 @@ exports.bulkSendFiles = async (req, res) => {
     await emailService.sendBulkFilesToClient(files, {
       recipients,
       ccoRecipients,
-      lang: req.lang || 'es'
+      lang: files[0].lang || req.lang || 'es'
     });
 
     // Actualizar status de todos los archivos enviados

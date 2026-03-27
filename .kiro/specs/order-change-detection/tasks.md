@@ -6,14 +6,14 @@ Implementar el sistema de detección de cambios en órdenes como cron job. El se
 
 ## Tareas
 
-- [ ] 1. Crear el servicio principal de detección de cambios
-  - [ ] 1.1 Crear `Backend/services/orderChangeDetection.service.js` con las funciones utilitarias
+- [x] 1. Crear el servicio principal de detección de cambios
+  - [x] 1.1 Crear `Backend/services/orderChangeDetection.service.js` con las funciones utilitarias
     - Implementar `normalizeSnapshotValue`, `buildSnapshot`, `deterministicStringify`, `computeSnapshotHash`, `compareSnapshots`
     - Reutilizar `normalizeValue`, `normalizeDate`, `normalizeDecimal` de `Backend/mappers/sqlsoftkey/utils.js`
     - Para `compareSnapshots`, comparar campos escalares directamente y campos de items por `linea` (reportar como `items[linea].campo`)
     - _Requerimientos: 1.1, 1.2, 1.3, 1.4, 2.1, 7.1, 7.2, 7.3, 7.4_
 
-  - [ ] 1.2 Implementar `runDetectionCycle()` en el mismo servicio
+  - [x] 1.2 Implementar `runDetectionCycle()` en el mismo servicio
     - Verificar conexión a SQL Server al inicio; si falla, loguear y abortar (Req 6.2)
     - Consultar órdenes activas con JOIN de HDR + FACT + ITEM desde SQL Server
     - Agrupar resultados por `(pc, factura)`
@@ -25,7 +25,7 @@ Implementar el sistema de detección de cambios en órdenes como cron job. El se
     - Loguear resumen al final: órdenes procesadas, cambios detectados, tiempo de ejecución (Req 3.3)
     - _Requerimientos: 1.1, 1.2, 1.3, 1.4, 2.1, 2.2, 2.3, 2.4, 2.5, 3.3, 6.1, 6.2, 6.3_
 
-  - [ ] 1.3 Implementar envío de correo a administradores al detectar cambios
+  - [x] 1.3 Implementar envío de correo a administradores al detectar cambios
     - Al finalizar el ciclo, si hay cambios: obtener admins con `getAdminNotificationRecipients()` de `user.service.js`
     - Construir `summaryText` con detalle de cambios por orden (pc, factura, campos, valores anterior/nuevo)
     - Enviar usando `sendAdminNotificationSummary` de `email.service.js`
@@ -33,34 +33,34 @@ Implementar el sistema de detección de cambios en órdenes como cron job. El se
     - Manejar errores de envío sin detener el proceso (loguear y continuar)
     - _Requerimientos: 5.1, 5.2, 5.3, 5.4, 5.5_
 
-- [ ] 2. Checkpoint - Verificar que el servicio funciona correctamente
+- [x] 2. Checkpoint - Verificar que el servicio funciona correctamente
   - Asegurar que el servicio se puede importar sin errores, preguntar al usuario si hay dudas.
 
-- [ ] 3. Crear controller y rutas REST
-  - [ ] 3.1 Crear `Backend/controllers/orderChangeDetection.controller.js`
+- [x] 3. Crear controller y rutas REST
+  - [x] 3.1 Crear `Backend/controllers/orderChangeDetection.controller.js`
     - `detectOrderChanges` (POST): leer config desde `getCronTasksConfig()`, si deshabilitado retornar `{ skipped: true }`, si no ejecutar `runDetectionCycle()` y retornar resumen (Req 3.1, 3.2)
     - `getOrderChanges` (GET /:pc): retornar cambios no reconocidos de una orden con `field_name`, `old_value`, `new_value`, `detected_at` (Req 4.2)
     - `acknowledgeOrderChanges` (POST /:pc/acknowledge): marcar cambios como `acknowledged=1` con `acknowledged_by` y `acknowledged_at` (Req 4.3)
     - `getChangeSummary` (GET /summary): retornar lista de órdenes con `has_unacknowledged_changes` (Req 4.1)
     - _Requerimientos: 3.1, 3.2, 4.1, 4.2, 4.3_
 
-  - [ ] 3.2 Crear `Backend/routes/orderChangeDetection.routes.js`
+  - [x] 3.2 Crear `Backend/routes/orderChangeDetection.routes.js`
     - GET `/summary` → `getChangeSummary`
     - GET `/:pc` → `getOrderChanges`
     - POST `/:pc/acknowledge` → `acknowledgeOrderChanges`
     - _Requerimientos: 4.1, 4.2, 4.3_
 
-- [ ] 4. Integrar con el sistema existente
-  - [ ] 4.1 Registrar el servicio en `Backend/config/container.js`
+- [x] 4. Integrar con el sistema existente
+  - [x] 4.1 Registrar el servicio en `Backend/config/container.js`
     - Importar `orderChangeDetection.service.js` y registrarlo con `asValue`
     - _Requerimientos: 3.1_
 
-  - [ ] 4.2 Registrar rutas y endpoint cron en `Backend/app.js`
+  - [x] 4.2 Registrar rutas y endpoint cron en `Backend/app.js`
     - Agregar `app.post('/api/cron/detect-order-changes', cronLimiter, detectOrderChangesController)` junto a los otros endpoints cron
     - Agregar `app.use('/api/order-changes', authMiddleware, readLimiter, authorizeRoles(['admin']), orderChangeRoutes)` para las rutas REST protegidas
     - _Requerimientos: 3.1, 4.1, 4.2, 4.3_
 
-- [ ] 5. Checkpoint final - Verificar integración completa
+- [x] 5. Checkpoint final - Verificar integración completa
   - Asegurar que todos los archivos se importan correctamente y no hay errores de sintaxis. Preguntar al usuario si hay dudas.
 
 ## Notas

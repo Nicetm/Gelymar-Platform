@@ -991,23 +991,27 @@ export async function initClientsScript() {
     const reports = row.querySelector('.contact-reports, .contact-edit-reports');
     const cco = row.querySelector('.contact-cco, .contact-edit-cco');
 
-    const enforce = () => {
-      const shChecked = sh?.checked || false;
-      const reportsChecked = reports?.checked || false;
+    const enforce = (source) => {
       const ccoChecked = cco?.checked || false;
 
-      if (cco && (shChecked || reportsChecked)) {
-        cco.checked = false;
-      }
-      if (ccoChecked) {
-        if (sh) sh.checked = false;
+      if (source === 'cco' && ccoChecked) {
+        // CCO marcado: forzar SH Docs on, Reports off
+        if (sh) sh.checked = true;
         if (reports) reports.checked = false;
+      }
+      if (source === 'reports' && reports?.checked && ccoChecked) {
+        // Reports marcado: desmarcar CCO (son excluyentes)
+        if (cco) cco.checked = false;
+      }
+      if (source === 'sh' && !sh?.checked && ccoChecked) {
+        // SH desmarcado mientras CCO activo: desmarcar CCO también
+        if (cco) cco.checked = false;
       }
     };
 
-    sh?.addEventListener('change', enforce);
-    reports?.addEventListener('change', enforce);
-    cco?.addEventListener('change', enforce);
+    sh?.addEventListener('change', () => enforce('sh'));
+    reports?.addEventListener('change', () => enforce('reports'));
+    cco?.addEventListener('change', () => enforce('cco'));
   }
 
   // Event listener para remover filas de contacto
@@ -1214,7 +1218,7 @@ export async function initClientsScript() {
       showError(getMessage(clientesForm.emailInvalid));
       return;
     }
-    if (updates.cco && (updates.sh_documents || updates.reports)) {
+    if (updates.cco && updates.reports) {
       showError(getMessage(clientesForm.ccoExclusive));
       return;
     }
