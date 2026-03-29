@@ -38,6 +38,7 @@ const userAvatarService = require('../services/user_avatar.service');
 const userService = require('../services/user.service');
 const vendedorService = require('../services/vendedor.service');
 const { createOrderChangeDetectionService } = require('../services/orderChangeDetection.service');
+const { createCaptchaService } = require('../services/captcha.service');
 
 const container = createContainer();
 
@@ -91,6 +92,7 @@ container.register({
   userService: asValue(userService),
   vendedorService: asValue(vendedorService),
   orderChangeDetectionService: asFunction((deps) => createOrderChangeDetectionService(deps)).singleton(),
+  captchaService: asFunction((deps) => createCaptchaService(deps)).singleton(),
 });
 
 module.exports = { container };

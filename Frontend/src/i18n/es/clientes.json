@@ -106,7 +106,7 @@
     "helpTitle": "Ayuda de contactos",
     "helpAdd": "Usa \"Agregar nuevo contacto\" para crear un registro.",
     "helpFields": "Completa nombre, correo y teléfono antes de guardar.",
-    "helpOptions": "SH Docs y Reports habilitan el envío de documentos. CCO agrega el correo a la lista CCO.",
+    "helpOptions": "SH Docs habilita el envío de documentos manuales. Reports habilita el envío de documentos generados automáticamente. CCO agrega el correo como copia oculta solo en documentos SH Docs.",
     "helpEdit": "Puedes editar o eliminar contactos desde la columna Acciones.",
     "confirmTitle": "Confirmar guardado de contactos",
     "confirmMessage": "¿Estás seguro de que deseas guardar estos contactos?",

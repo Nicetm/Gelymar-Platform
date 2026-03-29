@@ -2842,6 +2842,7 @@ export function initFilesScript() {
   // Configurar cierre de modales
   setupModalClose('#messageModal', '#closeMessageModalBtn');
   setupModalClose('#messageHelpModal', '#closeMessageHelpModalBtn');
+  setupModalClose('#messageHelpModal', '#closeMessageHelpModalFooterBtn');
   setupModalClose('#editFileModal', '#closeEditModalBtn');
   setupModalClose('#renameFileModal', '#closeRenameModalBtn');
   setupModalClose('#uploadModal', '#closeUploadModalBtn');
@@ -3246,6 +3247,7 @@ export function initFilesScript() {
     bulkSendHelpBtn.addEventListener('click', () => showModal('#bulkSendHelpModal'));
   }
   setupModalClose('#bulkSendHelpModal', '#closeBulkSendHelpModalBtn');
+  setupModalClose('#bulkSendHelpModal', '#closeBulkSendHelpModalFooterBtn');
 
   // Confirmar envío masivo
   if (confirmBulkSendBtn) {

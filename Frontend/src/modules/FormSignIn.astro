@@ -19,22 +19,6 @@ try {
   console.error('Error loading translations (FormSignIn):', error);
 }
 
-// Obtener configuración de recaptcha desde el backend
-let recaptchaEnabled = true;
-try {
-  const response = await fetch(`${apiBase}/api/config/recaptcha-login`);
-  if (response.ok) {
-    const config = await response.json();
-    recaptchaEnabled = config.enable === 1;
-    console.log('[FormSignIn] Recaptcha config loaded:', config);
-  } else {
-    console.error('[FormSignIn] Failed to load recaptcha config, status:', response.status);
-  }
-} catch (error) {
-  console.error('[FormSignIn] Error loading recaptcha config:', error);
-}
-
-
 const requestUrl = Astro.request?.url ? new URL(Astro.request.url) : null;
 const requestOrigin = requestUrl?.origin ?? '';
 
@@ -66,6 +50,18 @@ const activeAppContext =
   rawAppContext !== 'both'
     ? rawAppContext
     : matchedByOrigin || matchedByPath || 'admin';
+
+// Fetch captcha config for this portal
+let captchaConfig = { active: 0, type: null };
+try {
+  const response = await fetch(`${apiBase}/api/config/recaptcha-login?portal=${activeAppContext}`);
+  if (response.ok) {
+    captchaConfig = await response.json();
+  }
+} catch (error) {
+  console.error('[FormSignIn] Error loading captcha config:', error);
+}
+const captchaType = captchaConfig.active === 1 ? (captchaConfig.type || null) : null;
 
 const contextInfo = (() => {
   const normalized = activeAppContext;
@@ -191,10 +187,14 @@ const contextInfo = (() => {
       </label>
     </div>
 
-    {recaptchaSiteKey && recaptchaEnabled && (
+    {captchaType === 'captcha-google' && recaptchaSiteKey && (
       <div class="flex justify-center">
         <div class="g-recaptcha" data-sitekey={recaptchaSiteKey}></div>
       </div>
+    )}
+
+    {captchaType === 'self-hosted' && (
+      <div id="puzzleCaptchaContainer" class="flex justify-center"></div>
     )}
 
     <!-- OTP input -->
@@ -224,7 +224,7 @@ const contextInfo = (() => {
   </form>
 </div>
 
-<script type="module" define:vars={{ apiPublic, apiBase, adminAppUrl, clientAppUrl, sellerAppUrl, appContext: activeAppContext, recaptchaSiteKey, recaptchaEnabled, comondTranslations: t?.comond ?? {} }}>
+<script type="module" define:vars={{ apiPublic, apiBase, adminAppUrl, clientAppUrl, sellerAppUrl, appContext: activeAppContext, recaptchaSiteKey, captchaType, comondTranslations: t?.comond ?? {} }}>
   import { initSignIn } from '/js/sign-in.js';
 
   initSignIn({
@@ -235,7 +235,7 @@ const contextInfo = (() => {
     sellerAppUrl,
     appContext,
     recaptchaSiteKey,
-    recaptchaEnabled,
+    captchaType,
     translations: { comond: comondTranslations }
   });
 </script>

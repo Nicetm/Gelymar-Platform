@@ -1,6 +1,7 @@
 const { poolPromise } = require('../config/db');
 const { getSqlPool, sql } = require('../config/sqlserver');
 const { logger } = require('../utils/logger');
+const { getIncotermValidationConfig, isInList } = require('../utils/incotermValidation');
 
 /**
  * Get orders ready for Shipment Notice
@@ -48,7 +49,10 @@ async function getOrdersReadyForShipmentNotice(sendFromDate = null, filterPc = n
       return [];
     }
     
-    // 2. Para cada registro, validar en SQL Server
+    // 2. Load incoterm validation config
+    const incotermConfig = await getIncotermValidationConfig();
+
+    // 3. Para cada registro, validar en SQL Server
     const sqlPool = await getSqlPool();
     const validOrders = [];
     
@@ -61,7 +65,7 @@ async function getOrdersReadyForShipmentNotice(sendFromDate = null, filterPc = n
           request.input('sendFrom', sql.Date, sendFromDate);
         }
         
-        // Validar en SQL Server: Incoterms, ETD/ETA y h.Fecha
+        // Validar en SQL Server: ETD/ETA y h.Fecha (incoterm se valida en JS)
         const sqlResult = await request.query(`
           SELECT TOP 1
             f.Nro AS pc,
@@ -74,7 +78,6 @@ async function getOrdersReadyForShipmentNotice(sendFromDate = null, filterPc = n
           FROM jor_imp_FACT_90_softkey f
           INNER JOIN jor_imp_HDR_90_softkey h ON h.Nro = f.Nro
           WHERE f.Nro = @pc
-            AND h.Clausula IN ('CFR', 'CIF', 'CIP', 'DAP', 'DDP', 'CPT')
             AND ISDATE(NULLIF(LTRIM(RTRIM(f.ETD_ENC_FA)), '')) = 1
             AND ISDATE(NULLIF(LTRIM(RTRIM(f.ETA_ENC_FA)), '')) = 1
             ${sendFromDate ? 'AND CAST(h.Fecha AS date) >= @sendFrom' : ''}
@@ -83,6 +86,11 @@ async function getOrdersReadyForShipmentNotice(sendFromDate = null, filterPc = n
         const sqlRow = sqlResult.recordset?.[0];
         
         if (sqlRow) {
+          // Validate incoterm in JS if enabled
+          if (incotermConfig.enable && !isInList(incotermConfig.shipmentIncoterms, sqlRow.incoterm)) {
+            logger.info(`[getOrdersReadyForShipmentNotice] pc=${fileRow.pc} skipped: incoterm=${sqlRow.incoterm} not in allowed list`);
+            continue;
+          }
           // Cumple todas las condiciones
           validOrders.push({
             id: fileRow.id,
@@ -127,7 +135,7 @@ async function getOrdersReadyForShipmentNotice(sendFromDate = null, filterPc = n
             
             const debugRow = debugResult.recordset?.[0];
             if (debugRow) {
-              const hasValidIncoterm = ['CFR', 'CIF', 'CIP', 'DAP', 'DDP', 'CPT'].includes(String(debugRow.incoterm || '').trim().toUpperCase());
+              const hasValidIncoterm = incotermConfig.enable ? isInList(incotermConfig.shipmentIncoterms, String(debugRow.incoterm || '').trim()) : true;
               logger.info(`[getOrdersReadyForShipmentNotice] pc=${debugRow.pc} oc=${debugRow.oc || 'N/A'} factura=${debugRow.factura ?? 'N/A'} incoterm=${debugRow.incoterm ?? 'N/A'} valid_incoterm=${hasValidIncoterm} etd=${debugRow.etd ?? 'N/A'} etd_valid=${debugRow.etd_valid} eta=${debugRow.eta ?? 'N/A'} eta_valid=${debugRow.eta_valid} fecha_orden=${debugRow.fecha_orden ?? 'N/A'}`);
             }
           }

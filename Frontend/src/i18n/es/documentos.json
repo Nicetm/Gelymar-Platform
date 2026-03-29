@@ -83,7 +83,7 @@
   "sendDocumentsHelpAdd": "Agrega correos desde disponibles o escribiendo uno nuevo.",
   "sendDocumentsHelpRemove": "Puedes quitar un destinatario desde la lista de seleccionados.",
   "sendDocumentsHelpRestricted": "Si un correo aparece en rojo, no tiene permiso para este tipo de documento.",
-  "sendDocumentsHelpCco": "Los correos CCO siempre se muestran en CCO emails; puedes incluirlos como destinatarios.",
+  "sendDocumentsHelpCco": "Los correos CCO solo aparecen como copia oculta en documentos SH Docs (subidos manualmente). No se incluyen en documentos Reports.",
   "uploadHelpTitle": "Ayuda de documentos",
   "uploadHelpStep1": "Puedes subir documentos manualmente con el botón Subir documento.",
   "uploadHelpStep2": "Antes de subir, selecciona el nombre del documento y su visibilidad para el cliente.",
@@ -231,5 +231,5 @@
   "bulkSendHelpFiles": "Selecciona los documentos que deseas enviar usando los checkboxes.",
   "bulkSendHelpExcluded": "Los documentos generados automáticamente no aparecen en esta lista.",
   "bulkSendHelpEmails": "Puedes agregar o quitar destinatarios desde la sección de correos.",
-  "bulkSendHelpCco": "Los correos CCO se envían como copia oculta en todos los documentos."
+  "bulkSendHelpCco": "Los correos CCO se envían como copia oculta solo en documentos SH Docs."
 }

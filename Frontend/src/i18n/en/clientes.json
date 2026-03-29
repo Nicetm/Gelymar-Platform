@@ -106,7 +106,7 @@
     "helpTitle": "Contacts help",
     "helpAdd": "Use \"Add new contact\" to create a record.",
     "helpFields": "Fill in name, email, and phone before saving.",
-    "helpOptions": "SH Docs and Reports enable document sending. CCO adds the email to the CCO list.",
+    "helpOptions": "SH Docs enables sending of manually uploaded documents. Reports enables sending of automatically generated documents. CCO adds the email as blind copy only on SH Docs documents.",
     "helpEdit": "You can edit or delete contacts from the Actions column.",
     "confirmTitle": "Confirm save contacts",
     "confirmMessage": "Are you sure you want to save these contacts?",

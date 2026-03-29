@@ -329,20 +329,27 @@ const contactEmailMetadata: any[] = [];
 		</div>
 	</div>
 
-	<div id="messageHelpModal" class="fixed inset-0 bg-black bg-opacity-50 hidden justify-center items-center z-50">
-		<div class="bg-white dark:bg-gray-800 dark:text-white rounded-lg p-6 w-full max-w-md relative">
-			<button id="closeMessageHelpModalBtn" class="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition">
+	<div id="messageHelpModal" class="fixed inset-0 hidden justify-center items-center z-50 bg-black/50 flex backdrop-blur-sm">
+		<div class="bg-white/95 dark:bg-gray-800/95 text-gray-900 dark:text-gray-100 rounded-2xl p-6 w-full max-w-md relative shadow-2xl ring-1 ring-gray-200 dark:ring-white/10">
+			<button id="closeMessageHelpModalBtn" class="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition text-xs">
 				<svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
 				</svg>
 			</button>
 			<h3 class="text-lg font-bold mb-3">{t.documentos.sendDocumentsHelpTitle}</h3>
-			<ul class="text-sm text-gray-700 dark:text-gray-300 space-y-2">
+			<div class="my-3 border-t border-gray-200 dark:border-gray-700"></div>
+			<ul class="text-sm text-gray-700 dark:text-gray-300 space-y-2 list-disc list-inside">
 				<li>{t.documentos.sendDocumentsHelpAdd}</li>
 				<li>{t.documentos.sendDocumentsHelpRemove}</li>
 				<li>{t.documentos.sendDocumentsHelpRestricted}</li>
 				<li>{t.documentos.sendDocumentsHelpCco}</li>
 			</ul>
+			<div class="my-4 border-t border-gray-200 dark:border-gray-700"></div>
+			<div class="flex justify-end">
+				<button id="closeMessageHelpModalFooterBtn" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white rounded-md text-sm">
+					{t.comond.close}
+				</button>
+			</div>
 		</div>
 	</div>
 
@@ -457,20 +464,27 @@ const contactEmailMetadata: any[] = [];
 	</div>
 
 	<!-- Modal de Ayuda de Envío Masivo -->
-	<div id="bulkSendHelpModal" class="fixed inset-0 bg-black bg-opacity-50 hidden justify-center items-center z-50">
-		<div class="bg-white dark:bg-gray-800 dark:text-white rounded-lg p-6 w-full max-w-md relative">
-			<button id="closeBulkSendHelpModalBtn" class="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition">
+	<div id="bulkSendHelpModal" class="fixed inset-0 hidden justify-center items-center z-50 bg-black/50 flex backdrop-blur-sm">
+		<div class="bg-white/95 dark:bg-gray-800/95 text-gray-900 dark:text-gray-100 rounded-2xl p-6 w-full max-w-md relative shadow-2xl ring-1 ring-gray-200 dark:ring-white/10">
+			<button id="closeBulkSendHelpModalBtn" class="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition text-xs">
 				<svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
 				</svg>
 			</button>
 			<h3 class="text-lg font-bold mb-3">{t.documentos.bulkSendHelpTitle ?? 'Ayuda de envío masivo'}</h3>
-			<ul class="text-sm text-gray-700 dark:text-gray-300 space-y-2">
+			<div class="my-3 border-t border-gray-200 dark:border-gray-700"></div>
+			<ul class="text-sm text-gray-700 dark:text-gray-300 space-y-2 list-disc list-inside">
 				<li>{t.documentos.bulkSendHelpFiles ?? 'Selecciona los documentos que deseas enviar usando los checkboxes.'}</li>
 				<li>{t.documentos.bulkSendHelpExcluded ?? 'Los documentos generados automáticamente no aparecen en esta lista.'}</li>
 				<li>{t.documentos.bulkSendHelpEmails ?? 'Puedes agregar o quitar destinatarios desde la sección de correos.'}</li>
-				<li>{t.documentos.bulkSendHelpCco ?? 'Los correos CCO se envían como copia oculta en todos los documentos.'}</li>
+				<li>{t.documentos.bulkSendHelpCco ?? 'Los correos CCO se envían como copia oculta solo en documentos SH Docs.'}</li>
 			</ul>
+			<div class="my-4 border-t border-gray-200 dark:border-gray-700"></div>
+			<div class="flex justify-end">
+				<button id="closeBulkSendHelpModalFooterBtn" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white rounded-md text-sm">
+					{t.comond.close}
+				</button>
+			</div>
 		</div>
 	</div>
 

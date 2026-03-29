@@ -1,6 +1,7 @@
 const { poolPromise } = require('../config/db');
 const { getSqlPool, sql } = require('../config/sqlserver');
 const { logger } = require('../utils/logger');
+const { getIncotermValidationConfig, isInList } = require('../utils/incotermValidation');
 
 /**
  * Get orders ready for Availability Notice
@@ -48,7 +49,10 @@ async function getOrdersReadyForAvailabilityNotice(sendFromDate = null, filterPc
       return [];
     }
     
-    // 2. Para cada registro, validar en SQL Server
+    // 2. Load incoterm validation config
+    const incotermConfig = await getIncotermValidationConfig();
+
+    // 3. Para cada registro, validar en SQL Server
     const sqlPool = await getSqlPool();
     const validOrders = [];
     
@@ -62,7 +66,7 @@ async function getOrdersReadyForAvailabilityNotice(sendFromDate = null, filterPc
           request.input('sendFrom', sql.Date, sendFromDate);
         }
         
-        // Validar en SQL Server: Incoterms de disponibilidad y factura válida
+        // Validar en SQL Server: factura válida (incoterm se valida en JS)
         const sqlResult = await request.query(`
           SELECT TOP 1
             f.Nro AS pc,
@@ -77,13 +81,38 @@ async function getOrdersReadyForAvailabilityNotice(sendFromDate = null, filterPc
             AND f.Factura IS NOT NULL
             AND LTRIM(RTRIM(f.Factura)) <> ''
             AND f.Factura <> 0
-            AND h.Clausula IN ('EWX', 'FCA', 'FOB', 'FCA Port', 'FCA Warehouse Santiago', 'FCA Airport', 'FCAWSTGO')
             ${sendFromDate ? 'AND CAST(h.Fecha AS date) >= @sendFrom' : ''}
         `);
         
         const sqlRow = sqlResult.recordset?.[0];
         
         if (sqlRow) {
+          // Validate incoterm in JS if enabled
+          if (incotermConfig.enable && !isInList(incotermConfig.availabilityIncoterms, sqlRow.incoterm)) {
+            logger.info(`[getOrdersReadyForAvailabilityNotice] pc=${fileRow.pc} skipped: incoterm=${sqlRow.incoterm} not in allowed list`);
+            continue;
+          }
+
+          // Validate all items have DespachoStgo = 'SI'
+          const itemsRequest = sqlPool.request();
+          itemsRequest.input('itemPc', sql.VarChar, String(fileRow.pc).trim());
+          itemsRequest.input('itemFactura', sql.VarChar, String(fileRow.factura).trim());
+          const itemsResult = await itemsRequest.query(`
+            SELECT DespachoStgo
+            FROM jor_imp_item_90_softkey
+            WHERE Nro = @itemPc AND Factura = @itemFactura
+          `);
+          const items = itemsResult.recordset || [];
+          if (items.length === 0) {
+            logger.info(`[getOrdersReadyForAvailabilityNotice] pc=${fileRow.pc} factura=${fileRow.factura} skipped: no items found`);
+            continue;
+          }
+          const allDispatched = items.every(item => String(item.DespachoStgo || '').trim().toUpperCase() === 'SI');
+          if (!allDispatched) {
+            logger.info(`[getOrdersReadyForAvailabilityNotice] pc=${fileRow.pc} factura=${fileRow.factura} skipped: not all items have DespachoStgo=SI (${items.filter(i => String(i.DespachoStgo || '').trim().toUpperCase() === 'SI').length}/${items.length})`);
+            continue;
+          }
+
           // Cumple todas las condiciones
           validOrders.push({
             id: fileRow.id,
@@ -116,7 +145,7 @@ async function getOrdersReadyForAvailabilityNotice(sendFromDate = null, filterPc
             
             const debugRow = debugResult.recordset?.[0];
             if (debugRow) {
-              const hasValidIncoterm = ['EWX', 'FCA', 'FOB', 'FCA Port', 'FCA Warehouse Santiago', 'FCA Airport', 'FCAWSTGO'].includes(String(debugRow.incoterm || '').trim());
+              const hasValidIncoterm = incotermConfig.enable ? isInList(incotermConfig.availabilityIncoterms, String(debugRow.incoterm || '').trim()) : true;
               const hasValidFactura = debugRow.factura && String(debugRow.factura).trim() !== '' && debugRow.factura !== 0;
               logger.info(`[getOrdersReadyForAvailabilityNotice] pc=${debugRow.pc} oc=${debugRow.oc || 'N/A'} factura=${debugRow.factura ?? 'N/A'} incoterm=${debugRow.incoterm ?? 'N/A'} valid_incoterm=${hasValidIncoterm} valid_factura=${hasValidFactura} fecha_factura=${debugRow.fecha_factura ?? 'N/A'}`);
             }

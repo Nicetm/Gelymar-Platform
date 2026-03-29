@@ -7,10 +7,11 @@ export function initSignIn(config = {}) {
     sellerAppUrl = '',
     appContext = 'both',
     recaptchaSiteKey = '',
-    recaptchaEnabled = true,
+    captchaType = null,
   } = config;
 
   let otpShown = false;
+  let puzzleVerificationToken = null;
   const normalizedAppContext = (appContext || 'both').toLowerCase();
 
   const resolveApiOrigin = () => {
@@ -194,7 +195,7 @@ export function initSignIn(config = {}) {
   };
 
   const ensureRecaptchaScript = () => {
-    if (!recaptchaSiteKey || !recaptchaEnabled) {
+    if (captchaType !== 'captcha-google' || !recaptchaSiteKey) {
       return;
     }
 
@@ -206,6 +207,25 @@ export function initSignIn(config = {}) {
       script.defer = true;
       document.head.appendChild(script);
     }
+  };
+
+  const ensurePuzzleCaptcha = () => {
+    if (captchaType !== 'self-hosted') return;
+    const container = document.getElementById('puzzleCaptchaContainer');
+    if (!container) return;
+    import('/js/puzzle-captcha.js').then(({ initPuzzleCaptcha }) => {
+      const captcha = initPuzzleCaptcha(container, {
+        apiUrl: resolvedApiBase,
+        portal: normalizedAppContext,
+        onVerified: (token) => {
+          puzzleVerificationToken = token;
+          // Auto-submit the form after solving
+          const form = document.getElementById('loginForm');
+          if (form) form.requestSubmit();
+        },
+      });
+      window._puzzleCaptchaInstance = captcha;
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -224,7 +244,7 @@ export function initSignIn(config = {}) {
       return;
     }
 
-    if (recaptchaSiteKey && recaptchaEnabled) {
+    if (captchaType === 'captcha-google' && recaptchaSiteKey) {
       if (!window.grecaptcha || typeof window.grecaptcha.getResponse !== 'function') {
         msg.textContent = getText('captcha_not_ready', 'Captcha is not ready yet. Please wait and try again.');
         msg.classList.remove('hidden');
@@ -241,6 +261,30 @@ export function initSignIn(config = {}) {
         msg.classList.add('text-red-500');
         return;
       }
+    }
+
+    if (captchaType === 'self-hosted' && !puzzleVerificationToken) {
+      // Validate fields first before showing captcha modal
+      if (!username || !password) {
+        msg.textContent = getText('required_fields', 'Please complete all required fields');
+        msg.classList.remove('hidden');
+        msg.classList.remove('text-green-600');
+        msg.classList.add('text-red-500');
+        return;
+      }
+      const rutPattern = /^\d{7,8}-[0-9kK]$/;
+      if (!rutPattern.test(username)) {
+        msg.textContent = getText('invalid_rut', 'RUT must be numbers, a hyphen, and one digit or letter. e.g., 15060791-4');
+        msg.classList.remove('hidden');
+        msg.classList.remove('text-green-600');
+        msg.classList.add('text-red-500');
+        return;
+      }
+      // Fields are valid, show puzzle modal
+      if (window._puzzleCaptchaInstance) {
+        window._puzzleCaptchaInstance.show();
+      }
+      return;
     }
 
     if (!username || !password) {
@@ -286,7 +330,7 @@ export function initSignIn(config = {}) {
       const res = await fetch(`${resolvedApiBase}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password, otp, captchaResponse }),
+        body: JSON.stringify({ username, password, otp, captchaResponse, portal: normalizedAppContext, captchaVerificationToken: puzzleVerificationToken }),
       });
 
       let data;
@@ -529,8 +573,11 @@ export function initSignIn(config = {}) {
       submitBtn.classList.remove('inline-flex', 'items-center', 'justify-center', 'gap-2');
       submitBtn.classList.remove('opacity-70', 'cursor-not-allowed');
     }
-      if (recaptchaSiteKey && recaptchaEnabled && window.grecaptcha && typeof window.grecaptcha.reset === 'function') {
+      if (captchaType === 'captcha-google' && recaptchaSiteKey && window.grecaptcha && typeof window.grecaptcha.reset === 'function') {
         window.grecaptcha.reset();
+      }
+      if (captchaType === 'self-hosted') {
+        puzzleVerificationToken = null;
       }
     }
   };
@@ -538,6 +585,7 @@ export function initSignIn(config = {}) {
   const setup = () => {
     ensureResetMessage();
     ensureRecaptchaScript();
+    ensurePuzzleCaptcha();
 
     const form = document.getElementById('loginForm');
     if (!form) {

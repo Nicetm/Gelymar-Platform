@@ -282,7 +282,23 @@ exports.getHeaderUsersSinCuenta = async (req, res) => {
 exports.getRecaptchaLoginConfig = async (req, res) => {
   try {
     const params = await getConfigParamsByName('setRecapchaLogin');
-    res.json(params || { enable: 0 });
+    if (!params) return res.json({ active: 0 });
+
+    const portal = req.query.portal;
+
+    // Global kill-switch
+    if (params.enable !== 1) {
+      return res.json(portal ? { active: 0 } : { enable: 0 });
+    }
+
+    // No portal param: return full config for backward compatibility
+    if (!portal) return res.json(params);
+
+    // Portal-specific config
+    const portalConfig = params.portal?.[portal];
+    if (!portalConfig) return res.json({ active: 0 });
+
+    res.json({ active: portalConfig.active ?? 0, type: portalConfig.type || null });
   } catch (error) {
     logger.error(`[ConfigController][getRecaptchaLoginConfig] Error: ${error.message}`);
     res.status(500).json({ message: 'Error obteniendo configuración de recaptcha' });

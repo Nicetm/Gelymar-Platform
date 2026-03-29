@@ -92,25 +92,40 @@ const extractTwoFAPayload = (req) => {
  * @access Público
  */
   exports.login = async (req, res) => {
-    const { email, username, password, otp, captchaResponse } = req.body;
+    const { email, username, password, otp, captchaResponse, portal, captchaVerificationToken } = req.body;
     const identifier = email || username;
 
-  // Verificar si recaptcha está habilitado
-  let recaptchaEnabled = true;
+  // Resolve captcha config for the portal
+  let captchaConfig = { active: 0 };
   try {
-    const configService = require('../services/config.service');
-    const config = await configService.getConfigByName('setRecapchaLogin');
-    recaptchaEnabled = config?.params?.enable === 1;
+    const { container } = require('../config/container');
+    const captchaService = container.resolve('captchaService');
+    captchaConfig = await captchaService.resolvePortalCaptchaConfig(portal || 'admin');
   } catch (error) {
-    logger.warn(`Error obteniendo config de recaptcha: ${error.message}`);
+    logger.warn(`Error obteniendo config de captcha: ${error.message}`);
   }
 
-  // Solo validar recaptcha si está habilitado
-  if (recaptchaEnabled) {
-    const captchaValid = await verifyRecaptcha(captchaResponse);
-    if (!captchaValid) {
-      logger.warn(`Failed captcha verification for ${identifier}`);
-      return res.status(400).json({ message: t('auth.captcha_failed', req.lang || 'es') });
+  // Validate captcha based on type
+  if (captchaConfig.active === 1) {
+    if (captchaConfig.type === 'captcha-google') {
+      const captchaValid = await verifyRecaptcha(captchaResponse);
+      if (!captchaValid) {
+        logger.warn(`Failed Google captcha verification for ${identifier}`);
+        return res.status(400).json({ message: t('auth.captcha_failed', req.lang || 'es') });
+      }
+    } else if (captchaConfig.type === 'self-hosted') {
+      try {
+        const { container } = require('../config/container');
+        const captchaService = container.resolve('captchaService');
+        const valid = captchaService.validateVerificationToken(captchaVerificationToken);
+        if (!valid) {
+          logger.warn(`Failed self-hosted captcha verification for ${identifier}`);
+          return res.status(400).json({ message: t('auth.captcha_failed', req.lang || 'es') });
+        }
+      } catch (err) {
+        logger.warn(`Error validating self-hosted captcha: ${err.message}`);
+        return res.status(400).json({ message: t('auth.captcha_failed', req.lang || 'es') });
+      }
     }
   }
 
@@ -399,14 +414,36 @@ exports.check2FAStatus = async (req, res) => {
  * @access Público
  */
 exports.recoverPassword = async (req, res) => {
-    const { email, captchaResponse } = req.body;
+    const { email, captchaResponse, portal, captchaVerificationToken } = req.body;
   
     try {
       logger.info(`recoverPassword request for ${email || 'unknown'} from ${req.ip || 'unknown-ip'}`);
-      const isHuman = await verifyRecaptcha(captchaResponse);
-      if (!isHuman) {
-        logger.warn(`Recaptcha invalido en recoverPassword: ${email}`);
-        return res.status(400).json({ message: t('auth.invalid_captcha', req.lang || 'es') });
+
+      // Resolve captcha config for the portal
+      let captchaConfig = { active: 0 };
+      try {
+        const { container } = require('../config/container');
+        const captchaService = container.resolve('captchaService');
+        captchaConfig = await captchaService.resolvePortalCaptchaConfig(portal || 'admin');
+      } catch (err) {
+        logger.warn(`Error obteniendo config de captcha en recoverPassword: ${err.message}`);
+      }
+
+      if (captchaConfig.active === 1) {
+        if (captchaConfig.type === 'captcha-google') {
+          const isHuman = await verifyRecaptcha(captchaResponse);
+          if (!isHuman) {
+            logger.warn(`Recaptcha invalido en recoverPassword: ${email}`);
+            return res.status(400).json({ message: t('auth.invalid_captcha', req.lang || 'es') });
+          }
+        } else if (captchaConfig.type === 'self-hosted') {
+          const { container } = require('../config/container');
+          const captchaService = container.resolve('captchaService');
+          if (!captchaService.validateVerificationToken(captchaVerificationToken)) {
+            logger.warn(`Self-hosted captcha invalido en recoverPassword: ${email}`);
+            return res.status(400).json({ message: t('auth.invalid_captcha', req.lang || 'es') });
+          }
+        }
       }
       const user = await userService.findUserForPasswordRecovery(email);
       if (!user) {
@@ -447,7 +484,7 @@ exports.recoverPassword = async (req, res) => {
  * @access Público
  */
   exports.resetPassword = async (req, res) => {
-    const { token, newPassword, captchaResponse } = req.body;
+    const { token, newPassword, captchaResponse, portal, captchaVerificationToken } = req.body;
     if (!token || !newPassword) {
       logger.warn('Faltan datos en resetPassword');
       return res.status(400).json({ message: t('auth.missing_data', req.lang || 'es') });
@@ -461,10 +498,31 @@ exports.recoverPassword = async (req, res) => {
     }
   
     try {
-      const isHuman = await verifyRecaptcha(captchaResponse);
-      if (!isHuman) {
-        logger.warn('Recaptcha invalido en resetPassword');
-        return res.status(400).json({ message: t('auth.invalid_captcha', req.lang || 'es') });
+      // Resolve captcha config for the portal
+      let captchaConfig = { active: 0 };
+      try {
+        const { container } = require('../config/container');
+        const captchaService = container.resolve('captchaService');
+        captchaConfig = await captchaService.resolvePortalCaptchaConfig(portal || 'admin');
+      } catch (err) {
+        logger.warn(`Error obteniendo config de captcha en resetPassword: ${err.message}`);
+      }
+
+      if (captchaConfig.active === 1) {
+        if (captchaConfig.type === 'captcha-google') {
+          const isHuman = await verifyRecaptcha(captchaResponse);
+          if (!isHuman) {
+            logger.warn('Recaptcha invalido en resetPassword');
+            return res.status(400).json({ message: t('auth.invalid_captcha', req.lang || 'es') });
+          }
+        } else if (captchaConfig.type === 'self-hosted') {
+          const { container } = require('../config/container');
+          const captchaService = container.resolve('captchaService');
+          if (!captchaService.validateVerificationToken(captchaVerificationToken)) {
+            logger.warn('Self-hosted captcha invalido en resetPassword');
+            return res.status(400).json({ message: t('auth.invalid_captcha', req.lang || 'es') });
+          }
+        }
       }
 
       const { email, userId } = jwt.verify(token, process.env.JWT_SECRET);

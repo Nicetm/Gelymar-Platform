@@ -72,38 +72,8 @@ async function createDefaultRecords(filters = {}) {
     const { normalizeOcForCompare: normalizeOcKey } = require('../utils/oc.util');
 
     
-    const shipmentIncoterms = new Set(['CFR', 'CIF', 'CIP', 'DAP', 'DDP', 'CPT']);
-    const availabilityIncoterms = new Set([
-      'EWX',
-      'FCA',
-      'FOB',
-      'FCA PORT',
-      'FCA WAREHOUSE SANTIAGO',
-      'FCA AIRPORT',
-      'FCAWSTGO'
-    ]);
-    const hasFacturaValue = (value) => (
-      value !== null &&
-      value !== undefined &&
-      value !== '' &&
-      value !== 0 &&
-      value !== '0'
-    );
-    const isInList = (list, value) => list.has(String(value || '').trim().toUpperCase());
-    const canCreateShipment = (order) => (
-      hasFacturaValue(order.factura) &&
-      isInList(shipmentIncoterms, order.incoterm) &&
-      !!order.fecha_etd_factura &&
-      !!order.fecha_eta_factura
-    );
-    const canCreateDelivery = (order) => (
-      hasFacturaValue(order.factura) &&
-      !!order.fecha_eta_factura
-    );
-    const canCreateAvailability = (order) => (
-      hasFacturaValue(order.factura) &&
-      isInList(availabilityIncoterms, order.incoterm)
-    );
+    const { getIncotermValidators, hasFacturaValue } = require('../utils/incotermValidation');
+    const { canCreateShipment, canCreateAvailability, canCreateDelivery } = await getIncotermValidators();
 
     // Procesar clientes en lotes para evitar problemas de memoria
     let clientEntries = Object.entries(ordersByRut);

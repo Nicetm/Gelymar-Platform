@@ -64,13 +64,12 @@ async function getFoldersByCustomerRut(customerRut) {
 
   const pcs = rows.map(r => r.pc).filter(Boolean);
   const fileCountMap = {};
+  const fileTypeIdsMap = {};
   if (pcs.length) {
     logger.info(`[getFoldersByCustomerRut] file counts start. pcCount=${pcs.length}`);
-    // REFACTORING NOTE: File counts now grouped by (pc, oc) only
-    // id_nro_ov_mas_factura field has been removed from order_files table
     const [countRows] = await mysqlPool.query(
       `
-        SELECT pc, oc, COUNT(*) AS fileCount
+        SELECT pc, oc, COUNT(*) AS fileCount, GROUP_CONCAT(DISTINCT file_id) AS file_ids
         FROM order_files
         WHERE pc IN (?)
         GROUP BY pc, oc
@@ -80,6 +79,7 @@ async function getFoldersByCustomerRut(customerRut) {
     countRows.forEach(row => {
       const key = `${row.pc}|${row.oc || ''}`;
       fileCountMap[key] = Number(row.fileCount) || 0;
+      fileTypeIdsMap[key] = row.file_ids ? row.file_ids.split(',').map(Number).filter(Boolean) : [];
     });
   }
 
@@ -109,6 +109,7 @@ async function getFoldersByCustomerRut(customerRut) {
     const key = `${r.pc}|${r.oc || ''}`;
     folder.fileCount = fileCountMap[key] || 0;
     folder.document_count = folder.fileCount;
+    folder.document_type_ids = fileTypeIdsMap[key] || [];
     return folder;
   });
 }

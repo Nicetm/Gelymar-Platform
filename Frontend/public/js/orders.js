@@ -931,12 +931,19 @@ export async function initOrdersScript() {
    * Función para exportar tabla a Excel
    */
   function exportToExcel() {
+    const originalHTML = exportBtn?.innerHTML;
+
     // Obtener las órdenes filtradas actuales
     const ordersToExport = filteredOrders.length > 0 ? filteredOrders : allOrders;
     
     if (ordersToExport.length === 0) {
       showNotification(orders.exportEmpty, 'warning');
       return;
+    }
+
+    if (exportBtn) {
+      exportBtn.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>';
+      exportBtn.disabled = true;
     }
 
     // Definir los encabezados de las columnas
@@ -953,7 +960,6 @@ export async function initOrdersScript() {
     const labelEtaFactura = orders.etaFactura;
     const labelIncoterm = orders.incoterm;
     const labelDestinationPort = orders.puertoDestino;
-    const labelDocuments = orders.documents;
 
     const headers = [
       labelPc,
@@ -968,36 +974,29 @@ export async function initOrdersScript() {
       labelEtdFactura,
       labelEtaFactura,
       labelIncoterm,
-      labelDestinationPort,
-      labelDocuments
+      labelDestinationPort
     ];
 
     // Preparar los datos para exportar
     const data = ordersToExport.map(order => {
-      const customerRut = order.customer_rut || order.customer_uuid || '';
-      const pcValue = order.pc || '';
-      const ocValue = order.oc || order.orderNumber || '';
-      const companyValue = order.customer_name || '';
-      const documentUrl = `${documentsPath}/${encodeURIComponent(customerRut)}/${encodeURIComponent(pcValue)}/${slugifyPath(ocValue)}/${slugifyPath(companyValue)}`;
       const shippingMethod = (!order.factura || order.factura === 0 || order.factura === '0')
         ? (order.medio_envio_ov || '')
         : (order.medio_envio_factura || '');
 
       return [
-        order.pc || '', // N° PC
-        order.oc || '', // Order
-        order.customer_name || '', // Customer Name
-        formatDateShort(order.fecha_ingreso || order.fecha) || '', // Entry Date
-        shippingMethod, // Shipping Method
-        order.factura || '', // Invoice
-        formatDateShort(order.fecha_factura) || '', // Invoice Date
-        formatDateShort(order.fecha_etd) || '', // ETD OV
-        formatDateShort(order.fecha_eta) || '', // ETA OV
-        formatDateShort(order.fecha_etd_factura) || '', // ETD Invoice
-        formatDateShort(order.fecha_eta_factura) || '', // ETA Invoice
-        order.incoterm || '', // Incoterm
-        order.puerto_destino || '', // Destination Port
-        documentUrl // Documents
+        order.pc || '',
+        order.oc || '',
+        order.customer_name || '',
+        formatDateShort(order.fecha_ingreso || order.fecha) || '',
+        shippingMethod,
+        order.factura || '',
+        formatDateShort(order.fecha_factura) || '',
+        formatDateShort(order.fecha_etd) || '',
+        formatDateShort(order.fecha_eta) || '',
+        formatDateShort(order.fecha_etd_factura) || '',
+        formatDateShort(order.fecha_eta_factura) || '',
+        order.incoterm || '',
+        order.puerto_destino || ''
       ];
     });
 
@@ -1032,6 +1031,11 @@ export async function initOrdersScript() {
 
     // Mostrar notificación de éxito
     showNotification(`Se exportaron ${ordersToExport.length} órdenes a Excel`, 'success');
+
+    if (exportBtn && originalHTML) {
+      exportBtn.innerHTML = originalHTML;
+      exportBtn.disabled = false;
+    }
   }
 
   // Event listeners para paginación

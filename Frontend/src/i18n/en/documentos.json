@@ -85,7 +85,7 @@
   "sendDocumentsHelpAdd": "Add emails from the available list or by typing a new one.",
   "sendDocumentsHelpRemove": "You can remove a recipient from the selected list.",
   "sendDocumentsHelpRestricted": "If an email appears in red, it does not have permission for this document type.",
-  "sendDocumentsHelpCco": "CCO emails are always shown in CCO emails; you can include them as recipients.",
+  "sendDocumentsHelpCco": "CCO emails only appear as blind copy on SH Docs (manually uploaded documents). They are not included in Reports documents.",
   "uploadHelpTitle": "Documents help",
   "uploadHelpStep1": "You can upload documents manually with the Upload document button.",
   "uploadHelpStep2": "Before uploading, choose the document name and its visibility for the customer.",
@@ -233,5 +233,5 @@
   "bulkSendHelpFiles": "Select the documents you want to send using the checkboxes.",
   "bulkSendHelpExcluded": "Automatically generated documents are not shown in this list.",
   "bulkSendHelpEmails": "You can add or remove recipients from the email section.",
-  "bulkSendHelpCco": "CCO emails are sent as blind copy on all documents."
+  "bulkSendHelpCco": "CCO emails are sent as blind copy only on SH Docs documents."
 }

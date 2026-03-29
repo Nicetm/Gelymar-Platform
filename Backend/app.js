@@ -269,6 +269,8 @@ app.use('/api/auth', authLimiter, authSlowDown, authRoutes);
 app.use('/api/monitoring', readLimiter, monitoringRoutes);
 app.use('/api/fileserver', fileserverRoutes);
 app.use('/api/assets', readLimiter, assetsRoutes);
+const captchaRoutes = require('./routes/captcha.routes');
+app.use('/api/captcha', readLimiter, captchaRoutes);
 
 // Rutas protegidas (requieren token + rol adecuado)
 app.use('/api/customers', authMiddleware, readLimiter, authorizeRoles(['admin', 'seller']), customerRoutes);

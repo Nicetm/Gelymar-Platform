@@ -1356,7 +1356,7 @@ export async function initClientsScript() {
           showError(getMessage(clientesForm.emailInvalid));
           return;
         }
-        if (cco && (shDocuments || reports)) {
+        if (cco && reports) {
           showError(getMessage(clientesForm.ccoExclusive));
           return;
         }

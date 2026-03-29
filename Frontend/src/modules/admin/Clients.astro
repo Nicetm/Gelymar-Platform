@@ -87,7 +87,7 @@ try {
           </svg>
           {t.clientes.exportToExcel}
         </button>
-        <button id="directoryHelpBtn" class="inline-flex items-center justify-center w-9 h-9 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800" title="Ayuda sobre carpetas">
+        <button id="directoryHelpBtn" type="button" class="w-9 h-9 inline-flex items-center justify-center rounded-md border border-blue-300 text-blue-600 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/30 transition" aria-label={t.clientes.directoryHelpTitle || 'Ayuda'}>
           <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
@@ -235,53 +235,44 @@ try {
 <ModalChangePassword changePassword={t.clientes.changePassword} cancelLabel={t.comond.cancel}/>
 
 <!-- Modal de Ayuda de Carpetas -->
-<div id="directoryHelpModal" class="fixed inset-0 bg-black bg-opacity-50 dark:bg-black/80 hidden justify-center items-center z-50">
-  <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 w-full max-w-md mx-4 relative shadow-2xl">
-    <button id="closeDirectoryHelpModalBtn" class="absolute top-3 right-3 text-gray-400 hover:text-blue-500 transition dark:text-gray-300 dark:hover:text-blue-400">
+<div id="directoryHelpModal" class="fixed inset-0 hidden justify-center items-center z-50 bg-black/50 flex backdrop-blur-sm">
+  <div class="bg-white/95 dark:bg-gray-800/95 text-gray-900 dark:text-gray-100 rounded-2xl p-6 w-full max-w-md relative shadow-2xl ring-1 ring-gray-200 dark:ring-white/10">
+    <button id="closeDirectoryHelpModalBtn" class="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition text-xs">
       <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
       </svg>
     </button>
-    <h3 class="text-lg font-bold mb-3 text-gray-900 dark:text-white">Información de Carpetas</h3>
+    <h3 class="text-lg font-bold mb-3">{t.clientes.directoryHelpTitle || 'Indicador de Carpetas'}</h3>
     <div class="my-3 border-t border-gray-200 dark:border-gray-700"></div>
-    
-    <div class="space-y-4 text-sm text-gray-700 dark:text-gray-300">
-      <div>
-        <p class="font-semibold mb-2">Iconos de carpeta:</p>
-        <ul class="space-y-2 list-none">
-          <li class="flex items-center gap-2">
-            <svg class="w-6 h-6 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/>
-            </svg>
-            <span><strong>Azul:</strong> Carpeta con 1-5 documentos</span>
-          </li>
-          <li class="flex items-center gap-2">
-            <svg class="w-6 h-6 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/>
-            </svg>
-            <span><strong>Amarillo:</strong> Carpeta con 6-10 documentos</span>
-          </li>
-          <li class="flex items-center gap-2">
-            <svg class="w-6 h-6 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/>
-            </svg>
-            <span><strong>Verde:</strong> Carpeta con más de 10 documentos</span>
-          </li>
-          <li class="flex items-center gap-2">
-            <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/>
-            </svg>
-            <span><strong>Gris:</strong> Carpeta sin documentos</span>
-          </li>
-        </ul>
+    <p class="text-sm text-gray-700 dark:text-gray-300 mb-4">
+      {t.clientes.directoryHelpDescription || 'El icono de carpeta junto al nombre del cliente muestra la cantidad de órdenes. Los colores indican:'}
+    </p>
+    <div class="space-y-3 text-sm">
+      <div class="flex items-start gap-2">
+        <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="#dc2626" stroke-width="2" viewBox="0 0 20 20">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path>
+        </svg>
+        <p class="text-gray-700 dark:text-gray-300"><span class="font-semibold text-red-600 dark:text-red-400">{t.clientes.directoryIndicatorRed || 'Rojo: El cliente no tiene órdenes registradas.'}</span></p>
       </div>
-      
-      <div>
-        <p class="font-semibold mb-2">Número junto a la carpeta:</p>
-        <p>Indica la cantidad total de documentos que contiene la carpeta del cliente.</p>
+      <div class="flex items-start gap-2">
+        <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="#eab308" stroke-width="2" viewBox="0 0 20 20">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path>
+        </svg>
+        <p class="text-gray-700 dark:text-gray-300"><span class="font-semibold text-yellow-600 dark:text-yellow-400">{t.clientes.directoryIndicatorYellow || 'Amarillo: El cliente tiene entre 1 y 5 órdenes.'}</span></p>
+      </div>
+      <div class="flex items-start gap-2">
+        <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="#16a34a" stroke-width="2" viewBox="0 0 20 20">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path>
+        </svg>
+        <p class="text-gray-700 dark:text-gray-300"><span class="font-semibold text-green-600 dark:text-green-400">{t.clientes.directoryIndicatorGreen || 'Verde: El cliente tiene más de 5 órdenes.'}</span></p>
+      </div>
+      <div class="flex items-start gap-2">
+        <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="#6b7280" stroke-width="2" viewBox="0 0 20 20">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path>
+        </svg>
+        <p class="text-gray-700 dark:text-gray-300"><span class="font-semibold text-gray-600 dark:text-gray-400">{t.clientes.directoryIndicatorGray || 'Gris: Sin información disponible.'}</span></p>
       </div>
     </div>
-    
     <div class="my-4 border-t border-gray-200 dark:border-gray-700"></div>
     <div class="flex justify-end">
       <button id="closeDirectoryHelpModalFooterBtn" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white rounded-md text-sm">

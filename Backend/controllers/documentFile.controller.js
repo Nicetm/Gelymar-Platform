@@ -1397,49 +1397,31 @@ exports.createDefaultFiles = async (req, res) => {
   try {
     logger.info(`[createDefaultFiles] source=manual params orderId=${orderId || 'N/A'} body pc=${pc || 'N/A'} oc=${oc || 'N/A'} factura=${factura || 'N/A'} idNroOvMasFactura=${idNroOvMasFactura || 'N/A'}`);
     let result;
-    const shipmentIncoterms = new Set(['CFR', 'CIF', 'CIP', 'DAP', 'DDP', 'CPT']);
-    const availabilityIncoterms = new Set([
-      'EWX',
-      'FCA',
-      'FOB',
-      'FCA PORT',
-      'FCA WAREHOUSE SANTIAGO',
-      'FCA AIRPORT',
-      'FCAWSTGO'
-    ]);
-    const isInList = (list, value) => list.has(String(value || '').trim().toUpperCase());
-    const hasFacturaValue = (value) => (
-      value !== null &&
-      value !== undefined &&
-      value !== '' &&
-      value !== 0 &&
-      value !== '0'
-    );
+    const { getIncotermValidationConfig, hasFacturaValue, isInList } = require('../utils/incotermValidation');
+    const incotermConfig = await getIncotermValidationConfig();
+
     const canCreateShipment = (orderMeta, facturaValue) => {
       if (!hasFacturaValue(facturaValue)) return false;
       const incoterm = orderMeta?.incoterm;
       const etd = orderMeta?.fecha_etd_factura;
       const eta = orderMeta?.fecha_eta_factura;
-      const result = isInList(shipmentIncoterms, incoterm) && !!etd && !!eta;
-      // DEBUG: Log para depurar
-      logger.info(`[canCreateShipment] incoterm="${incoterm}" etd="${etd}" eta="${eta}" result=${result}`);
-      return result;
+      if (!etd || !eta) return false;
+      if (incotermConfig.enable) {
+        return isInList(incotermConfig.shipmentIncoterms, incoterm);
+      }
+      return true;
     };
     const canCreateDelivery = (orderMeta, facturaValue) => {
       if (!hasFacturaValue(facturaValue)) return false;
-      const eta = orderMeta?.fecha_eta_factura;
-      const result = !!eta;
-      // DEBUG: Log para depurar
-      logger.info(`[canCreateDelivery] eta="${eta}" result=${result}`);
-      return result;
+      return !!orderMeta?.fecha_eta_factura;
     };
     const canCreateAvailability = (orderMeta, facturaValue) => {
       if (!hasFacturaValue(facturaValue)) return false;
       const incoterm = orderMeta?.incoterm;
-      const result = isInList(availabilityIncoterms, incoterm);
-      // DEBUG: Log para depurar el problema de Availability Notice
-      logger.info(`[canCreateAvailability] incoterm="${incoterm}" isInList=${result} availabilityIncoterms=${Array.from(availabilityIncoterms).join(',')}`);
-      return result;
+      if (incotermConfig.enable) {
+        return isInList(incotermConfig.availabilityIncoterms, incoterm);
+      }
+      return true;
     };
 
     if (orderId) {

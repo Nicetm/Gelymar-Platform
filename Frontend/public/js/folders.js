@@ -866,6 +866,15 @@ export async function initFoldersScript() {
               class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline">
               <span>${folder.pc || '-'}</span>
             </a>
+            <a href="${documentsUrl}"
+               class="relative inline-flex items-center"
+               data-tooltip="${getMessage(carpetas.documentsAvailable) || 'Documentos disponibles'}: ${folder.document_count || 0}"
+               aria-label="${getMessage(carpetas.documentsAvailable) || 'Documentos disponibles'}: ${folder.document_count || 0}">
+              <svg class="w-5 h-5 folder-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" data-doc-types="${(folder.document_type_ids || []).join(',')}">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path>
+              </svg>
+              <span class="absolute -top-1 -right-3 dark:border-gray-800 text-gray-900 dark:text-white text-xs rounded-full h-4 w-4 flex items-center justify-center text-[10px]">${folder.document_count || 0}</span>
+            </a>
           </div>
         </td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${folder.oc || '-'}</td>
@@ -885,12 +894,6 @@ export async function initFoldersScript() {
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(folder.fecha_eta_factura)}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${folder.incoterm || '-'}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${folder.puerto_destino || '-'}</td>
-        <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">
-          <a href="${documentsUrl}"
-             class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline">
-            ${getMessage(carpetas.viewDocuments)}
-          </a>
-        </td>
         <td class="sticky right-0 bg-gray-50 dark:bg-gray-700 z-10 px-6 py-4 min-w-[120px] overflow-visible">
           <div class="flex justify-center gap-3 relative">
             <div class="relative">
@@ -929,6 +932,29 @@ export async function initFoldersScript() {
     `;
   }
 
+  function applyFolderColors() {
+    document.querySelectorAll('.folder-icon').forEach(icon => {
+      const docTypesStr = icon.dataset.docTypes || '';
+      const docTypes = docTypesStr ? docTypesStr.split(',').map(id => parseInt(id)) : [];
+      const avisoRecepcionOrden = 9;
+      const avisoEmbarque = 19;
+      const avisoEntrega = 15;
+      const avisoDisponibilidad = 6;
+      const todosLosDocumentos = 18;
+      const hasAnyDefaultDoc = docTypes.includes(avisoRecepcionOrden) || docTypes.includes(avisoEmbarque) || docTypes.includes(avisoEntrega) || docTypes.includes(avisoDisponibilidad);
+      const hasTodosLosDocumentos = docTypes.includes(todosLosDocumentos);
+      if (docTypes.length === 0) {
+        icon.style.stroke = '#dc2626';
+      } else if (hasAnyDefaultDoc && hasTodosLosDocumentos) {
+        icon.style.stroke = '#16a34a';
+      } else if (hasAnyDefaultDoc) {
+        icon.style.stroke = '#eab308';
+      } else {
+        icon.style.stroke = '#6b7280';
+      }
+    });
+  }
+
   function renderTable() {
     if (!tableBody) return;
 
@@ -955,7 +981,7 @@ export async function initFoldersScript() {
         const viewportWidth = scrollBody?.clientWidth || 0;
         tableBody.innerHTML = `
           <tr class="bg-white dark:bg-gray-900">
-            <td colspan="15" class="px-6 py-8 text-gray-500" style="position: sticky; left: 0;">
+            <td colspan="14" class="px-6 py-8 text-gray-500" style="position: sticky; left: 0;">
               <div class="flex justify-center text-center" style="width: ${viewportWidth ? `${viewportWidth}px` : '100%'};">
                 ${getMessage(carpetas.customerNotFound)}
               </div>
@@ -966,7 +992,7 @@ export async function initFoldersScript() {
       }
       tableBody.innerHTML = `
           <tr class="bg-white dark:bg-gray-900">
-            <td colspan="15" class="px-6 py-8 text-center text-gray-500">
+            <td colspan="14" class="px-6 py-8 text-center text-gray-500">
               ${getMessage(carpetas.noResults)}
           </td>
         </tr>
@@ -975,6 +1001,7 @@ export async function initFoldersScript() {
       pageData.forEach(folder => {
         tableBody.insertAdjacentHTML('beforeend', renderFolderRow(folder));
       });
+      applyFolderColors();
     }
 
     if (pageIndicator) {
@@ -990,11 +1017,19 @@ export async function initFoldersScript() {
   }
 
   function exportToExcel() {
+    const btn = qs('exportExcelBtn');
+    const originalHTML = btn?.innerHTML;
+
     const foldersToExport = filteredFolders.length > 0 ? filteredFolders : allFolders;
 
     if (foldersToExport.length === 0) {
       showNotification(getMessage(carpetas.exportEmpty), 'warning');
       return;
+    }
+
+    if (btn) {
+      btn.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>';
+      btn.disabled = true;
     }
 
     const headers = [
@@ -1010,17 +1045,11 @@ export async function initFoldersScript() {
       getMessage(carpetas.etdFactura),
       getMessage(carpetas.etaFactura),
       getMessage(carpetas.incoterm),
-      getMessage(carpetas.puertoDestino),
-      getMessage(carpetas.documents)
+      getMessage(carpetas.puertoDestino)
     ];
 
     const data = foldersToExport.map(folder => {
-      const customerRut = folder.customer_rut || folder.customer_uuid || '';
-      const pcValue = folder.pc || '';
-      const ocValue = folder.oc || '';
       const companyValue = folder.customer_name || clientName || '';
-      const facturaValue = folder.factura ?? '';
-      const documentsUrl = `${documentsPath}/${encodeURIComponent(customerRut)}/${encodeURIComponent(pcValue)}/${slugifyPath(ocValue)}/${slugifyPath(companyValue)}/${encodeURIComponent(facturaValue)}`;
       const shippingMethod = (!folder.factura || folder.factura === 0 || folder.factura === '0')
         ? (folder.medio_envio_ov || '')
         : (folder.medio_envio_factura || '');
@@ -1038,8 +1067,7 @@ export async function initFoldersScript() {
         formatDateShort(folder.fecha_etd_factura) || '',
         formatDateShort(folder.fecha_eta_factura) || '',
         folder.incoterm || '',
-        folder.puerto_destino || '',
-        documentsUrl
+        folder.puerto_destino || ''
       ];
     });
 
@@ -1070,6 +1098,11 @@ export async function initFoldersScript() {
       count: foldersToExport.length
     });
     showNotification(exportMessage, 'success');
+
+    if (btn && originalHTML) {
+      btn.innerHTML = originalHTML;
+      btn.disabled = false;
+    }
   }
 
   setupStickyTableControls();
