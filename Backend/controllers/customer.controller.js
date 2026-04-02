@@ -307,6 +307,9 @@ exports.createCustomerAccount = async (req, res) => {
     const userId = await userService.createUser(userData);
     logger.info(`[createCustomerAccount] user created id=${userId} rut=${userData.rut || 'N/A'}`);
     
+    const io = req.app.get('io');
+    if (io) io.to('admin-room').emit('updateNotifications');
+
     res.json({ 
       message: t('success.account_created', req.lang || 'es'),
       userId: userId,

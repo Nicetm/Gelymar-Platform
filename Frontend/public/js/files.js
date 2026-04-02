@@ -103,7 +103,9 @@ function canSendToEmail(email, mode = getGlobalValidationMode()) {
   const normalizedMode = String(mode) === '0' ? '0' : '1';
   const metadata = getRecipientMetadata(email);
   if (!metadata) return true;
-  if (metadata.cco) return true;
+
+  // CCO contacts cannot be added as normal recipients — they go in BCC only
+  if (metadata.cco) return false;
 
   const shEnabled = metadata.sh_documents === true;
   const reportsEnabled = metadata.reports === true;
@@ -1223,29 +1225,25 @@ export function initFilesScript() {
     const renderCco = () => {
       if (!ccoWrapper || !ccoContainer) return;
       const ccoEmails = getCcoEmailsFromMetadata(validationMode);
-      if (!ccoEmails.length) {
+      // Only show CCO emails that are NOT already in the active list
+      const inactiveCco = ccoEmails.filter((email) => !activeEmails.has(email));
+      if (!inactiveCco.length) {
         ccoWrapper.classList.add('hidden');
         ccoContainer.innerHTML = '';
         return;
       }
       ccoWrapper.classList.remove('hidden');
       ccoContainer.innerHTML = '';
-      ccoEmails.forEach((email) => {
-        const isActive = activeEmails.has(email);
+      inactiveCco.forEach((email) => {
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = isActive
-          ? 'inline-flex items-center gap-2 rounded-full border border-green-300 px-3 py-1 text-xs text-green-700 bg-green-50 dark:border-green-700 dark:text-green-200 dark:bg-green-900/30 cursor-default'
-          : 'inline-flex items-center gap-1 rounded-full border border-dashed border-gray-300 px-3 py-1 text-xs text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700';
-        button.innerHTML = isActive
-          ? `<svg class="w-3 h-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-7.5 7.5a1 1 0 01-1.414 0l-3.5-3.5a1 1 0 011.414-1.414l2.793 2.793 6.793-6.793a1 1 0 011.414 0z" clip-rule="evenodd" /></svg><span>${email}</span>`
-          : `<svg class="w-3 h-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg><span>${email}</span>`;
-        if (!isActive) {
-          button.addEventListener('click', () => {
-            activeEmails.add(email);
-            renderAll();
-          });
-        }
+        button.className = 'inline-flex items-center gap-1 rounded-full border border-dashed border-teal-300 px-3 py-1 text-xs text-teal-700 transition hover:bg-teal-50 dark:border-teal-600 dark:text-teal-200 dark:hover:bg-teal-900/30';
+        button.setAttribute('aria-label', `${addButtonLabel} ${email}`);
+        button.innerHTML = `<svg class="w-3 h-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg><span>${email}</span>`;
+        button.addEventListener('click', () => {
+          activeEmails.add(email);
+          renderAll();
+        });
         ccoContainer.appendChild(button);
       });
     };
@@ -1264,16 +1262,27 @@ export function initFilesScript() {
 
       Array.from(activeEmails).forEach((email) => {
         const chip = document.createElement('span');
-        const isAllowed = canSendToEmail(email, validationMode);
-        chip.className = 'inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium transition-colors';
-        if (isAllowed) {
+        const metadata = getRecipientMetadata(email);
+        const isCco = metadata?.cco === true;
+        const isSh = metadata?.sh_documents === true;
+        const isReports = metadata?.reports === true;
+        const isAllowed = isCco ? true : canSendToEmail(email, validationMode);
+
+        chip.className = 'inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium transition-colors cursor-default';
+        if (isCco) {
+          chip.className += ' bg-teal-50 text-teal-700 border border-teal-300 dark:bg-teal-900/40 dark:text-teal-200 dark:border-teal-700';
+        } else if (isAllowed) {
           chip.className += ' bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200';
         } else {
           chip.className += ' bg-red-50 text-red-700 border border-red-300 dark:bg-red-900/40 dark:text-red-200 dark:border-red-700';
-          const restrictionLabel = getRestrictionLabel(validationMode);
-          chip.dataset.validationRestriction = restrictionLabel;
-          chip.title = `${restrictionLabel} deshabilitado para este contacto`;
         }
+
+        // Tooltip with contact type
+        const types = [];
+        if (isCco) types.push('CCO');
+        if (isSh) types.push('SH Docs');
+        if (isReports) types.push('Reports');
+        chip.title = types.length ? types.join(' + ') : 'Email';
 
         const text = document.createElement('span');
         text.textContent = email;
@@ -1297,8 +1306,6 @@ export function initFilesScript() {
       if (!availableWrapper || !availableContainer) return;
       availableContainer.innerHTML = '';
 
-      const ccoSet = new Set(getCcoEmailsFromMetadata(validationMode).map(normalize).filter(Boolean));
-      // Exclude all CCO contacts from available list — in SH mode they show in CCO section, in Reports mode they shouldn't appear at all
       const allCcoEmails = new Set(
         getRecipientMetadataList()
           .filter((c) => c.cco === true)
@@ -1306,8 +1313,7 @@ export function initFilesScript() {
           .filter(Boolean)
       );
       const availableList = Array.from(knownEmails).filter((email) => {
-        const norm = normalize(email);
-        return !activeEmails.has(email) && !ccoSet.has(norm) && !allCcoEmails.has(norm);
+        return !activeEmails.has(email) && !allCcoEmails.has(normalize(email));
       });
       if (!availableList.length) {
         availableWrapper.classList.add('hidden');
@@ -1403,7 +1409,10 @@ export function initFilesScript() {
       activeEmails.clear();
       if (Array.isArray(list)) {
         list.map(normalize).filter(Boolean).forEach((email) => {
-          if (!canSendToEmail(email, validationMode)) return;
+          const metadata = getRecipientMetadata(email);
+          const isCco = metadata?.cco === true;
+          // Allow CCO contacts (they go as BCC), block others that can't send
+          if (!isCco && !canSendToEmail(email, validationMode)) return;
           activeEmails.add(email);
           knownEmails.add(email);
         });
@@ -1454,6 +1463,14 @@ export function initFilesScript() {
           setActiveFrom(baseEmails);
         }
       },
+      addCcoToActive: (ccoList) => {
+        if (!Array.isArray(ccoList)) return;
+        ccoList.map(normalize).filter(Boolean).forEach((email) => {
+          activeEmails.add(email);
+          knownEmails.add(email);
+        });
+        renderAll();
+      },
       setBase: (list) => {
         setBaseEmails(list);
       },
@@ -1468,7 +1485,11 @@ export function initFilesScript() {
         setGlobalValidationMode(validationMode);
         if (activeEmails.size) {
           activeEmails = new Set(
-            Array.from(activeEmails).filter((email) => canSendToEmail(email, validationMode))
+            Array.from(activeEmails).filter((email) => {
+              const meta = getRecipientMetadata(email);
+              if (meta?.cco) return true; // Keep CCO contacts
+              return canSendToEmail(email, validationMode);
+            })
           );
         }
         renderAll();
@@ -1619,6 +1640,11 @@ export function initFilesScript() {
 
       const baseRecipients = validationMode === '0' ? manualDefaults : reportsDefaults;
       window.emailRecipientController.reset(baseRecipients);
+      // Add CCO emails to the active list after reset
+      const ccoEmails = getCcoEmailsFromMetadata(validationMode);
+      if (ccoEmails.length && window.emailRecipientController.addCcoToActive) {
+        window.emailRecipientController.addCcoToActive(ccoEmails);
+      }
     }
     
     window.currentMessageData = {
@@ -1902,9 +1928,12 @@ export function initFilesScript() {
     const { fileId, fileName, order } = btn.dataset;
     const isGeneratedValue = btn.dataset.isGenerated ?? btn.closest('tr')?.dataset?.isGenerated ?? '1';
     
-    // Si es un botón de reenviar, preguntar si regenerar primero
+    // Si es un botón de reenviar, preguntar si regenerar primero (solo para documentos generados)
     if (btn.classList.contains('resend-btn')) {
-      const regenerate = await confirmAction(
+      const isGenerated = isGeneratedValue === '1';
+
+      if (isGenerated) {
+        const regenerate = await confirmAction(
         getMessage(documentos.confirmRegenerateTitle),
         getMessage(documentos.confirmRegenerateMessage),
         'question'
@@ -1949,6 +1978,12 @@ export function initFilesScript() {
         }
       } else {
         // Solo enviar por correo sin regenerar
+        const urlParams = new URLSearchParams(window.location.search);
+        const finalOrder = order || urlParams.get('oc') || '';
+        openMessageModal(fileId, fileName, finalOrder, 'resend', isGeneratedValue);
+      }
+      } else {
+        // Documento subido manualmente — solo enviar, no ofrecer regenerar
         const urlParams = new URLSearchParams(window.location.search);
         const finalOrder = order || urlParams.get('oc') || '';
         openMessageModal(fileId, fileName, finalOrder, 'resend', isGeneratedValue);
@@ -2515,7 +2550,8 @@ export function initFilesScript() {
       });
 
       if (!res.ok) {
-        throw new Error(getMessage(documentos.uploadError));
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || getMessage(documentos.uploadError));
       }
 
       showNotification(getMessage(documentos.uploadSuccess), 'success');
@@ -2573,6 +2609,7 @@ export function initFilesScript() {
 
       let successCount = 0;
       let errorCount = 0;
+      let firstError = null;
       const totalFiles = files.length;
 
       // Upload each file
@@ -2616,6 +2653,8 @@ export function initFilesScript() {
           if (res.ok) {
             successCount++;
           } else {
+            const errorData = await res.json().catch(() => ({}));
+            if (!firstError) firstError = errorData.message;
             errorCount++;
           }
         } catch (err) {
@@ -2626,7 +2665,7 @@ export function initFilesScript() {
       if (successCount > 0) {
         showNotification(`${successCount} file(s) uploaded successfully${errorCount > 0 ? `, ${errorCount} failed` : ''}`, successCount === files.length ? 'success' : 'warning');
       } else {
-        showNotification('All uploads failed', 'error');
+        showNotification(firstError || 'All uploads failed', 'error');
       }
 
       hideUploadModal();

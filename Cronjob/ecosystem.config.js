@@ -100,6 +100,17 @@ module.exports = {
         kill_timeout: 5000,
         max_memory_restart: '300M',
         restart_delay: 4000
+      },
+      {
+        name: 'gelymar-detect-order-changes',
+        script: './cron/detectOrderChanges.js',
+        watch: false,
+        autorestart: true,
+        wait_ready: true,
+        listen_timeout: 10000,
+        kill_timeout: 5000,
+        max_memory_restart: '300M',
+        restart_delay: 4000
       }
     ]
   }; 

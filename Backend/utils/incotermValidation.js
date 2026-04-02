@@ -28,12 +28,17 @@ async function getIncotermValidationConfig() {
     if (typeof params === 'string') params = JSON.parse(params);
     if (Buffer.isBuffer(params)) params = JSON.parse(params.toString('utf8'));
 
-    const enabled = params.enable === 1;
+    if (params.enable !== 1) {
+      cachedConfig = { enable: false, shipmentIncoterms: new Set(), availabilityIncoterms: new Set() };
+      cacheTimestamp = now;
+      return cachedConfig;
+    }
+
     const shipment = (params.incoterm?.['Shipment Notice'] || []).map(v => String(v).trim().toUpperCase());
     const availability = (params.incoterm?.['Availability Notice'] || []).map(v => String(v).trim().toUpperCase());
 
     cachedConfig = {
-      enable: enabled,
+      enable: true,
       shipmentIncoterms: new Set(shipment),
       availabilityIncoterms: new Set(availability),
     };

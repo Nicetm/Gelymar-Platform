@@ -495,10 +495,6 @@ export function initNotificationBell(config = {}) {
       // Validar token usando función centralizada
       const token = getValidToken();
       if (!token) return;
-      const cachedToken = sessionStorage.getItem(NOTIFICATIONS_CACHE_TOKEN_KEY);
-      if (cachedToken && cachedToken !== token) {
-        force = true;
-      }
       
       const response = await fetch(`${apiBase}/api/chat/summary`, {
 headers: {

@@ -94,7 +94,9 @@ export function initPuzzleCaptcha(containerEl, { apiUrl, portal, onVerified }) {
 
   function show() {
     overlay.style.display = 'flex';
-    if (!verified) loadChallenge();
+    // Always load a fresh challenge when showing the modal
+    verified = false;
+    loadChallenge();
   }
 
   function hide() {

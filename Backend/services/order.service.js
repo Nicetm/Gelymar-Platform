@@ -166,8 +166,8 @@ const createOrderService = ({
         FROM jor_imp_HDR_90_softkey h
         LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
         LEFT JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
-        WHERE h.EstadoOV <> 'Cancelada'
-        ORDER BY CAST(h.Fecha AS date) DESC
+        -- WHERE h.EstadoOV <> 'Cancelada'
+        -- ORDER BY CAST(h.Fecha AS date) DESC
       `;
     }
 

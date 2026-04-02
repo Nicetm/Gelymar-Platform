@@ -489,16 +489,25 @@ const getAllFiles = async () => {
       LEFT JOIN order_status os ON f.status_id = os.id
     `;
 
+    const orderClause = `ORDER BY 
+      CASE f.file_id 
+        WHEN 9 THEN 1 
+        WHEN 6 THEN 2 
+        WHEN 15 THEN 3 
+        WHEN 19 THEN 4 
+        ELSE 5 
+      END, f.created_at DESC`;
+
     if (normalizedFactura) {
       const [rows] = await pool.query(
-        `${queryBase} WHERE f.pc = ? AND f.factura = ? ORDER BY f.created_at DESC`,
+        `${queryBase} WHERE f.pc = ? AND f.factura = ? ${orderClause}`,
         [pc, normalizedFactura]
       );
       return rows.map(row => new File(row));
     }
 
     const [fallbackRows] = await pool.query(
-      `${queryBase} WHERE f.pc = ? ORDER BY f.created_at DESC`,
+      `${queryBase} WHERE f.pc = ? ${orderClause}`,
       [pc]
     );
     return fallbackRows.map(row => new File(row));

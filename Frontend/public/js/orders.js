@@ -1157,33 +1157,10 @@ export async function initOrdersScript() {
     }
   });
   
-  // Cuando el usuario vuelve a esta página (botón atrás o cambio de pestaña),
-  // forzar revalidación para mostrar datos actualizados
-  window.addEventListener('pageshow', (event) => {
-    if (event.persisted) {
-      // Página restaurada desde bfcache (botón atrás) — revalidar siempre
-      revalidateInBackground();
-    }
-    if (searchInput && searchInput.value.trim()) {
-      filterRows({ preservePage: true });
-    }
-  });
-
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      revalidateInBackground();
-    }
-  });
-
-
-  // Función eliminada - ya no se necesita mostrar estado del cache
-  
   // Cargar y renderizar órdenes inicialmente
   loadAndRenderOrders().then(() => {
     filterRows({ preservePage: restorePage });
   });
-  
-  // Cache inicializado automáticamente
 
   // Función para navegar a clientes con filtro aplicado
   function navigateToClientsWithFilter(customerName) {

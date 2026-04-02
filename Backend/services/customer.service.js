@@ -261,13 +261,17 @@ async function getCustomerByRut(rut) {
 async function getCustomerByRutFromSql(rut) {
   const pool = await getSqlPool();
   
-  // Solo normalizar guiones Unicode, NO quitar la 'C'
   const searchRut = String(rut || '').trim()
-    .replace(/[\u2010-\u2015\u2212]/g, '-'); // Reemplaza guiones Unicode por guion ASCII
+    .replace(/[\u2010-\u2015\u2212]/g, '-');
   
+  // Search with and without trailing 'C'
+  const hasTrailingC = searchRut.toLowerCase().endsWith('c');
+  const altRut = hasTrailingC ? searchRut.slice(0, -1) : `${searchRut}C`;
+
   const result = await pool
     .request()
     .input('rut', sql.VarChar, searchRut)
+    .input('rutAlt', sql.VarChar, altRut)
     .query(`
       SELECT TOP 1
         Rut,
@@ -283,7 +287,7 @@ async function getCustomerByRutFromSql(rut) {
         Correo,
         EstadoCliente
       FROM jor_imp_CLI_01_softkey
-      WHERE LTRIM(RTRIM(Rut)) = @rut
+      WHERE (LTRIM(RTRIM(Rut)) = @rut OR LTRIM(RTRIM(Rut)) = @rutAlt)
         AND LTRIM(RTRIM(EstadoCliente)) = 'Activo'
     `);
 
@@ -532,13 +536,20 @@ async function getCustomersWithoutAccount() {
 
   const pool = await poolPromise;
   const [userRows] = await pool.query('SELECT rut FROM users');
-  const userRuts = new Set(userRows.map((row) => normalizeRut(row.rut)));
-  const missing = rows.filter((row) => !userRuts.has(normalizeRut(row.Rut)));
+
+  // Normalize removing trailing 'C' for comparison (SQL Server RUTs may have 'C' suffix)
+  const stripTrailingC = (rut) => {
+    const n = normalizeRut(rut).toLowerCase();
+    return n.endsWith('c') ? n.slice(0, -1) : n;
+  };
+
+  const userRuts = new Set(userRows.map((row) => stripTrailingC(row.rut)));
+  const missing = rows.filter((row) => !userRuts.has(stripTrailingC(row.Rut)));
   
   logger.info(`[getCustomersWithoutAccount] customers=${rows.length} users=${userRows.length} missing=${missing.length}`);
 
   return rows
-    .filter((row) => !userRuts.has(normalizeRut(row.Rut)))
+    .filter((row) => !userRuts.has(stripTrailingC(row.Rut)))
     .map((row) => new Customer({
       id: null,
       rut: row.Rut?.trim() || null,

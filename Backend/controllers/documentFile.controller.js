@@ -342,14 +342,26 @@ const fileFilter = (req, file, cb) => {
   const allowed = ['.pdf'];
   const ext = path.extname(file.originalname).toLowerCase();
   if (allowed.includes(ext)) cb(null, true);
-  else cb(new Error('Tipo de archivo no permitido'), false);
+  else {
+    const err = new Error('Solo se permiten archivos PDF');
+    err.technicalDetail = `Archivo rechazado: "${file.originalname}" (ext: ${ext || 'sin extensión'})`;
+    cb(err, false);
+  }
 };
 
 // Middleware de subida de archivos
 const upload = multer({ storage, fileFilter });
 
 // Middleware listo para una sola subida bajo el campo 'file'
-exports.uploadFile = upload.single('file');
+exports.uploadFile = (req, res, next) => {
+  upload.single('file')(req, res, (err) => {
+    if (err) {
+      logger.warn(`[upload] ${err.technicalDetail || err.message} - IP: ${req.ip}`);
+      return res.status(400).json({ message: err.message });
+    }
+    next();
+  });
+};
 
 /**
  * @route POST /api/files/upload
@@ -529,6 +541,8 @@ exports.handleUpload = async (req, res) => {
     await fileService.insertFile(fileData);
     
     logger.info(`[handleUpload] source=manual Archivo subido pc=${order.pc || 'N/A'} oc=${order.oc || 'N/A'} factura=${resolvedFactura ?? 'N/A'} rut=${customerRut || 'N/A'} name=${file.originalname}`);
+    const io = req.app.get('io');
+    if (io) io.to('admin-room').emit('updateNotifications');
     res.status(201).json({ message: t('documentFile.file_uploaded_success', req.lang || 'es') });
   } catch (err) {
     logger.error(`Error al subir archivo: ${err.message}`);
@@ -968,6 +982,8 @@ exports.generateFile = async (req, res) => {
       userId: req.user?.id || null,
       status: 'ok'
     });
+    const io = req.app.get('io');
+    if (io) io.to('admin-room').emit('updateNotifications');
     return res.json({ message: t('documentFile.file_generated', req.lang || 'es'), path: updateData.path });
 
   } catch (error) {
@@ -1037,6 +1053,9 @@ exports.sendFile = async (req, res) => {
       userId: req.user?.id || null,
       status: 'ok'
     });
+    const io = req.app.get('io');
+    if (io) io.to('admin-room').emit('updateNotifications');
+
     res.json({ message: t('documentFile.document_sent', req.lang || 'es') });
   } catch (err) {
     logger.error(`Error al enviar archivo: ${err.message}`);
@@ -1125,6 +1144,8 @@ exports.bulkSendFiles = async (req, res) => {
     }
 
     logger.info(`[bulkSendFiles] ${files.length} archivos enviados a ${recipients.length} destinatarios`);
+    const io = req.app.get('io');
+    if (io) io.to('admin-room').emit('updateNotifications');
     res.json({ message: `${files.length} documento(s) enviados correctamente`, sent: files.length });
   } catch (err) {
     logger.error(`[bulkSendFiles] Error: ${err.message}`);
@@ -1178,6 +1199,8 @@ exports.deleteFileById = async (req, res) => {
     });
     
     logger.info(`[deleteFile] Archivo eliminado pc=${file.pc || 'N/A'} oc=${file.oc || 'N/A'} factura=${file.factura ?? 'N/A'} name=${file.name || 'N/A'}`);
+    const io = req.app.get('io');
+    if (io) io.to('admin-room').emit('updateNotifications');
     res.json({ message: `${t('documentFile.file_deleted', req.lang || 'es')} ${file.name}` });
   } catch (error) {
     logger.error(`Error al eliminar archivo: ${error.message}`);
@@ -1356,6 +1379,8 @@ exports.resendFile = async (req, res) => {
         userId: req.user?.id || null,
         status: 'ok'
       });
+      const io = req.app.get('io');
+      if (io) io.to('admin-room').emit('updateNotifications');
       res.json({ message: t('documentFile.document_resent', req.lang || 'es') });
   } catch (err) {
     logger.error(`Error al reenviar archivo: ${err.message}`);

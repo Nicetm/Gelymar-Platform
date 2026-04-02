@@ -15,21 +15,25 @@ function buildFallbackAvatar(name = '') {
 export async function initAdminPresence({ apiBase, fileServer, labels } = {}) {
   const container = qs('admin-presence');
   if (!container) return;
-  const token = localStorage.getItem('token');
-  if (!token) return;
+  if (!localStorage.getItem('token')) return;
   const apiRoot = apiBase || window.apiBase || '';
 
   const onlineLabel = labels?.online || 'Online';
   const offlineLabel = labels?.offline || 'Offline';
 
   const fetchPresence = async () => {
+    const freshToken = localStorage.getItem('token');
+    if (!freshToken) {
+      clearInterval(window.__adminPresenceInterval);
+      return;
+    }
     try {
       const [presenceResponse, meResponse] = await Promise.all([
         fetch(`${apiRoot}/api/users/admins/presence`, {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${freshToken}` }
         }),
         fetch(`${apiRoot}/api/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${freshToken}` }
         })
       ]);
 
@@ -50,7 +54,7 @@ export async function initAdminPresence({ apiBase, fileServer, labels } = {}) {
         const statusLabel = isOnline ? onlineLabel : offlineLabel;
         const statusClass = isOnline ? 'bg-green-500' : 'bg-red-500';
         const avatarPath = admin.avatar_path
-          ? `${apiRoot}/api/assets?path=${encodeURIComponent(admin.avatar_path.replace(/^\/+/, ''))}&token=${encodeURIComponent(token)}`
+          ? `${apiRoot}/api/assets?path=${encodeURIComponent(admin.avatar_path.replace(/^\/+/, ''))}&token=${encodeURIComponent(freshToken)}`
           : '';
 
         const avatarMarkup = avatarPath
