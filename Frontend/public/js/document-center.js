@@ -1,16 +1,13 @@
 // Importar funciones desde utils.js
-import { showNotification as globalShowNotification, getValidToken } from './utils.js';
+import { showNotification as globalShowNotification, setupModalClose, setupFloatingTooltips } from './utils.js';
 
 // =============================================================================
 // DOCUMENT CENTER - LÓGICA PRINCIPAL
 // =============================================================================
 
 // ▸ Variables globales
-let currentOrderId = null;
 let documents = [];
 let filteredDocuments = [];
-let currentPage = 1;
-const itemsPerPage = 1000; // Mostrar todas las tarjetas
 
 // Variables globales para paginación de órdenes
 let currentOrderPage = 1;
@@ -30,15 +27,6 @@ const ordersGrid = document.getElementById('orders-grid');
 const docsModal = document.getElementById('docsModal');
 const docsListBody = document.getElementById('docsListBody');
 const docsOrderTitle = document.getElementById('docsOrderTitle');
-const closeDocsModalBtn = document.getElementById('closeDocsModalBtn');
-
-// Estado para tooltips flotantes (para evitar clipping)
-const floatingTooltipState = {
-  el: null,
-  currentTarget: null,
-  removeTimeout: null,
-  globalHandlersBound: false
-};
 
 // ▸ Configuración de colores para estados
 const statusColors = {
@@ -257,122 +245,6 @@ function hideOrdersLoadingRow() {
   if (loadingRow) loadingRow.remove();
 }
 
-function ensureFloatingTooltipElement() {
-  if (!floatingTooltipState.el) {
-    const tooltip = document.createElement('div');
-    tooltip.setAttribute('role', 'tooltip');
-    Object.assign(tooltip.style, {
-      position: 'fixed',
-      zIndex: '50',
-      backgroundColor: '#1f2937',
-      color: '#ffffff',
-      padding: '6px 10px',
-      borderRadius: '6px',
-      fontSize: '12px',
-      fontWeight: '500',
-      lineHeight: '1.4',
-      boxShadow: '0 8px 18px rgba(0, 0, 0, 0.25)',
-      pointerEvents: 'none',
-      whiteSpace: 'nowrap',
-      opacity: '0',
-      transition: 'opacity 120ms ease',
-      maxWidth: '320px',
-      textAlign: 'center'
-    });
-    floatingTooltipState.el = tooltip;
-  }
-  return floatingTooltipState.el;
-}
-
-function ensureFloatingTooltipHandlers() {
-  if (floatingTooltipState.globalHandlersBound) return;
-  floatingTooltipState.globalHandlersBound = true;
-  const hideOnChange = () => hideFloatingTooltip();
-  window.addEventListener('scroll', hideOnChange, true);
-  window.addEventListener('resize', hideOnChange, true);
-  window.addEventListener('keydown', event => {
-    if (event.key === 'Escape') hideFloatingTooltip();
-  }, true);
-}
-
-function positionFloatingTooltip(target, tooltipEl) {
-  const rect = target.getBoundingClientRect();
-  const tooltipRect = tooltipEl.getBoundingClientRect();
-  const spacing = 10;
-
-  let top = rect.top - tooltipRect.height - spacing;
-  if (top < spacing) top = rect.bottom + spacing;
-
-  const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
-  let left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
-  left = Math.min(Math.max(spacing, left), viewportWidth - tooltipRect.width - spacing);
-
-  tooltipEl.style.top = `${Math.round(top)}px`;
-  tooltipEl.style.left = `${Math.round(left)}px`;
-}
-
-function showFloatingTooltip(target) {
-  if (!target || !(target instanceof HTMLElement)) return;
-  const text = target.getAttribute('data-tooltip');
-  if (!text) return;
-
-  ensureFloatingTooltipHandlers();
-  clearTimeout(floatingTooltipState.removeTimeout);
-
-  const tooltipEl = ensureFloatingTooltipElement();
-  tooltipEl.textContent = text;
-
-  if (!tooltipEl.isConnected) document.body.appendChild(tooltipEl);
-
-  tooltipEl.style.opacity = '0';
-  tooltipEl.style.visibility = 'hidden';
-
-  requestAnimationFrame(() => {
-    tooltipEl.style.visibility = 'visible';
-    positionFloatingTooltip(target, tooltipEl);
-    requestAnimationFrame(() => {
-      tooltipEl.style.opacity = '1';
-    });
-  });
-
-  floatingTooltipState.currentTarget = target;
-}
-
-function hideFloatingTooltip() {
-  if (!floatingTooltipState.el) return;
-  const tooltipEl = floatingTooltipState.el;
-  tooltipEl.style.opacity = '0';
-  floatingTooltipState.currentTarget = null;
-  clearTimeout(floatingTooltipState.removeTimeout);
-  floatingTooltipState.removeTimeout = window.setTimeout(() => {
-    if (tooltipEl.parentElement) tooltipEl.parentElement.removeChild(tooltipEl);
-    tooltipEl.style.visibility = 'hidden';
-  }, 150);
-}
-
-function handleTooltipEnter(event) {
-  showFloatingTooltip(event.currentTarget);
-}
-
-function handleTooltipLeave(event) {
-  const target = event.currentTarget;
-  if (floatingTooltipState.currentTarget === target) {
-    if (event.type === 'mouseleave' && document.activeElement === target) return;
-    hideFloatingTooltip();
-  }
-}
-
-function setupFloatingTooltips(container) {
-  if (!container) return;
-  const tooltipTargets = container.querySelectorAll('[data-tooltip]');
-  tooltipTargets.forEach(target => {
-    target.addEventListener('mouseenter', handleTooltipEnter);
-    target.addEventListener('mouseleave', handleTooltipLeave);
-    target.addEventListener('focus', handleTooltipEnter);
-    target.addEventListener('blur', handleTooltipLeave);
-  });
-}
-
 function resolveShippingMethod(order) {
   const facturaVal = order.factura;
   const hasFactura = facturaVal !== null && facturaVal !== undefined && facturaVal !== '' && facturaVal !== '0';
@@ -529,8 +401,6 @@ function renderOrders() {
  * Selecciona una orden y muestra sus documentos
  */
 async function selectOrder(orderId) {
-  currentOrderId = orderId;
-  
   // Resaltar orden seleccionada
   const orderCards = document.querySelectorAll('[data-order-id]');
   orderCards.forEach(card => {
@@ -1085,44 +955,9 @@ function setupEventListeners() {
     }
   });
 
-  if (closeDocsModalBtn && docsModal) {
-    closeDocsModalBtn.addEventListener('click', () => {
-      docsModal.classList.add('hidden');
-    });
-    docsModal.addEventListener('click', (e) => {
-      if (e.target === docsModal) {
-        docsModal.classList.add('hidden');
-      }
-    });
-  }
-
-  // Event listeners para modal de ayuda de contador de documentos
-  const docsCountHelpModal = document.getElementById('docsCountHelpModal');
-  const closeDocsCountHelpModalBtn = document.getElementById('closeDocsCountHelpModalBtn');
-  const closeDocsCountHelpModalFooterBtn = document.getElementById('closeDocsCountHelpModalFooterBtn');
-
-  if (closeDocsCountHelpModalBtn && docsCountHelpModal) {
-    closeDocsCountHelpModalBtn.addEventListener('click', () => {
-      docsCountHelpModal.classList.add('hidden');
-      docsCountHelpModal.classList.remove('flex');
-    });
-  }
-
-  if (closeDocsCountHelpModalFooterBtn && docsCountHelpModal) {
-    closeDocsCountHelpModalFooterBtn.addEventListener('click', () => {
-      docsCountHelpModal.classList.add('hidden');
-      docsCountHelpModal.classList.remove('flex');
-    });
-  }
-
-  if (docsCountHelpModal) {
-    docsCountHelpModal.addEventListener('click', (e) => {
-      if (e.target === docsCountHelpModal) {
-        docsCountHelpModal.classList.add('hidden');
-        docsCountHelpModal.classList.remove('flex');
-      }
-    });
-  }
+  // Configurar cierre de modales
+  setupModalClose('#docsModal', '#closeDocsModalBtn');
+  setupModalClose('#docsCountHelpModal', '#closeDocsCountHelpModalBtn, #closeDocsCountHelpModalFooterBtn');
 }
 
 // =============================================================================
@@ -2131,24 +1966,7 @@ function formatCurrency(amount, currency = 'CLP', decimals = 2) {
 
 // Event listeners para cerrar el modal
 document.addEventListener('DOMContentLoaded', () => {
-  const closeItemsModalBtn = document.getElementById('closeItemsModalBtn');
-  const itemsModal = document.getElementById('itemsModal');
-
-  if (closeItemsModalBtn) {
-    closeItemsModalBtn.addEventListener('click', () => {
-      itemsModal.classList.add('hidden');
-      itemsModal.classList.remove('flex');
-    });
-  }
-
-  if (itemsModal) {
-    itemsModal.addEventListener('click', (e) => {
-      if (e.target === itemsModal) {
-        itemsModal.classList.add('hidden');
-        itemsModal.classList.remove('flex');
-      }
-    });
-  }
+  setupModalClose('#itemsModal', '#closeItemsModalBtn');
 });
 
 /**

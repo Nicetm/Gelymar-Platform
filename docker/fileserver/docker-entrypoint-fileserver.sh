@@ -12,24 +12,8 @@ echo "ftpuser" > /etc/vsftpd.userlist
 # Eliminar archivos de autenticación HTTP básica si existen
 rm -f /var/www/html/.htpasswd
 
-# Crear .htaccess correcto (sin autenticación HTTP básica)
-cat > /var/www/html/.htaccess << 'EOF'
-# Configuración CORS
-Header always set Access-Control-Allow-Origin "*"
-Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
-Header always set Access-Control-Allow-Headers "Content-Type, Authorization"
-
-# Configuración de directorio
-Options -Indexes FollowSymLinks
-Require all granted
-
-# Bloquear acceso directo a uploads
-RewriteEngine On
-RewriteRule ^uploads/ - [F,L]
-
-# Habilitar autoindex como respaldo
-DirectoryIndex index.php index.html
-EOF
+# Copiar .htaccess correcto desde /tmp
+cp /tmp/.htaccess /var/www/html/.htaccess
 
 # Crear directorios necesarios
 mkdir -p /var/www/html/uploads

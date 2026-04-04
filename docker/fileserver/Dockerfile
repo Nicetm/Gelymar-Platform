@@ -44,12 +44,14 @@ RUN echo 'ServerName localhost' >> /etc/apache2/apache2.conf
 COPY php.ini /usr/local/etc/php/conf.d/custom.ini
 
 # Copiar archivos web a /tmp primero (para volúmenes persistentes)
+COPY .htaccess /tmp/
 COPY index.html /tmp/
 COPY login.html /tmp/
 COPY file-manager.php /tmp/
 COPY style.css /tmp/
 
 # Copiar archivos web a /var/www/html (para construcción inicial)
+COPY .htaccess /var/www/html/
 COPY index.html /var/www/html/
 COPY login.html /var/www/html/
 COPY file-manager.php /var/www/html/
@@ -67,8 +69,9 @@ RUN chmod -R 777 /var/www/html/uploads
 # Crear usuario daemon para Apache si no existe
 RUN (groupadd -g 1 daemon || true) && (useradd -r -u 1 -g daemon daemon || true)
 
-# Crear script de inicio directamente (evita problemas de CRLF)
-RUN printf '#!/bin/bash\nset -e\nmkdir -p /var/www/html/uploads\nchown -R www-data:www-data /var/www/html\nchmod -R 755 /var/www/html\nchmod -R 777 /var/www/html/uploads\nvsftpd /etc/vsftpd/vsftpd.conf &\napache2-foreground\n' > /entrypoint.sh && chmod +x /entrypoint.sh
+# Copiar entrypoint y asegurar line endings Unix
+COPY docker-entrypoint-fileserver.sh /entrypoint.sh
+RUN sed -i 's/\r$//' /entrypoint.sh && chmod +x /entrypoint.sh
 
 EXPOSE 80 21 30000-30009
 

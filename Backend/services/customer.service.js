@@ -196,7 +196,6 @@ async function getCustomerByRut(rut) {
           Correo
         FROM jor_imp_CLI_01_softkey
         WHERE Rut = @rut
-          AND LTRIM(RTRIM(EstadoCliente)) = 'Activo'
       `);
 
     const row = sqlResult.recordset?.[0];

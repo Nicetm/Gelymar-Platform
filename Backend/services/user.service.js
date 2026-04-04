@@ -592,7 +592,7 @@ async function resetAdminPassword(id, newPassword = '12345') {
   const pool = await poolPromise;
   const hashed = await bcrypt.hash(newPassword, 10);
   const [result] = await pool.query(
-    `UPDATE users SET password = ?, change_pw = 1, updated_at = NOW() WHERE id = ? AND role_id = 1`,
+    `UPDATE users SET password = ?, change_pw = 0, updated_at = NOW() WHERE id = ? AND role_id = 1`,
     [hashed, id]
   );
   return result.affectedRows > 0;

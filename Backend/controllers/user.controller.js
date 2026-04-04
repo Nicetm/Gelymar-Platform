@@ -243,10 +243,54 @@ exports.deleteAdminUser = async (req, res) => {
 exports.resetAdminPassword = async (req, res) => {
   try {
     const { id } = req.params;
-    const { newPassword } = req.body || {};
     if (!id) return res.status(400).json({ message: t('user.id_required', req.lang || 'es') });
-    const reset = await userService.resetAdminPassword(id, newPassword || '12345');
+
+    // Obtener datos del usuario antes de resetear
+    const user = await userService.findUserById(id);
+    if (!user) return res.status(404).json({ message: t('user.admin_not_found', req.lang || 'es') });
+
+    // Generar contraseña temporal aleatoria
+    const crypto = require('crypto');
+    const tempPassword = crypto.randomBytes(4).toString('hex'); // 8 caracteres hex
+
+    const reset = await userService.resetAdminPassword(id, tempPassword);
     if (!reset) return res.status(404).json({ message: t('user.admin_not_found', req.lang || 'es') });
+
+    const recipientEmail = user.admin_email || user.customer_email || user.email;
+    if (!recipientEmail) {
+      logger.warn(`[resetAdminPassword] No se encontró email para usuario id=${id}`);
+    }
+
+    // Enviar correo con la contraseña temporal
+    if (recipientEmail) {
+      try {
+        const { sendEmail } = require('../utils/email.util');
+        const Handlebars = require('handlebars');
+        const fs = require('fs');
+        const templatePath = require('path').join(__dirname, '../mail-generator/template/admin-password-reset.hbs');
+        const template = Handlebars.compile(fs.readFileSync(templatePath, 'utf8'));
+
+        const html = template({
+          subject: 'Contraseña restablecida',
+          title: 'Contraseña restablecida',
+          userName: user.full_name || recipientEmail || 'Administrador',
+          tempPassword,
+          loginUrl: `${process.env.FRONTEND_BASE_URL || 'http://localhost:2121'}/authentication/sign-in`,
+          logoUrl: 'https://www.gelymar.com/wp-content/uploads/2014/08/gelymar-logo.jpg',
+          disclaimer: 'Este es un correo automático. No respondas directamente a este mensaje.'
+        });
+
+        await sendEmail({
+          to: recipientEmail,
+          subject: 'Tu contraseña ha sido restablecida - Gelymar',
+          html
+        });
+        logger.info(`[resetAdminPassword] Correo enviado a ${recipientEmail}`);
+      } catch (emailError) {
+        logger.error(`[resetAdminPassword] Error enviando correo: ${emailError.message}`);
+      }
+    }
+
     res.json({ message: t('user.password_reset', req.lang || 'es') });
   } catch (error) {
     logger.error(`[resetAdminPassword] Error: ${error.message}`);

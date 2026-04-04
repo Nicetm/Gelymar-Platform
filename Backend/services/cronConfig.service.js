@@ -25,7 +25,7 @@ async function getCronTasksConfig() {
     const [paramRows] = await pool.execute(`
       SELECT name, params 
       FROM param_config 
-      WHERE type = 'configuración'
+      WHERE type = 'cron'
     `);
     
     const config = {};

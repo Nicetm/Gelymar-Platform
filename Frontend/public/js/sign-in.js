@@ -603,6 +603,18 @@ export function initSignIn(config = {}) {
       rememberMeInput.checked = rememberMe;
     }
 
+    // Auto-formato de RUT: insertar guión antes del dígito verificador
+    if (usernameInput) {
+      usernameInput.addEventListener('input', () => {
+        const raw = usernameInput.value.replace(/[^0-9kK]/g, '');
+        if (raw.length > 1) {
+          usernameInput.value = raw.slice(0, -1) + '-' + raw.slice(-1);
+        } else {
+          usernameInput.value = raw;
+        }
+      });
+    }
+
     const passwordInput = document.getElementById('password');
     const togglePasswordBtn = document.getElementById('togglePasswordBtn');
     const togglePasswordIcon = document.getElementById('togglePasswordIcon');

@@ -1,5 +1,5 @@
 // Sidebar Admin JavaScript
-import { confirmAction, showNotification, showModal, hideModal, setupModalClose } from './utils.js';
+import { confirmAction, showNotification, showModal, hideModal, setupModalClose, setupFloatingTooltips, hideFloatingTooltip } from './utils.js';
 
 export function initSidebarAdmin(config) {
   const { apiBase, clientApiBase, fileServer, t, token, lang } = config;
@@ -205,148 +205,6 @@ export function initSidebarAdmin(config) {
   // Inicialización cuando el DOM está listo
   document.addEventListener("DOMContentLoaded", async () => {
     await loadAdminData();
-
-    // ===== Floating Tooltip System (from folders.js) =====
-    const floatingTooltipState = {
-      el: null,
-      currentTarget: null,
-      removeTimeout: null,
-      globalHandlersBound: false
-    };
-
-    function ensureFloatingTooltipElement() {
-      if (!floatingTooltipState.el) {
-        const tooltip = document.createElement('div');
-        tooltip.setAttribute('role', 'tooltip');
-        Object.assign(tooltip.style, {
-          position: 'fixed',
-          zIndex: '50',
-          backgroundColor: '#047857',
-          color: '#ffffff',
-          padding: '6px 10px',
-          borderRadius: '6px',
-          fontSize: '12px',
-          fontWeight: '500',
-          lineHeight: '1.4',
-          boxShadow: '0 8px 18px rgba(0, 0, 0, 0.25)',
-          pointerEvents: 'none',
-          whiteSpace: 'nowrap',
-          opacity: '0',
-          transition: 'opacity 120ms ease',
-          maxWidth: '320px',
-          textAlign: 'center'
-        });
-        floatingTooltipState.el = tooltip;
-      }
-      return floatingTooltipState.el;
-    }
-
-    function ensureFloatingTooltipHandlers() {
-      if (floatingTooltipState.globalHandlersBound) return;
-      floatingTooltipState.globalHandlersBound = true;
-      const hideOnChange = () => hideFloatingTooltip();
-      window.addEventListener('scroll', hideOnChange, true);
-      window.addEventListener('resize', hideOnChange, true);
-      window.addEventListener('keydown', event => {
-        if (event.key === 'Escape') {
-          hideFloatingTooltip();
-        }
-      }, true);
-    }
-
-    function positionFloatingTooltip(target, tooltipEl) {
-      const rect = target.getBoundingClientRect();
-      const tooltipRect = tooltipEl.getBoundingClientRect();
-      const spacing = 10;
-
-      // Position to the right of the sidebar icon
-      let left = rect.right + spacing;
-      let top = rect.top + (rect.height / 2) - (tooltipRect.height / 2);
-
-      const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
-      const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
-
-      // Keep within viewport bounds
-      if (left + tooltipRect.width + spacing > viewportWidth) {
-        left = rect.left - tooltipRect.width - spacing;
-      }
-      top = Math.min(Math.max(spacing, top), viewportHeight - tooltipRect.height - spacing);
-
-      tooltipEl.style.top = `${Math.round(top)}px`;
-      tooltipEl.style.left = `${Math.round(left)}px`;
-    }
-
-    function showFloatingTooltip(target) {
-      if (!target || !(target instanceof HTMLElement)) return;
-      const text = target.getAttribute('data-tooltip');
-      if (!text) return;
-
-      // Only show tooltip when sidebar is collapsed
-      if (!sidebar?.classList.contains('sidebar-collapsed')) return;
-
-      ensureFloatingTooltipHandlers();
-      clearTimeout(floatingTooltipState.removeTimeout);
-
-      const tooltipEl = ensureFloatingTooltipElement();
-      tooltipEl.textContent = text;
-
-      if (!tooltipEl.isConnected) {
-        document.body.appendChild(tooltipEl);
-      }
-
-      tooltipEl.style.opacity = '0';
-      tooltipEl.style.visibility = 'hidden';
-
-      requestAnimationFrame(() => {
-        tooltipEl.style.visibility = 'visible';
-        positionFloatingTooltip(target, tooltipEl);
-        requestAnimationFrame(() => {
-          tooltipEl.style.opacity = '1';
-        });
-      });
-
-      floatingTooltipState.currentTarget = target;
-    }
-
-    function hideFloatingTooltip() {
-      if (!floatingTooltipState.el) return;
-      const tooltipEl = floatingTooltipState.el;
-      tooltipEl.style.opacity = '0';
-      floatingTooltipState.currentTarget = null;
-      clearTimeout(floatingTooltipState.removeTimeout);
-      floatingTooltipState.removeTimeout = window.setTimeout(() => {
-        if (tooltipEl.parentElement) {
-          tooltipEl.parentElement.removeChild(tooltipEl);
-        }
-        tooltipEl.style.visibility = 'hidden';
-      }, 150);
-    }
-
-    function handleTooltipEnter(event) {
-      showFloatingTooltip(event.currentTarget);
-    }
-
-    function handleTooltipLeave(event) {
-      const target = event.currentTarget;
-      if (floatingTooltipState.currentTarget === target) {
-        if (event.type === 'mouseleave' && document.activeElement === target) {
-          return;
-        }
-        hideFloatingTooltip();
-      }
-    }
-
-    function setupFloatingTooltips(container) {
-      if (!container) return;
-      const tooltipTargets = container.querySelectorAll('[data-tooltip]');
-      tooltipTargets.forEach(target => {
-        target.addEventListener('mouseenter', handleTooltipEnter);
-        target.addEventListener('mouseleave', handleTooltipLeave);
-        target.addEventListener('focus', handleTooltipEnter);
-        target.addEventListener('blur', handleTooltipLeave);
-      });
-    }
-    // ===== End Floating Tooltip System =====
 
     // Sidebar collapse
     const sidebar = document.getElementById('sidebar');
@@ -1279,21 +1137,6 @@ export function initSidebarAdmin(config) {
       });
     }
 
-    // Cerrar modal al hacer click fuera
-    pdfMailModal.addEventListener('click', (e) => {
-      if (e.target === pdfMailModal) {
-        closePdfMailModal();
-      }
-    });
-
-    if (notificationEmailModal) {
-      notificationEmailModal.addEventListener('click', (e) => {
-        if (e.target === notificationEmailModal) {
-          closeNotificationEmailModal();
-        }
-      });
-    }
-
     // Event delegation para eliminar filas dinámicas
     document.addEventListener('click', (e) => {
       const removeNewBtn = e.target.closest('.remove-new-email');
@@ -1711,7 +1554,7 @@ export function initSidebarAdmin(config) {
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L7.5 21H3v-4.5l13.732-13.732z" /></svg>
                 </button>
                 <button class="reset-admin-user text-amber-600 hover:text-amber-500 transition" data-id="${a.id}" title="Reset password">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-6.219-8.56M21 4v5h-5"/></svg>
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
                 </button>
                 <button class="delete-admin-user transition ${isSelf ? 'text-gray-300 dark:text-gray-600 opacity-50 cursor-not-allowed pointer-events-none' : 'text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300'}" data-id="${a.id}" title="Eliminar" ${isSelf ? 'disabled aria-disabled="true"' : ''}>
                   <svg class="w-5 h-5 inline-block" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
@@ -1827,7 +1670,7 @@ export function initSidebarAdmin(config) {
     }
 
     async function resetAdminPassword(id) {
-      const confirmed = await confirmAction('Resetear contraseña', 'Se generará una nueva contraseña temporal.', 'warning');
+      const confirmed = await confirmAction('Resetear contraseña', 'Se generará una nueva contraseña temporal y se enviará por correo al usuario.', 'warning');
       if (!confirmed) return;
 
       try {
@@ -1836,7 +1679,7 @@ export function initSidebarAdmin(config) {
           headers: authHeaders()
         });
         if (!res.ok) throw new Error();
-        showNotification('Contraseña reseteada.', 'success');
+        showNotification('Contraseña reseteada. Se envió un correo con la nueva contraseña.', 'success');
       } catch (err) {
         console.error(err);
         showNotification('No se pudo resetear la contraseña.', 'error');
@@ -1867,7 +1710,6 @@ export function initSidebarAdmin(config) {
 
     closeAdminUsersModalBtn?.addEventListener('click', closeAdminUsersModal);
     cancelAdminUsersBtn?.addEventListener('click', (e) => { e.preventDefault(); closeAdminUsersModal(); });
-    adminUsersModal?.addEventListener('click', (e) => { if (e.target === adminUsersModal) closeAdminUsersModal(); });
     addAdminUserBtn?.addEventListener('click', (e) => { e.preventDefault(); resetAdminFormRows(); });
     saveAdminUsersBtn?.addEventListener('click', saveNewAdmins);
     setupModalClose('#adminUsersHelpModal', '#closeAdminUsersHelpModalBtn, #closeAdminUsersHelpModalFooterBtn');

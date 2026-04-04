@@ -321,9 +321,8 @@ const updateFile = async(data) => {
   values.push(data.id);
   
   const query = `UPDATE order_files SET ${fields.join(', ')} WHERE id = ?`;
-  logger.info(`[updateFile] Executing query: ${query} with values: ${JSON.stringify(values)}`);
+  logger.info(`[updateFile] Executing update for file`);
   const [result] = await pool.query(query, values);
-  logger.info(`[updateFile] Update result: affectedRows=${result.affectedRows} changedRows=${result.changedRows}`);
   return result;
 }
 
@@ -465,10 +464,8 @@ const getAllFiles = async () => {
     const baseParams = normalizedFactura ? [pc, normalizedFactura] : [pc];
     
     const query = `SELECT * FROM order_files WHERE pc = ?${facturaClause}`;
-    logger.info(`[getFilesByPcOc] SQL: ${query} | PARAMS: ${JSON.stringify(baseParams)}`);
     
     const [rows] = await pool.query(query, baseParams);
-    logger.info(`[getFilesByPcOc] RESULT: Found ${rows.length} files`);
     return rows;
   };
 
@@ -655,8 +652,6 @@ const createDefaultFilesForOrder = async (orderId, customerName, pc, oc) => {
 
 const createDefaultFilesForPcOc = async (pc, oc, customerName, factura, allowedDocs = null) => {
   try {
-    // DEBUG: Log para ver qué allowedDocs se recibe
-    logger.info(`[createDefaultFilesForPcOc] DEBUG pc=${pc} oc=${oc} factura=${factura} allowedDocs=${JSON.stringify(allowedDocs)}`);
     
     const FILE_ID_MAP = {
       'Order Receipt Notice': 9,
@@ -702,8 +697,7 @@ const createDefaultFilesForPcOc = async (pc, oc, customerName, factura, allowedD
       const existingFiles = await getFilesByPcOc(pc, oc, normalizedFactura);
       const existingFileIds = new Set(existingFiles.map(f => f.file_id).filter(Boolean));
 
-    logger.info(`[createDefaultFilesForPcOc] CHECKING EXISTING FILES: pc=${pc} oc=${oc} factura=${normalizedFactura} existingCount=${existingFiles.length} existingFileIds=${Array.from(existingFileIds).join(',')}`);
-
+    logger.info(`[createDefaultFilesForPcOc] pc=${pc} oc=${oc} factura=${normalizedFactura} existingFiles=${existingFiles.length}`);
     let requiredDocs = hasPartial
       ? (isParent && !hasFactura
         ? ['Order Receipt Notice']
@@ -715,7 +709,6 @@ const createDefaultFilesForPcOc = async (pc, oc, customerName, factura, allowedD
     if (Array.isArray(allowedDocs) && allowedDocs.length) {
       const allowedSet = new Set(allowedDocs);
       requiredDocs = requiredDocs.filter((doc) => allowedSet.has(doc));
-      logger.info(`[createDefaultFilesForPcOc] DEBUG Filtered requiredDocs=${JSON.stringify(requiredDocs)}`);
     } else if (Array.isArray(allowedDocs) && allowedDocs.length === 0) {
       // Si allowedDocs es un array vacío, significa que NO se puede crear ningún documento
       // porque no cumplen las condiciones (falta ETD/ETA, Incoterm incorrecto, etc.)
@@ -726,7 +719,6 @@ const createDefaultFilesForPcOc = async (pc, oc, customerName, factura, allowedD
       err.details = { pc, oc, factura };
       throw err;
     } else {
-      logger.info(`[createDefaultFilesForPcOc] DEBUG No allowedDocs filter, using all requiredDocs=${JSON.stringify(requiredDocs)}`);
     }
 
     const missingDocs = requiredDocs.filter(
@@ -852,9 +844,8 @@ const insertDefaultFile = async (fileData) => {
       fileData.file_id || null
     ];
 
-    logger.info(`[insertDefaultFile] SQL: INSERT INTO order_files (pc, oc, factura, name, path, file_identifier, file_id, ...) VALUES (?, ?, ?, ?, ?, ?, ?, ...) | PARAMS: ${JSON.stringify(params)}`);
+    logger.info(`[insertDefaultFile] Insertando archivo name=${fileData.name} pc=${fileData.pc} oc=${fileData.oc || 'N/A'} factura=${normalizedFactura || 'N/A'}`);
     const [result] = await pool.query(query, params);
-    logger.info(`[insertDefaultFile] RESULT: Inserted file with ID ${result.insertId}`);
     return result;
     
   } catch (error) {

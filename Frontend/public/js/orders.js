@@ -1,5 +1,5 @@
 // public/js/orders.js
-import { qs, showNotification } from './utils.js';
+import { qs, showNotification, setupModalClose, setupFloatingTooltips, hideFloatingTooltip } from './utils.js';
 
 let orders = {};
 
@@ -471,139 +471,6 @@ export async function initOrdersScript() {
         </td>
       </tr>
     `;
-  }
-
-  const floatingTooltipState = {
-    el: null,
-    currentTarget: null,
-    removeTimeout: null,
-    globalHandlersBound: false
-  };
-
-  function ensureFloatingTooltipElement() {
-    if (!floatingTooltipState.el) {
-      const tooltip = document.createElement('div');
-      tooltip.setAttribute('role', 'tooltip');
-      Object.assign(tooltip.style, {
-        position: 'fixed',
-        zIndex: '10',
-        backgroundColor: '#047857',
-        color: '#ffffff',
-        padding: '6px 10px',
-        borderRadius: '6px',
-        fontSize: '12px',
-        fontWeight: '500',
-        lineHeight: '1.4',
-        boxShadow: '0 8px 18px rgba(0, 0, 0, 0.25)',
-        pointerEvents: 'none',
-        whiteSpace: 'nowrap',
-        opacity: '0',
-        transition: 'opacity 120ms ease',
-        maxWidth: '320px',
-        textAlign: 'center'
-      });
-      floatingTooltipState.el = tooltip;
-    }
-    return floatingTooltipState.el;
-  }
-
-  function ensureFloatingTooltipHandlers() {
-    if (floatingTooltipState.globalHandlersBound) return;
-    floatingTooltipState.globalHandlersBound = true;
-    const hideOnChange = () => hideFloatingTooltip();
-    window.addEventListener('scroll', hideOnChange, true);
-    window.addEventListener('resize', hideOnChange, true);
-    window.addEventListener('keydown', event => {
-      if (event.key === 'Escape') {
-        hideFloatingTooltip();
-      }
-    }, true);
-  }
-
-  function positionFloatingTooltip(target, tooltipEl) {
-    const rect = target.getBoundingClientRect();
-    const tooltipRect = tooltipEl.getBoundingClientRect();
-    const spacing = 10;
-
-    let top = rect.top - tooltipRect.height - spacing;
-    if (top < spacing) {
-      top = rect.bottom + spacing;
-    }
-
-    const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
-    let left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
-    left = Math.min(Math.max(spacing, left), viewportWidth - tooltipRect.width - spacing);
-
-    tooltipEl.style.top = `${Math.round(top)}px`;
-    tooltipEl.style.left = `${Math.round(left)}px`;
-  }
-
-  function showFloatingTooltip(target) {
-    if (!target || !(target instanceof HTMLElement)) return;
-    const text = target.getAttribute('data-tooltip');
-    if (!text) return;
-
-    ensureFloatingTooltipHandlers();
-    clearTimeout(floatingTooltipState.removeTimeout);
-
-    const tooltipEl = ensureFloatingTooltipElement();
-    tooltipEl.textContent = text;
-
-    if (!tooltipEl.isConnected) {
-      document.body.appendChild(tooltipEl);
-    }
-
-    tooltipEl.style.opacity = '0';
-    tooltipEl.style.visibility = 'hidden';
-
-    requestAnimationFrame(() => {
-      tooltipEl.style.visibility = 'visible';
-      positionFloatingTooltip(target, tooltipEl);
-      requestAnimationFrame(() => {
-        tooltipEl.style.opacity = '1';
-      });
-    });
-
-    floatingTooltipState.currentTarget = target;
-  }
-
-  function hideFloatingTooltip() {
-    if (!floatingTooltipState.el) return;
-    const tooltipEl = floatingTooltipState.el;
-    tooltipEl.style.opacity = '0';
-    floatingTooltipState.currentTarget = null;
-    clearTimeout(floatingTooltipState.removeTimeout);
-    floatingTooltipState.removeTimeout = window.setTimeout(() => {
-      if (tooltipEl.parentElement) {
-        tooltipEl.parentElement.removeChild(tooltipEl);
-      }
-      tooltipEl.style.visibility = 'hidden';
-    }, 150);
-  }
-
-  function handleTooltipEnter(event) {
-    showFloatingTooltip(event.currentTarget);
-  }
-
-  function handleTooltipLeave(event) {
-    const target = event.currentTarget;
-    if (floatingTooltipState.currentTarget === target) {
-      if (event.type === 'mouseleave' && document.activeElement === target) {
-        return;
-      }
-      hideFloatingTooltip();
-    }
-  }
-
-  function setupFloatingTooltips(container) {
-    if (!container) return;
-    const tooltipTargets = container.querySelectorAll('[data-tooltip]');
-    tooltipTargets.forEach(target => {
-      target.addEventListener('mouseenter', handleTooltipEnter);
-      target.addEventListener('mouseleave', handleTooltipLeave);
-      target.addEventListener('focus', handleTooltipEnter);
-      target.addEventListener('blur', handleTooltipLeave);
-    });
   }
 
   // Función para cargar y renderizar órdenes
@@ -1092,18 +959,6 @@ export async function initOrdersScript() {
     });
   }
   
-  // Cerrar modal al hacer click fuera
-  if (documentIndicatorHelpModal) {
-    documentIndicatorHelpModal.addEventListener('click', (e) => {
-      if (e.target === documentIndicatorHelpModal) {
-        documentIndicatorHelpModal.classList.add('hidden');
-        documentIndicatorHelpModal.classList.remove('flex');
-      }
-    });
-  }
-  
-  // Auto-refresh sin botón manual
-
   // Función para refrescar datos
   async function refreshData() {
     try {
@@ -1225,75 +1080,10 @@ export async function initOrdersScript() {
       }
     });
 
-    // Event listeners para cerrar modales
-    const closeItemsModalBtn = document.getElementById('closeItemsModalBtn');
-    const closeItemsDetailModalBtn = document.getElementById('closeItemsDetailModalBtn');
-    const closeOrderDetailModalBtn = document.getElementById('closeOrderDetailModalBtn');
-    const itemsModal = document.getElementById('itemsModal');
-    const itemsDetailModal = document.getElementById('itemsDetailModal');
-    const orderDetailModal = document.getElementById('orderDetailModal');
-
-    if (closeItemsModalBtn) {
-      closeItemsModalBtn.addEventListener('click', () => {
-        itemsModal.classList.add('hidden');
-        itemsModal.classList.remove('flex');
-      });
-    }
-
-    if (closeItemsDetailModalBtn) {
-      closeItemsDetailModalBtn.addEventListener('click', () => {
-        itemsDetailModal.classList.add('hidden');
-        itemsDetailModal.classList.remove('flex');
-      });
-    }
-
-    if (closeOrderDetailModalBtn) {
-      closeOrderDetailModalBtn.addEventListener('click', () => {
-        orderDetailModal.classList.add('hidden');
-      });
-    }
-
-    // Cerrar modales al hacer click fuera
-    if (itemsModal) {
-      itemsModal.addEventListener('click', (e) => {
-        if (e.target === itemsModal) {
-          itemsModal.classList.add('hidden');
-          itemsModal.classList.remove('flex');
-        }
-      });
-    }
-
-    if (itemsDetailModal) {
-      itemsDetailModal.addEventListener('click', (e) => {
-        if (e.target === itemsDetailModal) {
-          itemsDetailModal.classList.add('hidden');
-          itemsDetailModal.classList.remove('flex');
-        }
-      });
-    }
-
-    if (orderDetailModal) {
-      orderDetailModal.addEventListener('click', (e) => {
-        if (e.target === orderDetailModal) {
-          orderDetailModal.classList.add('hidden');
-        }
-      });
-    }
-
-    document.addEventListener('keydown', (e) => {
-      if (e.key !== 'Escape') return;
-      if (itemsModal) {
-        itemsModal.classList.add('hidden');
-        itemsModal.classList.remove('flex');
-      }
-      if (itemsDetailModal) {
-        itemsDetailModal.classList.add('hidden');
-        itemsDetailModal.classList.remove('flex');
-      }
-      if (orderDetailModal) {
-        orderDetailModal.classList.add('hidden');
-      }
-    });
+    // Configurar cierre de modales
+    setupModalClose('#itemsModal', '#closeItemsModalBtn');
+    setupModalClose('#itemsDetailModal', '#closeItemsDetailModalBtn');
+    setupModalClose('#orderDetailModal', '#closeOrderDetailModalBtn');
   }
 
 }
@@ -1460,16 +1250,6 @@ async function openItemsModal(orderPc, orderOc, factura) {
     const rawGastoAdicionalFactura = normalizedItems[0]?.gasto_adicional_flete_factura;
     const shouldUseFacturaExpense = hasFacturaDisplay && rawGastoAdicionalFactura !== null && rawGastoAdicionalFactura !== undefined && rawGastoAdicionalFactura !== '';
     const rawGastoAdicional = shouldUseFacturaExpense ? rawGastoAdicionalFactura : normalizedItems[0]?.gasto_adicional_flete;
-    
-    console.log('[Additional Cost Debug - Orders]', {
-      hasFacturaDisplay,
-      factura: facturaValue,
-      gasto_adicional_flete: normalizedItems[0]?.gasto_adicional_flete,
-      gasto_adicional_flete_factura: rawGastoAdicionalFactura,
-      shouldUseFacturaExpense,
-      rawGastoAdicional,
-      finalValue: parseNumber(rawGastoAdicional)
-    });
     
     const gastoAdicional = parseNumber(rawGastoAdicional);
     

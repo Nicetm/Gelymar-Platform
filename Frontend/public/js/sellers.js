@@ -6,7 +6,8 @@ import {
   confirmAction,
   showModal,
   hideModal,
-  setupModalClose
+  setupModalClose,
+  setupFloatingTooltips
 } from './utils.js';
 
 export async function initSellersScript() {
@@ -563,6 +564,8 @@ export async function initSellersScript() {
       const rows = pageData.map(renderSellerRow).join('');
       tableBody.insertAdjacentHTML('beforeend', rows);
     }
+
+    setupFloatingTooltips(tableBody);
 
     const totalPages = Math.max(1, Math.ceil(filteredSellers.length / itemsPerPage));
     updatePagination(totalPages);

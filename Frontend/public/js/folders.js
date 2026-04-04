@@ -1,6 +1,11 @@
 import { 
   qs, 
-  showNotification
+  showNotification,
+  showModal,
+  hideModal,
+  setupModalClose,
+  setupFloatingTooltips,
+  hideFloatingTooltip
 } from './utils.js';
 
 async function buildErrorFromResponse(response, fallbackMessage = '') {
@@ -60,41 +65,6 @@ const formatMessage = (template, params = {}) => {
     template
   );
 };
-
-function showModal(selector) {
-  const modal = document.querySelector(selector);
-  if (modal) {
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-  }
-}
-
-function hideModal(selector) {
-  const modal = document.querySelector(selector);
-  if (modal) {
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
-  }
-}
-
-function setupModalClose(modalSelector, closeSelector) {
-  const modal = document.querySelector(modalSelector);
-  const closeBtn = document.querySelector(closeSelector);
-
-  if (closeBtn) {
-    closeBtn.addEventListener('click', () => {
-      hideModal(modalSelector);
-    });
-  }
-
-  if (modal) {
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) {
-        hideModal(modalSelector);
-      }
-    });
-  }
-}
 
 function getFolderSectionContext() {
   const section = document.getElementById('folderSection');
@@ -698,139 +668,6 @@ export async function initFoldersScript() {
 
   const params = new URLSearchParams(window.location.search);
   const clientName = params.get('c');
-
-  const floatingTooltipState = {
-    el: null,
-    currentTarget: null,
-    removeTimeout: null,
-    globalHandlersBound: false
-  };
-
-  function ensureFloatingTooltipElement() {
-    if (!floatingTooltipState.el) {
-      const tooltip = document.createElement('div');
-      tooltip.setAttribute('role', 'tooltip');
-      Object.assign(tooltip.style, {
-        position: 'fixed',
-        zIndex: '50',
-        backgroundColor: '#047857',
-        color: '#ffffff',
-        padding: '6px 10px',
-        borderRadius: '6px',
-        fontSize: '12px',
-        fontWeight: '500',
-        lineHeight: '1.4',
-        boxShadow: '0 8px 18px rgba(0, 0, 0, 0.25)',
-        pointerEvents: 'none',
-        whiteSpace: 'nowrap',
-        opacity: '0',
-        transition: 'opacity 120ms ease',
-        maxWidth: '320px',
-        textAlign: 'center'
-      });
-      floatingTooltipState.el = tooltip;
-    }
-    return floatingTooltipState.el;
-  }
-
-  function ensureFloatingTooltipHandlers() {
-    if (floatingTooltipState.globalHandlersBound) return;
-    floatingTooltipState.globalHandlersBound = true;
-    const hideOnChange = () => hideFloatingTooltip();
-    window.addEventListener('scroll', hideOnChange, true);
-    window.addEventListener('resize', hideOnChange, true);
-    window.addEventListener('keydown', event => {
-      if (event.key === 'Escape') {
-        hideFloatingTooltip();
-      }
-    }, true);
-  }
-
-  function positionFloatingTooltip(target, tooltipEl) {
-    const rect = target.getBoundingClientRect();
-    const tooltipRect = tooltipEl.getBoundingClientRect();
-    const spacing = 10;
-
-    let top = rect.top - tooltipRect.height - spacing;
-    if (top < spacing) {
-      top = rect.bottom + spacing;
-    }
-
-    const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
-    let left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
-    left = Math.min(Math.max(spacing, left), viewportWidth - tooltipRect.width - spacing);
-
-    tooltipEl.style.top = `${Math.round(top)}px`;
-    tooltipEl.style.left = `${Math.round(left)}px`;
-  }
-
-  function showFloatingTooltip(target) {
-    if (!target || !(target instanceof HTMLElement)) return;
-    const text = target.getAttribute('data-tooltip');
-    if (!text) return;
-
-    ensureFloatingTooltipHandlers();
-    clearTimeout(floatingTooltipState.removeTimeout);
-
-    const tooltipEl = ensureFloatingTooltipElement();
-    tooltipEl.textContent = text;
-
-    if (!tooltipEl.isConnected) {
-      document.body.appendChild(tooltipEl);
-    }
-
-    tooltipEl.style.opacity = '0';
-    tooltipEl.style.visibility = 'hidden';
-
-    requestAnimationFrame(() => {
-      tooltipEl.style.visibility = 'visible';
-      positionFloatingTooltip(target, tooltipEl);
-      requestAnimationFrame(() => {
-        tooltipEl.style.opacity = '1';
-      });
-    });
-
-    floatingTooltipState.currentTarget = target;
-  }
-
-  function hideFloatingTooltip() {
-    if (!floatingTooltipState.el) return;
-    const tooltipEl = floatingTooltipState.el;
-    tooltipEl.style.opacity = '0';
-    floatingTooltipState.currentTarget = null;
-    clearTimeout(floatingTooltipState.removeTimeout);
-    floatingTooltipState.removeTimeout = window.setTimeout(() => {
-      if (tooltipEl.parentElement) {
-        tooltipEl.parentElement.removeChild(tooltipEl);
-      }
-      tooltipEl.style.visibility = 'hidden';
-    }, 150);
-  }
-
-  function handleTooltipEnter(event) {
-    showFloatingTooltip(event.currentTarget);
-  }
-
-  function handleTooltipLeave(event) {
-    const target = event.currentTarget;
-    if (floatingTooltipState.currentTarget === target) {
-      if (event.type === 'mouseleave' && document.activeElement === target) {
-        return;
-      }
-      hideFloatingTooltip();
-    }
-  }
-
-  function setupFloatingTooltips(container) {
-    if (!container) return;
-    const tooltipTargets = container.querySelectorAll('[data-tooltip]');
-    tooltipTargets.forEach(target => {
-      target.addEventListener('mouseenter', handleTooltipEnter);
-      target.addEventListener('mouseleave', handleTooltipLeave);
-      target.addEventListener('focus', handleTooltipEnter);
-      target.addEventListener('blur', handleTooltipLeave);
-    });
-  }
 
   function slugifyPath(text) {
     if (!text) return '';

@@ -15,7 +15,7 @@
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #f3f4f6;
             min-height: 100vh;
             padding: 20px;
         }
@@ -24,22 +24,22 @@
             max-width: 1400px;
             margin: 0 auto;
             background: white;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
             overflow: hidden;
         }
         
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #111827;
             color: white;
-            padding: 2rem;
+            padding: 1rem 2rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
         
         .header h1 {
-            font-size: 1.8rem;
+            font-size: 1.4rem;
             margin: 0;
         }
         
@@ -70,34 +70,34 @@
         }
         
         .btn {
-            padding: 0.5rem 1rem;
+            padding: 0.3rem 0.6rem;
             border: none;
             border-radius: 5px;
             cursor: pointer;
             text-decoration: none;
             display: inline-flex;
             align-items: center;
-            gap: 0.5rem;
-            font-size: 0.9rem;
+            gap: 0.3rem;
+            font-size: 0.75rem;
             transition: all 0.3s;
         }
         
         .btn-primary {
-            background: #667eea;
+            background: #1d4ed8;
             color: white;
         }
         
         .btn-primary:hover {
-            background: #5a6fd8;
+            background: #1e40af;
         }
         
         .btn-success {
-            background: #28a745;
+            background: #059669;
             color: white;
         }
         
         .btn-success:hover {
-            background: #218838;
+            background: #047857;
         }
         
         .btn-danger {
@@ -119,16 +119,16 @@
         }
         
         .file-list {
-            padding: 2rem;
+            padding: 1rem 2rem;
         }
         
         .file-item {
             display: flex;
             align-items: center;
-            padding: 1rem;
+            padding: 0.4rem 1rem;
             border: 1px solid #e9ecef;
             border-radius: 8px;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.3rem;
             transition: all 0.3s;
             background: white;
         }
@@ -139,9 +139,8 @@
         }
         
         .file-icon {
-            font-size: 1.5rem;
-            margin-right: 1rem;
-            width: 40px;
+            margin-right: 0.75rem;
+            width: 30px;
             text-align: center;
         }
         
@@ -150,7 +149,6 @@
         }
         
         .file-name {
-            font-weight: 600;
             color: #333;
             margin-bottom: 0.25rem;
         }
@@ -328,7 +326,11 @@
         function renderFiles() {
             const fileList = document.getElementById('fileList');
             
-            if (files.length === 0) {
+            // Ocultar archivos del sistema
+            const hiddenFiles = new Set(['.htaccess', '.htpasswd', 'index.html', 'index.php', 'login.html', 'file-manager.php', 'style.css', 'config.js']);
+            const visibleFiles = files.filter(f => !hiddenFiles.has(f.name));
+            
+            if (visibleFiles.length === 0) {
                 fileList.innerHTML = `
                     <div class="empty-state">
                         <i class="fas fa-folder-open"></i>
@@ -339,7 +341,7 @@
                 return;
             }
             
-            fileList.innerHTML = files.map(file => `
+            fileList.innerHTML = visibleFiles.map(file => `
                 <div class="file-item">
                     <div class="file-icon">
                         ${file.isDirectory ? '📁' : getFileIcon(file.name)}
@@ -353,7 +355,7 @@
                         </div>
                         <div class="file-meta">
                             ${file.isDirectory ? 
-                                'Directorio' : 
+                                '' : 
                                 `${formatFileSize(file.size)} • ${new Date(file.modified).toLocaleString()}`
                             }
                         </div>

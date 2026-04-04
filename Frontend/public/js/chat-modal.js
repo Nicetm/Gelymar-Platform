@@ -1215,11 +1215,6 @@ export function initChatModal(config = {}) {
   });
 
   chatImageModalClose?.addEventListener('click', closeChatImageModal);
-  chatImageModal?.addEventListener('click', (e) => {
-    if (e.target === chatImageModal) {
-      closeChatImageModal();
-    }
-  });
   
   // Inicializar chat al cargar la página
   document.addEventListener('DOMContentLoaded', () => {
