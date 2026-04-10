@@ -6,7 +6,43 @@ class AuthService {
   constructor({ mysqlPoolPromise, logger }) {
     this.pool = mysqlPoolPromise;
     this.logger = logger;
-    this.MAX_LOGIN_ATTEMPTS = 5;
+    this._maxLoginConfig = null;
+    this._maxLoginConfigLastFetch = 0;
+    this.CONFIG_CACHE_TTL = 60000; // 1 minuto de cache
+  }
+
+  /**
+   * Obtiene la configuración de maxIntentosLogin desde param_config
+   * @returns {Promise<{enable: number, maxIntentos: number}>}
+   */
+  async getMaxLoginConfig() {
+    const now = Date.now();
+    if (this._maxLoginConfig && (now - this._maxLoginConfigLastFetch) < this.CONFIG_CACHE_TTL) {
+      return this._maxLoginConfig;
+    }
+    try {
+      const pool = await this.pool;
+      const [rows] = await pool.query(
+        'SELECT params FROM param_config WHERE name = ?',
+        ['maxIntentosLogin']
+      );
+      if (rows.length > 0) {
+        let params = rows[0].params;
+        if (Buffer.isBuffer(params)) params = params.toString('utf8');
+        if (typeof params === 'string') params = JSON.parse(params.trim());
+        this._maxLoginConfig = {
+          enable: Number(params.enable) || 0,
+          maxIntentos: Number(params.maxIntentos) || 5
+        };
+      } else {
+        this._maxLoginConfig = { enable: 1, maxIntentos: 5 };
+      }
+    } catch (error) {
+      this.logger.error(`[AuthService] Error leyendo maxIntentosLogin: ${error.message}`);
+      this._maxLoginConfig = { enable: 1, maxIntentos: 5 };
+    }
+    this._maxLoginConfigLastFetch = now;
+    return this._maxLoginConfig;
   }
 
   /**
@@ -18,6 +54,7 @@ class AuthService {
   async updateLoginAttempts(userId, success) {
     try {
       const pool = await this.pool;
+      const config = await this.getMaxLoginConfig();
 
       if (success) {
         // Reset attempts on successful login
@@ -26,8 +63,16 @@ class AuthService {
           [userId]
         );
         this.logger.info(`[AuthService] Login attempts reset for userId=${userId}`);
-        return { blocked: false, remainingAttempts: this.MAX_LOGIN_ATTEMPTS };
+        return { blocked: false, remainingAttempts: config.enable ? config.maxIntentos : null };
       }
+
+      // Si el control de intentos está deshabilitado, no contar
+      if (!config.enable) {
+        this.logger.info(`[AuthService] maxIntentosLogin deshabilitado, no se cuentan intentos para userId=${userId}`);
+        return { blocked: false, remainingAttempts: null };
+      }
+
+      const maxAttempts = config.maxIntentos;
 
       // Increment failed attempts
       await pool.query(
@@ -39,7 +84,7 @@ class AuthService {
              END,
              updated_at = NOW()
          WHERE id = ?`,
-        [this.MAX_LOGIN_ATTEMPTS, userId]
+        [maxAttempts, userId]
       );
 
       // Check if account is now blocked
@@ -55,7 +100,7 @@ class AuthService {
       const blocked = Number(rows[0].bloqueado) === 1;
       const remainingAttempts = Math.max(
         0,
-        this.MAX_LOGIN_ATTEMPTS - Number(rows[0].intentos_fallidos || 0)
+        maxAttempts - Number(rows[0].intentos_fallidos || 0)
       );
 
       this.logger.info(

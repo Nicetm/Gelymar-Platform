@@ -772,45 +772,22 @@ export async function initSellersScript() {
   };
 
   const initializePresenceSocket = () => {
-    const token = getToken();
-    if (!token) return;
+    if (!window.AppSocket) return;
+    window.AppSocket.init();
 
-    const tryConnect = (attempt = 0) => {
-      if (typeof io === 'undefined') {
-        if (attempt >= 10) {
-          console.error('Socket.io no está disponible');
-          return;
-        }
-        window.setTimeout(() => tryConnect(attempt + 1), 300);
-        return;
-      }
-
-      const socket = io(apiBase, {
-        auth: { token },
-        transports: ['websocket', 'polling'],
-        reconnectionAttempts: 5
-      });
-
-      let refreshTimer = null;
-      const requestRefresh = () => {
-        if (refreshTimer) return;
-        refreshTimer = window.setTimeout(async () => {
-          refreshTimer = null;
-          if (document.hidden || !canAutoRefresh()) return;
-          await loadSellers();
-        }, 250);
-      };
-
-      socket.on('userPresenceUpdated', () => {
-        requestRefresh();
-      });
-
-      socket.on('connect_error', (error) => {
-        console.error('Error de conexión Socket.io:', error);
-      });
+    let refreshTimer = null;
+    const requestRefresh = () => {
+      if (refreshTimer) return;
+      refreshTimer = window.setTimeout(async () => {
+        refreshTimer = null;
+        if (document.hidden || !canAutoRefresh()) return;
+        await loadSellers();
+      }, 250);
     };
 
-    tryConnect();
+    window.AppSocket.on('userPresenceUpdated', () => {
+      requestRefresh();
+    });
   };
 
   initializePresenceSocket();

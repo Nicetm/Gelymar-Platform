@@ -5,14 +5,6 @@ const { container } = require('../config/container');
 const { logger } = require('../utils/logger');
 const { t } = require('../i18n');
 const { getSqlPool, sql } = require('../config/sqlserver');
-const { 
-  generateRecepcionOrden,
-  generateAvisoEmbarque,
-  generateAvisoEntrega,
-  generateAvisoDisponibilidad,
-  getWeekOfYear,
-  formatDateByLanguage
-} = require('../pdf-generator/generator');
 
 const fileService = container.resolve('fileService');
 const emailService = container.resolve('emailService');
@@ -27,6 +19,7 @@ const documentEventService = container.resolve('documentEventService');
 const { normalizeRut } = require('../utils/rut.util');
 const { cleanDirectoryName } = require('../utils/directoryUtils');
 const { validateFilePath, setSecureFilePermissions } = require('../utils/filePermissions');
+const { sanitizeFileNamePart, normalizePONumber, resolveDocumentName: resolveDocName } = require('../services/pdfGeneration.service');
 
 const logDocEvent = async (payload) => {
   try {
@@ -36,298 +29,24 @@ const logDocEvent = async (payload) => {
   }
 };
 
-
-const DOC_NAME_MAP_ES = {
-  'Order Receipt Notice': 'Aviso de Recepcion de Orden',
-  'Shipment Notice': 'Aviso de Embarque',
-  'Order Delivery Notice': 'Aviso de Entrega',
-  'Availability Notice': 'Aviso de Disponibilidad de Orden'
-};
-const DOC_NAME_MAP_ES_TO_EN = Object.entries(DOC_NAME_MAP_ES).reduce((acc, [en, es]) => {
-  acc[String(es).trim().toLowerCase()] = en;
-  return acc;
-}, {});
-
-const FILE_ID_NAME_MAP = {
-  9: 'Order Receipt Notice',
-  19: 'Shipment Notice',
-  15: 'Order Delivery Notice',
-  6: 'Availability Notice'
-};
-
-
-function getDocumentDisplayName(documentName, lang) {
-  if (lang === 'es') {
-    return DOC_NAME_MAP_ES[documentName] || documentName;
-  }
-  return documentName;
-}
-
-function resolveDocumentName(file) {
-  if (file && file.file_id && FILE_ID_NAME_MAP[file.file_id]) {
-    return FILE_ID_NAME_MAP[file.file_id];
-  }
-  if (file?.name) {
-    const normalized = String(file.name).trim().toLowerCase();
-    if (DOC_NAME_MAP_ES_TO_EN[normalized]) {
-      return DOC_NAME_MAP_ES_TO_EN[normalized];
-    }
-    return file.name;
-  }
-  return '';
-}
-
-function sanitizeFileNamePart(value) {
-  if (!value || typeof value !== 'string') return '';
-  return value
-    .replace(/[<>:"/\\|?*]/g, '')
-    .replace(/[\x00-\x1f\x7f]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function normalizePONumber(value) {
-  if (!value) return '-';
-  const normalized = String(value).replace(/^GEL\s*/i, '').trim();
-  return normalized || '-';
-}
-
-function buildDocumentFileBaseName(documentName, file, pdfData, lang) {
-  const rawDocName = documentName || getDocumentDisplayName(documentName, lang) || 'Documento';
-  const docName = sanitizeFileNamePart(rawDocName) || 'Documento';
-  const customerName = sanitizeFileNamePart(pdfData?.customerName || file.customer_name) || '';
-  const pc = sanitizeFileNamePart(file.pc) || '';
-  const poNumber = normalizePONumber(pdfData?.orderNumber || file.oc);
-  const poLabel = poNumber && poNumber !== '-' ? sanitizeFileNamePart(`PO ${poNumber}`) : '';
-  const docType = file.document_type != null ? Number(file.document_type) : 0;
-  const parts = [docName];
-  if (docType === 0 && customerName) parts.push(customerName);
-  if (pc) parts.push(pc);
-  if (poLabel) parts.push(poLabel);
-  return parts.join(' - ');
-}
-
-function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 /**
- * Mapea el nombre del documento al generador correspondiente
- * @param {string} documentName - Nombre del documento
- * @returns {Function} Función generadora correspondiente
+ * Emite el conteo actualizado de documentos para un PC vía Socket.IO
  */
-function getDocumentGenerator(documentName) {
-  const generators = {
-    'Order Receipt Notice': generateRecepcionOrden,
-    'Shipment Notice': generateAvisoEmbarque,
-    'Order Delivery Notice': generateAvisoEntrega,
-    'Availability Notice': generateAvisoDisponibilidad
-  };
-  
-  return generators[documentName] || generateRecepcionOrden; // Fallback si no encuentra
-}
-
-/**
- * Obtiene datos reales de la BD para generar el PDF
- * @param {Object} file - Datos del archivo
- * @param {string} lang - Idioma ('es' o 'en')
- * @returns {Object} Datos formateados para el template
- */
-async function getPDFData(file, lang = 'es') {
-  // REFACTORING: Removed id_nro_ov_mas_factura parameter - no longer needed
-  const order = await documentFileService.getOrderWithCustomerForPdf(
-    file.pc,
-    file.oc,
-    file.factura
-  );
-  const orderDetail = await documentFileService.getOrderDetailForPdf(
-    file.pc,
-    file.oc,
-    file.factura
-  );
-  const documentName = resolveDocumentName(file);
-
-  let resolvedOrder = order;
-  if ((!resolvedOrder || !resolvedOrder.pc || !resolvedOrder.oc || !resolvedOrder.customer_name) && file?.pc) {
-    try {
-      const sqlHeader = file.oc
-        ? await orderService.getOrderByPcOc(String(file.pc), String(file.oc))
-        : await orderService.getOrderByPc(String(file.pc));
-      if (sqlHeader) {
-        resolvedOrder = {
-          ...(resolvedOrder || {}),
-          pc: sqlHeader.pc || resolvedOrder?.pc,
-          oc: sqlHeader.oc || resolvedOrder?.oc,
-          customer_name: sqlHeader.customer_name || resolvedOrder?.customer_name,
-          factura: sqlHeader.factura ?? resolvedOrder?.factura,
-          fecha_factura: sqlHeader.fecha_factura ?? resolvedOrder?.fecha_factura,
-        };
-      }
-    } catch (err) {
-      logger.warn(`No se pudo resolver orden desde SQL para PDF pc=${file?.pc} oc=${file?.oc}: ${err.message}`);
+const emitDocumentCountUpdate = async (req, pc) => {
+  if (!pc) return;
+  try {
+    const { poolPromise } = require('../config/db');
+    const pool = await poolPromise;
+    const [rows] = await pool.query('SELECT COUNT(*) AS cnt FROM order_files WHERE pc = ?', [pc]);
+    const count = rows[0]?.cnt || 0;
+    const io = req.app.get('io');
+    if (io) {
+      io.to('admin-room').emit('documentCountUpdated', { pc: String(pc), count });
     }
+  } catch (err) {
+    logger.warn(`[emitDocumentCountUpdate] Error: ${err.message}`);
   }
-
-  // REFACTORING: Removed resolveIdNroOvMasFactura call - id_nro_ov_mas_factura no longer exists
-  let orderItems = [];
-  if (resolvedOrder?.pc) {
-    orderItems = await documentFileService.getOrderItemsByPcOcFactura(
-      resolvedOrder.pc,
-      resolvedOrder.oc,
-      resolvedOrder.factura
-    );
-  }
-
-  if (process.env.LOG_PDF_DATA === 'true') {
-    logger.info(
-      `[getPDFData] doc=${documentName || 'N/A'} file_id=${file?.file_id || 'N/A'} file_name=${file?.name || 'N/A'} pc=${resolvedOrder?.pc || file?.pc || 'N/A'} oc=${resolvedOrder?.oc || file?.oc || 'N/A'} factura=${resolvedOrder?.factura ?? file?.factura ?? 'N/A'} items=${orderItems.length} first=${orderItems[0] ? `sol=${orderItems[0].kg_solicitados ?? 'N/A'} fac=${orderItems[0].kg_facturados ?? 'N/A'}` : 'N/A'}`
-    );
-  }
-
-  // Fechas actuales
-  const currentDate = new Date();
-  const receptionDate = currentDate.toLocaleDateString('es-CL');
-  const shipmentDate = new Date(currentDate.getTime() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('es-CL'); // +7 días
-  const estimatedDeparture = new Date(currentDate.getTime() + 10 * 24 * 60 * 60 * 1000).toLocaleDateString('es-CL'); // +10 días
-  const estimatedArrival = new Date(currentDate.getTime() + 25 * 24 * 60 * 60 * 1000).toLocaleDateString('es-CL'); // +25 días
-  const estimatedDelivery = new Date(currentDate.getTime() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString('es-CL'); // +30 días
-
-  // Ruta opcional de firma
-  const signaturePath = path.join(__dirname, '../pdf-generator/assets/firma_carla.png');
-
-  const resolvePdfDate = (...values) => {
-    for (const value of values) {
-      if (!value) continue;
-      const normalized =
-        value instanceof Date
-          ? value.toISOString().slice(0, 10)
-          : String(value).trim();
-      if (!normalized || normalized === '0' || normalized.toLowerCase() === 'null') {
-        continue;
-      }
-      const parsed = new Date(normalized);
-      if (!Number.isNaN(parsed.getTime())) {
-        return normalized;
-      }
-    }
-    return null;
-  };
-
-  const etd = resolvePdfDate(orderDetail?.fecha_etd_factura, orderDetail?.fecha_etd);
-  const eta = resolvePdfDate(orderDetail?.fecha_eta_factura, orderDetail?.fecha_eta);
-
-  const hasFactura =
-    resolvedOrder?.factura !== null &&
-    resolvedOrder?.factura !== undefined &&
-    resolvedOrder?.factura !== '' &&
-    resolvedOrder?.factura !== 0 &&
-    resolvedOrder?.factura !== '0';
-  const shippingMethod = hasFactura
-    ? (orderDetail?.medio_envio_factura || orderDetail?.medio_envio_ov)
-    : (orderDetail?.medio_envio_ov || orderDetail?.medio_envio_factura);
-
-  const additionalCharge = hasFactura
-    ? orderDetail?.gasto_adicional_flete_factura
-    : orderDetail?.gasto_adicional_flete;
-
-  const baseData = {
-    title: documentName,
-    subtitle: `Documento generado para ${resolvedOrder?.customer_name || file.customer_name}`,
-    customerName: resolvedOrder?.customer_name || file.customer_name,
-    internalOrderNumber: resolvedOrder?.pc || '-',
-    orderNumber: resolvedOrder?.oc ? resolvedOrder.oc.replace(/^GEL\s*/i, '') : '-',
-    tipo: orderDetail?.tipo || '-',
-    responsiblePerson: 'Sistema Gelymar',
-    destinationPort: orderDetail?.puerto_destino || '-',
-    incoterm: orderDetail?.incoterm || '-',
-    shippingMethod: shippingMethod || '-',
-    etd,
-    eta,
-    currency: orderDetail?.currency || 'USD',
-    paymentCondition: orderDetail?.condicion_venta || '-',
-    additionalCharge,
-    hasFactura,
-    incotermDeliveryDate: getWeekOfYear(orderDetail?.fecha_incoterm, lang),
-    receptionDate,
-    shipmentDate,
-    estimatedDeparture,
-    estimatedArrival,
-    estimatedDelivery,
-    signImagePath: fs.existsSync(signaturePath) ? signaturePath : null,
-    items: orderItems.map(item => ({
-      descripcion: item.descripcion || item.item_name || 'Producto',
-      kg_solicitados: item.kg_solicitados || 1,
-      kg_facturados: item.kg_facturados || 0,
-      unit_price: item.unit_price || 0,
-      factura: item.factura || '-'
-    }))
-  };
-
-  // Datos específicos según el tipo de documento
-  const specificData = {
-    'Order Receipt Notice': {
-      ...baseData,
-      processingStatus: 'En Proceso',
-      serviceType: 'Logística Integral',
-      origin: 'Chile',
-      destination: 'Internacional',
-      priority: 'Normal',
-      shippingMethod: baseData.shippingMethod
-    },
-    'Shipment Notice': {
-      ...baseData,
-      portOfShipment: 'Puerto de Valparaíso',
-      vesselName: 'M/V Gelymar Express',
-      containerNumber: `GEL-${Math.floor(Math.random() * 900000) + 100000}`,
-      portOfDestination: 'Puerto de Destino',
-      cargoType: 'Mercancía General',
-      totalWeight: orderItems.reduce((sum, item) => sum + (item.kg_solicitados || 0), 0),
-      totalVolume: orderItems.reduce((sum, item) => sum + (item.volumen || 0), 0),
-      specialInstructions: 'Manejar con cuidado. Mercancía frágil.',
-      shippingMethod: baseData.shippingMethod
-    },
-    'Order Delivery Notice': {
-      ...baseData,
-      items: orderItems,
-      processingStatus: 'Entregado',
-      serviceType: 'Servicio Logístico Completo',
-      dimensions: 'Variable según producto',
-      factura: orderDetail?.factura || '-',
-      shippingMethod: baseData.shippingMethod
-    },
-    'Availability Notice': {
-      ...baseData,
-      items: orderItems,
-      processingStatus: 'Disponible',
-      serviceType: 'Servicio Logístico Completo',
-      origin: 'Chile',
-      destination: 'Internacional',
-      priority: 'Normal',
-      shippingMethod: baseData.shippingMethod
-    }
-  };
-
-  // Agregar traducciones según el tipo de documento
-  const { getDocumentTranslations } = require('../pdf-generator/i18n');
-  let translationKey = 'aviso_recepcion'; // Default
-  
-  if (documentName === 'Shipment Notice') {
-    translationKey = 'aviso_embarque';
-  } else if (documentName === 'Order Delivery Notice') {
-    translationKey = 'aviso_entrega';
-  } else if (documentName === 'Availability Notice') {
-    translationKey = 'aviso_disponibilidad';
-  }
-  
-  const translations = getDocumentTranslations(translationKey, lang);
-  
-  const result = specificData[documentName] || baseData;
-  return {
-    ...result,
-    translations,
-    lang
-  };
-}
+};
 
 /**
  * Configuración de almacenamiento para Multer
@@ -379,6 +98,7 @@ exports.handleUpload = async (req, res) => {
       is_visible_to_customer,
       pc,
       oc,
+      factura: bodyFactura,
       idNroOvMasFactura: bodyIdNroOvMasFactura,
       id_nro_ov_mas_factura: bodyIdNroOvMasFacturaSnake
     } = req.body;
@@ -422,7 +142,7 @@ exports.handleUpload = async (req, res) => {
       order = { pc: orderPc, oc: orderOc || null };
     }
 
-    let resolvedFactura = null;
+    let resolvedFactura = bodyFactura || null;
     let resolvedId = idFromBody;
 
     if (resolvedId) {
@@ -431,16 +151,17 @@ exports.handleUpload = async (req, res) => {
         if (!order.oc && orderWithId.oc) {
           order.oc = orderWithId.oc;
         }
-        resolvedFactura = orderWithId.factura ?? resolvedFactura;
+        if (!resolvedFactura) resolvedFactura = orderWithId.factura || null;
         resolvedId = orderWithId.id_nro_ov_mas_factura || resolvedId;
       }
-    } else {
+    } else if (!resolvedFactura) {
+      // Solo buscar factura del ERP si no viene del frontend
       const orderWithMeta = await documentFileService.getOrderWithCustomerForDefaultFiles(order.pc);
       if (orderWithMeta) {
         if (!order.oc && orderWithMeta.oc) {
           order.oc = orderWithMeta.oc;
         }
-        resolvedFactura = orderWithMeta.factura ?? resolvedFactura;
+        resolvedFactura = orderWithMeta.factura || null;
         resolvedId = orderWithMeta.id_nro_ov_mas_factura || resolvedId;
       }
     }
@@ -543,6 +264,7 @@ exports.handleUpload = async (req, res) => {
     logger.info(`[handleUpload] source=manual Archivo subido pc=${order.pc || 'N/A'} oc=${order.oc || 'N/A'} factura=${resolvedFactura ?? 'N/A'} rut=${customerRut || 'N/A'} name=${file.originalname}`);
     const io = req.app.get('io');
     if (io) io.to('admin-room').emit('updateNotifications');
+    await emitDocumentCountUpdate(req, order.pc);
     res.status(201).json({ message: t('documentFile.file_uploaded_success', req.lang || 'es') });
   } catch (err) {
     logger.error(`Error al subir archivo: ${err.message}`);
@@ -918,74 +640,40 @@ exports.RenameFile = async (req, res) => {
  */
 exports.generateFile = async (req, res) => {
   const { id } = req.params;
-  const { lang: frontendLang = 'es' } = req.body; // Recibir idioma del frontend como fallback
+  const { lang: frontendLang = 'es' } = req.body;
 
   try {
+    const pdfGenerationService = require('../services/pdfGeneration.service');
     const file = await fileService.getFileById(id);
     if (!file) {
       logger.warn(`Archivo no encontrado ID: ${id}`);
       return res.status(404).json({ message: t('documentFile.file_not_found', req.lang || 'es') });
     }
 
-    // Usar el idioma de la BD (country_lang) o el del frontend como fallback
-    const lang = file.lang || frontendLang;
-
-    const FILE_SERVER_ROOT = process.env.FILE_SERVER_ROOT || '/var/www/html';
-    // Limpiar nombres de directorios para evitar problemas con caracteres especiales
-    const cleanCustomerName = cleanDirectoryName(file.customer_name);
-    const cleanFolderName = cleanDirectoryName(file.pc);
-    
-    // Usar file_identifier si existe, sino usar solo PC
-    const folderName = file.file_identifier ? `${cleanFolderName}_${file.file_identifier}` : cleanFolderName;
-    const customerFolder = path.join(FILE_SERVER_ROOT, 'uploads', cleanCustomerName, folderName);
-    
-    // Crear directorio si no existe
-    if (!fs.existsSync(customerFolder)) {
-      fs.mkdirSync(customerFolder, { recursive: true });
-      logger.info(`Directorio creado: ${customerFolder}`);
+    const pdfData = await pdfGenerationService.getPDFDataForRecord(file, { lang: frontendLang });
+    if (!pdfData) {
+      return res.status(500).json({ message: t('documentFile.generate_file_error', req.lang || 'es') });
     }
-    const documentName = resolveDocumentName(file);
-    const generator = getDocumentGenerator(documentName);
 
-    // Obtener datos reales de la BD
-    const pdfData = await getPDFData(file, lang);
+    const pdfResult = await pdfGenerationService.generatePDF(file, pdfData);
+    if (!pdfResult) {
+      return res.status(500).json({ message: t('documentFile.generate_file_error', req.lang || 'es') });
+    }
 
-    const baseName = buildDocumentFileBaseName(documentName, file, pdfData, lang);
-    const fileName = `${baseName}.pdf`;
-    const filePath = path.join(customerFolder, fileName);
-    
-    // Generar el PDF con el generador y datos correspondientes
-    await generator(filePath, pdfData);
+    await pdfGenerationService.updateRecordAfterGeneration(file.id, pdfResult.fileName, pdfResult.relativePath);
 
-    const updateData = {
-      id: file.id,
-      name: baseName,
-      status_id: 2,
-      updated_at: new Date(),
-      fecha_generacion: new Date(),
-      path: path.relative(FILE_SERVER_ROOT, filePath)
-    };
-
-    await fileService.updateFile(updateData);
-
-    logger.info(`[generateFile] source=manual Archivo generado pc=${file.pc || 'N/A'} oc=${file.oc || 'N/A'} factura=${file.factura ?? 'N/A'} name=${fileName}`);
+    const documentName = pdfGenerationService.resolveDocumentName(file);
+    logger.info(`[generateFile] source=manual Archivo generado pc=${file.pc || 'N/A'} oc=${file.oc || 'N/A'} factura=${file.factura ?? 'N/A'} name=${pdfResult.fileName}`);
     await logDocEvent({
-      source: 'manual',
-      action: 'generate_pdf',
-      process: 'generateFile',
-      fileId: file.id,
-      docType: documentName,
-      pc: file.pc,
-      oc: file.oc,
-      factura: file.factura,
-      customerRut: file.customer_rut || file.rut || null,
-      userId: req.user?.id || null,
-      status: 'ok'
+      source: 'manual', action: 'generate_pdf', process: 'generateFile',
+      fileId: file.id, docType: documentName, pc: file.pc, oc: file.oc,
+      factura: file.factura, customerRut: file.customer_rut || file.rut || null,
+      userId: req.user?.id || null, status: 'ok'
     });
     const io = req.app.get('io');
     if (io) io.to('admin-room').emit('updateNotifications');
-    return res.json({ message: t('documentFile.file_generated', req.lang || 'es'), path: updateData.path });
-
+    await emitDocumentCountUpdate(req, file.pc);
+    return res.json({ message: t('documentFile.file_generated', req.lang || 'es'), path: pdfResult.relativePath });
   } catch (error) {
     logger.error(`Error al generar archivo: ${error.message}`);
     return res.status(500).json({ message: t('documentFile.generate_file_error', req.lang || 'es') });
@@ -1201,6 +889,7 @@ exports.deleteFileById = async (req, res) => {
     logger.info(`[deleteFile] Archivo eliminado pc=${file.pc || 'N/A'} oc=${file.oc || 'N/A'} factura=${file.factura ?? 'N/A'} name=${file.name || 'N/A'}`);
     const io = req.app.get('io');
     if (io) io.to('admin-room').emit('updateNotifications');
+    await emitDocumentCountUpdate(req, file.pc);
     res.json({ message: `${t('documentFile.file_deleted', req.lang || 'es')} ${file.name}` });
   } catch (error) {
     logger.error(`Error al eliminar archivo: ${error.message}`);
@@ -1235,88 +924,54 @@ exports.regenerateFile = async (req, res) => {
   const { lang: frontendLang = 'es' } = req.body;
 
   try {
+    const pdfGenerationService = require('../services/pdfGeneration.service');
     const file = await fileService.getFileById(id);
     if (!file) {
       logger.warn(`Archivo no encontrado ID: ${id}`);
       return res.status(404).json({ message: t('documentFile.file_not_found', req.lang || 'es') });
     }
 
-    // Usar el idioma de la BD (country_lang) o el del frontend como fallback
-    const lang = file.lang || frontendLang;
+    const pdfData = await pdfGenerationService.getPDFDataForRecord(file, { lang: frontendLang });
+    if (!pdfData) {
+      return res.status(500).json({ message: t('documentFile.regenerate_error', req.lang || 'es') });
+    }
+
+    const lang = pdfData.lang;
+    const baseName = pdfGenerationService.buildFileName(file, pdfData, lang);
 
     const FILE_SERVER_ROOT = process.env.FILE_SERVER_ROOT || '/var/www/html';
-    // Limpiar nombres de directorios para evitar problemas con caracteres especiales
     const cleanCustomerName = cleanDirectoryName(file.customer_name);
     const cleanFolderName = cleanDirectoryName(file.pc);
-    
-    // Usar file_identifier si existe, sino usar solo PC
     const folderName = file.file_identifier ? `${cleanFolderName}_${file.file_identifier}` : cleanFolderName;
     const customerFolder = path.join(FILE_SERVER_ROOT, 'uploads', cleanCustomerName, folderName);
-    
-    // Crear directorio si no existe
+
     if (!fs.existsSync(customerFolder)) {
       fs.mkdirSync(customerFolder, { recursive: true });
-      logger.info(`Directorio creado: ${customerFolder}`);
     }
-    const documentName = resolveDocumentName(file);
-    const generator = getDocumentGenerator(documentName);
 
-    // Obtener datos reales de la BD
-    const pdfData = await getPDFData(file, lang);
-
-    const baseName = buildDocumentFileBaseName(documentName, file, pdfData, lang);
-    const versionPrefix = `${baseName}_v`;
-    const versionRegex = new RegExp(`^${escapeRegExp(baseName)}_v(\\d+)\\.pdf$`);
-
-    // Generar nombre de archivo con versión
-    // Buscar archivos existentes con patrón _v*
-    const existingFiles = fs.readdirSync(customerFolder).filter(f =>
-      f.startsWith(versionPrefix) && f.endsWith('.pdf')
-    );
-    
-    let version = 1;
-    if (existingFiles.length > 0) {
-      // Extraer números de versión existentes
-      const versions = existingFiles.map(f => {
-        const match = f.match(versionRegex);
-        return match ? parseInt(match[1], 10) : 0;
-      }).filter(v => v > 0);
-      
-      // Encontrar el siguiente número disponible
-      if (versions.length > 0) {
-        version = Math.max(...versions) + 1;
-      }
-    }
-    
-    const recordName = `${versionPrefix}${version}`;
-    const fileName = `${recordName}.pdf`;
+    const versionedName = pdfGenerationService.buildVersionedFileName(baseName, customerFolder);
+    const fileName = `${versionedName}.pdf`;
     const filePath = path.join(customerFolder, fileName);
-    
-    // Generar el PDF con el generador y datos correspondientes
+
+    const documentName = pdfGenerationService.resolveDocumentName(file);
+    const generator = pdfGenerationService.getDocumentGenerator(documentName);
+    if (!generator) {
+      return res.status(500).json({ message: t('documentFile.regenerate_error', req.lang || 'es') });
+    }
     await generator(filePath, pdfData);
 
-    // Duplicar el archivo con la nueva versión
-    const newFileId = await fileService.duplicateFile(id, path.relative(FILE_SERVER_ROOT, filePath), recordName);
+    const newFileId = await fileService.duplicateFile(id, path.relative(FILE_SERVER_ROOT, filePath), versionedName);
 
-    logger.info(`Archivo regenerado correctamente ID: ${id} - Versión: ${fileName} - Nuevo ID: ${newFileId}`);
+    logger.info(`Archivo regenerado ID: ${id} - Versión: ${fileName} - Nuevo ID: ${newFileId}`);
     await logDocEvent({
-      source: 'manual',
-      action: 'regenerate_pdf',
-      process: 'regenerateFile',
-      fileId: newFileId,
-      docType: documentName,
-      pc: file.pc,
-      oc: file.oc,
-      factura: file.factura,
-      customerRut: file.customer_rut || file.rut || null,
-      userId: req.user?.id || null,
-      status: 'ok'
+      source: 'manual', action: 'regenerate_pdf', process: 'regenerateFile',
+      fileId: newFileId, docType: documentName, pc: file.pc, oc: file.oc,
+      factura: file.factura, customerRut: file.customer_rut || file.rut || null,
+      userId: req.user?.id || null, status: 'ok'
     });
     res.json({
       message: t('documentFile.document_regenerated', req.lang || 'es'),
-      fileName: fileName,
-      filePath: path.relative(FILE_SERVER_ROOT, filePath),
-      newFileId: newFileId
+      fileName, filePath: path.relative(FILE_SERVER_ROOT, filePath), newFileId
     });
   } catch (err) {
     logger.error(`Error al regenerar archivo: ${err.message}`);
@@ -1421,18 +1076,18 @@ exports.createDefaultFiles = async (req, res) => {
 
   try {
     logger.info(`[createDefaultFiles] source=manual params orderId=${orderId || 'N/A'} body pc=${pc || 'N/A'} oc=${oc || 'N/A'} factura=${factura || 'N/A'} idNroOvMasFactura=${idNroOvMasFactura || 'N/A'}`);
-    let result;
+
     const { getIncotermValidationConfig, hasFacturaValue, isInList } = require('../utils/incotermValidation');
+    const { createDefaultRecordsForOrder } = require('../services/createDefaultRecords.service');
     const incotermConfig = await getIncotermValidationConfig();
 
     const canCreateShipment = (orderMeta, facturaValue) => {
       if (!hasFacturaValue(facturaValue)) return false;
-      const incoterm = orderMeta?.incoterm;
       const etd = orderMeta?.fecha_etd_factura;
       const eta = orderMeta?.fecha_eta_factura;
       if (!etd || !eta) return false;
       if (incotermConfig.enable) {
-        return isInList(incotermConfig.shipmentIncoterms, incoterm);
+        return isInList(incotermConfig.shipmentIncoterms, orderMeta?.incoterm);
       }
       return true;
     };
@@ -1442,21 +1097,21 @@ exports.createDefaultFiles = async (req, res) => {
     };
     const canCreateAvailability = (orderMeta, facturaValue) => {
       if (!hasFacturaValue(facturaValue)) return false;
-      const incoterm = orderMeta?.incoterm;
       if (incotermConfig.enable) {
-        return isInList(incotermConfig.availabilityIncoterms, incoterm);
+        return isInList(incotermConfig.availabilityIncoterms, orderMeta?.incoterm);
       }
       return true;
     };
+
+    // Resolver datos de la orden
+    let orderData = null;
 
     if (orderId) {
       const order = await documentFileService.getOrderWithCustomerForDefaultFiles(
         orderId,
         idNroOvMasFactura || null
       );
-
       if (!order) {
-        logger.warn(`Orden no encontrada ID: ${orderId}`);
         return res.status(404).json({ message: t('documentFile.order_not_found', req.lang || 'es') });
       }
 
@@ -1464,10 +1119,7 @@ exports.createDefaultFiles = async (req, res) => {
         ? await orderService.getOrderByPcId(order.pc, idNroOvMasFactura)
         : await orderService.getOrderByPcOc(order.pc, order.oc);
       const facturaValue = orderMeta?.factura ?? order.factura;
-      
-      // DEBUG: Log para ver qué incoterm tiene orderMeta
-      logger.info(`[createDefaultFiles] DEBUG orderMeta.incoterm="${orderMeta?.incoterm}" facturaValue="${facturaValue}"`);
-      
+
       const allowedDocs = [];
       if (!hasFacturaValue(facturaValue)) {
         allowedDocs.push('Order Receipt Notice');
@@ -1476,16 +1128,13 @@ exports.createDefaultFiles = async (req, res) => {
         if (canCreateDelivery(orderMeta, facturaValue)) allowedDocs.push('Order Delivery Notice');
         if (canCreateAvailability(orderMeta, facturaValue)) allowedDocs.push('Availability Notice');
       }
-      
-      logger.info(`[createDefaultFiles] DEBUG allowedDocs=${allowedDocs.join(', ')}`);
 
-      result = await fileService.createDefaultFilesForPcOc(
-        order.pc,
-        order.oc,
-        order.customer_name || 'Cliente',
-        order.factura,
-        allowedDocs  // Pasar allowedDocs correctamente
-      );
+      orderData = {
+        pc: order.pc, oc: order.oc, factura: order.factura,
+        rut: order.customer_rut, customerName: order.customer_name || 'Cliente',
+        incoterm: orderMeta?.incoterm, fecha_etd_factura: orderMeta?.fecha_etd_factura,
+        fecha_eta_factura: orderMeta?.fecha_eta_factura, allowedDocs
+      };
       logPc = order.pc || logPc;
       logOc = order.oc || logOc;
       logFactura = order.factura;
@@ -1496,168 +1145,123 @@ exports.createDefaultFiles = async (req, res) => {
       }
 
       let resolvedOc = oc;
-      let orderData = null;
-      
-      // Si viene factura en el body, obtener los datos completos de la orden desde SQL Server
+      let resolvedOrderData = null;
+
       if (factura !== undefined && factura !== null) {
-        // Normalizar factura para la consulta
-        const normalizedFactura = factura !== null && factura !== undefined && factura !== '' && factura !== 0 && factura !== '0'
-          ? String(factura).trim()
-          : null;
-        
-        // Obtener datos completos de la orden desde SQL Server (incluyendo incoterm, ETD, ETA)
+        const normalizedFactura = hasFacturaValue(factura) ? String(factura).trim() : null;
         const sqlPool = await getSqlPool();
         const request = sqlPool.request();
         request.input('pc', sql.VarChar, String(pc).trim());
-        
+
         let orderQuery;
         if (normalizedFactura) {
           request.input('factura', sql.VarChar, normalizedFactura);
           orderQuery = `
-            SELECT TOP 1 
-              h.Nro as pc,
-              h.OC as oc,
-              f.Factura as factura,
-              h.Clausula as incoterm,
-              c.Nombre as customer_name,
-              c.Rut as rut,
-              f.ETD_ENC_FA as fecha_etd_factura,
-              f.ETA_ENC_FA as fecha_eta_factura
+            SELECT TOP 1 h.Nro as pc, h.OC as oc, f.Factura as factura, h.Clausula as incoterm,
+              c.Nombre as customer_name, c.Rut as rut, f.ETD_ENC_FA as fecha_etd_factura, f.ETA_ENC_FA as fecha_eta_factura
             FROM jor_imp_HDR_90_softkey h
             INNER JOIN jor_imp_CLI_01_softkey c ON h.Rut = c.Rut
             INNER JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
-            WHERE h.Nro = @pc AND f.Factura = @factura
-          `;
+            WHERE h.Nro = @pc AND f.Factura = @factura`;
         } else {
           orderQuery = `
-            SELECT TOP 1 
-              h.Nro as pc,
-              h.OC as oc,
-              NULL as factura,
-              h.Clausula as incoterm,
-              c.Nombre as customer_name,
-              c.Rut as rut,
-              NULL as fecha_etd_factura,
-              NULL as fecha_eta_factura
+            SELECT TOP 1 h.Nro as pc, h.OC as oc, NULL as factura, h.Clausula as incoterm,
+              c.Nombre as customer_name, c.Rut as rut, NULL as fecha_etd_factura, NULL as fecha_eta_factura
             FROM jor_imp_HDR_90_softkey h
             INNER JOIN jor_imp_CLI_01_softkey c ON h.Rut = c.Rut
-            WHERE h.Nro = @pc
-          `;
+            WHERE h.Nro = @pc`;
         }
-        
-        logger.info(`[createDefaultFiles] SQL SERVER QUERY: ${orderQuery.replace(/\s+/g, ' ')} | PARAMS: pc=${pc}, factura=${normalizedFactura || 'NULL'}`);
+
         const orderResult = await request.query(orderQuery);
-        orderData = orderResult.recordset?.[0];
-        logger.info(`[createDefaultFiles] SQL SERVER RESULT: ${JSON.stringify(orderData)}`);
-        
-        if (!orderData) {
-          logger.warn(`Orden no encontrada para PC: ${pc}, Factura: ${factura}`);
+        resolvedOrderData = orderResult.recordset?.[0];
+        if (!resolvedOrderData) {
           return res.status(404).json({ message: t('documentFile.order_not_found', req.lang || 'es') });
         }
-        
-        resolvedOc = orderData.oc || oc || '';
+        resolvedOc = resolvedOrderData.oc || oc || '';
       } else if (idNroOvMasFactura) {
-        orderData = await orderService.getOrderByPcId(pc, idNroOvMasFactura);
-        resolvedOc = orderData?.oc || resolvedOc || '';
+        resolvedOrderData = await orderService.getOrderByPcId(pc, idNroOvMasFactura);
+        resolvedOc = resolvedOrderData?.oc || resolvedOc || '';
       } else if (!resolvedOc) {
-        orderData = await orderService.getOrderByPc(pc);
-        resolvedOc = orderData?.oc || '';
+        resolvedOrderData = await orderService.getOrderByPc(pc);
+        resolvedOc = resolvedOrderData?.oc || '';
       } else {
-        orderData = await orderService.getOrderByPcOc(pc, resolvedOc);
+        resolvedOrderData = await orderService.getOrderByPcOc(pc, resolvedOc);
       }
 
-      if (!orderData) {
-        logger.warn(`Orden no encontrada PC/OC: ${pc} / ${resolvedOc || 'N/A'}`);
+      if (!resolvedOrderData) {
         return res.status(404).json({ message: t('documentFile.order_not_found', req.lang || 'es') });
       }
 
-      // Usar factura del body si se proporciona, sino usar la de orderData
-      const facturaValue = factura !== undefined ? factura : orderData?.factura;
+      const facturaValue = factura !== undefined ? factura : resolvedOrderData?.factura;
       const allowedDocs = [];
       if (!hasFacturaValue(facturaValue)) {
         allowedDocs.push('Order Receipt Notice');
       } else {
-        if (canCreateShipment(orderData, facturaValue)) allowedDocs.push('Shipment Notice');
-        if (canCreateDelivery(orderData, facturaValue)) allowedDocs.push('Order Delivery Notice');
-        if (canCreateAvailability(orderData, facturaValue)) allowedDocs.push('Availability Notice');
+        if (canCreateShipment(resolvedOrderData, facturaValue)) allowedDocs.push('Shipment Notice');
+        if (canCreateDelivery(resolvedOrderData, facturaValue)) allowedDocs.push('Order Delivery Notice');
+        if (canCreateAvailability(resolvedOrderData, facturaValue)) allowedDocs.push('Availability Notice');
       }
 
-      result = await fileService.createDefaultFilesForPcOc(
-        orderData.pc,
-        orderData.oc,
-        orderData.customer_name || 'Cliente',
-        facturaValue,  // Usar facturaValue en lugar de orderData.factura
-        allowedDocs  // Pasar allowedDocs correctamente
-      );
-      logPc = orderData.pc || logPc;
-      logOc = orderData.oc || logOc;
+      orderData = {
+        pc: resolvedOrderData.pc, oc: resolvedOrderData.oc, factura: facturaValue,
+        rut: resolvedOrderData.rut, customerName: resolvedOrderData.customer_name || 'Cliente',
+        incoterm: resolvedOrderData.incoterm, fecha_etd_factura: resolvedOrderData.fecha_etd_factura,
+        fecha_eta_factura: resolvedOrderData.fecha_eta_factura, allowedDocs
+      };
+      logPc = resolvedOrderData.pc || logPc;
+      logOc = resolvedOrderData.oc || logOc;
       logFactura = facturaValue;
-      logCustomerRut = orderData.rut;
+      logCustomerRut = resolvedOrderData.rut;
     }
+
+    // Llamar al servicio unificado
+    const result = await createDefaultRecordsForOrder(
+      orderData,
+      { source: 'manual', allowedDocs: orderData.allowedDocs, userId: req.user?.id }
+    );
 
     const createdNames = Array.isArray(result.files)
-      ? result.files.map(file => file?.name).filter(Boolean).join(', ')
+      ? result.files.map(f => f?.name).filter(Boolean).join(', ')
       : '';
-    logger.info(`[createDefaultFiles] source=manual Archivos por defecto creados: orderId=${orderId || 'N/A'} pc=${logPc} oc=${logOc} files=${result.filesCreated}${createdNames ? ` names=${createdNames}` : ''}`);
-    if (Array.isArray(result.files)) {
-      for (const created of result.files) {
-        await logDocEvent({
-          source: 'manual',
-          action: 'create_record',
-          process: 'createDefaultFiles',
-          fileId: created.id,
-          docType: created.name,
-          pc: logPc !== 'N/A' ? logPc : pc,
-          oc: logOc !== 'N/A' ? logOc : oc,
-          factura: logFactura,
-          customerRut: logCustomerRut,
-          userId: req.user?.id || null,
-          status: 'ok'
-        });
-      }
-    }
-    res.status(201).json(result);
+    logger.info(`[createDefaultFiles] source=manual Archivos creados: pc=${logPc} oc=${logOc} files=${result.filesCreated}${createdNames ? ` names=${createdNames}` : ''}`);
 
+    res.status(201).json(result);
   } catch (error) {
-    logger.error(`[createDefaultFiles] Error creando archivos por defecto orderId=${orderId || 'N/A'} pc=${logPc} oc=${logOc} id=${idNroOvMasFactura || 'N/A'}: ${error.message}`);
-    
+    logger.error(`[createDefaultFiles] Error pc=${logPc} oc=${logOc}: ${error.message}`);
+
     if (error.code === 'NO_DOCUMENTS_ALLOWED') {
-      // Debug logging para diagnosticar problemas de idioma
-      if (process.env.LOG_LANGUAGE_DEBUG === 'true') {
-        logger.info(`[createDefaultFiles] NO_DOCUMENTS_ALLOWED req.lang=${req.lang || 'N/A'} Accept-Language=${req.headers['accept-language'] || 'N/A'}`);
-      }
-      
-      // Registrar evento en document_events
       await logDocEvent({
-        source: 'manual',
-        action: 'create_record',
-        process: 'createDefaultFiles',
-        fileId: null,
-        docType: 'default_files',
-        pc: logPc !== 'N/A' ? logPc : pc,
-        oc: logOc !== 'N/A' ? logOc : oc,
-        factura: error.details?.factura || logFactura,
-        customerRut: logCustomerRut,
-        userId: req.user?.id || null,
-        status: 'error',
-        message: 'No documents can be created: missing ETD/ETA dates or invalid Incoterm'
+        source: 'manual', action: 'create_record', process: 'createDefaultFiles',
+        fileId: null, docType: 'default_files', pc: logPc !== 'N/A' ? logPc : pc,
+        oc: logOc !== 'N/A' ? logOc : oc, factura: error.details?.factura || logFactura,
+        customerRut: logCustomerRut, userId: req.user?.id || null,
+        status: 'error', message: 'No documents allowed: missing ETD/ETA or invalid Incoterm'
       });
-      
       return res.status(error.status || 400).json({
         code: 'NO_DOCUMENTS_ALLOWED',
         message: t('documentFile.no_documents_allowed', req.lang || 'es')
       });
     }
-    
+
+    if (error.code === 'FILES_NEED_FACTURA') {
+      return res.status(200).json({
+        code: 'FILES_NEED_FACTURA',
+        needsFactura: true,
+        pendingDocs: error.pendingDocs || [],
+        message: t('documentFile.files_need_factura', req.lang || 'es')
+      });
+    }
+
     if (error.code === 'FILES_ALREADY_EXIST') {
       return res.status(error.status || 409).json({
         code: 'FILES_ALREADY_EXIST',
         message: t('documentFile.files_already_exist', req.lang || 'es')
       });
     }
-    res.status(500).json({ 
-      message: t('documentFile.create_default_files_error', req.lang || 'es'), 
-      error: error.message 
+
+    res.status(500).json({
+      message: t('documentFile.create_default_files_error', req.lang || 'es'),
+      error: error.message
     });
   }
 };
@@ -1881,7 +1485,7 @@ exports.processShipmentNotices = async (req, res) => {
           continue;
         }
 
-        const documentName = resolveDocumentName(file);
+        const documentName = resolveDocName(file);
         const fileData = {
           id: file.id,
           name: file.name,
@@ -2066,7 +1670,7 @@ exports.processOrderDeliveryNotices = async (req, res) => {
           continue;
         }
 
-        const documentName = resolveDocumentName(file);
+        const documentName = resolveDocName(file);
         const fileData = {
           id: file.id,
           name: file.name,
@@ -2247,7 +1851,7 @@ exports.processAvailabilityNotices = async (req, res) => {
           continue;
         }
 
-        const documentName = resolveDocumentName(file);
+        const documentName = resolveDocName(file);
         const fileData = {
           id: file.id,
           name: file.name,

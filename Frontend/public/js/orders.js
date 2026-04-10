@@ -392,8 +392,15 @@ export async function initOrdersScript() {
       ? (order.medio_envio_ov || '-')
       : (order.medio_envio_factura || '-');
     
+    const docCount = localStorage.getItem(`doc_count_${order.pc}`) ?? order.document_count ?? 0;
+    const docTypeIds = (() => {
+      const stored = localStorage.getItem(`doc_types_${order.pc}`);
+      if (stored) { try { return JSON.parse(stored); } catch {} }
+      return order.document_type_ids || [];
+    })();
+    
     return `
-      <tr data-id="${order.id}" class="hover:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition bg-white dark:bg-gray-900">
+      <tr data-id="${order.id}" data-pc="${order.pc}" class="hover:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition bg-white dark:bg-gray-900">
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">
           <div class="flex items-center gap-2">
             <a href="${documentUrl}" 
@@ -402,12 +409,12 @@ export async function initOrdersScript() {
             </a>
             <a href="${documentUrl}" 
                class="relative inline-flex items-center"
-               data-tooltip="${orders.documentsAvailable || 'Documentos disponibles'}: ${order.document_count || 0}"
-               aria-label="${orders.documentsAvailable || 'Documentos disponibles'}: ${order.document_count || 0}">
-              <svg class="w-5 h-5 folder-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" data-doc-types="${(order.document_type_ids || []).join(',')}">
+               data-tooltip="${orders.documentsAvailable || 'Documentos disponibles'}: ${docCount}"
+               aria-label="${orders.documentsAvailable || 'Documentos disponibles'}: ${docCount}">
+              <svg class="w-5 h-5 folder-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" data-doc-types="${docTypeIds.join(',')}">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path>
               </svg>
-              <span class="absolute -top-1 -right-3 dark:border-gray-800 text-gray-900 dark:text-white text-xs rounded-full h-4 w-4 flex items-center justify-center text-[10px]">${order.document_count || 0}</span>
+              <span class="docs-count absolute -top-1 -right-3 dark:border-gray-800 text-gray-900 dark:text-white text-xs rounded-full h-4 w-4 flex items-center justify-center text-[10px]">${docCount}</span>
             </a>
           </div>
         </td>
@@ -1016,6 +1023,41 @@ export async function initOrdersScript() {
   loadAndRenderOrders().then(() => {
     filterRows({ preservePage: restorePage });
   });
+
+  // Cuando el usuario vuelve atrás, forzar recarga de datos frescos
+  window.addEventListener('pageshow', (event) => {
+    if (event.persisted) {
+      clearCache();
+      loadAndRenderOrders().then(() => {
+        filterRows({ preservePage: true });
+      });
+    }
+  });
+
+  // También detectar cuando la página vuelve a ser visible (navegación SPA)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && !isCacheValid()) {
+      loadAndRenderOrders().then(() => {
+        filterRows({ preservePage: true });
+      });
+    }
+  });
+
+  // Escuchar cambios en conteo de documentos vía Socket.IO
+  if (window.AppSocket) {
+    window.AppSocket.on('documentCountUpdated', ({ pc, count }) => {
+      if (!pc) return;
+      // Actualizar el contador en el DOM sin recargar toda la tabla
+      document.querySelectorAll(`[data-pc="${pc}"] .docs-count, [data-order-pc="${pc}"] .docs-count`).forEach(el => {
+        el.textContent = count;
+      });
+      // También actualizar en el array de datos cacheados
+      const order = allOrders.find(o => String(o.pc) === String(pc));
+      if (order) order.document_count = count;
+      // Invalidar cache para que la próxima carga sea fresca
+      clearCache();
+    });
+  }
 
   // Función para navegar a clientes con filtro aplicado
   function navigateToClientsWithFilter(customerName) {

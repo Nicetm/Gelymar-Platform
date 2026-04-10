@@ -10,20 +10,36 @@ const orderChangeDetectionService = container.resolve('orderChangeDetectionServi
  * Lee config desde param_config; si deshabilitado retorna { skipped: true }.
  */
 const detectOrderChanges = async (req, res) => {
+  const startTimeMs = Date.now();
   try {
     const config = await cronConfigService.getCronTasksConfig();
     const taskConfig = config.orderChangeDetection;
 
     if (!taskConfig || !taskConfig.enabled) {
+      const duration = ((Date.now() - startTimeMs) / 1000).toFixed(2);
       logger.info('[OrderChangeDetection] Tarea deshabilitada, omitiendo ciclo');
-      return res.json({ success: true, skipped: true });
+      return res.json({ success: true, message: 'Tarea deshabilitada en configuración', skipped: true, ordersProcessed: 0, changesDetected: 0, errors: 0, duration: `${duration}s` });
     }
 
     const result = await orderChangeDetectionService.runDetectionCycle();
-    res.json({ success: true, ...result });
+    const duration = ((Date.now() - startTimeMs) / 1000).toFixed(2);
+    const message = result.changesDetected > 0
+      ? `Cambios detectados en ${result.changesDetected} campo(s) de ${result.ordersProcessed} orden(es)`
+      : `${result.ordersProcessed} orden(es) procesada(s), sin cambios detectados`;
+
+    res.json({
+      success: true,
+      message,
+      ordersProcessed: result.ordersProcessed,
+      changesDetected: result.changesDetected,
+      errors: result.errorsCount,
+      skipped: false,
+      duration: `${duration}s`
+    });
   } catch (error) {
+    const duration = ((Date.now() - startTimeMs) / 1000).toFixed(2);
     logger.error(`[OrderChangeDetection] Error en endpoint cron: ${error.message}`);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: error.message, duration: `${duration}s` });
   }
 };
 

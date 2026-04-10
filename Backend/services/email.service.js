@@ -41,7 +41,7 @@ const translations = {};
 const loadTemplates = () => {
   try {
     const templateDir = path.join(__dirname, '../mail-generator/template');
-    const templateFiles = ['document.hbs', 'chat.hbs', 'notifications-summary.hbs', 'password-reset.hbs'];
+    const templateFiles = ['document.hbs', 'chat.hbs', 'notifications-summary.hbs', 'password-reset.hbs', 'order-changes.hbs'];
     
     templateFiles.forEach(file => {
       const templatePath = path.join(templateDir, file);
@@ -562,4 +562,30 @@ async function sendBulkFilesToClient(files, options = {}) {
   await transporter.sendMail(mailOptions);
 }
 
-module.exports = { sendFileToClient, sendBulkFilesToClient, sendChatNotification, sendAdminNotificationSummary };
+module.exports = { sendFileToClient, sendBulkFilesToClient, sendChatNotification, sendAdminNotificationSummary, sendOrderChangesNotification };
+
+async function sendOrderChangesNotification({ adminEmail, adminName, orders, portalUrl }) {
+  if (!adminEmail) throw new Error('No se proporcionó email de administrador');
+
+  const template = compiledTemplates['order-changes'];
+  if (!template) throw new Error('Template "order-changes" not found');
+
+  const subject = `Cambios detectados en ${orders.length} orden(es) - Gelymar`;
+
+  const htmlContent = template({
+    subject,
+    title: 'Cambios detectados en órdenes',
+    adminName: adminName || 'Administrador',
+    totalOrders: orders.length,
+    orders,
+    portalUrl,
+    logoUrl: 'https://www.gelymar.com/wp-content/uploads/2014/08/gelymar-logo.jpg'
+  });
+
+  await transporter.sendMail({
+    from: `Gelymar <${process.env.SMTP_USER}>`,
+    to: adminEmail,
+    subject,
+    html: htmlContent
+  });
+}

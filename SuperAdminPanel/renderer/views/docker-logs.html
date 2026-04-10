@@ -1,0 +1,12 @@
+<div class="card">
+  <div class="card-title">Logs de Contenedores Docker</div>
+  <div class="flex gap-8 mb-16">
+    <select id="docker-container-select" onchange="DockerLogsPage.loadLogs()" style="padding:8px;border:1px solid #d1d5db;border-radius:4px;font-size:13px;min-width:200px;">
+      <option value="">Seleccione contenedor...</option>
+    </select>
+    <input type="number" id="docker-lines" value="200" placeholder="Líneas" style="width:80px;padding:8px;border:1px solid #d1d5db;border-radius:4px;font-size:13px;" />
+    <input type="text" id="docker-search" placeholder="Filtrar logs..." style="flex:1;padding:8px;border:1px solid #d1d5db;border-radius:4px;font-size:13px;" />
+    <button class="btn btn-primary" onclick="DockerLogsPage.loadLogs()">Cargar</button>
+  </div>
+  <div id="docker-log-viewer" class="log-viewer"></div>
+</div>

@@ -1,22 +1,334 @@
+/**
+ * Servicio de Creación de Registros por Defecto
+ * 
+ * Centraliza toda la lógica de creación de registros en order_files.
+ * Ambos flujos (cron y manual) usan este servicio para garantizar consistencia.
+ * 
+ * Exports:
+ * - createDefaultRecordsForOrder(orderData, options) — crea registros para una orden
+ * - createDefaultRecords(filters) — orquestador cron que itera órdenes del ERP
+ */
 const { poolPromise } = require('../config/db');
-const { getAllOrdersGroupedByRut, getNextFileIdentifier } = require('./file.service');
+const { getSqlPool, sql } = require('../config/sqlserver');
+const { getNextFileIdentifier, getAllOrdersGroupedByRut } = require('./file.service');
 const { getCustomerByRut } = require('./customer.service');
+const { cleanDirectoryName } = require('../utils/directoryUtils');
+const { getIncotermValidators, hasFacturaValue } = require('../utils/incotermValidation');
+const { logDocumentEvent } = require('./documentEvent.service');
+const { logger } = require('../utils/logger');
 const fs = require('fs').promises;
 const path = require('path');
-const { cleanDirectoryName } = require('../utils/directoryUtils');
-const { logger } = require('../utils/logger');
-const { logDocumentEvent } = require('./documentEvent.service');
+
+const FILE_ID_MAP = {
+  'Order Receipt Notice': 9,
+  'Shipment Notice': 19,
+  'Order Delivery Notice': 15,
+  'Availability Notice': 6
+};
+
+// ===== Funciones internas =====
+
+function normalizeFactura(factura) {
+  if (factura === null || factura === undefined || factura === '' || factura === 0 || factura === '0') {
+    return null;
+  }
+  return String(factura).trim();
+}
+
+function normalizeOc(oc) {
+  if (oc === null || oc === undefined) return null;
+  return String(oc).trim() || null;
+}
+
+async function syncFacturaForPc(pc, factura) {
+  if (!factura) return false;
+  const pool = await poolPromise;
+  try {
+    const normalizedPc = String(pc).trim();
+    const [rows] = await pool.query(
+      `SELECT id FROM order_files 
+       WHERE TRIM(COALESCE(pc, '')) = ? 
+         AND file_id = 9 
+         AND (factura IS NULL OR factura = '' OR factura = 0 OR factura = '0')`,
+      [normalizedPc]
+    );
+    if (rows.length === 0) return false;
+
+    const ids = rows.map(r => r.id);
+    await pool.query(
+      `UPDATE order_files SET factura = ?, updated_at = NOW() WHERE id IN (${ids.map(() => '?').join(',')})`,
+      [factura, ...ids]
+    );
+    logger.info(`[createDefaultRecords] Factura sincronizada: pc=${normalizedPc} factura=${factura} ids=[${ids.join(',')}]`);
+    return true;
+  } catch (error) {
+    logger.error(`[createDefaultRecords] Error sincronizando factura pc=${pc}: ${error.message}`);
+    return false;
+  }
+}
+
+async function findExistingRecords(pc, factura) {
+  const pool = await poolPromise;
+  try {
+    const normalizedPc = String(pc).trim();
+    let query, params;
+    if (factura) {
+      query = `SELECT * FROM order_files WHERE TRIM(COALESCE(pc, '')) = ? AND (factura = ? OR factura IS NULL OR factura = '' OR factura = '0')`;
+      params = [normalizedPc, factura];
+    } else {
+      query = `SELECT * FROM order_files WHERE TRIM(COALESCE(pc, '')) = ? AND (factura IS NULL OR factura = '' OR factura = '0')`;
+      params = [normalizedPc];
+    }
+    const [rows] = await pool.query(query, params);
+    return rows;
+  } catch (error) {
+    logger.error(`[createDefaultRecords] Error buscando registros existentes pc=${pc}: ${error.message}`);
+    return [];
+  }
+}
+
+async function checkPartialStatus(pc) {
+  try {
+    const sqlPool = await getSqlPool();
+    const request = sqlPool.request();
+    request.input('pc', sql.VarChar, String(pc).trim());
+    const result = await request.query(`
+      SELECT COUNT(DISTINCT f.Factura) AS invoice_count
+      FROM jor_imp_FACT_90_softkey f
+      WHERE f.Nro = @pc
+        AND f.Factura IS NOT NULL
+        AND LTRIM(RTRIM(f.Factura)) <> ''
+        AND f.Factura <> 0
+    `);
+    const invoiceCount = Number(result.recordset?.[0]?.invoice_count || 0);
+    return { isPartial: invoiceCount > 1, invoiceCount };
+  } catch (error) {
+    logger.error(`[createDefaultRecords] Error verificando parcialidad pc=${pc}: ${error.message}`);
+    return { isPartial: false, invoiceCount: 0 };
+  }
+}
+
+async function determineRequiredDocs({ isPartial, isParent, hasFactura, order, allowedDocs }) {
+  const { canCreateShipment, canCreateAvailability, canCreateDelivery } = await getIncotermValidators();
+
+  let requiredDocs = [];
+
+  if (isPartial) {
+    if (isParent) {
+      requiredDocs.push('Order Receipt Notice');
+    }
+    if (hasFactura) {
+      if (canCreateShipment(order)) requiredDocs.push('Shipment Notice');
+      if (canCreateDelivery(order)) requiredDocs.push('Order Delivery Notice');
+      if (canCreateAvailability(order)) requiredDocs.push('Availability Notice');
+    }
+  } else {
+    requiredDocs.push('Order Receipt Notice');
+    if (hasFactura) {
+      if (canCreateShipment(order)) requiredDocs.push('Shipment Notice');
+      if (canCreateDelivery(order)) requiredDocs.push('Order Delivery Notice');
+      if (canCreateAvailability(order)) requiredDocs.push('Availability Notice');
+    }
+  }
+
+  if (Array.isArray(allowedDocs)) {
+    const allowedSet = new Set(allowedDocs);
+    requiredDocs = requiredDocs.filter(doc => allowedSet.has(doc));
+  }
+
+  return requiredDocs;
+}
+
+async function ensureDirectory(customerName, pc, fileIdentifier) {
+  try {
+    const fileServerRoot = process.env.FILE_SERVER_ROOT || '/var/www/html';
+    const cleanName = cleanDirectoryName(customerName);
+    const relativePath = path.join('uploads', cleanName, `${pc}_${fileIdentifier}`);
+    const fullPath = path.join(fileServerRoot, relativePath);
+
+    try {
+      await fs.access(fullPath);
+      return relativePath;
+    } catch {
+      // No existe, crearlo
+    }
+
+    await fs.mkdir(fullPath, { recursive: true });
+    return relativePath;
+  } catch (error) {
+    logger.error(`[createDefaultRecords] Error creando directorio customer=${customerName} pc=${pc}: ${error.message}`);
+    return null;
+  }
+}
+
+async function insertRecord(fileData, eventMeta) {
+  const pool = await poolPromise;
+  try {
+    const query = `
+      INSERT INTO order_files (
+        pc, oc, factura, rut, name, path, file_identifier, file_id, was_sent,
+        document_type, file_type, status_id, is_visible_to_client,
+        created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, 0, 'PDF', 1, 0, NOW(), NOW())
+    `;
+    const params = [
+      fileData.pc, fileData.oc, fileData.factura, fileData.rut,
+      fileData.name, fileData.path, fileData.file_identifier, fileData.file_id
+    ];
+
+    const [result] = await pool.query(query, params);
+    logger.info(`[createDefaultRecords] Registro insertado pc=${fileData.pc} oc=${fileData.oc || 'N/A'} factura=${fileData.factura || 'N/A'} rut=${fileData.rut || 'N/A'} doc=${fileData.name}`);
+
+    await logDocumentEvent({
+      source: eventMeta.source || 'cron', action: 'create_record', process: 'createDefaultRecords',
+      fileId: result.insertId, docType: fileData.name, pc: fileData.pc, oc: fileData.oc,
+      factura: fileData.factura, customerRut: fileData.rut, userId: eventMeta.userId || null, status: 'ok'
+    });
+
+    return result;
+  } catch (error) {
+    logger.error(`[createDefaultRecords] Error insertando registro ${fileData.name} pc=${fileData.pc}: ${error.message}`);
+
+    await logDocumentEvent({
+      source: eventMeta.source || 'cron', action: 'create_record', process: 'createDefaultRecords',
+      fileId: null, docType: fileData.name, pc: fileData.pc, oc: fileData.oc,
+      factura: fileData.factura, customerRut: fileData.rut, userId: eventMeta.userId || null,
+      status: 'error', message: error.message
+    });
+
+    throw error;
+  }
+}
+
+// ===== Función principal — una orden =====
 
 /**
- * Crea registros en order_files con status_id = 1 para documentos por defecto
- * Esta función NO genera archivos PDF físicos, solo crea los registros en la base de datos
- * @param {Object} filters - Filtros opcionales { pc, factura }
- * @returns {Promise<void>}
+ * Crea registros por defecto en order_files para una orden específica.
+ * Usada tanto por el flujo cron como por el flujo manual.
+ *
+ * @param {Object} orderData - { pc, oc, factura, rut, customerName, incoterm, fecha_etd_factura, fecha_eta_factura, isParent }
+ * @param {Object} [options] - { source: 'cron'|'manual', allowedDocs: string[]|null, userId: number|null }
+ * @returns {Promise<Object>} { success, filesCreated, directoryPath, files, skipped }
+ */
+async function createDefaultRecordsForOrder(orderData, options = {}) {
+  const { source = 'cron', allowedDocs = null, userId = null } = options;
+  const isManual = source === 'manual';
+
+  if (!orderData.pc) {
+    const err = new Error('PC es requerido');
+    err.code = 'INVALID_ORDER_DATA';
+    err.status = 400;
+    throw err;
+  }
+
+  const pc = String(orderData.pc).trim();
+  const oc = normalizeOc(orderData.oc);
+  const factura = normalizeFactura(orderData.factura);
+  const rut = orderData.rut ? String(orderData.rut).trim() : null;
+  const customerName = orderData.customerName || 'Cliente';
+  const isParent = orderData.isParent !== undefined ? orderData.isParent : true;
+
+  const orderForValidation = {
+    factura,
+    incoterm: orderData.incoterm || null,
+    fecha_etd_factura: orderData.fecha_etd_factura || null,
+    fecha_eta_factura: orderData.fecha_eta_factura || null
+  };
+
+  if (factura) await syncFacturaForPc(pc, factura);
+
+  const existingFiles = await findExistingRecords(pc, factura);
+  const { isPartial } = await checkPartialStatus(pc);
+  const hasFactura = hasFacturaValue(factura);
+
+  const requiredDocs = await determineRequiredDocs({
+    isPartial, isParent, hasFactura, order: orderForValidation, allowedDocs
+  });
+
+  if (isManual && Array.isArray(allowedDocs) && allowedDocs.length === 0) {
+    const err = new Error('NO_DOCUMENTS_ALLOWED');
+    err.code = 'NO_DOCUMENTS_ALLOWED';
+    err.status = 400;
+    err.details = { pc, oc, factura };
+    throw err;
+  }
+
+  const existingFileIds = new Set(existingFiles.map(f => f.file_id).filter(Boolean));
+  const missingDocs = requiredDocs.filter(name => !existingFileIds.has(FILE_ID_MAP[name]));
+
+  if (missingDocs.length === 0) {
+    if (isManual) {
+      // Si no hay factura, informar qué documentos faltan por factura
+      const pendingDocs = [];
+      if (!hasFactura) {
+        pendingDocs.push('Shipment Notice', 'Order Delivery Notice', 'Availability Notice');
+      }
+      if (pendingDocs.length > 0) {
+        const err = new Error('FILES_NEED_FACTURA');
+        err.code = 'FILES_NEED_FACTURA';
+        err.status = 200;
+        err.pendingDocs = pendingDocs;
+        throw err;
+      }
+      const err = new Error('FILES_ALREADY_EXIST');
+      err.code = 'FILES_ALREADY_EXIST';
+      err.status = 409;
+      throw err;
+    }
+    return { success: true, filesCreated: 0, directoryPath: null, files: [], skipped: true };
+  }
+
+  let directoryPath, fileIdentifier;
+  if (existingFiles.length > 0) {
+    // Extraer solo el directorio del path (puede incluir nombre de archivo)
+    let existingPath = existingFiles[0].path;
+    if (existingPath && existingPath.match(/\.\w+$/)) {
+      // El path termina en extensión de archivo, extraer solo el directorio
+      existingPath = require('path').dirname(existingPath);
+    }
+    directoryPath = existingPath;
+    fileIdentifier = existingFiles[0].file_identifier || await getNextFileIdentifier(pc);
+  } else {
+    fileIdentifier = await getNextFileIdentifier(pc);
+    directoryPath = await ensureDirectory(customerName, pc, fileIdentifier);
+    if (!directoryPath) {
+      logger.warn(`[createDefaultRecords] Error creando directorio para pc=${pc}, omitiendo`);
+      return { success: false, filesCreated: 0, directoryPath: null, files: [], skipped: true };
+    }
+  }
+
+  const createdFiles = [];
+  for (const docName of missingDocs) {
+    try {
+      const result = await insertRecord(
+        { pc, oc, factura, rut, name: docName, path: directoryPath, file_identifier: fileIdentifier, file_id: FILE_ID_MAP[docName] },
+        { source, userId }
+      );
+      createdFiles.push({ id: result.insertId, name: docName, path: directoryPath });
+    } catch (insertError) {
+      logger.error(`[createDefaultRecords] Error insertando ${docName} pc=${pc}: ${insertError.message}`);
+    }
+  }
+
+  // Determinar documentos que requieren factura pero no se pudieron crear
+  const pendingDocs = [];
+  if (!hasFactura) {
+    pendingDocs.push('Shipment Notice', 'Order Delivery Notice', 'Availability Notice');
+  }
+
+  return { success: true, filesCreated: createdFiles.length, directoryPath, files: createdFiles, skipped: false, pendingDocs, needsFactura: pendingDocs.length > 0 };
+}
+
+// ===== Orquestador cron — todas las órdenes =====
+
+/**
+ * Procesa todas las órdenes del ERP y crea registros por defecto.
+ * Invocado por el cron de PM2 vía POST /api/cron/create-default-records.
+ * @param {Object} filters - { pc, factura }
  */
 async function createDefaultRecords(filters = {}) {
-  const startTime = new Date();
   const startTimeMs = Date.now();
-  
+
   try {
     const { pc, factura } = filters || {};
     const normalizedFilterPc = pc ? String(pc).trim() : null;
@@ -24,439 +336,105 @@ async function createDefaultRecords(filters = {}) {
     const parts = [];
     if (normalizedFilterPc) parts.push(`pc=${normalizedFilterPc}`);
     if (normalizedFilterFactura) parts.push(`factura=${normalizedFilterFactura}`);
-    logger.info(`[createDefaultRecords] Iniciando creación de registros por defecto - timestamp=${startTime.toISOString()}${parts.length ? ` ${parts.join(' ')}` : ''}`);
-    
-    // Obtener configuración desde param_config para obtener sendFrom
+    logger.info(`[createDefaultRecords] Iniciando${parts.length ? ` ${parts.join(' ')}` : ''}`);
+
+    // Leer sendFrom de param_config
     const pool = await poolPromise;
     let sendFrom = null;
     try {
-      const [configRows] = await pool.query(
-        'SELECT params FROM param_config WHERE name = ?',
-        ['checkDefaultFiles']
-      );
+      const [configRows] = await pool.query('SELECT params FROM param_config WHERE name = ?', ['checkDefaultFiles']);
       if (configRows.length > 0 && configRows[0].params) {
-        // Verificar si params ya es un objeto o es un string JSON
-        let params;
-        if (typeof configRows[0].params === 'string') {
-          params = JSON.parse(configRows[0].params);
-        } else if (typeof configRows[0].params === 'object') {
-          params = configRows[0].params;
-        } else {
-          logger.warn(`[createDefaultRecords] Tipo de params inesperado: ${typeof configRows[0].params}`);
-          params = {};
-        }
+        let params = configRows[0].params;
+        if (typeof params === 'string') params = JSON.parse(params);
+        else if (typeof params !== 'object') params = {};
         sendFrom = params.sendFrom || null;
-        if (sendFrom) {
-          logger.info(`[createDefaultRecords] Filtrando órdenes desde fecha: ${sendFrom}`);
-        }
+        if (sendFrom) logger.info(`[createDefaultRecords] Filtrando desde fecha: ${sendFrom}`);
       }
     } catch (configError) {
-      logger.warn(`[createDefaultRecords] Error obteniendo configuración sendFrom: ${configError.message}`);
-      logger.warn(`[createDefaultRecords] Valor de params: ${JSON.stringify(configRows?.[0]?.params)}`);
+      logger.warn(`[createDefaultRecords] Error obteniendo sendFrom: ${configError.message}`);
     }
-    
-    // Obtener todas las órdenes agrupadas por RUT (filtradas por sendFrom si está configurado)
+
     const ordersByRut = await getAllOrdersGroupedByRut(sendFrom, { pc: normalizedFilterPc, factura: normalizedFilterFactura });
-    const totalClients = Object.keys(ordersByRut).length;
-    
-    if (totalClients === 0) {
-      const endTime = new Date();
+    if (Object.keys(ordersByRut).length === 0) {
       const duration = ((Date.now() - startTimeMs) / 1000).toFixed(2);
-      logger.info(`[createDefaultRecords] No hay órdenes para procesar - timestamp=${endTime.toISOString()} duration=${duration}s`);
-      return;
+      logger.info(`[createDefaultRecords] No hay órdenes - duration=${duration}s`);
+      return { filesCreated: 0, ordersProcessed: 0, directoriesCreated: 0, skipped: 0, duration: `${duration}s` };
     }
-    
-    let totalFilesCreated = 0;
-    let totalOrdersProcessed = 0;
-    let totalDirectoriesCreated = 0;
-    const { normalizeOcForCompare: normalizeOcKey } = require('../utils/oc.util');
 
-    
-    const { getIncotermValidators, hasFacturaValue } = require('../utils/incotermValidation');
-    const { canCreateShipment, canCreateAvailability, canCreateDelivery } = await getIncotermValidators();
+    let totalFilesCreated = 0, totalOrdersProcessed = 0, totalDirectoriesCreated = 0, totalSkipped = 0;
 
-    // Procesar clientes en lotes para evitar problemas de memoria
     let clientEntries = Object.entries(ordersByRut);
     if (normalizedFilterPc || normalizedFilterFactura) {
       clientEntries = clientEntries
-        .map(([rut, orders]) => {
-          const filtered = orders.filter((order) => {
-            if (normalizedFilterPc && String(order.pc || '').trim() !== normalizedFilterPc) return false;
-            if (normalizedFilterFactura && String(order.factura || '').trim() !== normalizedFilterFactura) return false;
-            return true;
-          });
-          return [rut, filtered];
-        })
+        .map(([rut, orders]) => [rut, orders.filter(o => {
+          if (normalizedFilterPc && String(o.pc || '').trim() !== normalizedFilterPc) return false;
+          if (normalizedFilterFactura && String(o.factura || '').trim() !== normalizedFilterFactura) return false;
+          return true;
+        })])
         .filter(([, orders]) => orders.length > 0);
     }
+
     if (clientEntries.length === 0) {
-      const endTime = new Date();
       const duration = ((Date.now() - startTimeMs) / 1000).toFixed(2);
-      logger.info(`[createDefaultRecords] No hay órdenes para procesar - timestamp=${endTime.toISOString()} duration=${duration}s${parts.length ? ` (${parts.join(' ')})` : ''}`);
-      return;
+      logger.info(`[createDefaultRecords] No hay órdenes tras filtrar - duration=${duration}s`);
+      return { filesCreated: 0, ordersProcessed: 0, directoriesCreated: 0, skipped: 0, duration: `${duration}s` };
     }
 
-    const batchSize = 10; // Lotes más pequeños para clientes
-    const totalBatches = Math.ceil(clientEntries.length / batchSize);
-
-    const partialKeyCount = new Map();
-    const partialKeyMinId = new Map();
+    // Precalcular orden padre por PC (id más bajo)
+    const pcMinId = new Map();
     clientEntries.forEach(([, orders]) => {
-      orders.forEach((order) => {
-        const key = `${String(order.pc || '').trim()}`;
-        partialKeyCount.set(key, (partialKeyCount.get(key) || 0) + 1);
+      orders.forEach(order => {
+        const key = String(order.pc || '').trim();
         const orderId = order.id ? Number(order.id) : null;
         if (orderId && !Number.isNaN(orderId)) {
-          const currentMin = partialKeyMinId.get(key);
-          if (!currentMin || orderId < currentMin) {
-            partialKeyMinId.set(key, orderId);
-          }
+          const currentMin = pcMinId.get(key);
+          if (!currentMin || orderId < currentMin) pcMinId.set(key, orderId);
         }
       });
     });
-    
-    for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
-      const startIndex = batchIndex * batchSize;
-      const endIndex = Math.min(startIndex + batchSize, clientEntries.length);
-      const currentBatch = clientEntries.slice(startIndex, endIndex);
-      
-      for (const [rut, orders] of currentBatch) {
+
+    const batchSize = 10;
+    for (let i = 0; i < clientEntries.length; i += batchSize) {
+      const batch = clientEntries.slice(i, i + batchSize);
+      for (const [rut, orders] of batch) {
         for (const order of orders) {
           try {
-            // Obtener información del cliente
             const customer = await getCustomerByRut(order.rut);
-            if (!customer) {
-              continue;
-            }
-            
-            // Sincronizar factura del ERP: si la orden ahora tiene factura pero
-            // el Order Receipt Notice fue creado con factura=NULL, actualizarlo
-            const hasFactura = hasFacturaValue(order.factura);
-            if (hasFactura) {
-              try {
-                await updateOrderReceiptNoticeFactura(order.pc, order.oc, order.factura);
-              } catch (updateError) {
-                logger.warn(`[createDefaultRecords] Error actualizando ORN con factura pc=${order.pc}: ${updateError.message}`);
-              }
-            }
+            if (!customer) continue;
 
-            // Verificar si ya existen documentos para esta orden (solo por PC + factura, sin OC)
-            const existingFiles = await checkExistingFiles(
-              order.id,
-              order.pc,
-              order.factura
-            );
-            // Determinar ruta base: usar la existente si hay archivos previos
-            let directoryPath = existingFiles[0]?.path;
-
-            // Crear directorio físico en el servidor de archivos si no existen registros previos
-            if (!directoryPath) {
-              directoryPath = await createClientDirectory(customer.name, order.pc);
-              if (!directoryPath) {
-                logger.warn(`[createDefaultRecords] Error creando directorio para orden ${order.id}, omitiendo`);
-                continue;
-              }
-              totalDirectoriesCreated++;
-            }
-
-            // Decidir documentos según factura y asignar file_id
-            const FILE_ID_MAP = {
-              'Order Receipt Notice': 9,
-              'Shipment Notice': 19,
-              'Order Delivery Notice': 15,
-              'Availability Notice': 6
-            };
-            const partialKey = `${String(order.pc || '').trim()}`;
-            const hasPartial = (partialKeyCount.get(partialKey) || 0) > 1;
+            const pcKey = String(order.pc || '').trim();
+            const minId = pcMinId.get(pcKey) || null;
             const orderId = order.id ? Number(order.id) : null;
-            const minId = partialKeyMinId.get(partialKey) || null;
-            const isParent =
-              !hasPartial ||
-              (orderId && minId && !Number.isNaN(orderId) && orderId === minId);
+            const isParent = !minId || (orderId && orderId === minId);
 
-            // Determinar documentos requeridos
-            let requiredDocs = [];
-            if (hasPartial) {
-              // Hay múltiples órdenes con el mismo PC
-              if (isParent) {
-                // Es la primera orden (parent) → SIEMPRE crear ORN
-                requiredDocs.push('Order Receipt Notice');
-              }
-              // Para todas las órdenes parciales con factura, crear los otros documentos
-              if (hasFactura) {
-                if (canCreateShipment(order)) {
-                  requiredDocs.push('Shipment Notice');
-                }
-                if (canCreateDelivery(order)) {
-                  requiredDocs.push('Order Delivery Notice');
-                }
-                if (canCreateAvailability(order)) {
-                  requiredDocs.push('Availability Notice');
-                }
-              }
-            } else {
-              // Solo hay una orden con este PC → SIEMPRE crear ORN
-              requiredDocs.push('Order Receipt Notice');
-              // Si tiene factura, crear también los otros documentos
-              if (hasFactura) {
-                if (canCreateShipment(order)) {
-                  requiredDocs.push('Shipment Notice');
-                }
-                if (canCreateDelivery(order)) {
-                  requiredDocs.push('Order Delivery Notice');
-                }
-                if (canCreateAvailability(order)) {
-                  requiredDocs.push('Availability Notice');
-                }
-              }
-            }
-            
-            // Filtrar los que ya existen (usar file_id para evitar duplicados cuando cambia el nombre)
-            const existingFileIds = new Set(existingFiles.map(f => f.file_id).filter(Boolean));
-            const documentsToCreate = requiredDocs
-              .filter(name => !existingFileIds.has(FILE_ID_MAP[name]))
-              .map(name => ({
-                name,
-                pc: order.pc,
-                oc: order.oc,
-                path: directoryPath,
-                file_id: FILE_ID_MAP[name],
-                factura: order.factura,
-                customerRut: rut
-              }));
+            const result = await createDefaultRecordsForOrder(
+              { pc: order.pc, oc: order.oc, factura: order.factura, rut, customerName: customer.name,
+                incoterm: order.incoterm, fecha_etd_factura: order.fecha_etd_factura,
+                fecha_eta_factura: order.fecha_eta_factura, isParent },
+              { source: 'cron' }
+            );
 
-            // Si no hay documentos por crear, continuar
-            if (documentsToCreate.length === 0) {
-              totalOrdersProcessed++;
-              continue;
+            if (result.skipped) totalSkipped++;
+            else {
+              totalFilesCreated += result.filesCreated;
+              if (result.filesCreated > 0 && result.directoryPath) totalDirectoriesCreated++;
             }
-            
-            // Insertar los documentos
-            for (const doc of documentsToCreate) {
-              try {
-                await insertDefaultFile(doc);
-                totalFilesCreated++;
-              } catch (insertError) {
-                logger.error(`[createDefaultRecords] Error insertando ${doc.name} pc=${order.pc} oc=${order.oc || 'N/A'} factura=${order.factura || 'N/A'}: ${insertError.message}`);
-              }
-            }
-            
             totalOrdersProcessed++;
-            
           } catch (orderError) {
-            logger.error(`[createDefaultRecords] Error procesando orden ${order.id}: ${orderError.message}`);
+            logger.error(`[createDefaultRecords] Error procesando orden ${order.id || order.pc}: ${orderError.message}`);
           }
         }
       }
     }
-    
-    const endTime = new Date();
+
     const duration = ((Date.now() - startTimeMs) / 1000).toFixed(2);
-    logger.info(`[createDefaultRecords] Registros creados - timestamp=${endTime.toISOString()} duration=${duration}s files=${totalFilesCreated} orders=${totalOrdersProcessed} dirs=${totalDirectoriesCreated}`);
-    
+    logger.info(`[createDefaultRecords] Completado - duration=${duration}s files=${totalFilesCreated} orders=${totalOrdersProcessed} dirs=${totalDirectoriesCreated} skipped=${totalSkipped}`);
+
+    return { filesCreated: totalFilesCreated, ordersProcessed: totalOrdersProcessed, directoriesCreated: totalDirectoriesCreated, skipped: totalSkipped, duration: `${duration}s` };
   } catch (error) {
-    const errorTime = new Date();
-    const duration = ((Date.now() - startTimeMs) / 1000).toFixed(2);
-    logger.error(`[createDefaultRecords] Error en creación de registros por defecto: ${error.message} - timestamp=${errorTime.toISOString()} duration=${duration}s`);
-    logger.error(`[createDefaultRecords] Stack: ${error.stack}`);
+    logger.error(`[createDefaultRecords] Error: ${error.message} - duration=${((Date.now() - startTimeMs) / 1000).toFixed(2)}s`);
     throw error;
   }
 }
 
-/**
- * Verifica si ya existen archivos para una orden específica (busca solo por PC + factura)
- * @param {number} orderId - ID de la orden
- * @param {string} pc - Número PC
- * @param {string|null} factura - Número de factura
- * @returns {Promise<Array>} Array de archivos existentes
- */
-async function checkExistingFiles(orderId, pc, factura = null) {
-  const pool = await poolPromise;
-  
-  try {
-    const normalizedPc = pc == null ? '' : String(pc).trim();
-    const normalizedFactura = factura !== null && factura !== undefined && factura !== '' && factura !== 0 && factura !== '0'
-      ? String(factura).trim()
-      : null;
-    // Buscar TODOS los registros para este PC: tanto los que tienen la factura
-    // específica como los que tienen factura NULL (ORN recién sincronizados o pendientes).
-    // Esto evita duplicados cuando syncFactura acaba de actualizar un registro.
-    let query, params;
-    if (normalizedFactura) {
-      query = `SELECT f.* FROM order_files f WHERE TRIM(COALESCE(f.pc, '')) = ? AND (f.factura = ? OR f.factura IS NULL OR f.factura = '' OR f.factura = '0')`;
-      params = [normalizedPc, normalizedFactura];
-    } else {
-      query = `SELECT f.* FROM order_files f WHERE TRIM(COALESCE(f.pc, '')) = ? AND (f.factura IS NULL OR f.factura = '' OR f.factura = '0')`;
-      params = [normalizedPc];
-    }
-    const [rows] = await pool.query(query, params);
-    
-    return rows;
-    
-  } catch (error) {
-    logger.error(`[createDefaultRecords] Error verificando archivos existentes pc=${pc}: ${error.message}`);
-    logger.error(`[createDefaultRecords] Stack: ${error.stack}`);
-    return [];
-  }
-}
-
-/**
- * Inserta un nuevo registro de archivo en order_files con status_id = 1
- * @param {Object} fileData - Datos del archivo a insertar
- * @returns {Promise<Object>} Resultado de la inserción
- */
-async function insertDefaultFile(fileData) {
-  const pool = await poolPromise;
-  
-  try {
-    const normalizedOc = fileData.oc == null ? '' : String(fileData.oc).trim();
-    const query = `
-      INSERT INTO order_files (
-        pc, oc, factura, rut, name, path, file_identifier, file_id, was_sent, 
-        document_type, file_type, status_id, is_visible_to_client, 
-        created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, 0, 'PDF', 1, 0, NOW(), NOW())
-    `;
-
-    const nextIdentifier = await getNextFileIdentifier(fileData.pc);
-    if (!nextIdentifier) {
-      throw new Error(`No se pudo generar file_identifier para PC ${fileData.pc}`);
-    }
-    const normalizedFactura = fileData.factura !== null && fileData.factura !== undefined && fileData.factura !== '' && fileData.factura !== 0 && fileData.factura !== '0'
-      ? String(fileData.factura).trim()
-      : null;
-    const normalizedRut = fileData.customerRut ? String(fileData.customerRut).trim() : null;
-    const params = [
-      fileData.pc,
-      normalizedOc || null,
-      normalizedFactura,
-      normalizedRut,
-      fileData.name,
-      fileData.path,
-      nextIdentifier,
-      fileData.file_id || null
-    ];
-
-    const [result] = await pool.query(query, params);
-    logger.info(`[createDefaultRecords] Registro insertado pc=${fileData.pc} oc=${fileData.oc || 'N/A'} factura=${fileData.factura || 'N/A'} rut=${normalizedRut || 'N/A'} doc=${fileData.name}`);
-    await logDocumentEvent({
-      source: 'cron',
-      action: 'create_record',
-      process: 'createDefaultRecords',
-      fileId: result.insertId,
-      docType: fileData.name,
-      pc: fileData.pc,
-      oc: fileData.oc,
-      factura: fileData.factura,
-      customerRut: fileData.customerRut || null,
-      userId: null,
-      status: 'ok'
-    });
-    return result;
-    
-  } catch (error) {
-    logger.error(`[createDefaultRecords] Error insertando registro ${fileData.name} pc=${fileData.pc}: ${error.message}`);
-    
-    // Registrar evento de error
-    await logDocumentEvent({
-      source: 'cron',
-      action: 'create_record',
-      process: 'createDefaultRecords',
-      fileId: null,
-      docType: fileData.name,
-      pc: fileData.pc,
-      oc: fileData.oc,
-      factura: fileData.factura,
-      customerRut: fileData.customerRut || null,
-      userId: null,
-      status: 'error',
-      message: error.message
-    });
-    
-    throw error;
-  }
-}
-
-/**
- * Crea el directorio físico para el cliente y orden
- * @param {string} customerName - Nombre del cliente
- * @param {string} pc - Número PC de la orden
- * @returns {Promise<string|null>} Ruta del directorio creado o null si hay error
- */
-async function createClientDirectory(customerName, pc) {
-  try {
-    const fileServerRoot = process.env.FILE_SERVER_ROOT || '/var/www/html';
-    
-    if (!fileServerRoot) {
-      logger.error('[createDefaultRecords] FILE_SERVER_ROOT no está configurado en .env');
-      return null;
-    }
-
-    // Limpiar nombre del cliente para usar como nombre de directorio
-    const cleanCustomerName = cleanDirectoryName(customerName);
-
-    // Crear ruta RELATIVA: uploads/CLIENTE_NOMBRE/Numero PC
-    const relativePath = path.join('uploads', cleanCustomerName, pc);
-    
-    // Crear ruta COMPLETA para verificar/crear el directorio físico
-    const fullPath = path.join(fileServerRoot, relativePath);
-    
-    // Verificar si el directorio ya existe
-    try {
-      await fs.access(fullPath);
-      return relativePath; // Retornar ruta RELATIVA
-    } catch (accessError) {
-      // El directorio no existe, crearlo
-    }
-    
-    // Crear directorio y subdirectorios si no existen
-    await fs.mkdir(fullPath, { recursive: true });
-    return relativePath; // Retornar ruta RELATIVA
-    
-  } catch (error) {
-    logger.error(`[createDefaultRecords] Error creando directorio para cliente ${customerName}, pc=${pc}: ${error.message}`);
-    logger.error(`[createDefaultRecords] Stack: ${error.stack}`);
-    return null;
-  }
-}
-
-/**
- * Actualiza la factura de un Order Receipt Notice existente que tiene factura=NULL
- * Esto ocurre cuando una orden inicialmente sin factura ahora tiene factura asignada
- * @param {string} pc - Número PC
- * @param {string} oc - Número OC
- * @param {string} factura - Número de factura a asignar
- * @returns {Promise<boolean>} true si se actualizó algún registro
- */
-async function updateOrderReceiptNoticeFactura(pc, oc, factura) {
-  const pool = await poolPromise;
-  
-  try {
-    const normalizedPc = String(pc).trim();
-    const normalizedFactura = String(factura).trim();
-    
-    // Buscar ORN con factura=NULL para este PC (sin OC, ya que el ORN es por PC)
-    const query = `
-      UPDATE order_files 
-      SET factura = ?, updated_at = NOW()
-      WHERE TRIM(COALESCE(pc, '')) = ? 
-        AND file_id = 9
-        AND (factura IS NULL OR factura = '' OR factura = 0 OR factura = '0')
-    `;
-    
-    const [result] = await pool.query(query, [normalizedFactura, normalizedPc]);
-    
-    if (result.affectedRows > 0) {
-      logger.info(`[createDefaultRecords] ORN actualizado con factura pc=${normalizedPc} factura=${normalizedFactura} rows=${result.affectedRows}`);
-      return true;
-    }
-    
-    return false;
-    
-  } catch (error) {
-    logger.error(`[createDefaultRecords] Error actualizando ORN con factura pc=${pc}: ${error.message}`);
-    throw error;
-  }
-}
-
-module.exports = { createDefaultRecords };
+module.exports = { createDefaultRecords, createDefaultRecordsForOrder };

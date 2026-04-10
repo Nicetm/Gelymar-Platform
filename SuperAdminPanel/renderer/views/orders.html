@@ -1,0 +1,56 @@
+<div class="card">
+  <div class="card-title" style="font-size:18px;margin-bottom:8px;">Gestión de Órdenes</div>
+  <hr style="border:none;border-top:1px solid #e5e7eb;margin-bottom:14px;">
+  <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+    <div style="display:flex;flex-direction:column;gap:2px;">
+      <label style="font-size:11px;color:#6b7280;">PC</label>
+      <input type="text" id="orders-search-pc" placeholder="Ej: 21712" style="width:120px;" />
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px;">
+      <label style="font-size:11px;color:#6b7280;">OC</label>
+      <input type="text" id="orders-search-oc" placeholder="Ej: GEL 8100144187" style="width:180px;" />
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px;">
+      <label style="font-size:11px;color:#6b7280;">Factura</label>
+      <input type="text" id="orders-search-factura" placeholder="Ej: 1018394" style="width:140px;" />
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px;">
+      <label style="font-size:11px;color:#6b7280;">Nombre</label>
+      <input type="text" id="orders-search-name" placeholder="Ej: Shipment Notice" style="width:180px;" />
+    </div>
+    <div style="display:flex;align-items:flex-end;">
+      <button class="btn btn-primary" id="orders-search-btn">🔍 Buscar</button>
+    </div>
+  </div>
+  <hr style="border:none;border-top:1px solid #e5e7eb;margin-bottom:12px;">
+  <div id="orders-status" class="status-info" style="margin:8px 0;font-size:13px;">Complete al menos un campo y presione Buscar</div>
+  <div class="table-scroll-container">
+    <table>
+      <thead><tr>
+        <th>ID</th><th>PC</th><th>OC</th><th>Factura</th><th>Documento</th><th>Estado</th><th>Path</th><th>Visible</th><th>Acciones</th>
+      </tr></thead>
+      <tbody id="orders-tbody">
+        <tr><td colspan="9" style="text-align:center;padding:20px;color:#6b7280;">Complete al menos un campo y presione Buscar</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Edit modal -->
+<div id="orders-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <h3>Editar Archivo</h3>
+    <p id="edit-file-info" style="font-size:12px;color:#6b7280;margin-bottom:12px;"></p>
+    <input type="hidden" id="edit-file-id" />
+    <div class="form-group"><label>Status ID</label><input type="number" id="edit-status-id" /></div>
+    <div class="form-group"><label>Path</label><input type="text" id="edit-path" style="font-size:12px;" /></div>
+    <div class="form-group"><label>Visible al cliente</label><select id="edit-visible"><option value="1">Sí</option><option value="0">No</option></select></div>
+    <div class="form-group"><label>Fecha generación</label><input type="datetime-local" id="edit-fecha-generacion" /></div>
+    <div class="form-group"><label>Fecha envío</label><input type="datetime-local" id="edit-fecha-envio" /></div>
+    <div class="form-group"><label>Fecha reenvío</label><input type="datetime-local" id="edit-fecha-reenvio" /></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="OrdersPage.closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="OrdersPage.saveEdit()">Guardar</button>
+    </div>
+  </div>
+</div>

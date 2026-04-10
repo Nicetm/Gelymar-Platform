@@ -1,0 +1,59 @@
+<div class="card">
+  <div class="card-title">Configuración</div>
+  <div id="settings-alert" class="alert alert-success hidden">Configuración guardada</div>
+
+  <h4 style="margin:12px 0 8px;font-size:14px;">Desarrollo</h4>
+  <div class="flex gap-8" style="flex-wrap:wrap;">
+    <div class="form-group" style="flex:1;min-width:200px;"><label>MySQL Host</label><input id="cfg-dev-mysql-host" /></div>
+    <div class="form-group" style="width:80px;"><label>Puerto</label><input id="cfg-dev-mysql-port" type="number" /></div>
+    <div class="form-group" style="flex:1;min-width:120px;"><label>Usuario</label><input id="cfg-dev-mysql-user" /></div>
+    <div class="form-group" style="flex:1;min-width:120px;"><label>Contraseña</label><input id="cfg-dev-mysql-pass" type="password" /></div>
+    <div class="form-group" style="flex:1;min-width:150px;"><label>Base de datos</label><input id="cfg-dev-mysql-db" /></div>
+  </div>
+  <div class="flex gap-8" style="flex-wrap:wrap;">
+    <div class="form-group" style="flex:1;min-width:200px;"><label>SQL Server Host</label><input id="cfg-dev-sql-host" /></div>
+    <div class="form-group" style="width:80px;"><label>Puerto</label><input id="cfg-dev-sql-port" type="number" /></div>
+    <div class="form-group" style="flex:1;min-width:120px;"><label>Usuario</label><input id="cfg-dev-sql-user" /></div>
+    <div class="form-group" style="flex:1;min-width:120px;"><label>Contraseña</label><input id="cfg-dev-sql-pass" type="password" /></div>
+    <div class="form-group" style="flex:1;min-width:150px;"><label>Base de datos</label><input id="cfg-dev-sql-db" /></div>
+  </div>
+  <div class="flex gap-8" style="flex-wrap:wrap;">
+    <div class="form-group" style="flex:1;"><label>Docker (socket o host)</label><input id="cfg-dev-docker" /></div>
+    <div class="form-group" style="flex:1;"><label>Fileserver Root</label><input id="cfg-dev-fileserver" /></div>
+    <div class="form-group" style="flex:1;"><label>Backend URL</label><input id="cfg-dev-backend-url" placeholder="http://localhost:3000" /></div>
+  </div>
+
+  <h4 style="margin:16px 0 8px;font-size:14px;">Producción</h4>
+  <div class="flex gap-8" style="flex-wrap:wrap;">
+    <div class="form-group" style="flex:1;min-width:200px;"><label>MySQL Host</label><input id="cfg-prod-mysql-host" /></div>
+    <div class="form-group" style="width:80px;"><label>Puerto</label><input id="cfg-prod-mysql-port" type="number" /></div>
+    <div class="form-group" style="flex:1;min-width:120px;"><label>Usuario</label><input id="cfg-prod-mysql-user" /></div>
+    <div class="form-group" style="flex:1;min-width:120px;"><label>Contraseña</label><input id="cfg-prod-mysql-pass" type="password" /></div>
+    <div class="form-group" style="flex:1;min-width:150px;"><label>Base de datos</label><input id="cfg-prod-mysql-db" /></div>
+  </div>
+  <div class="flex gap-8" style="flex-wrap:wrap;">
+    <div class="form-group" style="flex:1;min-width:200px;"><label>SQL Server Host</label><input id="cfg-prod-sql-host" /></div>
+    <div class="form-group" style="width:80px;"><label>Puerto</label><input id="cfg-prod-sql-port" type="number" /></div>
+    <div class="form-group" style="flex:1;min-width:120px;"><label>Usuario</label><input id="cfg-prod-sql-user" /></div>
+    <div class="form-group" style="flex:1;min-width:120px;"><label>Contraseña</label><input id="cfg-prod-sql-pass" type="password" /></div>
+    <div class="form-group" style="flex:1;min-width:150px;"><label>Base de datos</label><input id="cfg-prod-sql-db" /></div>
+  </div>
+  <div class="flex gap-8" style="flex-wrap:wrap;">
+    <div class="form-group" style="flex:1;"><label>Docker (socket o host)</label><input id="cfg-prod-docker" /></div>
+    <div class="form-group" style="flex:1;"><label>Fileserver Root</label><input id="cfg-prod-fileserver" /></div>
+    <div class="form-group" style="flex:1;"><label>Backend URL</label><input id="cfg-prod-backend-url" placeholder="http://172.20.10.151:3000" /></div>
+  </div>
+
+  <h4 style="margin:16px 0 8px;font-size:14px;">General</h4>
+  <div class="flex gap-8" style="flex-wrap:wrap;">
+    <div class="form-group" style="flex:1;"><label>JWT Secret</label><input id="cfg-jwt-secret" /></div>
+    <div class="form-group" style="flex:1;"><label>PM2 Container Name</label><input id="cfg-pm2-container" /></div>
+  </div>
+  <h4 style="margin:16px 0 8px;font-size:14px;">Backend / Fileserver</h4>
+  <div class="flex gap-8" style="flex-wrap:wrap;">
+    <div class="form-group" style="flex:1;"><label>Fileserver User</label><input id="cfg-fileserver-user" placeholder="admin" /></div>
+    <div class="form-group" style="flex:1;"><label>Fileserver Pass</label><input id="cfg-fileserver-pass" type="password" /></div>
+  </div>
+
+  <button class="btn btn-primary" onclick="SettingsPage.save()" style="margin-top:12px;">Guardar Configuración</button>
+</div>

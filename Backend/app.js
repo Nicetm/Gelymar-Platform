@@ -272,6 +272,10 @@ app.use('/api/assets', readLimiter, assetsRoutes);
 const captchaRoutes = require('./routes/captcha.routes');
 app.use('/api/captcha', readLimiter, captchaRoutes);
 
+// Broadcast notifications
+const broadcastRoutes = require('./routes/broadcast.routes');
+app.use('/api/broadcast', broadcastRoutes);
+
 // Rutas protegidas (requieren token + rol adecuado)
 app.use('/api/customers', authMiddleware, readLimiter, authorizeRoles(['admin', 'seller']), customerRoutes);
 app.use('/api/users', authMiddleware, readLimiter, authorizeRoles(['admin', 'client']), userRoutes);
@@ -514,9 +518,13 @@ io.on('connection', (socket) => {
   }
   // Unir al usuario a una sala específica según su rol
   if (socket.user.role === 'admin') {
-    socket.join('admin-room'); // Para notificaciones generales
-    socket.join(`admin-${socket.user.id}`); // Para mensajes específicos del admin
+    socket.join('admin-room');
+    socket.join(`admin-${socket.user.id}`);
+  } else if (socket.user.role === 'seller') {
+    socket.join('seller-room');
+    socket.join(`seller-${socket.user.id}`);
   } else if (socket.user.role === 'client' && socket.user.customer_id) {
+    socket.join('client-room');
     const customerRoom = `customer-${socket.user.customer_id}`;
     socket.join(customerRoom);
   }

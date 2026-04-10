@@ -106,19 +106,23 @@ async function getAllCustomers(options = {}) {
 
     const [userRows] = normalizedRuts.length
       ? await pool.query(
-        `SELECT rut, online FROM users WHERE rut IN (?)`,
+        `SELECT rut, online, COALESCE(bloqueado, 0) AS bloqueado, COALESCE(intentos_fallidos, 0) AS intentos_fallidos FROM users WHERE rut IN (?)`,
         [normalizedRuts]
       )
       : [[]];
     const userOnlineMap = new Map();
     (userRows || []).forEach((row) => {
-      userOnlineMap.set(normalizeRut(row.rut), row.online);
+      userOnlineMap.set(normalizeRut(row.rut), {
+        online: row.online,
+        bloqueado: row.bloqueado,
+        intentos_fallidos: row.intentos_fallidos
+      });
     });
 
     return rows.map((row) => {
       const normalizedRut = normalizeRut(row.Rut);
       const contact = contactMap.get(normalizedRut) || {};
-      const userOnline = userOnlineMap.get(normalizedRut);
+      const userData = userOnlineMap.get(normalizedRut) || {};
       const customer = new Customer({
         id: null,
         rut: row.Rut?.trim() || null,
@@ -133,9 +137,11 @@ async function getAllCustomers(options = {}) {
         phone: row.Telefono?.trim() || null,
         email: contact.primary_email || row.Contacto2?.trim() || null,
         order_count: row.order_count || 0,
-        online: typeof userOnline !== 'undefined'
-          ? userOnline
-          : (typeof contact.online !== 'undefined' ? contact.online : 0)
+        online: typeof userData.online !== 'undefined'
+          ? userData.online
+          : (typeof contact.online !== 'undefined' ? contact.online : 0),
+        bloqueado: Number(userData.bloqueado) || 0,
+        intentos_fallidos: Number(userData.intentos_fallidos) || 0
       });
       return customer;
     });

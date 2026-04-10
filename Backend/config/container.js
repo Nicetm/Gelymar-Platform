@@ -14,10 +14,10 @@ const Auth2FAService = require('../services/auth2fa.service');
 const chatService = require('../services/chat.service');
 const checkAvailabilityNoticeService = require('../services/checkAvailabilityNotice.service');
 const checkClientAccessService = require('../services/checkClientAccess.service');
-const checkDefaultFilesService = require('../services/checkDefaultFiles.service');
 const checkOrderDeliveryNoticeService = require('../services/checkOrderDeliveryNotice.service');
 const createDefaultRecordsService = require('../services/createDefaultRecords.service');
 const generatePendingPDFsService = require('../services/generatePendingPDFs.service');
+const pdfGenerationService = require('../services/pdfGeneration.service');
 const checkOrderReceptionService = require('../services/checkOrderReception.service');
 const checkShipmentNoticeService = require('../services/checkShipmentNotice.service');
 const configService = require('../services/config.service');
@@ -68,12 +68,12 @@ container.register({
   chatService: asValue(chatService),
   checkAvailabilityNoticeService: asValue(checkAvailabilityNoticeService),
   checkClientAccessService: asValue(checkClientAccessService),
-  checkDefaultFilesService: asValue(checkDefaultFilesService),
   checkOrderDeliveryNoticeService: asValue(checkOrderDeliveryNoticeService),
   checkOrderReceptionService: asValue(checkOrderReceptionService),
   checkShipmentNoticeService: asValue(checkShipmentNoticeService),
   createDefaultRecordsService: asValue(createDefaultRecordsService),
   generatePendingPDFsService: asValue(generatePendingPDFsService),
+  pdfGenerationService: asValue(pdfGenerationService),
   configService: asValue(configService),
   cronConfigService: asValue(cronConfigService),
   customerService: asValue(customerService),

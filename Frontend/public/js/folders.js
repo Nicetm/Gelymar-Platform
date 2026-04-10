@@ -696,7 +696,7 @@ export async function initFoldersScript() {
       : (folder.medio_envio_factura || '-');
 
     return `
-      <tr data-id="${folder.id}" class="hover:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition bg-white dark:bg-gray-900">
+      <tr data-id="${folder.id}" data-pc="${folder.pc}" class="hover:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition bg-white dark:bg-gray-900">
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">
           <div class="flex items-center gap-2">
             <a href="${documentsUrl}"
@@ -705,12 +705,12 @@ export async function initFoldersScript() {
             </a>
             <a href="${documentsUrl}"
                class="relative inline-flex items-center"
-               data-tooltip="${getMessage(carpetas.documentsAvailable) || 'Documentos disponibles'}: ${folder.document_count || 0}"
-               aria-label="${getMessage(carpetas.documentsAvailable) || 'Documentos disponibles'}: ${folder.document_count || 0}">
-              <svg class="w-5 h-5 folder-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" data-doc-types="${(folder.document_type_ids || []).join(',')}">
+               data-tooltip="${getMessage(carpetas.documentsAvailable) || 'Documentos disponibles'}: ${localStorage.getItem(`doc_count_${folder.pc}`) ?? folder.document_count ?? 0}"
+               aria-label="${getMessage(carpetas.documentsAvailable) || 'Documentos disponibles'}: ${localStorage.getItem(`doc_count_${folder.pc}`) ?? folder.document_count ?? 0}">
+              <svg class="w-5 h-5 folder-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" data-doc-types="${(() => { const s = localStorage.getItem(`doc_types_${folder.pc}`); if (s) { try { return JSON.parse(s).join(','); } catch {} } return (folder.document_type_ids || []).join(','); })()}">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path>
               </svg>
-              <span class="absolute -top-1 -right-3 dark:border-gray-800 text-gray-900 dark:text-white text-xs rounded-full h-4 w-4 flex items-center justify-center text-[10px]">${folder.document_count || 0}</span>
+              <span class="docs-count absolute -top-1 -right-3 dark:border-gray-800 text-gray-900 dark:text-white text-xs rounded-full h-4 w-4 flex items-center justify-center text-[10px]">${localStorage.getItem(`doc_count_${folder.pc}`) ?? folder.document_count ?? 0}</span>
             </a>
           </div>
         </td>
@@ -1419,6 +1419,27 @@ export async function initFoldersScript() {
 
   await loadAndRenderFolders();
   setupAutoRefresh();
+
+  // Cuando el usuario vuelve atrás, forzar recarga de datos frescos
+  window.addEventListener('pageshow', (event) => {
+    if (event.persisted) {
+      clearFoldersCache(uuID);
+      loadAndRenderFolders();
+    }
+  });
+
+  // Escuchar cambios en conteo de documentos vía Socket.IO
+  if (window.AppSocket) {
+    window.AppSocket.on('documentCountUpdated', ({ pc, count }) => {
+      if (!pc) return;
+      document.querySelectorAll(`[data-pc="${pc}"] .docs-count, [data-order-pc="${pc}"] .docs-count`).forEach(el => {
+        el.textContent = count;
+      });
+      const folder = allFolders.find(f => String(f.pc) === String(pc));
+      if (folder) folder.document_count = count;
+      clearFoldersCache(uuID);
+    });
+  }
 
   /**
    * Configurar event listeners para los modales

@@ -1,5 +1,5 @@
 // Importar funciones de utilidad
-import { showNotification, showModal, hideModal, setupModalClose, setupFloatingTooltips } from './utils.js';
+import { showNotification, showModal, hideModal, setupModalClose, setupFloatingTooltips, confirmAction } from './utils.js';
 
 async function buildErrorFromResponse(response, fallbackMessage = '') {
   let payload = null;
@@ -161,119 +161,6 @@ function getValidToken() {
     localStorage.removeItem('token');
     return null;
   }
-}
-
-function confirmAction(title, message, type = 'warning') {
-  return new Promise((resolve) => {
-    const comond = window.translations?.comond || {};
-    const cancelLabel = comond.cancel;
-    const confirmLabel = comond.confirm;
-    const understoodLabel = comond.understood;
-    // Crear el modal
-    const modal = document.createElement('div');
-    modal.id = 'customConfirmModal';
-    modal.className = 'fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4';
-    
-    // Iconos según el tipo (con colores que funcionan en modo oscuro)
-    const icons = {
-      warning: `<svg class="w-12 h-12 text-amber-500 dark:text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-      </svg>`,
-      error: `<svg class="w-12 h-12 text-red-500 dark:text-red-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>`,
-      info: `<svg class="w-12 h-12 text-blue-500 dark:text-blue-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>`,
-      success: `<svg class="w-12 h-12 text-green-500 dark:text-green-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>`,
-      question: `<svg class="w-12 h-12 text-blue-500 dark:text-blue-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>`
-    };
-    
-    // Colores de botones según el tipo
-    const buttonColors = {
-      warning: 'bg-orange-600 hover:bg-orange-700 focus:ring-orange-500',
-      error: 'bg-red-600 hover:bg-red-700 focus:ring-red-500',
-      info: 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500',
-      success: 'bg-green-600 hover:bg-green-700 focus:ring-green-500',
-      question: 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500'
-    };
-    
-    modal.innerHTML = `
-      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all duration-300 scale-95 opacity-0" id="confirmModalContent">
-        <div class="p-6">
-          <div class="flex items-center justify-center mb-4">
-            ${icons[type] || icons.warning}
-          </div>
-          <h3 class="text-lg font-semibold text-gray-900 dark:text-white text-center mb-2">${title}</h3>
-          <p class="text-sm text-gray-600 dark:text-gray-300 text-center mb-6">${message}</p>
-          <div class="flex gap-3 justify-end">
-            <button id="confirmCancel" class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500">
-              ${cancelLabel}
-            </button>
-            <button id="confirmAccept" class="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${buttonColors[type] || buttonColors.warning}">
-              ${type === 'error' ? understoodLabel : confirmLabel}
-            </button>
-          </div>
-        </div>
-      </div>
-    `;
-    
-    // Agregar al DOM
-    document.body.appendChild(modal);
-    
-    // Animar entrada
-    setTimeout(() => {
-      const content = document.getElementById('confirmModalContent');
-      content.classList.remove('scale-95', 'opacity-0');
-      content.classList.add('scale-100', 'opacity-100');
-    }, 10);
-    
-    // Event listeners
-    const handleCancel = () => {
-      animateOut(() => {
-        document.body.removeChild(modal);
-        resolve(false);
-      });
-    };
-    
-    const handleAccept = () => {
-      animateOut(() => {
-        document.body.removeChild(modal);
-        resolve(true);
-      });
-    };
-    
-    const animateOut = (callback) => {
-      const content = document.getElementById('confirmModalContent');
-      content.classList.remove('scale-100', 'opacity-100');
-      content.classList.add('scale-95', 'opacity-0');
-      setTimeout(callback, 300);
-    };
-    
-    // Event listeners
-    document.getElementById('confirmCancel').addEventListener('click', handleCancel);
-    document.getElementById('confirmAccept').addEventListener('click', handleAccept);
-    
-    // Cerrar con Escape
-    const handleEscape = (e) => {
-      if (e.key === 'Escape') {
-        handleCancel();
-        document.removeEventListener('keydown', handleEscape);
-      }
-    };
-    document.addEventListener('keydown', handleEscape);
-    
-    // Cerrar clickeando fuera del modal
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) {
-        handleCancel();
-      }
-    });
-  });
 }
 
 function setupDragAndDrop(dropZone, onFiles) {
@@ -898,9 +785,13 @@ export function initFilesScript() {
   }
 
   async function refreshFiles() {
-    // Invalidar cache de órdenes para que el listado refleje los contadores actualizados
+    // Invalidar cache de órdenes y folders para que los contadores se actualicen
     localStorage.removeItem('orders_cache');
     localStorage.removeItem('orders_cache_timestamp');
+    // Invalidar todos los caches de folders
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith('folders_cache')) localStorage.removeItem(key);
+    });
 
     const loadingRow = document.getElementById('loadingRow');
     try {
@@ -918,6 +809,13 @@ export function initFilesScript() {
 
       allFiles = Array.isArray(files) ? files : [];
       filterFiles({ resetPage: true });
+
+      // Guardar conteo y tipos de documentos actualizados para que orders/folders lo lean
+      if (pc) {
+        localStorage.setItem(`doc_count_${pc}`, String(allFiles.length));
+        const docTypeIds = [...new Set(allFiles.map(f => f.file_id).filter(Boolean))];
+        localStorage.setItem(`doc_types_${pc}`, JSON.stringify(docTypeIds));
+      }
 
       if (loadingRow) {
         loadingRow.remove();
@@ -1858,9 +1756,18 @@ export function initFilesScript() {
         if (res.ok) {
           showNotification(getMessage(documentos.deleteSuccess), 'success');
           btn.closest('tr')?.remove();
-          // Invalidar cache de órdenes para que el listado refleje los contadores actualizados
+          // Actualizar conteo y caches
+          allFiles = allFiles.filter(f => String(f.id) !== String(fileId));
+          if (pc) {
+            localStorage.setItem(`doc_count_${pc}`, String(allFiles.length));
+            const docTypeIds = [...new Set(allFiles.map(f => f.file_id).filter(Boolean))];
+            localStorage.setItem(`doc_types_${pc}`, JSON.stringify(docTypeIds));
+          }
           localStorage.removeItem('orders_cache');
           localStorage.removeItem('orders_cache_timestamp');
+          Object.keys(localStorage).forEach(key => {
+            if (key.startsWith('folders_cache')) localStorage.removeItem(key);
+          });
         } else {
           showNotification(data.message || getMessage(documentos.deleteError), 'error');
           // Restaurar botón en caso de error
@@ -2141,12 +2048,30 @@ export function initFilesScript() {
         const data = await res.json();
 
         if (res.ok) {
-          const successTemplate = getMessage(documentos.createDefaultSuccess);
-          showNotification(successTemplate.replace('{count}', data.filesCreated), 'success');
+          if (data.code === 'FILES_NEED_FACTURA') {
+            const pendingList = (data.pendingDocs || []).join(', ');
+            const pendingMsg = getMessage(documentos.createDefaultNeedsFactura) || 'Debe generar factura para crear los demás archivos: {docs}';
+            showNotification(pendingMsg.replace('{docs}', pendingList), 'warning');
+          } else {
+            let msg;
+            if (data.needsFactura && data.pendingDocs && data.pendingDocs.length > 0) {
+              const successBase = getMessage(documentos.createDefaultSuccess).replace(/:\s*\{count\}\s*(archivos|files)/i, '').trim();
+              const pendingList = data.pendingDocs.join(', ');
+              const pendingMsg = getMessage(documentos.createDefaultNeedsFactura) || 'Debe generar factura para crear los demás archivos: {docs}';
+              msg = successBase + '\n' + pendingMsg.replace('{docs}', pendingList);
+            } else {
+              msg = getMessage(documentos.createDefaultSuccess).replace('{count}', data.filesCreated);
+            }
+            showNotification(msg, 'success');
+          }
           await refreshFiles();
         } else {
           if (data && data.code === 'FILES_ALREADY_EXIST') {
             showNotification(getMessage(documentos.createDefaultAlreadyExists), 'warning');
+          } else if (data && data.code === 'FILES_NEED_FACTURA') {
+            const pendingList = (data.pendingDocs || []).join(', ');
+            const pendingMsg = getMessage(documentos.createDefaultNeedsFactura) || 'Invoice is required to create the remaining files: {docs}';
+            showNotification(pendingMsg.replace('{docs}', pendingList), 'warning');
           } else {
             showNotification(data.message || getMessage(documentos.createDefaultError), 'error');
           }
@@ -2363,6 +2288,7 @@ export function initFilesScript() {
       formData.append('file_id', fileId);
       formData.append('file', fileObject);
       formData.append('is_visible_to_customer', isVisibleToCustomer);
+      if (resolvedFactura) formData.append('factura', resolvedFactura);
 
       const res = await fetch(`${apiBase}/api/files/upload`, {
         method: 'POST',
@@ -2463,6 +2389,7 @@ export function initFilesScript() {
         formData.append('file_id', '1'); // Use file_id=1 for multiple uploads
         formData.append('file', file);
         formData.append('is_visible_to_customer', isVisibleToCustomer);
+        if (resolvedFactura) formData.append('factura', resolvedFactura);
 
         try {
           const res = await fetch(`${apiBase}/api/files/upload`, {

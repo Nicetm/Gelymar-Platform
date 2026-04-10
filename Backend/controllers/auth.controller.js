@@ -15,7 +15,6 @@ const { sendEmail } = require('../utils/email.util');
 const { logger } = require('../utils/logger');
 const { normalizeRole } = require('../utils/role.util');
 const { t } = require('../i18n');
-const MAX_LOGIN_ATTEMPTS = 5;
 
 const verifyRecaptcha = async (token) => {
   const secret = process.env.RECAPTCHA_SECRET_KEY;

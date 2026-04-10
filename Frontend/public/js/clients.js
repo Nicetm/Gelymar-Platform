@@ -309,7 +309,21 @@ export async function initClientsScript() {
                 </a>
               </div>
               <div class="relative">
-                <a id="changePasswordViewBtn" href="#" data-uuid="${customer.rut || customer.uuid}" data-name="${customer.name}" data-blocked="${customer.blocked || 0}" class="changePasswordView text-gray-900 dark:text-white hover:text-green-500 dark:hover:text-green-400 transition change-password-btn"
+                <button class="toggle-block-client-btn transition ${Number(customer.bloqueado) === 1 ? 'text-red-600 hover:text-red-500 dark:text-red-400 dark:hover:text-red-300' : 'text-gray-900 dark:text-white hover:text-green-500 dark:hover:text-green-400'}"
+                  data-uuid="${customer.rut || customer.uuid}"
+                  data-name="${customer.name}"
+                  data-blocked="${Number(customer.bloqueado)}"
+                  data-failed-attempts="${Number(customer.intentos_fallidos || 0)}"
+                  data-tooltip="${Number(customer.bloqueado) === 1 ? getMessage(clientes.unblock_user) : getMessage(clientes.block_user)}"
+                  aria-label="${Number(customer.bloqueado) === 1 ? getMessage(clientes.unblock_user) : getMessage(clientes.block_user)}">
+                  ${Number(customer.bloqueado) === 1
+                    ? '<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>'
+                    : '<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" /></svg>'
+                  }
+                </button>
+              </div>
+              <div class="relative">
+                <a id="changePasswordViewBtn" href="#" data-uuid="${customer.rut || customer.uuid}" data-name="${customer.name}" data-blocked="${customer.bloqueado || 0}" class="changePasswordView text-gray-900 dark:text-white hover:text-green-500 dark:hover:text-green-400 transition change-password-btn"
                   data-tooltip="${getMessage(clientes.change_password)}"
                   aria-label="${getMessage(clientes.change_password)}">
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
@@ -1424,6 +1438,83 @@ export async function initClientsScript() {
   
   let currentPasswordCustomerUuid = null;
 
+  // Event listener para botón de bloquear/desbloquear directo en la tabla
+  document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.toggle-block-client-btn');
+    if (!btn) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const customerUuid = btn.dataset.uuid;
+    const customerName = btn.dataset.name;
+    const isBlocked = Number(btn.dataset.blocked) === 1;
+    const failedAttempts = Number(btn.dataset.failedAttempts) || 0;
+
+    let title, message;
+
+    if (isBlocked) {
+      if (failedAttempts > 0) {
+        title = getMessage(clientes.confirm_unblock_title) || 'Desbloquear usuario';
+        message = `Esta cuenta fue bloqueada por ${failedAttempts} intento(s) fallido(s) de inicio de sesión.\n¿Desea desbloquear la cuenta de ${customerName}? Se resetearán los intentos fallidos.`;
+      } else {
+        title = getMessage(clientes.confirm_unblock_title) || 'Desbloquear usuario';
+        message = (getMessage(clientes.confirm_unblock_message) || '¿Está seguro de desbloquear a {name}?').replace('{name}', customerName);
+      }
+    } else {
+      title = getMessage(clientes.confirm_block_title) || 'Bloquear usuario';
+      message = (getMessage(clientes.confirm_block_message) || '¿Está seguro de bloquear a {name}? No podrá iniciar sesión.').replace('{name}', customerName);
+    }
+
+    const confirmed = await confirmAction(title, message, 'warning');
+    if (!confirmed) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const newBlockedValue = isBlocked ? 0 : 1;
+
+      const response = await fetch(`${resolvedApiBase}/api/users/block/${encodeURIComponent(customerUuid)}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ blocked: newBlockedValue })
+      });
+
+      if (response.ok) {
+        const successMessage = isBlocked
+          ? (getMessage(clientes.user_unblocked_success) || '{name} desbloqueado').replace('{name}', customerName)
+          : (getMessage(clientes.user_blocked_success) || '{name} bloqueado').replace('{name}', customerName);
+        showNotification(successMessage, 'success');
+
+        // Actualizar datos locales y re-renderizar
+        const customer = allCustomers.find(c => (c.rut || c.uuid) === customerUuid);
+        if (customer) {
+          customer.bloqueado = newBlockedValue;
+          if (newBlockedValue === 0) customer.intentos_fallidos = 0;
+        }
+        clearCache();
+        renderTable();
+
+        // Actualizar también el data-blocked del botón de cambio de contraseña si existe
+        const pwBtn = document.querySelector(`.change-password-btn[data-uuid="${customerUuid}"]`);
+        if (pwBtn) pwBtn.dataset.blocked = newBlockedValue;
+      } else {
+        const errorMessage = isBlocked
+          ? getMessage(clientes.unblock_user_error) || 'Error al desbloquear'
+          : getMessage(clientes.block_user_error) || 'Error al bloquear';
+        showNotification(errorMessage, 'error');
+      }
+    } catch (error) {
+      console.error('Error toggling block:', error);
+      const errorMessage = isBlocked
+        ? getMessage(clientes.unblock_user_error) || 'Error al desbloquear'
+        : getMessage(clientes.block_user_error) || 'Error al bloquear';
+      showNotification(errorMessage, 'error');
+    }
+  });
+
   // Event listener para botones de cambio de contraseña
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('.change-password-btn');
@@ -1493,12 +1584,24 @@ export async function initClientsScript() {
   });
 
   async function toggleBlockUser(customerUuid, customerName, isCurrentlyBlocked, btnElement) {
-    const confirmTitle = isCurrentlyBlocked 
-      ? getMessage(clientes.confirm_unblock_title) 
-      : getMessage(clientes.confirm_block_title);
-    const confirmMessage = isCurrentlyBlocked
-      ? getMessage(clientes.confirm_unblock_message).replace('{name}', customerName)
-      : getMessage(clientes.confirm_block_message).replace('{name}', customerName);
+    // Buscar datos del cliente para verificar intentos fallidos
+    const customer = allCustomers.find(c => (c.rut || c.uuid) === customerUuid);
+    const failedAttempts = Number(customer?.intentos_fallidos) || 0;
+
+    let confirmTitle, confirmMessage;
+
+    if (isCurrentlyBlocked) {
+      if (failedAttempts > 0) {
+        confirmTitle = getMessage(clientes.confirm_unblock_title) || 'Desbloquear usuario';
+        confirmMessage = `Esta cuenta fue bloqueada por ${failedAttempts} intento(s) fallido(s) de inicio de sesión.\n¿Desea desbloquear la cuenta de ${customerName}? Se resetearán los intentos fallidos.`;
+      } else {
+        confirmTitle = getMessage(clientes.confirm_unblock_title) || 'Desbloquear usuario';
+        confirmMessage = (getMessage(clientes.confirm_unblock_message) || '¿Está seguro de desbloquear a {name}?').replace('{name}', customerName);
+      }
+    } else {
+      confirmTitle = getMessage(clientes.confirm_block_title) || 'Bloquear usuario';
+      confirmMessage = (getMessage(clientes.confirm_block_message) || '¿Está seguro de bloquear a {name}? No podrá iniciar sesión.').replace('{name}', customerName);
+    }
     
     const confirmed = await confirmAction(
       confirmTitle,
@@ -1563,6 +1666,15 @@ export async function initClientsScript() {
         if (tableBtn) {
           tableBtn.dataset.blocked = newBlockedValue;
         }
+
+        // Actualizar datos locales del cliente
+        const customerData = allCustomers.find(c => (c.rut || c.uuid) === customerUuid);
+        if (customerData) {
+          customerData.bloqueado = newBlockedValue;
+          if (newBlockedValue === 0) customerData.intentos_fallidos = 0;
+        }
+        clearCache();
+        renderTable();
       } else {
         const errorData = await response.json().catch(() => ({}));
         

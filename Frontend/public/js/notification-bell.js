@@ -184,7 +184,7 @@ export function initNotificationBell(config = {}) {
               <button id="confirmCancel" class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500">
                 ${getMessage(notificationsTexts.confirm_no)}
               </button>
-              <button id="confirmAccept" class="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${type === 'info' ? 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500' : 'bg-amber-600 hover:bg-amber-700 focus:ring-amber-500'}">
+              <button id="confirmAccept" class="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2" style="background-color: ${type === 'info' ? '#2563eb' : '#d97706'};">
                 ${getMessage(notificationsTexts.confirm_yes)}
               </button>
             </div>
@@ -250,79 +250,6 @@ export function initNotificationBell(config = {}) {
     });
   }
   
-  // Socket.io service (inline)
-  class SocketService {
-    constructor() {
-      this.socket = null;
-      this.isConnected = false;
-      this.reconnectAttempts = 0;
-      this.maxReconnectAttempts = 5;
-    }
-
-    connect(token) {
-      if (this.socket && this.isConnected) {
-        return this.socket;
-      }
-
-      const apiBase = window.apiBase;
-      
-      this.socket = io(apiBase, {
-        auth: { token },
-        transports: ['websocket', 'polling'],
-        reconnection: true,
-        reconnectionAttempts: this.maxReconnectAttempts,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 5000,
-        timeout: 20000,
-      });
-
-      this.socket.on('connect', () => {
-        this.isConnected = true;
-        this.reconnectAttempts = 0;
-      });
-
-      this.socket.on('disconnect', (reason) => {
-        this.isConnected = false;
-      });
-
-      this.socket.on('connect_error', (error) => {
-        console.error('Error de conexión Socket.io:', error);
-        this.reconnectAttempts++;
-        
-        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-          console.error('Máximo de intentos de reconexión alcanzado');
-        }
-      });
-
-      this.socket.on('reconnect', (attemptNumber) => {
-        this.isConnected = true;
-        this.reconnectAttempts = 0;
-      });
-
-      return this.socket;
-    }
-
-    onNewMessage(callback) {
-      if (this.socket) {
-        this.socket.on('newMessage', callback);
-      }
-    }
-
-    onUpdateNotifications(callback) {
-      if (this.socket) {
-        this.socket.on('updateNotifications', callback);
-      }
-    }
-
-    onClientConnected(callback) {
-      if (this.socket) {
-        this.socket.on('clientConnected', callback);
-      }
-    }
-  }
-
-  const socketService = new SocketService();
-  let socket = null;
   
   // Función local para obtener token válido
   function getValidToken() {
@@ -925,50 +852,88 @@ headers: {
     }
   });
   
+  function renderBroadcastModal({ title, message, type = 'info' }) {
+    const existing = document.getElementById('broadcastModal');
+    if (existing) existing.remove();
+
+    const colors = {
+      info: { bg: '#dbeafe', border: '#3b82f6', icon: '#3b82f6' },
+      warning: { bg: '#fef3c7', border: '#d97706', icon: '#d97706' },
+      success: { bg: '#d1fae5', border: '#10b981', icon: '#10b981' }
+    };
+    const c = colors[type] || colors.info;
+
+    const icons = {
+      info: '<path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />',
+      warning: '<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />',
+      success: '<path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />'
+    };
+
+    const modal = document.createElement('div');
+    modal.id = 'broadcastModal';
+    modal.style.cssText = 'position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);opacity:0;transition:opacity 0.3s ease;';
+
+    modal.innerHTML = `
+      <div style="background:white;border-radius:16px;padding:32px;max-width:440px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);transform:scale(0.9);transition:transform 0.3s ease;text-align:center;" id="broadcastModalContent">
+        <div style="margin-bottom:16px;">
+          <svg style="width:48px;height:48px;color:${c.icon};margin:0 auto;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">${icons[type] || icons.info}</svg>
+        </div>
+        <h3 style="font-size:20px;font-weight:700;color:#1f2937;margin-bottom:8px;">${title || 'Notificación'}</h3>
+        <p style="font-size:14px;color:#6b7280;line-height:1.6;margin-bottom:24px;white-space:pre-line;">${message || ''}</p>
+        <button id="broadcastModalClose" style="padding:10px 32px;background:${c.icon};color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">Entendido</button>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+    requestAnimationFrame(() => {
+      modal.style.opacity = '1';
+      const content = document.getElementById('broadcastModalContent');
+      if (content) content.style.transform = 'scale(1)';
+    });
+
+    const close = () => {
+      modal.style.opacity = '0';
+      const content = document.getElementById('broadcastModalContent');
+      if (content) content.style.transform = 'scale(0.9)';
+      setTimeout(() => modal.remove(), 300);
+    };
+
+    document.getElementById('broadcastModalClose').addEventListener('click', close);
+    modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+  }
+
   // Inicializar Socket.io para notificaciones
   function initializeNotificationSocket() {
-    // Verificar que Socket.io esté disponible
-    if (typeof io === 'undefined') {
-      console.error('Socket.io no está disponible');
+    // Usar el servicio global de socket
+    if (!window.AppSocket) {
+      console.error('AppSocket no está disponible');
       return;
     }
 
-    const token = getValidToken();
-    if (!token) {
-      console.error('Token no encontrado para Socket.io');
-      return;
-    }
-
-    // Verificar si el token es válido
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      const currentTime = Date.now() / 1000;
-      
-      if (payload.exp < currentTime) {
-        console.error('Token expirado para Socket.io');
-        return;
-      }
-      
-      socket = socketService.connect(token);
-    } catch (error) {
-      console.error('Token inválido para Socket.io:', error);
+    if (!window.AppSocket.init()) {
+      console.error('No se pudo inicializar Socket.io');
       return;
     }
     
     // Escuchar actualizaciones de notificaciones
-    socketService.onUpdateNotifications(() => {
+    window.AppSocket.on('updateNotifications', () => {
       scheduleNotificationsRefresh(true);
     });
 
-    socketService.onClientConnected((payload = {}) => {
+    window.AppSocket.on('clientConnected', (payload = {}) => {
       if (userRole !== 'admin') return;
       const name = payload?.name || payload?.rut || unknownValue;
       const country = payload?.country || '';
       renderClientConnectedToast({ name, country });
     });
+
+    // Escuchar notificaciones broadcast del SuperAdmin
+    window.AppSocket.on('broadcastNotification', (payload = {}) => {
+      renderBroadcastModal(payload);
+    });
     
     // Escuchar mensajes nuevos
-    socketService.onNewMessage((messageData) => {
+    window.AppSocket.on('newMessage', (messageData) => {
       // Verificar que el mensaje sea para este usuario
       if (messageData.sender_role !== userRole) {
         // Si es admin, verificar si está hablando con ese cliente

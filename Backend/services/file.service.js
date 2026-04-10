@@ -2,12 +2,9 @@ const { poolPromise } = require('../config/db');
 const { getSqlPool, sql } = require('../config/sqlserver');
 const File = require('../models/file');
 const { logger } = require('../utils/logger');
-const fs = require('fs').promises;
-const path = require('path');
-const { cleanDirectoryName } = require('../utils/directoryUtils');
 const { createOrderService } = require('./order.service');
 const { normalizeOc, normalizeOcForCompare } = require('../utils/oc.util');
-const { getOrderByIdSimple, getOrderByPc, getOrderByPcOc } = createOrderService();
+const { getOrderByPc, getOrderByPcOc } = createOrderService();
 
 const getCustomerByRutSql = async (rut) => {
   if (!rut) return null;
@@ -511,276 +508,6 @@ const getAllFiles = async () => {
   };
 
 /**
- * Crea archivos por defecto para una orden específica
- * @param {number} orderId - ID de la orden
- * @param {string} customerName - Nombre del cliente
- * @param {string} pc - Número PC
- * @param {string} oc - Número OC
- * @returns {Promise<Object>} Resultado de la operación
- */
-const createDefaultFilesForOrder = async (orderId, customerName, pc, oc) => {
-  try {
-    const FILE_ID_MAP = {
-      'Order Receipt Notice': 9,
-      'Shipment Notice': 19,
-      'Order Delivery Notice': 15,
-      'Availability Notice': 6
-    };
-
-    // Traer la orden para revisar la factura
-    const orderData = await getOrderByIdSimple(orderId);
-    const hasFactura = orderData && orderData.factura !== null && orderData.factura !== undefined && orderData.factura !== '' && orderData.factura !== 0 && orderData.factura !== '0';
-    const factura = orderData?.factura ?? null;
-
-    const sqlPool = await getSqlPool();
-    const request = sqlPool.request();
-    request.input('pc', sql.VarChar, String(pc).trim());
-    if (oc) {
-      request.input('oc', sql.VarChar, normalizeOcForCompare(oc));
-    }
-    const partialQuery = `
-      SELECT COUNT(1) AS total, MIN(Fecha) AS min_fecha
-      FROM jor_imp_HDR_90_softkey
-      WHERE Nro = @pc
-    `;
-    const partialResult = await request.query(partialQuery);
-    const partialCount = Number(partialResult.recordset?.[0]?.total || 0);
-    const minFecha = partialResult.recordset?.[0]?.min_fecha || null;
-    const hasPartial = partialCount > 1;
-
-    let isParent = !hasPartial;
-    if (hasPartial) {
-      const detailRequest = sqlPool.request();
-      detailRequest.input('pc', sql.VarChar, String(pc).trim());
-      if (oc) {
-        detailRequest.input('oc', sql.VarChar, normalizeOcForCompare(oc));
-      }
-      if (hasFactura) {
-        detailRequest.input('factura', sql.VarChar, String(factura).trim());
-      }
-      const detailQuery = `
-        SELECT TOP 1 Fecha
-        FROM jor_imp_HDR_90_softkey
-        WHERE Nro = @pc
-          ${hasFactura ? 'AND Factura = @factura' : "AND (Factura IS NULL OR Factura = '' OR Factura = 0 OR Factura = '0')"}
-        ORDER BY Fecha ASC
-      `;
-      const detailResult = await detailRequest.query(detailQuery);
-      const orderFecha = detailResult.recordset?.[0]?.Fecha || null;
-      if (orderFecha && minFecha) {
-        const orderDate = new Date(orderFecha);
-        const minDate = new Date(minFecha);
-        if (!Number.isNaN(orderDate.getTime()) && !Number.isNaN(minDate.getTime())) {
-          isParent = orderDate.getTime() === minDate.getTime();
-        }
-      }
-    }
-
-    // Verificar si ya existen archivos para esta orden
-      const existingFiles = await getFilesByPcOc(pc, oc, factura);
-      const existingFileIds = new Set(existingFiles.map(f => f.file_id).filter(Boolean));
-
-    // Documentos requeridos según factura/parcialidad
-    const requiredDocs = hasPartial
-      ? (isParent && !hasFactura
-        ? ['Order Receipt Notice']
-        : ['Shipment Notice', 'Order Delivery Notice', 'Availability Notice'])
-      : hasFactura
-        ? ['Shipment Notice', 'Order Delivery Notice', 'Availability Notice']
-        : ['Order Receipt Notice'];
-
-    // Determinar cuáles faltan
-      const missingDocs = requiredDocs.filter(
-        name => !existingFileIds.has(FILE_ID_MAP[name])
-      );
-
-    if (missingDocs.length === 0) {
-      const err = new Error('FILES_ALREADY_EXIST');
-      err.code = 'FILES_ALREADY_EXIST';
-      err.status = 409;
-      throw err;
-    }
-
-    // Usar path/identificador existente si ya había algún archivo, de lo contrario crear nuevos
-    let directoryPath;
-    let fileIdentifier;
-    if (existingFiles.length > 0) {
-      directoryPath = existingFiles[0].path;
-      fileIdentifier = existingFiles[0].file_identifier || await getNextFileIdentifier(pc);
-    } else {
-      fileIdentifier = await getNextFileIdentifier(pc);
-      directoryPath = await createClientDirectory(customerName, pc, fileIdentifier);
-      if (!directoryPath) {
-        throw new Error('Error creando directorio físico');
-      }
-    }
-
-    const defaultDocuments = missingDocs.map(name => ({
-      name,
-      pc,
-      oc,
-      factura,
-      path: directoryPath,
-      file_identifier: fileIdentifier,
-      file_id: FILE_ID_MAP[name]
-    }));
-
-    // Insertar los archivos en la base de datos
-    const createdFiles = [];
-    for (const doc of defaultDocuments) {
-      const result = await insertDefaultFile(doc);
-      createdFiles.push({
-        id: result.insertId,
-        name: doc.name,
-        path: doc.path
-      });
-    }
-
-    return {
-      success: true,
-      message: 'Archivos por defecto creados exitosamente',
-      filesCreated: createdFiles.length,
-      directoryPath: directoryPath,
-      files: createdFiles
-    };
-
-  } catch (error) {
-    logger.error(`[createDefaultFilesForOrder] Error creando archivos por defecto orderId=${orderId || 'N/A'} pc=${pc || 'N/A'} oc=${oc || 'N/A'}: ${error.message}`);
-    throw error;
-  }
-};
-
-const createDefaultFilesForPcOc = async (pc, oc, customerName, factura, allowedDocs = null) => {
-  try {
-    
-    const FILE_ID_MAP = {
-      'Order Receipt Notice': 9,
-      'Shipment Notice': 19,
-      'Order Delivery Notice': 15,
-      'Availability Notice': 6
-    };
-
-    let normalizedFactura =
-      factura !== null && factura !== undefined && factura !== '' && factura !== 0 && factura !== '0'
-        ? String(factura).trim()
-        : null;
-    const sqlPool = await getSqlPool();
-    let hasFactura = normalizedFactura !== null;
-    // REFACTORING NOTE: Removed id_nro_ov_mas_factura logic
-    // Now using only (pc, oc, factura) to identify files
-    const request = sqlPool.request();
-    request.input('pc', sql.VarChar, String(pc).trim());
-    if (oc) {
-      request.input('oc', sql.VarChar, normalizeOcForCompare(oc));
-    }
-    
-    // Check if there are multiple invoices for this order
-    const partialQuery = `
-      SELECT COUNT(DISTINCT f.Factura) AS invoice_count
-      FROM jor_imp_FACT_90_softkey f
-      WHERE f.Nro = @pc
-        AND f.Factura IS NOT NULL
-        AND LTRIM(RTRIM(f.Factura)) <> ''
-        AND f.Factura <> 0
-    `;
-    const partialResult = await request.query(partialQuery);
-    const invoiceCount = Number(partialResult.recordset?.[0]?.invoice_count || 0);
-    const hasPartial = invoiceCount > 1;
-
-    let isParent = !hasPartial;
-    if (hasPartial && !hasFactura) {
-      // If there are multiple invoices and no specific factura provided,
-      // this is the parent order (for ORN documents)
-      isParent = true;
-    }
-
-      const existingFiles = await getFilesByPcOc(pc, oc, normalizedFactura);
-      const existingFileIds = new Set(existingFiles.map(f => f.file_id).filter(Boolean));
-
-    logger.info(`[createDefaultFilesForPcOc] pc=${pc} oc=${oc} factura=${normalizedFactura} existingFiles=${existingFiles.length}`);
-    let requiredDocs = hasPartial
-      ? (isParent && !hasFactura
-        ? ['Order Receipt Notice']
-        : ['Shipment Notice', 'Order Delivery Notice', 'Availability Notice'])
-      : hasFactura
-        ? ['Shipment Notice', 'Order Delivery Notice', 'Availability Notice']
-        : ['Order Receipt Notice'];
-
-    if (Array.isArray(allowedDocs) && allowedDocs.length) {
-      const allowedSet = new Set(allowedDocs);
-      requiredDocs = requiredDocs.filter((doc) => allowedSet.has(doc));
-    } else if (Array.isArray(allowedDocs) && allowedDocs.length === 0) {
-      // Si allowedDocs es un array vacío, significa que NO se puede crear ningún documento
-      // porque no cumplen las condiciones (falta ETD/ETA, Incoterm incorrecto, etc.)
-      logger.info(`[createDefaultFilesForPcOc] allowedDocs is empty, no documents can be created due to missing requirements`);
-      const err = new Error('NO_DOCUMENTS_ALLOWED');
-      err.code = 'NO_DOCUMENTS_ALLOWED';
-      err.status = 400;
-      err.details = { pc, oc, factura };
-      throw err;
-    } else {
-    }
-
-    const missingDocs = requiredDocs.filter(
-      name => !existingFileIds.has(FILE_ID_MAP[name])
-    );
-
-    if (missingDocs.length === 0) {
-      const err = new Error('FILES_ALREADY_EXIST');
-      err.code = 'FILES_ALREADY_EXIST';
-      err.status = 409;
-      throw err;
-    }
-
-    let directoryPath;
-    let fileIdentifier;
-    if (existingFiles.length > 0) {
-      directoryPath = existingFiles[0].path;
-      fileIdentifier = existingFiles[0].file_identifier || await getNextFileIdentifier(pc);
-    } else {
-      fileIdentifier = await getNextFileIdentifier(pc);
-      directoryPath = await createClientDirectory(customerName, pc, fileIdentifier);
-      if (!directoryPath) {
-        throw new Error('Error creando directorio físico');
-      }
-    }
-
-    const defaultDocuments = missingDocs.map(name => ({
-      name,
-      pc,
-      oc,
-      factura: normalizedFactura,
-      path: directoryPath,
-      file_identifier: fileIdentifier,
-      file_id: FILE_ID_MAP[name]
-    }));
-
-    const createdFiles = [];
-    for (const doc of defaultDocuments) {
-      const result = await insertDefaultFile(doc);
-      createdFiles.push({
-        id: result.insertId,
-        name: doc.name,
-        path: doc.path
-      });
-    }
-
-    return {
-      success: true,
-      message: 'Archivos por defecto creados exitosamente',
-      filesCreated: createdFiles.length,
-      directoryPath: directoryPath,
-      files: createdFiles
-    };
-  } catch (error) {
-    if (error?.code !== 'FILES_ALREADY_EXIST' && error?.message !== 'FILES_ALREADY_EXIST') {
-      logger.error(`[createDefaultFilesForPcOc] Error creando archivos por defecto pc=${pc || 'N/A'} oc=${oc || 'N/A'} factura=${factura || 'N/A'}: ${error.message}`);
-    }
-    throw error;
-  }
-};
-
-/**
  * Obtiene el siguiente identificador único para un PC
  * @param {string} pc - Número PC
  * @returns {Promise<number>} Identificador único (ej: 1, 2, 3)
@@ -811,79 +538,6 @@ const getNextFileIdentifier = async (pc) => {
     logger.error(`[getNextFileIdentifier] Error obteniendo siguiente identificador pc=${pc || 'N/A'}: ${error.message}`);
     // En caso de error, usar 1 como fallback
     return 1;
-  }
-};
-
-/**
- * Inserta un archivo por defecto en la base de datos
- * @param {Object} fileData - Datos del archivo
- * @returns {Promise<Object>} Resultado de la inserción
- */
-const insertDefaultFile = async (fileData) => {
-  const pool = await poolPromise;
-  
-  try {
-    const query = `
-      INSERT INTO order_files (
-        pc, oc, factura, name, path, file_identifier, file_id, was_sent, 
-        document_type, file_type, status_id, is_visible_to_client, 
-        created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, 0, 'PDF', 1, 0, NOW(), NOW())
-    `;
-
-    const normalizedFactura = fileData.factura !== null && fileData.factura !== undefined && fileData.factura !== '' && fileData.factura !== 0 && fileData.factura !== '0'
-      ? String(fileData.factura).trim()
-      : null;
-    const params = [
-      fileData.pc,
-      fileData.oc,
-      normalizedFactura,
-      fileData.name,
-      fileData.path,
-      fileData.file_identifier,
-      fileData.file_id || null
-    ];
-
-    logger.info(`[insertDefaultFile] Insertando archivo name=${fileData.name} pc=${fileData.pc} oc=${fileData.oc || 'N/A'} factura=${normalizedFactura || 'N/A'}`);
-    const [result] = await pool.query(query, params);
-    return result;
-    
-  } catch (error) {
-    logger.error(`[insertDefaultFile] Error insertando archivo por defecto name=${fileData?.name || 'N/A'} pc=${fileData?.pc || 'N/A'} oc=${fileData?.oc || 'N/A'}: ${error.message}`);
-    throw error;
-  }
-};
-
-/**
- * Crea el directorio físico para el cliente y orden
- * @param {string} customerName - Nombre del cliente
- * @param {string} pc - Número PC de la orden
- * @param {string} fileIdentifier - Identificador único para diferenciar filas
- * @returns {Promise<string|null>} Ruta del directorio creado o null si hay error
- */
-const createClientDirectory = async (customerName, pc, fileIdentifier) => {
-  try {
-    // Limpiar nombre del cliente para usar como nombre de directorio
-    const cleanCustomerName = cleanDirectoryName(customerName);
-
-    // Crear ruta del directorio: uploads/CLIENTE_NOMBRE/Numero PC_Identificador
-    const directoryPath = path.join('uploads', cleanCustomerName, `${pc}_${fileIdentifier}`);
-    
-    // Verificar si el directorio ya existe
-    try {
-      await fs.access(directoryPath);
-      return directoryPath;
-    } catch (accessError) {
-      // El directorio no existe, crearlo
-    }
-    
-    // Crear directorio y subdirectorios si no existen
-    await fs.mkdir(directoryPath, { recursive: true });
-    return directoryPath;
-    
-  } catch (error) {
-    logger.error(`[createClientDirectory] Error creando directorio customer=${customerName || 'N/A'} pc=${pc || 'N/A'}: ${error.message}`);
-    return null;
   }
 };
 
@@ -940,56 +594,20 @@ const getOrderDataForPDF = async (orderId) => {
   }
 };
 
-// Función para crear archivos por defecto si no existen
-const createDefaultFilesIfNotExist = async (orderId) => {
-  try {
-    // Verificar si ya existen archivos para esta orden
-    const existingFiles = await getFilesByPc(orderId);
-    if (existingFiles.length > 0) {
-      return existingFiles;
-    }
-
-    // Obtener información de la orden y cliente
-    const order = await getOrderByPc(orderId);
-
-    if (!order) {
-      throw new Error('Orden no encontrada');
-    }
-
-    // Crear archivos por defecto usando la función existente
-    const result = await createDefaultFilesForPcOc(
-      order.pc,
-      order.oc,
-      order.customer_name,
-      order.factura
-    );
-
-    return result.files;
-  } catch (error) {
-    logger.error(`[createDefaultFilesIfNotExist] Error creando archivos por defecto orderId=${orderId || 'N/A'}: ${error.message}`);
-    throw error;
-  }
-};
-
 module.exports = {
   RenameFile,
   getFileById,
   getFileByPath,
   insertFile,
-    getFiles,
-    updateFile,
-    duplicateFile,
-    deleteFileById,
-    getAllOrdersGroupedByRut,
-    getAllFiles,
-    getFilesByPcOc,
-    getFilesByPc,
-    createDefaultFilesForOrder,
-    createDefaultFilesForPcOc,
-    insertDefaultFile,
-  createClientDirectory,
+  getFiles,
+  updateFile,
+  duplicateFile,
+  deleteFileById,
+  getAllOrdersGroupedByRut,
+  getAllFiles,
+  getFilesByPcOc,
+  getFilesByPc,
   getNextFileIdentifier,
   markFileAsVisibleToClient,
-  getOrderDataForPDF,
-  createDefaultFilesIfNotExist
+  getOrderDataForPDF
 };

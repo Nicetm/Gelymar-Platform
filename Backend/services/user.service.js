@@ -474,7 +474,9 @@ async function updateUser2FASecret(userId, secret) {
 async function getAdminUsers() {
   const pool = await poolPromise;
   const [rows] = await pool.query(
-    `SELECT u.id, u.rut, a.email, a.name AS full_name, a.phone, u.agent
+    `SELECT u.id, u.rut, a.email, a.name AS full_name, a.phone, u.agent,
+            COALESCE(u.bloqueado, 0) AS bloqueado,
+            COALESCE(u.intentos_fallidos, 0) AS intentos_fallidos
      FROM users u
      JOIN admins a ON u.rut = a.rut
      WHERE u.role_id = 1
@@ -634,9 +636,19 @@ module.exports = {
 async function updateBlockedStatus(rut, blocked) {
   logger.info(`[updateBlockedStatus] Inicio - rut=${rut}, blocked=${blocked}`);
   const pool = await poolPromise;
-  const query = 'UPDATE users SET bloqueado = ? WHERE rut = ?';
-  logger.info(`[updateBlockedStatus] Query: ${query}, params: [${blocked}, ${rut}]`);
-  const [result] = await pool.query(query, [blocked, rut]);
+  const blockedVal = Number(blocked);
+  let query;
+  let params;
+  if (blockedVal === 0) {
+    // Al desbloquear, resetear también intentos_fallidos
+    query = 'UPDATE users SET bloqueado = 0, intentos_fallidos = 0 WHERE rut = ?';
+    params = [rut];
+  } else {
+    query = 'UPDATE users SET bloqueado = ? WHERE rut = ?';
+    params = [blockedVal, rut];
+  }
+  logger.info(`[updateBlockedStatus] Query: ${query}, params: [${params.join(', ')}]`);
+  const [result] = await pool.query(query, params);
   logger.info(`[updateBlockedStatus] Resultado - affectedRows: ${result.affectedRows}`);
   return result.affectedRows > 0;
 }

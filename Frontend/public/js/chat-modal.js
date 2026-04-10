@@ -26,72 +26,7 @@ export function initChatModal(config = {}) {
   const chatTexts = messages.chat || {};
   const getMessage = (value) => (typeof value === 'string' ? value : '');
 
-  // Socket.io service (inline)
-  class SocketService {
-    constructor() {
-      this.socket = null;
-      this.isConnected = false;
-      this.reconnectAttempts = 0;
-      this.maxReconnectAttempts = 5;
-    }
-
-    connect(token) {
-      if (this.socket && this.isConnected) {
-        return this.socket;
-      }
-
-      const apiBase = window.apiBase;
-      
-      this.socket = io(apiBase, {
-        auth: { token },
-        transports: ['websocket', 'polling'],
-        reconnection: true,
-        reconnectionAttempts: this.maxReconnectAttempts,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 5000,
-        timeout: 20000,
-      });
-
-      this.socket.on('connect', () => {
-        this.isConnected = true;
-        this.reconnectAttempts = 0;
-      });
-
-      this.socket.on('disconnect', (reason) => {
-        this.isConnected = false;
-      });
-
-      this.socket.on('connect_error', (error) => {
-        console.error('Error de conexión Socket.io:', error);
-        this.reconnectAttempts++;
-        
-        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-          console.error('Máximo de intentos de reconexión alcanzado');
-        }
-      });
-
-      this.socket.on('reconnect', (attemptNumber) => {
-        this.isConnected = true;
-        this.reconnectAttempts = 0;
-      });
-
-      return this.socket;
-    }
-
-    onNewMessage(callback) {
-      if (this.socket) {
-        this.socket.on('newMessage', callback);
-      }
-    }
-
-    onUpdateNotifications(callback) {
-      if (this.socket) {
-        this.socket.on('updateNotifications', callback);
-      }
-    }
-  }
-
-  const socketService = new SocketService();
+  // Usar servicio global de Socket.IO
   // Elementos del DOM
   const chatModal = document.getElementById('chat-modal');
   const chatPanel = document.getElementById('chat-panel');
@@ -940,21 +875,17 @@ export function initChatModal(config = {}) {
   
   // Inicializar Socket.io para el chat del cliente
   function initializeChatSocket() {
-    // Verificar que Socket.io esté disponible
-    if (typeof io === 'undefined') {
-      console.error('Socket.io no está disponible');
+    if (!window.AppSocket) {
+      console.error('AppSocket no está disponible');
       return;
     }
 
-    const token = localStorage.getItem('token');
-    if (!token) {
-      console.error('Token no encontrado para Socket.io');
-      return;
+    if (!window.AppSocket.init()) {
+      // Puede que ya esté inicializado por notification-bell
     }
 
-    socket = socketService.connect(token);
+    socket = window.AppSocket.getSocket();
     
-    // Verificar que el socket esté funcionando
     if (socket) {
       socket.on('connect', () => {
         // Verificar si el cliente se unió a su sala
@@ -971,7 +902,7 @@ export function initChatModal(config = {}) {
     }
     
     // Escuchar mensajes nuevos
-    socketService.onNewMessage(async (messageData) => {
+    window.AppSocket.on('newMessage', async (messageData) => {
       const customerId = await getCustomerId();
       if (!customerId) {
         return;
@@ -1000,7 +931,7 @@ export function initChatModal(config = {}) {
     });
     
     // Escuchar actualizaciones de notificaciones para actualizar check verdes
-    socketService.onUpdateNotifications(() => {
+    window.AppSocket.on('updateNotifications', () => {
       // Recargar mensajes para mostrar check verdes actualizados
       loadChatMessages();
       if (chatModal && !chatModal.classList.contains('hidden')) {

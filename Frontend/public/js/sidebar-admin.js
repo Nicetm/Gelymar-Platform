@@ -1553,6 +1553,12 @@ export function initSidebarAdmin(config) {
                 <button class="edit-admin-user text-green-600 hover:text-green-500 dark:text-green-400 dark:hover:text-green-300 transition" data-id="${a.id}" title="Editar">
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L7.5 21H3v-4.5l13.732-13.732z" /></svg>
                 </button>
+                <button class="toggle-block-admin-user transition ${Number(a.bloqueado) === 1 ? 'text-red-600 hover:text-red-500 dark:text-red-400 dark:hover:text-red-300' : 'text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300'}" data-id="${a.id}" data-rut="${a.rut}" data-blocked="${Number(a.bloqueado)}" data-failed-attempts="${Number(a.intentos_fallidos || 0)}" title="${Number(a.bloqueado) === 1 ? 'Desbloquear' : 'Bloquear'}">
+                  ${Number(a.bloqueado) === 1
+                    ? '<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>'
+                    : '<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" /></svg>'
+                  }
+                </button>
                 <button class="reset-admin-user text-amber-600 hover:text-amber-500 transition" data-id="${a.id}" title="Reset password">
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
                 </button>
@@ -1708,6 +1714,48 @@ export function initSidebarAdmin(config) {
       }
     }
 
+    async function toggleBlockAdmin(id, rut, currentBlocked, failedAttempts) {
+      const isBlocked = Number(currentBlocked) === 1;
+      const attempts = Number(failedAttempts) || 0;
+      let title, message;
+
+      if (isBlocked) {
+        // Desbloquear
+        if (attempts > 0) {
+          title = 'Desbloquear usuario';
+          message = `Esta cuenta fue bloqueada por ${attempts} intento(s) fallido(s) de inicio de sesión.\n¿Desea desbloquear esta cuenta? Se resetearán los intentos fallidos.`;
+        } else {
+          title = 'Desbloquear usuario';
+          message = '¿Está seguro de desbloquear esta cuenta?';
+        }
+      } else {
+        // Bloquear
+        title = 'Bloquear usuario';
+        message = '¿Está seguro de bloquear esta cuenta? El usuario no podrá iniciar sesión.';
+      }
+
+      const confirmed = await confirmAction(title, message, 'warning');
+      if (!confirmed) return;
+
+      try {
+        const newBlocked = isBlocked ? 0 : 1;
+        const res = await fetch(`${API_BASE}/api/users/block/${encodeURIComponent(rut)}`, {
+          method: 'PUT',
+          headers: authHeaders(),
+          body: JSON.stringify({ blocked: newBlocked })
+        });
+        if (!res.ok) throw new Error();
+        showNotification(
+          isBlocked ? 'Usuario desbloqueado correctamente.' : 'Usuario bloqueado correctamente.',
+          'success'
+        );
+        await loadAdminUsers();
+      } catch (err) {
+        console.error(err);
+        showNotification('No se pudo cambiar el estado de bloqueo.', 'error');
+      }
+    }
+
     closeAdminUsersModalBtn?.addEventListener('click', closeAdminUsersModal);
     cancelAdminUsersBtn?.addEventListener('click', (e) => { e.preventDefault(); closeAdminUsersModal(); });
     addAdminUserBtn?.addEventListener('click', (e) => { e.preventDefault(); resetAdminFormRows(); });
@@ -1764,6 +1812,17 @@ export function initSidebarAdmin(config) {
       if (deleteBtn) {
         e.preventDefault();
         await deleteAdmin(parseInt(deleteBtn.dataset.id, 10));
+      }
+
+      const toggleBlockBtn = e.target.closest('.toggle-block-admin-user');
+      if (toggleBlockBtn) {
+        e.preventDefault();
+        await toggleBlockAdmin(
+          parseInt(toggleBlockBtn.dataset.id, 10),
+          toggleBlockBtn.dataset.rut,
+          toggleBlockBtn.dataset.blocked,
+          toggleBlockBtn.dataset.failedAttempts
+        );
       }
     });
   });

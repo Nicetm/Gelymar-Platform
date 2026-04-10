@@ -236,6 +236,7 @@
     "create_default_files_error": "Error al crear archivos por defecto",
     "no_documents_allowed": "No se pueden crear documentos: faltan fechas ETD/ETA de factura o el Incoterm no es válido para generar documentos",
     "files_already_exist": "Los archivos ya existen",
+    "files_need_factura": "Debe generar factura para crear los demás archivos",
     "no_new_orders": "No hay órdenes nuevas para procesar",
     "processing_complete": "Procesamiento de órdenes nuevas completado",
     "processing_error": "Error al procesar órdenes nuevas",

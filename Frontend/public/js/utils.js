@@ -333,8 +333,8 @@ const confirmAction = async (title, message, type = 'warning', options = {}) => 
     return new Promise((resolve) => {
         const { comond, getMessage } = getCommonTranslations();
         const {
-          confirmButtonText = getMessage(comond.confirm),
-          cancelButtonText = getMessage(comond.cancel),
+          confirmButtonText = getMessage(comond.confirm) || 'Confirm',
+          cancelButtonText = getMessage(comond.cancel) || 'Cancel',
           loadingText = 'Procesando...',
           onConfirm = null
         } = options || {};
@@ -361,10 +361,16 @@ const confirmAction = async (title, message, type = 'warning', options = {}) => 
         
         // Colores de botones según el tipo
         const buttonColors = {
-            warning: 'bg-orange-600 hover:bg-orange-700 focus:ring-orange-500',
-            error: 'bg-red-600 hover:bg-red-700 focus:ring-red-500',
-            info: 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500',
-            success: 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
+            warning: 'background-color: #ea580c;',
+            error: 'background-color: #dc2626;',
+            info: 'background-color: #2563eb;',
+            success: 'background-color: #16a34a;'
+        };
+        const buttonHoverColors = {
+            warning: '#c2410c',
+            error: '#b91c1c',
+            info: '#1d4ed8',
+            success: '#15803d'
         };
         
         modal.innerHTML = `
@@ -377,7 +383,7 @@ const confirmAction = async (title, message, type = 'warning', options = {}) => 
                     <p class="text-sm text-gray-600 dark:text-gray-300 text-center mb-6" id="confirmModalMessage">${message}</p>
                     <div class="flex flex-col sm:flex-row sm:justify-end gap-3" id="confirmModalButtons">
                         <button id="confirmCancelBtn" class="text-xs w-full sm:w-auto px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 transition">${cancelButtonText}</button>
-                        <button id="confirmAcceptBtn" class="text-xs w-full sm:w-auto px-4 py-2 rounded-lg text-white ${buttonColors[type] || buttonColors.warning} focus:outline-none focus:ring-2 transition">${confirmButtonText}</button>
+                        <button id="confirmAcceptBtn" class="text-xs w-full sm:w-auto px-4 py-2 rounded-lg text-white focus:outline-none focus:ring-2 transition" style="${buttonColors[type] || buttonColors.warning}" onmouseover="this.style.backgroundColor='${buttonHoverColors[type] || buttonHoverColors.warning}'" onmouseout="this.style.cssText='${buttonColors[type] || buttonColors.warning}'">${confirmButtonText}</button>
                     </div>
                 </div>
             </div>
@@ -554,7 +560,7 @@ const showModal = (modalId) => {
     const modal = querySelector(modalId);
     if (modal) {
         modal.classList.remove('hidden');
-        modal.style.display = 'flex';
+        modal.classList.add('flex');
         document.body.style.overflow = 'hidden';
     }
 };
@@ -563,7 +569,7 @@ const hideModal = (modalId) => {
     const modal = querySelector(modalId);
     if (modal) {
         modal.classList.add('hidden');
-        modal.style.display = 'none';
+        modal.classList.remove('flex');
         document.body.style.overflow = 'auto';
     }
 };

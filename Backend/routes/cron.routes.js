@@ -4,7 +4,6 @@ const router = express.Router();
 // Importar servicios de cron via DI
 const { container } = require('../config/container');
 const { checkClientAccess } = container.resolve('checkClientAccessService');
-const { generateDefaultFiles } = container.resolve('checkDefaultFilesService');
 const { createDefaultRecords } = container.resolve('createDefaultRecordsService');
 const { generatePendingPDFs } = container.resolve('generatePendingPDFsService');
 const cronConfigService = container.resolve('cronConfigService');
@@ -20,25 +19,6 @@ router.post('/check-client-access', async (req, res) => {
     res.json({ success: true, message: 'Acceso de clientes verificado correctamente' });
   } catch (error) {
     logger.error(`[cronRoutes] Error verificando acceso de clientes: ${error.message}`);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-
-
-// Endpoint para generar archivos por defecto
-router.post('/generate-default-files', async (req, res) => {
-  try {
-    const { pc, factura, idNroOvMasFactura } = req.body || {};
-    const parts = [];
-    if (pc) parts.push(`pc=${pc}`);
-    if (idNroOvMasFactura) parts.push(`id=${idNroOvMasFactura}`);
-    if (!idNroOvMasFactura && factura) parts.push(`factura=${factura}`);
-    logger.info(`[cronRoutes] Iniciando generación de archivos por defecto${parts.length ? ` ${parts.join(' ')}` : ''}`);
-    await generateDefaultFiles({ pc, factura, idNroOvMasFactura });
-    res.json({ success: true, message: 'Archivos por defecto generados correctamente' });
-  } catch (error) {
-    logger.error(`[cronRoutes] Error generando archivos por defecto: ${error.message}`);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -63,7 +43,11 @@ router.post('/create-default-records', async (req, res) => {
     
     res.status(200).json({ 
       success: true, 
-      message: 'Registros por defecto creados correctamente',
+      message: result?.filesCreated > 0
+        ? `Registros por defecto creados correctamente (${result.filesCreated} nuevos)`
+        : result?.skipped > 0
+          ? `No se crearon registros nuevos, ${result.skipped} orden(es) ya tenían todos los documentos`
+          : 'No hay órdenes para procesar',
       ...result
     });
   } catch (error) {
@@ -92,7 +76,11 @@ router.post('/generate-pending-pdfs', async (req, res) => {
     
     res.status(200).json({ 
       success: true, 
-      message: 'PDFs pendientes generados correctamente',
+      message: result?.pdfsGenerated > 0
+        ? `PDFs generados correctamente (${result.pdfsGenerated} nuevos)`
+        : result?.totalPending > 0
+          ? `No se generaron PDFs nuevos, ${result.skipped} registro(s) no pudieron procesarse`
+          : 'No hay registros pendientes para procesar',
       ...result
     });
   } catch (error) {

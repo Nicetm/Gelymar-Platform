@@ -279,6 +279,27 @@ async function isSendOrderAvailabilityEnabled() {
 async function getReportEmailsAndLang(customerRut) {
   const pool = await poolPromise;
   try {
+    // Leer configuración de envío a todos los contactos
+    let sendToAll = true;
+    let fallbackEmail = null;
+    try {
+      const [configRows] = await pool.query(
+        'SELECT params FROM param_config WHERE name = ?',
+        ['sendEmaiReportlToAllContacts']
+      );
+      if (configRows.length > 0 && configRows[0].params) {
+        let params = configRows[0].params;
+        if (typeof params === 'string') params = JSON.parse(params);
+        if (Buffer.isBuffer(params)) params = JSON.parse(params.toString('utf8'));
+        sendToAll = Number(params.enable) === 1;
+        if (!sendToAll && params.fallbackEmail) {
+          fallbackEmail = String(params.fallbackEmail).trim();
+        }
+      }
+    } catch (configError) {
+      logger.warn(`[getReportEmailsAndLang] Error leyendo sendEmailToAllContacts: ${configError.message}`);
+    }
+
     const [contactRows] = await pool.query(
       'SELECT contact_email FROM customer_contacts WHERE rut = ?',
       [customerRut]
@@ -294,13 +315,27 @@ async function getReportEmailsAndLang(customerRut) {
           : contactRows[0].contact_email;
 
         if (Array.isArray(contacts)) {
-          const reportContacts = contacts.filter(contact => contact.reports === true);
-          reportEmails = reportContacts
-            .map(contact => contact.email)
-            .filter(email => email && email.trim());
+          const reportContacts = contacts
+            .filter(contact => contact.reports === true)
+            .sort((a, b) => (a.idx || 0) - (b.idx || 0));
+
+          if (sendToAll) {
+            reportEmails = reportContacts
+              .map(contact => contact.email)
+              .filter(email => email && email.trim());
+          } else if (fallbackEmail) {
+            // Usar el email configurado en el parámetro
+            reportEmails = [fallbackEmail];
+          } else {
+            // Fallback: primer contacto (idx más bajo)
+            const first = reportContacts[0];
+            if (first && first.email && first.email.trim()) {
+              reportEmails = [first.email.trim()];
+            }
+          }
         }
       } catch (error) {
-        logger.error(`Error parseando contact_email para cliente ${customerId}: ${error.message}`);
+        logger.error(`Error parseando contact_email para cliente ${customerRut}: ${error.message}`);
       }
     }
 

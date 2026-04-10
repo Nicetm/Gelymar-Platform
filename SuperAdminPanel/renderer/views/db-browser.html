@@ -1,0 +1,38 @@
+<div class="card">
+  <div class="card-title" style="font-size:18px;margin-bottom:8px;">Navegador de Base de Datos</div>
+  <hr style="border:none;border-top:1px solid #e5e7eb;margin-bottom:14px;">
+  <div class="flex gap-8 mb-16">
+    <select id="db-table-select" onchange="DBBrowserPage.load()" style="padding:8px;border:1px solid #d1d5db;border-radius:4px;font-size:13px;">
+      <option value="order_files">order_files</option>
+      <option value="order_snapshots">order_snapshots</option>
+      <option value="param_config">param_config</option>
+      <option value="users">users</option>
+    </select>
+    <select id="db-limit" onchange="DBBrowserPage.load()" style="padding:8px;border:1px solid #d1d5db;border-radius:4px;font-size:13px;">
+      <option value="10">10</option>
+      <option value="15" selected>15</option>
+      <option value="25">25</option>
+      <option value="50">50</option>
+    </select>
+    <input type="text" id="db-filter-col" placeholder="Columna" style="width:120px;padding:8px;border:1px solid #d1d5db;border-radius:4px;font-size:13px;" />
+    <input type="text" id="db-filter-val" placeholder="Valor" style="width:150px;padding:8px;border:1px solid #d1d5db;border-radius:4px;font-size:13px;" />
+    <button class="btn btn-primary" onclick="DBBrowserPage.load()">Buscar</button>
+  </div>
+  <hr style="border:none;border-top:1px solid #e5e7eb;margin-bottom:12px;">
+  <div class="table-scroll-container" id="db-table-container" style="overflow-x:auto;overflow-y:visible;">
+    <table id="db-table"><thead id="db-thead"></thead><tbody id="db-tbody"></tbody></table>
+  </div>
+  <div class="pagination" id="db-pagination"></div>
+</div>
+
+<!-- Edit modal -->
+<div id="db-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <h3>Editar Registro</h3>
+    <div id="db-edit-fields"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="DBBrowserPage.closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="DBBrowserPage.saveEdit()">Guardar</button>
+    </div>
+  </div>
+</div>

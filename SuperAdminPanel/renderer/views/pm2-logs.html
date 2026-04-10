@@ -1,0 +1,12 @@
+<div class="card">
+  <div class="card-title">Procesos PM2</div>
+  <button class="btn btn-primary mb-16" onclick="PM2LogsPage.loadProcesses()">Actualizar</button>
+  <table>
+    <thead><tr><th>Nombre</th><th>Estado</th><th>CPU</th><th>Memoria</th><th>Reinicios</th><th>Acciones</th></tr></thead>
+    <tbody id="pm2-tbody"></tbody>
+  </table>
+</div>
+<div class="card" id="pm2-log-card" style="display:none;">
+  <div class="card-title">Logs: <span id="pm2-log-name"></span></div>
+  <div id="pm2-log-viewer" class="log-viewer"></div>
+</div>

@@ -1,0 +1,30 @@
+{
+  "name": "gelymar-super-admin-panel",
+  "version": "1.0.0",
+  "description": "Super Admin Panel — Herramienta de operación para super-administradores Gelymar",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "dev": "electron . --dev"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "mysql2": "^3.9.1",
+    "mssql": "^10.0.2",
+    "bcrypt": "^5.1.1",
+    "jsonwebtoken": "^9.0.2",
+    "dockerode": "^4.0.2"
+  },
+  "devDependencies": {
+    "electron": "^28.1.0",
+    "electron-builder": "^24.9.1"
+  },
+  "build": {
+    "appId": "com.gelymar.superadminpanel",
+    "productName": "Gelymar Super Admin Panel",
+    "win": {
+      "target": "portable"
+    }
+  }
+}

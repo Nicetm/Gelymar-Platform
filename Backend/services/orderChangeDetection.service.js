@@ -4,7 +4,7 @@ const { getSqlPool } = require('../config/sqlserver');
 const { logger: defaultLogger } = require('../utils/logger');
 const { normalizeValue, normalizeDate, normalizeDecimal } = require('../mappers/sqlsoftkey/utils');
 const { getAdminNotificationRecipients } = require('./user.service');
-const { sendAdminNotificationSummary } = require('./email.service');
+const { sendOrderChangesNotification } = require('./email.service');
 
 const LOG_PREFIX = '[OrderChangeDetection]';
 
@@ -146,6 +146,41 @@ const createOrderChangeDetectionService = ({
   /**
    * Envía correo de notificación a todos los administradores con el resumen de cambios.
    */
+  const FIELD_LABELS = {
+    fecha_eta: 'ETA OV',
+    fecha_etd: 'ETD OV',
+    medio_envio_ov: 'Medio de envío (OV)',
+    incoterm: 'Incoterm',
+    puerto_destino: 'Puerto de destino',
+    puerto_embarque: 'Puerto de embarque',
+    estado_ov: 'Estado OV',
+    certificados: 'Certificados',
+    gasto_adicional_flete: 'Gasto adicional flete',
+    fecha_incoterm: 'Fecha Incoterm',
+    condicion_venta: 'Condición de venta',
+    nave: 'Nave',
+    fecha_eta_factura: 'ETA Factura',
+    fecha_etd_factura: 'ETD Factura',
+    medio_envio_factura: 'Medio de envío (Factura)',
+    gasto_adicional_flete_factura: 'Gasto adicional flete (Factura)',
+    fecha_factura: 'Fecha factura',
+    kg_solicitados: 'Kg solicitados',
+    kg_despachados: 'Kg despachados',
+    kg_facturados: 'Kg facturados',
+    unit_price: 'Precio unitario',
+  };
+
+  function formatFieldLabel(fieldName) {
+    // items[1].kg_solicitados → "Línea 1 - Kg solicitados"
+    const itemMatch = fieldName.match(/^items\[(\d+)\]\.(.+)$/);
+    if (itemMatch) {
+      const linea = itemMatch[1];
+      const key = itemMatch[2];
+      return `Línea ${linea} - ${FIELD_LABELS[key] || key}`;
+    }
+    return FIELD_LABELS[fieldName] || fieldName;
+  }
+
   async function notifyAdmins(allChanges) {
     let admins;
     try {
@@ -160,24 +195,24 @@ const createOrderChangeDetectionService = ({
       return;
     }
 
-    const lines = [`Se detectaron cambios en ${allChanges.length} orden(es):\n`];
-    for (const { pc, factura, changes } of allChanges) {
-      const facturaLabel = factura ? `Factura: ${factura}` : 'Sin factura';
-      lines.push(`📦 PC: ${pc} | ${facturaLabel}`);
-      for (const c of changes) {
-        lines.push(`  - ${c.field_name}: ${c.old_value ?? '(vacío)'} → ${c.new_value ?? '(vacío)'}`);
-      }
-      lines.push('');
-    }
-    const summaryText = lines.join('\n');
     const portalUrl = process.env.PORTAL_URL || '';
+
+    const orders = allChanges.map(({ pc, factura, changes }) => ({
+      pc,
+      factura,
+      changes: changes.map(c => ({
+        label: formatFieldLabel(c.field_name),
+        oldValue: c.old_value ?? '(vacío)',
+        newValue: c.new_value ?? '(vacío)',
+      }))
+    }));
 
     for (const admin of admins) {
       try {
-        await sendAdminNotificationSummary({
+        await sendOrderChangesNotification({
           adminEmail: admin.email,
           adminName: admin.name || 'Administrador',
-          summaryText,
+          orders,
           portalUrl,
         });
       } catch (err) {
@@ -254,10 +289,18 @@ const createOrderChangeDetectionService = ({
         const snapshot = buildSnapshot(orderData.hdr, orderData.fact, orderData.items);
         const hash = computeSnapshotHash(snapshot);
 
-        const [prevRows] = await pool.execute(
-          'SELECT snapshot_hash, snapshot_data FROM order_snapshots WHERE pc = ? AND factura <=> ?',
-          [pc, factura]
-        );
+        let prevRows;
+        if (factura === null || factura === undefined) {
+          [prevRows] = await pool.execute(
+            'SELECT snapshot_hash, snapshot_data FROM order_snapshots WHERE pc = ? AND factura IS NULL',
+            [pc]
+          );
+        } else {
+          [prevRows] = await pool.execute(
+            'SELECT snapshot_hash, snapshot_data FROM order_snapshots WHERE pc = ? AND factura = ?',
+            [pc, factura]
+          );
+        }
 
         if (prevRows.length === 0) {
           // First time: insert initial snapshot, no changes (Req 2.5)
@@ -291,10 +334,17 @@ const createOrderChangeDetectionService = ({
             allChanges.push({ pc, factura, changes });
           }
 
-          await pool.execute(
-            'UPDATE order_snapshots SET snapshot_hash = ?, snapshot_data = ? WHERE pc = ? AND factura <=> ?',
-            [hash, JSON.stringify(snapshot), pc, factura]
-          );
+          if (factura === null || factura === undefined) {
+            await pool.execute(
+              'UPDATE order_snapshots SET snapshot_hash = ?, snapshot_data = ? WHERE pc = ? AND factura IS NULL',
+              [hash, JSON.stringify(snapshot), pc]
+            );
+          } else {
+            await pool.execute(
+              'UPDATE order_snapshots SET snapshot_hash = ?, snapshot_data = ? WHERE pc = ? AND factura = ?',
+              [hash, JSON.stringify(snapshot), pc, factura]
+            );
+          }
         }
 
         ordersProcessed++;

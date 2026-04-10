@@ -216,6 +216,7 @@
   "noDocs": "No hay documentos disponibles",
   "view": "Ver",
   "createDefaultAlreadyExists": "Los archivos por defecto ya existen para esta orden",
+  "createDefaultNeedsFactura": "Debe generar factura para crear los demás archivos: {docs}",
   "loading": "Cargando...",
   "docsCountHelpTitle": "Contador de Documentos",
   "docsCountHelpText": "Corresponde al número de documentos que tiene disponibles para visualizar la orden {orderNumber}. Para ver sus documentos puede hacer click directamente sobre el número de orden o desde la columna Acciones.",

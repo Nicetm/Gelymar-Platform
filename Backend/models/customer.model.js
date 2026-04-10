@@ -19,7 +19,9 @@ class Customer {
     updated_at,
     contacts = [],
     order_count = 0,
-    online = 0
+    online = 0,
+    bloqueado = 0,
+    intentos_fallidos = 0
   }) {
     this.id = id;
     this.uuid = uuid || rut || null;
@@ -41,6 +43,8 @@ class Customer {
     this.contacts = contacts;
     this.order_count = order_count;
     this.online = online;
+    this.bloqueado = bloqueado;
+    this.intentos_fallidos = intentos_fallidos;
   }
 }
 
