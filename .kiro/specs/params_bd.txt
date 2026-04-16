@@ -1,0 +1,30 @@
+
+SELECT * FROM `param_config`
+
+
+id	name	type	description	params	
+1	settingPdfEmailConsultas	configuración	Lista de correos que se imprimen en los PDFs para consultas 	{"emails": [{"name": "Newton Lagos", "email": "newton.lagos@gelymar.com"}, {"name": "Marcos Aguirre", "email": "maguirre@gelymar.com"}, {"name": "Bastián Castro", "email": "bcastro@gelymar.com"}, {"name": "Lorena Palacios", "email": "Lpalacios@gelymar.com"}, {"name": "logisticalsupport@gelymar.com", "email": "logistical Support"}, {"name": "mjorquera@browne.cl", "email": "Maria Jorquera"}], "enable": 1}	
+2	footersEmailContact	configuración	Canales de contacto que van en el footers del mail	{"enable": 1, "contact": {"contactEmail": "info@gelymar.com", "contactPhone": "+56 2 2345 6789", "contactWebsite": "www.gelymar.com"}, "role_id": [1]}	
+22	headerBusquedaClienteChat	configuración	Activa o Desactiva el icono de busqueda de clientes para chatear en header	{"enable": 1, "role_id": [1]}	
+23	headerNotificaciones	configuración	Activa o desactiva la campana de notificaciones	{"enable": 1, "role_id": [1]}	
+24	burbujaChatCliente	configuración	Activa o desactiva la burbuja de chat de los clientes	{"enable": 1, "role_id": [2]}	
+25	headerOrdenesSinDocumentos	notificación	Genera una alerta para ordenes que no cuentesn con al menos un documento 5 días posteriores a la fecha de ETD	{"enable": 1, "role_id": [1], "fechaAlerta": "2026-04-05"}	
+26	headerOrdenesSInCartas	notificación	Genera una alerta para ordenes que no cuentesn con las cartas enviadas (avisos)	{"enable": 1, "role_id": [1]}	
+27	settingEdicionPerfil	configuración	Permite habilitar la edición del perfil	{"enable": 1, "role_id": [1]}	
+28	settingEmailNotificación	configuración	Lista de email a los que se les notificarán las alertas de la campana de notificaciones	{"emails": [{"name": "Carla Torres", "email": "carla.torres@gelymar.com"}], "enable": 0, "role_id": [1]}	
+29	headerUsersSinCuenta	cron	Activa la lista de usuarios que no disponen de cuentas en las notificaciones	{"enable": 1, "role_id": [1]}	
+32	sendAutomaticOrderReception	cron	Activado, envia el documento de recepción de orden automático	{"enable": 1, "schedule": "10:00", "sendFrom": "2026-03-01"}	
+33	sendAutomaticOrderDelivery	cron	Activado, envia el documento de envio de orden automático	{"enable": 1, "schedule": "10:30", "sendFrom": "2026-03-01"}	
+34	sendAutomaticOrderShipment	cron	Activado, envia el documento de envio de orden automático	{"enable": 1, "schedule": "10:15", "sendFrom": "2026-03-01"}	
+35	sendAutomaticOrderAvailability	cron	Activado, envia el documento de envio de orden automático	{"enable": 0, "schedule": "10:45", "sendFrom": "2026-02-01"}	
+36	setRecapchaLogin	configuración	Permite habilitar el Recaptcha de google en el login	{"enable": 1, "portal": {"admin": {"type": "self-hosted", "active": 1}, "client": {"type": "captcha-google", "active": 1}, "seller": {"type": "self-hosted", "active": 1}}}	
+37	checkDefaultFiles	cron	Activa la generación de registros para los documentos automaticos	{"enable": 1, "schedule": "08:30", "sendFrom": "2026-03-01"}	
+38	generatePDFs	cron	Activa crear los documentos fisicos luego de ser creados los registros	{"enable": 1, "schedule": "09:15", "sendFrom": "2026-03-01"}	
+39	checkClientAccess	cron	Activa la verificación de acceso de clientes - crea usuarios para clientes/sellers sin acceso	{"enable": 0, "sendFrom": "2025-12-01"}	
+40	sendDbBackup	cron	Activa el backup automático de la base de datos	{"enable": 1, "schedule": "02:00"}	
+41	setUploadMultipleFile	configuración	Permite habilitar el checkbox para subir múltiples archivos	{"enable": 0}	
+42	setBlockUserAcces	configuración	Permite bloquear y desbloquear el acceso al portal web para los usuarios	{"enable": 0}	
+43	orderChangeDetection	cron	Detecta cambios en una orden para luego informarlo a los admin a tarves de correo	{"enable": 0, "schedule": "15:00", "sendFrom": "2026-04-01"}	
+44	validateIncoternFile	configuración	Activa o desactiva la validación de incoterm en la generación de documentos por defecto (Shipment Notice, Availability Notice)	{"enable": 0, "incoterm": {"Shipment Notice": ["CFR", "CIF", "CIP", "DAP", "DDP", "CPT"], "Availability Notice": ["EXW", "FCA", "FOB", "FCA PORT", "FCA WAREHOUSE SANTIAGO", "FCA AIRPORT", "FCAWSTGO"]}}	
+45	maxIntentosLogin	configuración	Valor máximo de intentos fallidos de login antes de ser bloqueado	{"enable": 1, "maxIntentos": 4}	
+46	sendEmaiReportlToAllContacts	configuración	Controla el envío de correos de documentos. enable=1: envía a todos los contactos con reports=true. enable=0: envía solo al primer contacto (idx más bajo).	{"enable": 0, "fallbackEmail": "carla.torres@gelymar.com"}	

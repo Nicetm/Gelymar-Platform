@@ -304,3 +304,61 @@ exports.getRecaptchaLoginConfig = async (req, res) => {
     res.status(500).json({ message: 'Error obteniendo configuración de recaptcha' });
   }
 };
+
+/**
+ * GET /api/config/all
+ * Lista todos los parámetros de param_config
+ */
+exports.getAllParams = async (req, res) => {
+  try {
+    const { poolPromise } = require('../config/db');
+    const pool = await poolPromise;
+    const [rows] = await pool.query('SELECT id, name, type, description, params FROM param_config ORDER BY id ASC');
+
+    const params = rows.map(row => {
+      let parsedParams = {};
+      try {
+        if (Buffer.isBuffer(row.params)) row.params = row.params.toString('utf8');
+        parsedParams = typeof row.params === 'string' ? JSON.parse(row.params) : row.params;
+      } catch {}
+      return {
+        id: row.id,
+        name: row.name,
+        type: row.type,
+        description: row.description,
+        params: parsedParams,
+        enabled: Number(parsedParams?.enable) === 1
+      };
+    });
+
+    res.json(params);
+  } catch (error) {
+    logger.error(`[ConfigController][getAllParams] Error: ${error.message}`);
+    res.status(500).json({ message: 'Error obteniendo parámetros' });
+  }
+};
+
+/**
+ * PUT /api/config/param/:name
+ * Actualiza un parámetro específico de param_config
+ */
+exports.updateParam = async (req, res) => {
+  try {
+    const { name } = req.params;
+    const { params } = req.body;
+
+    if (!name) return res.status(400).json({ message: 'Nombre del parámetro requerido' });
+    if (params === undefined) return res.status(400).json({ message: 'Parámetros requeridos' });
+
+    const result = await configService.updateConfig(name, params);
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Parámetro no encontrado' });
+    }
+
+    logger.info(`[ConfigController] Parámetro actualizado: ${name}`);
+    res.json({ success: true, message: 'Parámetro actualizado' });
+  } catch (error) {
+    logger.error(`[ConfigController][updateParam] Error: ${error.message}`);
+    res.status(500).json({ message: 'Error actualizando parámetro' });
+  }
+};

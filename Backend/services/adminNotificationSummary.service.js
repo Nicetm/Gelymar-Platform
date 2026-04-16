@@ -101,6 +101,12 @@ const createAdminNotificationSummaryService = ({
   }
 
   const portalBase = resolveAdminPortalUrl();
+
+  // Si no hay tareas pendientes, no enviar correo
+  if (!ordersCount && !customersCount) {
+    return { processed: 0, skipped: true, reason: 'no_pending_tasks' };
+  }
+
   const summaryText = buildSummary({ ordersCount, customersCount });
 
   let processed = 0;

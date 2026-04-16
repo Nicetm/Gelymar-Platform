@@ -33,23 +33,23 @@ async function getAllCustomers(options = {}) {
     const request = sqlPool.request();
     request.timeout = 60000;
 
+    if (sellerCodes.length > 0) {
+      sellerCodes.forEach((code, idx) => {
+        request.input(`sellerCode${idx}`, sql.VarChar, String(code).trim());
+      });
+    }
+
+    const placeholders = sellerCodes.map((_, idx) => `@sellerCode${idx}`);
+    const hdrWhere = sellerCodes.length > 0 ? ` WHERE Vendedor IN (${placeholders.join(', ')})` : '';
+    const clientWhere = sellerCodes.length > 0 ? ` WHERE c.SlpCode IN (${placeholders.join(', ')}) AND c.EstadoCliente = 'Activo'` : '';
+
     let query = `
       WITH hdr AS (
         SELECT
           Rut,
           COUNT(DISTINCT Nro) AS order_count
         FROM jor_imp_HDR_90_softkey
-    `;
-
-    if (sellerCodes.length > 0) {
-      const placeholders = sellerCodes.map((_, idx) => `@sellerCode${idx}`);
-      query += ` WHERE Vendedor IN (${placeholders.join(', ')})`;
-      sellerCodes.forEach((code, idx) => {
-        request.input(`sellerCode${idx}`, sql.VarChar, String(code).trim());
-      });
-    }
-
-    query += `
+        ${hdrWhere}
         GROUP BY Rut
       )
       SELECT
@@ -66,13 +66,9 @@ async function getAllCustomers(options = {}) {
         c.Correo,
         ISNULL(h.order_count, 0) AS order_count
       FROM jor_imp_CLI_01_softkey c
+      LEFT JOIN hdr h ON h.Rut = c.Rut
+      ${clientWhere}
     `;
-
-    if (sellerCodes.length > 0) {
-      query += ` INNER JOIN hdr h ON h.Rut = c.Rut`;
-    } else {
-      query += ` LEFT JOIN hdr h ON h.Rut = c.Rut`;
-    }
 
     logger.info(`[getAllCustomers] SQL query start. sellerCodes=${sellerCodes.length}`);
     const sqlStart = Date.now();

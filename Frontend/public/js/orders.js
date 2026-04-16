@@ -433,6 +433,7 @@ export async function initOrdersScript() {
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(order.fecha_factura)}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(order.fecha_etd)}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(order.fecha_eta)}</td>
+        <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(order.fecha_entrega)}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(order.fecha_etd_factura)}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(order.fecha_eta_factura)}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${order.incoterm || '-'}</td>
@@ -630,6 +631,7 @@ export async function initOrdersScript() {
       'fecha_factura',
       'fecha_etd',
       'fecha_eta',
+      'fecha_entrega',
       'fecha_etd_factura',
       'fecha_eta_factura'
     ]);
@@ -658,6 +660,8 @@ export async function initOrdersScript() {
           return order.fecha_etd ?? '';
         case 'fecha_eta':
           return order.fecha_eta ?? '';
+        case 'fecha_entrega':
+          return order.fecha_entrega ?? '';
         case 'fecha_etd_factura':
           return order.fecha_etd_factura ?? '';
         case 'fecha_eta_factura':
@@ -741,6 +745,7 @@ export async function initOrdersScript() {
         order.factura || '',
         order.fecha_etd || '',
         order.fecha_eta || '',
+        order.fecha_entrega || '',
         order.fecha_etd_factura || '',
         order.fecha_eta_factura || '',
         order.fecha_factura || '',
@@ -867,6 +872,7 @@ export async function initOrdersScript() {
         formatDateShort(order.fecha_factura) || '',
         formatDateShort(order.fecha_etd) || '',
         formatDateShort(order.fecha_eta) || '',
+        formatDateShort(order.fecha_entrega) || '',
         formatDateShort(order.fecha_etd_factura) || '',
         formatDateShort(order.fecha_eta_factura) || '',
         order.incoterm || '',

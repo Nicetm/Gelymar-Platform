@@ -698,7 +698,7 @@ headers: {
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 21a9 9 0 110-18 9 9 0 010 18z"/>
               </svg>
               <div class="flex-1">
-                <p class="font-medium text-sm text-gray-900 dark:text-white">
+                <p class="font-medium text-xs text-gray-900 dark:text-white">
                   ${orderTitle}
                 </p>
                 <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">

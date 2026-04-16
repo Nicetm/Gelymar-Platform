@@ -233,7 +233,11 @@ exports.changeCustomerPassword = async (req, res) => {
     }
 
     // Buscar el usuario asociado
-    const user = await userService.findUserByEmailOrUsername(normalizedRut || customer.rut);
+    let user = await userService.findUserByEmailOrUsername(normalizedRut || customer.rut);
+    // Si no se encuentra, intentar sin sufijo C (SQL Server usa C, MySQL puede no tenerlo)
+    if (!user && normalizedRut && /c$/i.test(normalizedRut)) {
+      user = await userService.findUserByEmailOrUsername(normalizedRut.replace(/c$/i, ''));
+    }
     if (!user) {
       logger.warn(`[changeCustomerPassword] user not found for rut=${normalizedRut || customer.rut}`);
       return res.status(404).json({ message: t('errors.user_not_found_for_customer', req.lang || 'es') });

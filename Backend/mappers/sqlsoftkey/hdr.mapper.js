@@ -7,6 +7,7 @@ const mapHdrRowToOrder = (row = {}) => ({
   fecha: normalizeDate(row.Fecha),
   fecha_etd: normalizeDate(row.ETD_OV),
   fecha_eta: normalizeDate(row.ETA_OV),
+  fecha_entrega: normalizeDate(row.FechaOriginalCompromisoCliente),
   currency: normalizeValue(row.Job),
   medio_envio_ov: normalizeValue(row.MedioDeEnvioOV),
   incoterm: normalizeValue(row.Clausula),

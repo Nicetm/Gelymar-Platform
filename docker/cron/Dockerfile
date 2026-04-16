@@ -2,7 +2,7 @@ FROM node:18-alpine
 
 # Instalar PM2 y dependencias del sistema (+ tzdata para zona horaria)
 RUN npm install -g pm2 && \
-    apk add --no-cache tzdata cifs-utils bash netcat-openbsd mount
+    apk add --no-cache tzdata cifs-utils bash netcat-openbsd mount mysql-client
 
 # Zona horaria Chile
 ENV TZ=America/Santiago

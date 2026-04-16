@@ -147,17 +147,22 @@ if (arg === 'execute-now') {
   })();
 } else {
   // Solo levantar el proceso, NO ejecutar nada automáticamente
-  logger.info('[checkClientAccess] Cron job iniciado - esperando horario programado (6:00 AM)...');
-  emitReady();
+  (async () => {
+    const { getTaskConfigWithRetry } = require('./shared/cronHelper');
+    const taskConfig = await getTaskConfigWithRetry(logger);
+    const enabled = taskConfig?.checkClientAccess?.enabled;
 
-  // Programar ejecución diaria a las 6:00 AM
-  cron.schedule('0 6 * * *', async () => {
-    logger.info('[checkClientAccess] Iniciando ejecución programada...');
-    try {
-      await executeTask();
-      logger.info('[checkClientAccess] Ejecución programada completada exitosamente');
-    } catch (error) {
-      logger.error(`[checkClientAccess] Error en ejecución programada: ${error.message}`);
-    }
-  });
+    logger.info(`[checkClientAccess] Cron job iniciado - esperando horario programado (6:00 AM)... enabled=${enabled}`);
+    emitReady();
+
+    cron.schedule('0 6 * * *', async () => {
+      logger.info('[checkClientAccess] Iniciando ejecución programada...');
+      try {
+        await executeTask();
+        logger.info('[checkClientAccess] Ejecución programada completada exitosamente');
+      } catch (error) {
+        logger.error(`[checkClientAccess] Error en ejecución programada: ${error.message}`);
+      }
+    });
+  })();
 }

@@ -8,6 +8,7 @@ const dbConfig = {
   user: process.env.MYSQL_DB_USER,
   password: process.env.MYSQL_DB_PASS,
   database: process.env.MYSQL_DB_NAME,
+  charset: 'utf8mb4',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0

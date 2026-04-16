@@ -840,12 +840,25 @@ function getCurrentLocale() {
 
 function formatDateOnly(dateString) {
   if (!dateString) return '-';
+  // Usar solo la parte de fecha para evitar desfase de timezone
+  const isoMatch = String(dateString).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    const [, y, m, d] = isoMatch;
+    const date = new Date(Number(y), Number(m) - 1, Number(d));
+    if (isNaN(date.getTime())) return '-';
+    return date.toLocaleDateString(getCurrentLocale(), {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  }
   const date = new Date(dateString);
   if (isNaN(date.getTime())) return '-';
   return date.toLocaleDateString(getCurrentLocale(), {
     year: 'numeric',
     month: 'long',
-    day: 'numeric'
+    day: 'numeric',
+    timeZone: 'UTC'
   });
 }
 
@@ -1866,6 +1879,7 @@ async function openDocsModal(order) {
   
   // Abrir modal inmediatamente con loading
   docsModal.classList.remove('hidden');
+  docsModal.classList.add('flex');
   
   if (docsOrderTitle) {
     docsOrderTitle.textContent = `${getMessage(documentos.order)}: ${order.orderNumber}`;

@@ -121,6 +121,7 @@ const createOrderService = ({
           h.Fecha,
           h.ETD_OV,
           h.ETA_OV,
+          h.FechaOriginalCompromisoCliente,
           h.Job,
           h.MedioDeEnvioOV,
           h.Clausula,
@@ -150,6 +151,7 @@ const createOrderService = ({
           h.Fecha,
           h.ETD_OV,
           h.ETA_OV,
+          h.FechaOriginalCompromisoCliente,
           h.Job,
           h.MedioDeEnvioOV,
           h.Clausula,
@@ -236,6 +238,7 @@ const createOrderService = ({
       fecha_ingreso: mapped.fecha || mapped.fecha_factura || null,
       fecha_etd: mapped.fecha_etd,
       fecha_eta: mapped.fecha_eta,
+      fecha_entrega: mapped.fecha_entrega,
       fecha_etd_factura: mapped.fecha_etd_factura,
       fecha_eta_factura: mapped.fecha_eta_factura,
       currency: mapped.currency,
@@ -274,6 +277,7 @@ const createOrderService = ({
         h.Fecha,
         h.ETD_OV,
         h.ETA_OV,
+        h.FechaOriginalCompromisoCliente,
         h.MedioDeEnvioOV,
         h.Clausula,
         h.Puerto_Destino,
@@ -287,7 +291,7 @@ const createOrderService = ({
         f.MedioDeEnvioFact,
         c.Nombre AS customer_name
       FROM jor_imp_HDR_90_softkey h
-      INNER JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
+      LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
       INNER JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
       WHERE (h.Rut = @rut OR h.Rut = @rutWithC)
       ORDER BY CAST(h.Fecha AS date) DESC
@@ -362,7 +366,7 @@ const createOrderService = ({
         fecha_factura: mapped.fecha_factura,
         documents: docCountMap.get(docCountKey) || 0,
         items_count: itemsCountMap.get(itemCountKey) || 0,
-        fecha_incoterm: mapped.fecha || mapped.fecha_factura || null,
+        fecha_incoterm: mapped.fecha_entrega || null,
         fecha_eta_factura: mapped.fecha_eta_factura,
         fecha_etd_factura: mapped.fecha_etd_factura,
         incoterm: mapped.incoterm,
@@ -441,6 +445,7 @@ const createOrderService = ({
           h.Fecha,
           h.ETD_OV,
           h.ETA_OV,
+          h.FechaOriginalCompromisoCliente,
           h.Job,
           h.MedioDeEnvioOV,
           h.Clausula,
@@ -485,6 +490,7 @@ const createOrderService = ({
         fecha_ingreso: mapped.fecha || mapped.fecha_factura || null,
         fecha_etd: mapped.fecha_etd,
         fecha_eta: mapped.fecha_eta,
+        fecha_entrega: mapped.fecha_entrega,
         fecha_etd_factura: mapped.fecha_etd_factura,
         fecha_eta_factura: mapped.fecha_eta_factura,
         currency: mapped.currency,
@@ -531,6 +537,7 @@ const createOrderService = ({
           h.Fecha,
           h.ETD_OV,
           h.ETA_OV,
+          h.FechaOriginalCompromisoCliente,
           h.Job,
           h.MedioDeEnvioOV,
           h.Clausula,
@@ -575,6 +582,7 @@ const createOrderService = ({
         fecha_ingreso: mapped.fecha || mapped.fecha_factura || null,
         fecha_etd: mapped.fecha_etd,
         fecha_eta: mapped.fecha_eta,
+        fecha_entrega: mapped.fecha_entrega,
         fecha_etd_factura: mapped.fecha_etd_factura,
         fecha_eta_factura: mapped.fecha_eta_factura,
         currency: mapped.currency,
@@ -615,6 +623,7 @@ const createOrderService = ({
           h.Fecha,
           h.ETD_OV,
           h.ETA_OV,
+          h.FechaOriginalCompromisoCliente,
           h.Job,
           h.MedioDeEnvioOV,
           h.Clausula,
@@ -659,6 +668,7 @@ const createOrderService = ({
         fecha_ingreso: mapped.fecha || mapped.fecha_factura || null,
         fecha_etd: mapped.fecha_etd,
         fecha_eta: mapped.fecha_eta,
+        fecha_entrega: mapped.fecha_entrega,
         fecha_etd_factura: mapped.fecha_etd_factura,
         fecha_eta_factura: mapped.fecha_eta_factura,
         currency: mapped.currency,
@@ -755,6 +765,7 @@ const createOrderService = ({
         fecha_ingreso: mapped.fecha || mapped.fecha_factura || null,
         fecha_etd: mapped.fecha_etd,
         fecha_eta: mapped.fecha_eta,
+        fecha_entrega: mapped.fecha_entrega,
         fecha_etd_factura: mapped.fecha_etd_factura,
         fecha_eta_factura: mapped.fecha_eta_factura,
         currency: mapped.currency,
@@ -840,6 +851,7 @@ const createOrderService = ({
         fecha_ingreso: mapped.fecha || mapped.fecha_factura || null,
         fecha_etd: mapped.fecha_etd,
         fecha_eta: mapped.fecha_eta,
+        fecha_entrega: mapped.fecha_entrega,
         fecha_etd_factura: mapped.fecha_etd_factura,
         fecha_eta_factura: mapped.fecha_eta_factura,
         medio_envio_factura: mapped.medio_envio_factura,
@@ -1333,7 +1345,7 @@ const createOrderService = ({
           f.Fecha_factura,
           c.Nombre AS customer_name
         FROM jor_imp_HDR_90_softkey h
-        INNER JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
+        LEFT JOIN jor_imp_FACT_90_softkey f ON f.Nro = h.Nro
         INNER JOIN jor_imp_CLI_01_softkey c ON c.Rut = h.Rut
         WHERE h.Nro = @pc
         ORDER BY CAST(h.Fecha AS date) DESC

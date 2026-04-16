@@ -374,6 +374,9 @@ export function initSidebarAdmin(config) {
         case 'change-password':
           openAdminChangePasswordModal();
           break;
+        case 'param-config':
+          openParamConfigModal();
+          break;
       }
     });
 
@@ -1825,5 +1828,244 @@ export function initSidebarAdmin(config) {
         );
       }
     });
+
+    // ===== Param Config Modal =====
+    let paramConfigData = [];
+
+    async function openParamConfigModal() {
+      try {
+        const res = await fetch(`${API_BASE}/api/config/all`, { headers: authHeaders() });
+        if (!res.ok) throw new Error('Error cargando parámetros');
+        paramConfigData = await res.json();
+      } catch (err) {
+        console.error(err);
+        paramConfigData = [];
+      }
+      renderParamConfigModal();
+    }
+
+    function renderParamConfigModal() {
+      let existing = document.getElementById('paramConfigModal');
+      if (existing) existing.remove();
+
+      // Agrupar por type
+      const groups = {};
+      paramConfigData.forEach((p, i) => {
+        const type = p.type || 'otros';
+        if (!groups[type]) groups[type] = [];
+        groups[type].push({ ...p, _idx: i });
+      });
+
+      const typeIcons = {
+        'configuración': '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>',
+        'cron': '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>',
+        'notificación': '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>'
+      };
+
+      const typeLabels = {
+        'configuración': 'Configuración',
+        'cron': 'Tareas Programadas (Cron)',
+        'notificación': 'Notificaciones'
+      };
+
+      const typeOrder = ['configuración', 'cron', 'notificación'];
+      const sortedTypes = typeOrder.filter(t => groups[t]);
+      // Agregar tipos no contemplados al final
+      Object.keys(groups).forEach(t => { if (!sortedTypes.includes(t)) sortedTypes.push(t); });
+
+      const accordionSections = sortedTypes.map((type, secIdx) => {
+        const items = groups[type];
+        const icon = typeIcons[type] || typeIcons['configuración'];
+        const label = typeLabels[type] || type;
+        const isFirst = secIdx === 0;
+
+        const tableRows = items.map(p => {
+          return `<tr class="border-t border-gray-200 dark:border-gray-600">
+            <td class="p-2 text-xs text-gray-900 dark:text-white font-medium">${p.name}</td>
+            <td class="p-2 text-xs text-gray-500 dark:text-gray-400 max-w-[220px] truncate" title="${(p.description || '').replace(/"/g, '&quot;')}">${p.description || '-'}</td>
+            <td class="p-2 text-center">
+              <input type="checkbox" class="param-toggle-check h-4 w-4 text-indigo-600 rounded border-gray-300 dark:border-gray-600" data-idx="${p._idx}" data-name="${p.name}" ${p.enabled ? 'checked' : ''} />
+            </td>
+            <td class="p-2 text-center">
+              <button class="param-edit-btn text-green-600 hover:text-green-500 dark:text-green-400 dark:hover:text-green-300 transition" data-idx="${p._idx}" data-name="${p.name}" title="Editar">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L7.5 21H3v-4.5l13.732-13.732z" /></svg>
+              </button>
+            </td>
+          </tr>`;
+        }).join('');
+
+        return `
+          <div class="border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden">
+            <button type="button" class="param-accordion-btn w-full flex items-center justify-between px-4 py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition" data-section="${secIdx}">
+              <div class="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
+                ${icon}
+                ${label}
+                <span class="text-xs font-normal text-gray-400 dark:text-gray-500">(${items.length})</span>
+              </div>
+              <svg class="param-accordion-chevron w-4 h-4 text-gray-500 transition-transform duration-200 ${isFirst ? 'rotate-180' : ''}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
+            </button>
+            <div class="param-accordion-body ${isFirst ? '' : 'hidden'}">
+              <table class="w-full text-xs bg-gray-50 dark:bg-gray-800">
+                <thead>
+                  <tr class="bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+                    <th class="p-2 text-left uppercase tracking-wider">Nombre</th>
+                    <th class="p-2 text-left uppercase tracking-wider">Descripción</th>
+                    <th class="p-2 text-center uppercase tracking-wider">Estado</th>
+                    <th class="p-2 text-center uppercase tracking-wider">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>${tableRows}</tbody>
+              </table>
+            </div>
+          </div>`;
+      }).join('');
+
+      const modal = document.createElement('div');
+      modal.id = 'paramConfigModal';
+      modal.className = 'fixed inset-0 bg-black bg-opacity-50 dark:bg-black/80 hidden justify-center items-center z-50';
+      modal.innerHTML = `
+        <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 w-full max-w-4xl mx-4 relative max-h-[90vh] overflow-y-auto shadow-2xl">
+          <button id="closeParamConfigModal" class="absolute top-3 right-3 text-gray-400 hover:text-rose-500 transition dark:text-gray-300 dark:hover:text-rose-400">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+
+          <div class="flex items-center gap-4 mb-6">
+            <div class="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+              <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
+            </div>
+            <div>
+              <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">Configuración de Parámetros</h2>
+              <p class="text-sm text-gray-600 dark:text-gray-400">Habilitar, deshabilitar y editar parámetros del sistema</p>
+            </div>
+          </div>
+
+          <div class="mb-6 flex flex-col gap-3">
+            ${accordionSections}
+          </div>
+
+          <div class="flex justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
+            <button id="closeParamConfigModalBtn" class="text-xs px-4 py-2 bg-gray-300 dark:bg-gray-800 text-gray-700 dark:text-gray-100 rounded-md hover:bg-gray-400 dark:hover:bg-gray-700 transition font-medium">
+              Cerrar
+            </button>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(modal);
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+
+      document.getElementById('closeParamConfigModal').addEventListener('click', () => modal.remove());
+      document.getElementById('closeParamConfigModalBtn').addEventListener('click', () => modal.remove());
+
+      // Accordion logic — solo una abierta a la vez
+      modal.querySelectorAll('.param-accordion-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const body = btn.nextElementSibling;
+          const chevron = btn.querySelector('.param-accordion-chevron');
+          const isOpen = !body.classList.contains('hidden');
+
+          // Cerrar todas
+          modal.querySelectorAll('.param-accordion-body').forEach(b => b.classList.add('hidden'));
+          modal.querySelectorAll('.param-accordion-chevron').forEach(c => c.classList.remove('rotate-180'));
+
+          // Si estaba cerrada, abrir esta
+          if (!isOpen) {
+            body.classList.remove('hidden');
+            chevron.classList.add('rotate-180');
+          }
+        });
+      });
+
+      // Toggle enable/disable
+      modal.querySelectorAll('.param-toggle-check').forEach(check => {
+        check.addEventListener('change', async () => {
+          const idx = parseInt(check.dataset.idx);
+          const param = paramConfigData[idx];
+          if (!param) return;
+          const newEnable = check.checked ? 1 : 0;
+          param.params.enable = newEnable;
+          try {
+            await fetch(`${API_BASE}/api/config/param/${param.name}`, {
+              method: 'PUT', headers: authHeaders(), body: JSON.stringify({ params: param.params })
+            });
+            param.enabled = newEnable === 1;
+            showNotification(`${param.name} ${newEnable ? 'habilitado' : 'deshabilitado'}`, 'success');
+          } catch (err) {
+            showNotification('Error actualizando parámetro', 'error');
+            check.checked = !check.checked;
+          }
+        });
+      });
+
+      // Edit JSON
+      modal.querySelectorAll('.param-edit-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = parseInt(btn.dataset.idx);
+          const param = paramConfigData[idx];
+          if (!param) return;
+          openParamEditModal(param);
+        });
+      });
+    }
+
+    function openParamEditModal(param) {
+      let existing = document.getElementById('paramEditModal');
+      if (existing) existing.remove();
+
+      const modal = document.createElement('div');
+      modal.id = 'paramEditModal';
+      modal.className = 'fixed inset-0 bg-black bg-opacity-50 dark:bg-black/80 flex justify-center items-center z-[60]';
+      modal.innerHTML = `
+        <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 w-full max-w-2xl mx-4 relative shadow-2xl">
+          <button id="closeParamEditModal" class="absolute top-3 right-3 text-gray-400 hover:text-rose-500 transition dark:text-gray-300 dark:hover:text-rose-400">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+          <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100 mb-1">${param.name}</h3>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">${param.description || ''}</p>
+          <textarea id="paramEditJson" class="w-full text-xs font-mono p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y" style="min-height: 250px;" spellcheck="false">${JSON.stringify(param.params, null, 2)}</textarea>
+          <div id="paramEditError" class="text-xs text-rose-500 mt-1 hidden"></div>
+          <div class="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700 mt-4">
+            <button id="cancelParamEdit" class="text-xs px-4 py-2 bg-gray-300 dark:bg-gray-800 text-gray-700 dark:text-gray-100 rounded-md hover:bg-gray-400 dark:hover:bg-gray-700 transition font-medium">Cancelar</button>
+            <button id="saveParamEdit" class="text-xs px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md font-medium transition">Guardar</button>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(modal);
+
+      document.getElementById('closeParamEditModal').addEventListener('click', () => modal.remove());
+      document.getElementById('cancelParamEdit').addEventListener('click', () => modal.remove());
+
+      document.getElementById('saveParamEdit').addEventListener('click', async () => {
+        const textarea = document.getElementById('paramEditJson');
+        const errorEl = document.getElementById('paramEditError');
+        let parsed;
+        try {
+          parsed = JSON.parse(textarea.value);
+        } catch (err) {
+          errorEl.textContent = 'JSON inválido: ' + err.message;
+          errorEl.classList.remove('hidden');
+          return;
+        }
+        errorEl.classList.add('hidden');
+
+        try {
+          const res = await fetch(`${API_BASE}/api/config/param/${param.name}`, {
+            method: 'PUT', headers: authHeaders(), body: JSON.stringify({ params: parsed })
+          });
+          if (!res.ok) throw new Error('Error guardando');
+          param.params = parsed;
+          param.enabled = Number(parsed.enable) === 1;
+          showNotification(`${param.name} actualizado`, 'success');
+          modal.remove();
+          renderParamConfigModal();
+        } catch (err) {
+          showNotification('Error guardando parámetro', 'error');
+        }
+      });
+    }
+
+    window.openParamConfigModal = openParamConfigModal;
   });
 } 

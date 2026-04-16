@@ -148,14 +148,14 @@ if (arg === 'execute-now') {
 } else {
   // Solo levantar el proceso, NO ejecutar nada automáticamente
   (async () => {
-    const taskConfig = await getTaskConfig();
-    const schedule = taskConfig.checkDefaultFiles?.schedule;
-    const cronExpression = schedule ? convertTimeToCron(schedule) : '50 22 * * *';
+    const { getTaskConfigWithRetry, convertTimeToCron: toCron } = require('./shared/cronHelper');
+    const taskConfig = await getTaskConfigWithRetry(logger);
+    const schedule = taskConfig?.checkDefaultFiles?.schedule;
+    const cronExpression = schedule ? (toCron(schedule) || '50 22 * * *') : '50 22 * * *';
     
     logger.info(`[checkDefaultFiles] Cron job iniciado - horario programado: ${schedule || '22:50'} (${cronExpression})`);
     emitReady();
 
-    // Programar ejecución diaria con horario dinámico
     cron.schedule(cronExpression, async () => {
       logger.info('[checkDefaultFiles] Iniciando ejecución programada...');
       try {

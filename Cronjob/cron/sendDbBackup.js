@@ -233,9 +233,10 @@ if (arg === 'execute-now') {
 } else {
   // Solo levantar el proceso, NO ejecutar nada automáticamente
   (async () => {
-    const taskConfig = await getTaskConfig();
-    const schedule = taskConfig.sendDbBackup?.schedule;
-    const cronExpression = schedule ? convertTimeToCron(schedule) : '0 2 * * *';
+    const { getTaskConfigWithRetry, convertTimeToCron: toCron } = require('./shared/cronHelper');
+    const taskConfig = await getTaskConfigWithRetry(logger);
+    const schedule = taskConfig?.sendDbBackup?.schedule;
+    const cronExpression = schedule ? (toCron(schedule) || '0 2 * * *') : '0 2 * * *';
     
     logger.info(`[sendDbBackup] Cron job iniciado - horario programado: ${schedule || '02:00'} (${cronExpression})`);
     emitReady();

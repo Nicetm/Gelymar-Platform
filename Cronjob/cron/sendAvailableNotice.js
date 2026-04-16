@@ -134,9 +134,10 @@ if (arg === 'execute-now') {
   })();
 } else {
   (async () => {
-    const taskConfig = await getTaskConfig();
-    const schedule = taskConfig.sendAutomaticOrderAvailability?.schedule;
-    const cronExpression = schedule ? convertTimeToCron(schedule) : '35 23 * * *';
+    const { getTaskConfigWithRetry, convertTimeToCron: toCron } = require('./shared/cronHelper');
+    const taskConfig = await getTaskConfigWithRetry(logger);
+    const schedule = taskConfig?.sendAutomaticOrderAvailability?.schedule;
+    const cronExpression = schedule ? (toCron(schedule) || '35 23 * * *') : '35 23 * * *';
     
     logger.info(`[sendAvailableNotice] Cron job iniciado - horario programado: ${schedule || '23:35'} (${cronExpression})`);
     emitReady();

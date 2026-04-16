@@ -148,9 +148,10 @@ if (arg === 'execute-now') {
 } else {
   // Solo levantar el proceso, NO ejecutar nada automáticamente
   (async () => {
-    const taskConfig = await getTaskConfig();
-    const schedule = taskConfig.generatePDFs?.schedule;
-    const cronExpression = schedule ? convertTimeToCron(schedule) : '15 23 * * *';
+    const { getTaskConfigWithRetry, convertTimeToCron: toCron } = require('./shared/cronHelper');
+    const taskConfig = await getTaskConfigWithRetry(logger);
+    const schedule = taskConfig?.generatePDFs?.schedule;
+    const cronExpression = schedule ? (toCron(schedule) || '15 23 * * *') : '15 23 * * *';
     
     logger.info(`[generatePDFs] Cron job iniciado - horario programado: ${schedule || '23:15'} (${cronExpression})`);
     emitReady();

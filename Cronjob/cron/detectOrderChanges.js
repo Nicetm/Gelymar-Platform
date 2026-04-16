@@ -104,9 +104,10 @@ if (arg === 'execute-now') {
   })();
 } else {
   (async () => {
-    const taskConfig = await getTaskConfig();
-    const schedule = taskConfig.orderChangeDetection?.schedule;
-    const cronExpression = schedule ? convertTimeToCron(schedule) : '0 8 * * *';
+    const { getTaskConfigWithRetry, convertTimeToCron: toCron } = require('./shared/cronHelper');
+    const taskConfig = await getTaskConfigWithRetry(logger);
+    const schedule = taskConfig?.orderChangeDetection?.schedule;
+    const cronExpression = schedule ? (toCron(schedule) || '0 8 * * *') : '0 8 * * *';
 
     logger.info(`[detectOrderChanges] Cron iniciado - horario: ${schedule || '08:00'} (${cronExpression})`);
     emitReady();

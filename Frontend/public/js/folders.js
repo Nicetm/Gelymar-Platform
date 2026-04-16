@@ -727,6 +727,7 @@ export async function initFoldersScript() {
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(folder.fecha_factura)}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(folder.fecha_etd)}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(folder.fecha_eta)}</td>
+        <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(folder.fecha_entrega)}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(folder.fecha_etd_factura)}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${formatDateShort(folder.fecha_eta_factura)}</td>
         <td class="px-6 py-4 items-center gap-3 border-b border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white">${folder.incoterm || '-'}</td>
@@ -901,6 +902,7 @@ export async function initFoldersScript() {
         formatDateShort(folder.fecha_factura) || '',
         formatDateShort(folder.fecha_etd) || '',
         formatDateShort(folder.fecha_eta) || '',
+        formatDateShort(folder.fecha_entrega) || '',
         formatDateShort(folder.fecha_etd_factura) || '',
         formatDateShort(folder.fecha_eta_factura) || '',
         folder.incoterm || '',
@@ -955,6 +957,7 @@ export async function initFoldersScript() {
       'fecha_factura',
       'fecha_etd',
       'fecha_eta',
+      'fecha_entrega',
       'fecha_etd_factura',
       'fecha_eta_factura'
     ]);
@@ -983,6 +986,8 @@ export async function initFoldersScript() {
           return folder.fecha_etd ?? '';
         case 'fecha_eta':
           return folder.fecha_eta ?? '';
+        case 'fecha_entrega':
+          return folder.fecha_entrega ?? '';
         case 'fecha_etd_factura':
           return folder.fecha_etd_factura ?? '';
         case 'fecha_eta_factura':
@@ -1087,6 +1092,7 @@ export async function initFoldersScript() {
           folder.fecha_factura,
           folder.fecha_etd,
           folder.fecha_eta,
+          folder.fecha_entrega,
           folder.fecha_etd_factura,
           folder.fecha_eta_factura
         ]

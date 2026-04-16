@@ -25,4 +25,10 @@ router.get('/admin-settings/visibility', authMiddleware, authorizeRoles(['admin'
 // Configuración de recaptcha en login (público - sin auth)
 router.get('/recaptcha-login', configController.getRecaptchaLoginConfig);
 
+// Listar todos los parámetros de param_config
+router.get('/all', authMiddleware, authorizeRoles(['admin']), configController.getAllParams);
+
+// Actualizar un parámetro específico
+router.put('/param/:name', authMiddleware, authorizeRoles(['admin']), configController.updateParam);
+
 module.exports = router;
